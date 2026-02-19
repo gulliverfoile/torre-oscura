@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Beat 'em up con sprites personalizados</title>
+    <style> /* mismos estilos que antes, abreviado */ </style>
+</head>
+<body>
+    <div class="game-container">...</div>
+    <script>
+        // AssetLoader simplificado (copia de tu archivo pero adaptado)
+        class assetloader {
+            constructor() {
+                this.localpath = './assets/';
+                this.cache = new Map();
+            }
+            async geturl(tipo, id) {
+                const key = tipo + '/' + id;
+                if (this.cache.has(key)) return this.cache.get(key);
+                const localurl = this.localpath + tipo + '/' + id + '.png';
+                try {
+                    const res = await fetch(localurl, { method: 'HEAD' });
+                    if (res.ok) {
+                        this.cache.set(key, localurl);
+                        return localurl;
+                    }
+                } catch (e) {}
+                // fallback: una imagen por defecto (podrías poner una URL remota)
+                return 'https://via.placeholder.com/64?text=No+Image';
+            }
+        }
+
+        // El resto del motor (similar al anterior) pero ahora con imágenes
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const loader = new assetloader();
+
+        // Estado del juego
+        let playerImg = null;
+        let enemyImg = null;
+        let player = { x: 100, y: 300, width: 64, height: 64, hp: 100 };
+        let enemies = [
+            { x: 600, y: 300, width: 64, height: 64, hp: 30, img: null }
+        ];
+
+        // Cargar sprites
+        async function loadassets() {
+            playerImg = new Image();
+            playerImg.src = await loader.geturl('characters', 'player');
+            enemyImg = new Image();
+            enemyImg.src = await loader.geturl('enemies', 'enemy1');
+        }
+
+        // Luego en draw() usamos drawImage en lugar de fillRect
+        function draw() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            if (playerImg) ctx.drawImage(playerImg, player.x, player.y, player.width, player.height);
+            enemies.forEach(e => {
+                if (enemyImg) ctx.drawImage(enemyImg, e.x, e.y, e.width, e.height);
+            });
+        }
+
+        loadassets();
+        // ... bucle del juego igual
+    </script>
+</body>
+</html>
