@@ -1,0 +1,80 @@
+# CHANGELOG - Torre Profunda
+
+## [Versión 0.5.0] - 2026-02-18
+
+### 🎮 Jugabilidad
+- **Combate básico funcional**:
+  - Ataque con tecla J (cooldown de 300ms para evitar spam).
+  - Los enemigos mueren al reducir su vida a 0.
+  - Al morir, generan loot (objetos definidos en `enciclopedia.yaml`).
+  - El loot se puede recoger con tecla L y se añade al inventario.
+- **Exploración por salas**:
+  - Movimiento con WASD o flechas.
+  - Cambio de sala basado en `mundo.yaml`.
+  - El jugador se dibuja en una posición calculada según la sala actual.
+- **Inventario básico**:
+  - Tecla I para mostrar el inventario en el log.
+  - Los objetos recogidos se acumulan y se muestran.
+
+### 🧠 Sistema de cordura
+- Implementado `SanityManager` con decaimiento por tiempo (cada 10 frames).
+- Emite eventos `sanityChanged` que pueden ser usados para efectos visuales o bonus de loot (pendiente de conectar).
+
+### 🎨 Gestión de imágenes
+- Centralizada en `ImageManager`.
+- Placeholders automáticos si no se encuentra la imagen.
+- Carga asíncrona con caché para evitar recargas.
+
+### 🖥️ Interfaz
+- **Menú de inicio** (`menuInicio.js`):
+  - Precarga todos los assets necesarios (jugador, enemigos, fondos).
+  - Barra de progreso.
+  - Botón "JUGAR" que funciona con clic, Enter y Espacio.
+- **HUD configurable**:
+  - Barras de vida, maná y cordura en el canvas.
+  - Estilo (barras/círculos) y posición ajustables desde el Modo Arquitecto.
+- **Modo Arquitecto**:
+  - Se abre con F2.
+  - Permite cambiar estilo y posición del HUD en tiempo real.
+  - Los cambios se guardan en la configuración del módulo.
+
+### 🧱 Motor y arquitectura
+- **Core modular** (`core.js`):
+  - Gestión de módulos (RPG, Arquitecto, Controles, Menú).
+  - Sistema de eventos para comunicación entre módulos.
+  - Bucle principal con `requestAnimationFrame`.
+- **Módulo de controles** (`controls.js`):
+  - Centraliza toda la entrada de teclado.
+  - Emite eventos `keydown`/`keyup` y proporciona métodos `isDown`/`justPressed`.
+- **Gestión de datos**:
+  - `dataManager` en el core para cargar YAML.
+  - Los YAML se cargan una sola vez y se cachean.
+
+### 🐛 Correcciones importantes
+- **Movimiento fuera del mapa** (pendiente):
+  - Actualmente el jugador puede moverse a coordenadas negativas o fuera del rango, lo que causa posiciones erráticas.
+  - **Solución pendiente**: Validar límites en `explorationmanager.js` antes de permitir el movimiento.
+- **Combate por turnos** (pendiente):
+  - El ataque es continuo con cooldown, no hay turnos reales.
+  - **Solución pendiente**: Implementar sistema de turnos jugador/enemigo.
+- **Cordura no afecta al juego** (pendiente):
+  - El `SanityManager` funciona pero no modifica loot ni daño.
+  - **Solución pendiente**: Conectar con `lootManager` para bonus por cordura baja.
+- **Sprites de fondo no encontrados**:
+  - Se usan placeholders (color sólido) sin afectar al juego.
+  - **Solución pendiente**: Añadir imágenes reales en `assets/backgrounds/`.
+
+### 📁 Archivos modificados recientemente
+- `combatmanager.js`: Añadido cooldown de ataque y logs.
+- `rpg.js`: Restringido movimiento durante combate, añadidos logs de depuración.
+- `explorationmanager.js`: Añadida comprobación de límites (pendiente de implementar).
+- `menuInicio.js`: Precarga de assets y botón funcional.
+- `controls.js`: Mejora en detección de teclas.
+- `imageManager.js`: Centralización de carga de imágenes.
+
+### 📌 Próximos pasos
+1. Limitar el movimiento a las salas existentes (validar coordenadas contra `tamano` del mapa).
+2. Implementar turnos en combate (jugador → enemigo → jugador).
+3. Conectar cordura con loot (bonus por cordura baja).
+4. Equilibrar daño (volver a fórmula original `ataque - defensa`).
+5. Añadir minimapa simple para orientación.

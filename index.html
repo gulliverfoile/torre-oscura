@@ -1,0 +1,444 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+    <title>TORRE PROFUNDA - RPG</title>
+    
+    <!-- Import Map para resolver módulos (Tone.js) -->
+    <script type="importmap">
+{
+    "imports": {
+    "tone": "https://esm.sh/tone@14.7.77",
+    "@sister.software/asciify": "https://esm.sh/@sister.software/asciify"
+  }
+}
+    </script>
+    <!-- js-yaml global (para core.js) -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/js-yaml/4.1.0/js-yaml.min.js"></script>
+
+    <style>
+        :root {
+            --base-font-size: 15px;
+            --gothic-black: #0a0a0c;
+            --gothic-blood: #4a0404;
+            --gothic-gold: #8b7355;
+            --gothic-iron: #2c2c2e;
+            --gothic-paper: #1a1a1c;
+            --gothic-text: #d1d1d1;
+            --safe-top: env(safe-area-inset-top, 0px);
+            --safe-bottom: env(safe-area-inset-bottom, 0px);
+            --safe-left: env(safe-area-inset-left, 0px);
+            --safe-right: env(safe-area-inset-right, 0px);
+        }
+        
+        html, body {
+            margin: 0;
+            padding: 0;
+            background-color: var(--gothic-black);
+            color: var(--gothic-text);
+            font-family: 'Courier Prime', monospace;
+            font-size: var(--base-font-size);
+            overflow: hidden;
+        }
+
+        #game-container {
+            width: 100vw;
+            height: 100vh;
+            position: relative;
+            background: #000;
+        }
+
+        /* Canvas principal */
+        #canvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            display: block;
+            z-index: 1;
+        }
+
+        #ui-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            display: grid;
+            grid-template-columns: 1fr 400px;
+            padding: var(--safe-top) var(--safe-right) var(--safe-bottom) var(--safe-left);
+            box-sizing: border-box;
+            z-index: 10;
+        }
+
+        /* Panel derecho con pestañas */
+        .right-panel {
+            pointer-events: auto;
+            background: rgba(15, 12, 10, 0.85);
+            border: 1px solid var(--gothic-gold);
+            border-radius: 12px 0 0 12px;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            backdrop-filter: blur(10px);
+            box-shadow: -5px 0 20px rgba(0,0,0,0.6);
+            transition: transform 0.3s ease;
+        }
+
+        /* Barras de vida persistentes (izquierda) */
+        .persistent-vitals {
+            position: fixed;
+            top: 20px;
+            left: 20px;
+            width: 350px;
+            background: rgba(15, 12, 25, 0.98);
+            border: 2px solid var(--gothic-gold);
+            border-radius: 12px;
+            padding: 12px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+            pointer-events: auto;
+            z-index: 100;
+        }
+
+        .vital-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 6px;
+        }
+        .bar-small {
+            width: 100px;
+            height: 8px;
+            background: #1b1528;
+            border: 1px solid #444;
+            border-radius: 4px;
+            overflow: hidden;
+        }
+        .bar-fill-small {
+            height: 100%;
+            background: #ff4b4b;
+            width: 0%;
+            transition: width 0.3s;
+        }
+
+        .tabs {
+            display: flex;
+            background: rgba(0,0,0,0.3);
+            border-bottom: 1px solid var(--gothic-gold);
+            padding: 2px;
+            gap: 2px;
+            flex-wrap: wrap;
+        }
+        .tab {
+            flex: 1;
+            padding: 8px 4px;
+            text-align: center;
+            cursor: pointer;
+            font-size: 9px;
+            color: #888;
+            background: transparent;
+            border: none;
+            text-transform: uppercase;
+        }
+        .tab.active {
+            background: rgba(122, 92, 58, 0.3);
+            color: #ffd700;
+            box-shadow: inset 0 -2px 0 #ffd700;
+        }
+
+        .tab-content {
+            flex: 1;
+            padding: 15px;
+            display: none;
+            overflow-y: auto;
+        }
+        .tab-content.active {
+            display: block;
+        }
+
+        #log-area {
+            height: 200px;
+            overflow-y: auto;
+            background: rgba(5,5,8,0.95);
+            border: 2px solid var(--gothic-gold);
+            border-radius: 12px;
+            padding: 10px;
+            font-size: 12px;
+            margin-top: 10px;
+            pointer-events: auto;
+        }
+
+        .log-entry {
+            margin-bottom: 4px;
+            padding: 4px 8px;
+            border-left: 2px solid transparent;
+        }
+
+        /* Overlay de creación (se muestra al inicio) */
+        #creation-overlay {
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.9);
+            z-index: 2000;
+            display: none;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .creation-card {
+            background: #1b1528;
+            border: 2px solid #7a5c3a;
+            border-radius: 20px;
+            padding: 30px;
+            width: 800px;
+            max-width: 90vw;
+        }
+
+        /* Tooltip */
+        #tooltip {
+            position: fixed;
+            background: rgba(15,10,25,0.95);
+            border: 1px solid #7a5c3a;
+            padding: 15px;
+            border-radius: 8px;
+            z-index: 5000;
+            display: none;
+            pointer-events: none;
+        }
+
+        /* Estilos para items y botones */
+        .item-card {
+            background: rgba(255,255,255,0.03);
+            border-left: 3px solid #7a5c3a;
+            padding: 8px;
+            margin-bottom: 8px;
+            border-radius: 4px;
+        }
+        .equip-btn {
+            background: #4a3a2a;
+            border: 1px solid #7a5c3a;
+            color: #fff;
+            padding: 4px 8px;
+            cursor: pointer;
+            font-size: 10px;
+            border-radius: 4px;
+        }
+
+        /* Botones de control flotantes */
+        #ui-controls {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 1000;
+            display: flex;
+            gap: 10px;
+            pointer-events: auto;
+        }
+        .ui-control-btn {
+            background: rgba(15,12,25,0.8);
+            border: 1px solid #0f0;
+            color: #0f0;
+            width: 40px;
+            height: 40px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 18px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            backdrop-filter: blur(5px);
+            transition: all 0.3s;
+        }
+        .ui-control-btn:hover {
+            background: #0f0;
+            color: #000;
+        }
+
+        /* Overlay de desarrollador */
+        #developer-overlay {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            background: rgba(0,0,0,0.9);
+            border: 2px solid #0f0;
+            color: #0f0;
+            padding: 15px;
+            border-radius: 10px;
+            font-family: monospace;
+            font-size: 12px;
+            z-index: 1001;
+            display: none;
+            pointer-events: auto;
+            min-width: 250px;
+            box-shadow: 0 0 20px rgba(0,255,0,0.3);
+        }
+        .dev-btn {
+            background: #1a1a1a;
+            border: 1px solid #0f0;
+            color: #0f0;
+            padding: 5px;
+            cursor: pointer;
+            font-family: monospace;
+            border-radius: 3px;
+            margin: 2px 0;
+        }
+        .dev-btn:hover {
+            background: #0f0;
+            color: #000;
+        }
+        #dev-close {
+            background: transparent;
+            border: none;
+            color: #f00;
+            cursor: pointer;
+            font-size: 16px;
+        }
+    </style>
+</head>
+<body>
+    <div id="game-container">
+        <canvas id="canvas" width="800" height="400"></canvas>
+
+        <!-- BARRAS DE VIDA PERSISTENTES (izquierda) -->
+        <div class="persistent-vitals">
+            <div style="display:flex; justify-content:space-between; margin-bottom:10px;">
+                <span>⚔️ TORRE PROFUNDA</span>
+                <span id="pers-esencia-val">0</span>
+            </div>
+            <div class="vital-item">
+                <span>❤️</span>
+                <div class="bar-small"><div id="pers-hp-fill" class="bar-fill-small"></div></div>
+                <span id="pers-hp-val">100/100</span>
+            </div>
+            <div class="vital-item">
+                <span>🧠</span>
+                <div class="bar-small"><div id="pers-san-fill" class="bar-fill-small"></div></div>
+                <span id="pers-san-val">100/100</span>
+            </div>
+            <div class="vital-item">
+                <span>🔮</span>
+                <div class="bar-small"><div id="pers-mp-fill" class="bar-fill-small"></div></div>
+                <span id="pers-mp-val">50/50</span>
+            </div>
+            <div class="vital-item">
+                <span>✨</span>
+                <div class="bar-small"><div id="pers-exp-fill" class="bar-fill-small"></div></div>
+                <span id="pers-exp-val">Lv.1</span>
+            </div>
+        </div>
+
+        <!-- PANEL DERECHO CON PESTAÑAS -->
+        <div id="ui-overlay">
+            <div style="flex:1"></div>
+            <div class="right-panel">
+                <div class="tabs" id="tabs-container">
+                    <div class="tab active" data-tab="aventura">AVENTURA</div>
+                    <div class="tab" data-tab="mochila">MOCHILA</div>
+                    <div class="tab" data-tab="heroe">HÉROE</div>
+                    <div class="tab" data-tab="taller">TALLER</div>
+                    <div class="tab" data-tab="tactica">ECOS</div>
+                    <div class="tab" data-tab="log">REGISTRO</div>
+                    <div class="tab" data-tab="misiones">MISIONES</div>
+                    <div class="tab" data-tab="bestiario">BESTIARIO</div>
+                    <div class="tab" data-tab="ingenieria">INGENIERÍA</div>
+                    <div class="tab" id="btn-architect-trigger" style="color:#0f0;">⚙️</div>
+                </div>
+
+                <!-- Contenido de las pestañas -->
+                <div id="tab-aventura" class="tab-content active">
+                    <div id="aventura-mapa">
+                        <div id="map-fullscreen"></div>
+                    </div>
+                    <div id="aventura-vision" style="display:none;">
+                        <div id="teatro-render"></div>
+                        <div id="teatro-desc"></div>
+                    </div>
+                </div>
+
+                <div id="tab-mochila" class="tab-content">
+                    <div id="inv-render"></div>
+                </div>
+
+                <div id="tab-heroe" class="tab-content">
+                    <div id="stats-render"></div>
+                    <div id="equip-slot-container"></div>
+                </div>
+
+                <div id="tab-taller" class="tab-content">
+                    <div id="forja-render"></div>
+                </div>
+
+                <div id="tab-tactica" class="tab-content">
+                    <div id="tactica-grid"></div>
+                    <div id="mercado-render"></div>
+                </div>
+
+                <div id="tab-log" class="tab-content">
+                    <div id="log-area" style="height:100%;"></div>
+                </div>
+
+                <div id="tab-misiones" class="tab-content">
+                    <div id="misiones-render"></div>
+                </div>
+
+                <div id="tab-bestiario" class="tab-content">
+                    <div id="bestiario-render"></div>
+                </div>
+
+                <div id="tab-ingenieria" class="tab-content">
+                    <div id="ingenieria-render"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- OVERLAY DE CREACIÓN DE PERSONAJE -->
+        <div id="creation-overlay">
+            <div class="creation-card">
+                <h2 style="color:#ffd700;">CREAR HÉROE</h2>
+                <p>Aquí irían las opciones de creación...</p>
+                <button class="equip-btn" onclick="document.getElementById('creation-overlay').style.display='none'">CERRAR</button>
+            </div>
+        </div>
+
+        <!-- TOOLTIP -->
+        <div id="tooltip">
+            <div id="tooltip-content"></div>
+        </div>
+    </div>
+
+    <!-- Script de cambio de pestañas (función global) -->
+    <script>
+        function switchTab(tabId) {
+            document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+            document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+            document.getElementById('tab-' + tabId)?.classList.add('active');
+            document.querySelector(`.tab[data-tab="${tabId}"]`)?.classList.add('active');
+            
+            // Notificar al módulo UI (si existe)
+            if (window.core && window.core.ui) {
+                window.core.ui.onTabChanged(tabId);
+            }
+        }
+
+        // Vincular clics en pestañas
+        document.querySelectorAll('.tab').forEach(tab => {
+            tab.addEventListener('click', (e) => {
+                if (e.target.id === 'btn-architect-trigger') {
+                    if (window.core && window.core.modules && window.core.modules.architect) {
+                        window.core.modules.architect.toggle();
+                    }
+                    return;
+                }
+                const tabId = tab.dataset.tab;
+                if (tabId) switchTab(tabId);
+            });
+        });
+    </script>
+
+    <!-- Módulo principal (ES6) -->
+    <script type="module" src="main.js"></script>
+</body>
+</html>
