@@ -1,0 +1,14 @@
+Pero como esto es un poco largo para pegarlo aquí sin perder el formato, te propongo un ejercicio práctico:
+
+Ejercicio 1:
+Crea la carpeta assets/characters/ y mete una imagen PNG llamada player.png (puedes descargar una de internet o dibujar un cuadrado rojo con paint). Luego copia el código completo del beat 'em up que te di antes y modifica la función draw() para que use drawImage en lugar de fillRect. Para cargar la imagen, usa new Image() y asígnale src = './assets/characters/player.png'. Verás que el personaje aparece con tu imagen.
+
+Ejercicio 2:
+Añade un segundo enemigo con otra imagen. Para ello, duplica el array de enemigos y crea otra variable enemy2Img. En la carga, pide loader.geturl('enemies', 'enemy2').
+
+Ejercicio 3 (más avanzado):
+Haz que al morir un enemigo, aparezca una animación de explosión (un sprite de 4 frames). Puedes tener una hoja de sprites y dibujar el frame correspondiente durante unos ciclos.
+
+¿Te animas a probar estos pasos? Si te atascas, me dices y te ayudo con el código concreto. Así aprenderás a manejar la carga de assets y a modificar el dibujo.
+
+Sobre lo de "cambiar de perspectiva" (beat y naves), podemos abordarlo después. Pero primero, dominar los sprites intercambiables te dará una base sólida.
