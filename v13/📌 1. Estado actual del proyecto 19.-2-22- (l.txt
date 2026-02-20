@@ -1,0 +1,225 @@
+📌 1. Estado actual del proyecto (lo que funciona y lo que no)
+Después de la larga sesión de refactorización y los últimos arreglos, el juego tiene una base sólida pero aún con algunos problemas.
+
+✅ Lo que funciona correctamente
+Arquitectura modular: El core (core.js) gestiona módulos y servicios mediante eventos. Los módulos (menu-inicio, rpg, architect) están separados y se comunican por eventos.
+
+Servicios transversales: asset-manager, audio-manager, data-manager, i18n, scene-manager, controls están funcionando y se inicializan correctamente (como muestran los logs).
+
+Carga de datos YAML: mundo.yaml, enciclopedia.yaml, reglas.yaml se cargan sin errores (los logs lo confirman).
+
+Internacionalización: El servicio i18n se carga y parece funcionar (se ve el log "🔥 i18n.js se está ejecutando").
+
+Menú de inicio: El módulo menu-inicio se registra y su update se ejecuta (se ven los logs "📋 Update del menú ejecutándose").
+
+Controles: El módulo controls detecta teclas (se ven los logs "🎯 Tecla detectada").
+
+Cambio de módulo: Al pulsar una tecla en el menú, se cambia al módulo RPG (se ve "✅ Tecla any detectada" y luego los logs de RPG).
+
+Exploración: El método entrarHabitacion se llama con [0,0] (log "🚪 entrarHabitacion llamado con 0 0").
+
+Renderers: Tanto spritesRenderer como asciiRenderer se inician correctamente. Asciify se inicializa sin errores.
+
+UI: El módulo UI se registra y sus componentes se inicializan (se ven los logs de cada componente).
+
+❌ Lo que no funciona o tiene problemas
+Error de importación en UI: El mayor problema ahora es que en ui/index.js se intenta importar characterSheet pero no está definido. El log muestra characterTest: Module {Symbol(Symbol.toStringTag): 'Module'} y luego ReferenceError: characterSheet is not defined. Esto indica que el archivo character-sheet.js no exporta lo que se espera, o que hay un error de sintaxis en él que impide la exportación.
+
+Posibles errores en otros componentes de UI: Si character-sheet falla, probablemente otros componentes también tengan problemas similares (inventory-panel, dialog-modal, etc.).
+
+El juego no arranca visualmente: Aunque la lógica parece funcionar, no se ve nada en pantalla porque el renderer de sprites no se activa (o no dibuja nada) debido a que el módulo RPG no tiene aún todos los datos o el draw no se llama correctamente.
+
+Sprites: El error 404 de player.png sigue apareciendo, pero no es crítico (usa placeholder). Sin embargo, indica que faltan assets.
+
+El minimapa no se ve: Aunque exploration.draw se llama, probablemente no dibuja porque salaActual puede ser null o el offset del minimapa está mal.
+
+🏗️ 2. Puntos fuertes de la arquitectura
+Separación total de responsabilidades: Cada módulo (combate, exploración, personaje, inventario) está en su propia carpeta con un index.js que exporta su manager. Esto facilita el mantenimiento y la escalabilidad.
+
+Comunicación por eventos: Los módulos se comunican mediante core.on y core.emit, lo que los desacopla completamente.
+
+Renderers intercambiables: Tener sprites y ascii como renderers permite cambiar el estilo visual sin tocar la lógica del juego.
+
+Servicios transversales: Asset, audio, datos, internacionalización, escena y controles están centralizados y listos para ser usados desde cualquier módulo.
+
+UI modular: La interfaz está dividida en componentes pequeños (floating-log, persistent-bars, etc.), lo que facilita su modificación y reutilización.
+
+Internacionalización preparada: El servicio i18n permite añadir más idiomas fácilmente.
+
+Sistemas complejos integrados: Aunque no están 100% funcionales, ya tienes esqueletos de eventos narrativos, facciones y misiones.
+
+🐞 3. Problemas y bugs conocidos (además del de UI)
+Error en character-sheet.js: Es el principal ahora. Puede deberse a:
+
+Un error de sintaxis dentro del objeto (coma mal puesta, llave sin cerrar).
+
+Que el código dentro de update haga referencia a algo que no existe (por ejemplo, this.core.modules.rpg.character.getEffectiveStats() podría ser undefined si el módulo RPG no está listo).
+
+Que el archivo esté vacío o mal copiado.
+
+El minimapa no se dibuja: Puede ser porque mapOffsetX y mapOffsetY están en valores que lo dejan fuera de la pantalla (por defecto 500,10 debería estar bien, pero si el canvas es pequeño quizás no se ve). O porque piso.tamano no está definido.
+
+El jugador no se dibuja: En el renderer de sprites, la condición if (module.character && module.character.player) es correcta, pero quizás player.sprite no está cargado (placeholder) y el rectángulo magenta no se ve por estar en una posición fuera de pantalla.
+
+El combate no se ha probado: Aunque la lógica está, no se ha entrado en una sala de combate para ver si funciona.
+
+Falta de assets: Las imágenes de enemigos y jugador dan 404, lo que no impide el juego pero es molesto.
+
+El módulo arquitecto no tiene método para actualizar la UI: Cuando cambias los sliders, se actualiza la configuración, pero el renderer no se entera hasta que se redibuja (que lo hace cada frame, así que debería funcionar). Pero quizás los valores no se están pasando correctamente a exploration y combat.
+
+❓ 4. Respuestas a tus dudas concretas
+a) Skins (temas) para la UI y el modo ASCII
+¿Cómo meterlos? Puedes definir los skins en un archivo YAML (por ejemplo, skins.yaml) con la estructura:
+
+yaml
+skins:
+  gótico:
+    colores: { hp: '#e94560', mp: '#44aaff', sanity: '#b19cd9' }
+    fuente: 'Courier New'
+    ascii: { chars: ' .:-=+*#%@', fg: '#0f0', bg: '#000' }
+  retro:
+    ...
+Luego, un servicio skinManager (o dentro de ui) los cargaría y aplicaría. Para el modo ASCII, ya tienes el sistema de temas en asciiRenderer, solo habría que conectarlo a los skins.
+
+Ventaja: Separar skins del código permite cambiarlos sin tocar JavaScript.
+
+b) Organización del inventario
+El inventoryManager está en modules/rpg/inventory/index.js. Es correcto que gestione los items. Pero si el inventario crece mucho, puedes dividirlo en:
+
+inventory/items.js (definiciones de items, lógica de efectos)
+
+inventory/equipment.js (gestión de equipo)
+
+inventory/index.js (orquestador)
+
+Pero no es urgente. Por ahora, un solo archivo es suficiente.
+
+c) El módulo de sonido ya está en el core
+Sí, audio-manager.js es un servicio transversal. Está bien así, porque el sonido se usa desde muchos lugares. No lo muevas a un módulo.
+
+d) Módulo de ingeniería y UI
+El módulo architect es independiente y gestiona su propio panel. La UI (ui) es otro módulo. Están bien separados.
+
+La pestaña "INGENIERÍA" llama a rpgModule.renderIngenieria() que a su vez usa el renderer ASCII. Está correcto.
+
+e) ¿Los ASCII funcionan? ¿Cómo los metemos?
+El renderer ASCII ya está implementado en renderers/ascii/index.js. Para activarlo, necesitas un botón en la pestaña Ingeniería que llame a asciiRenderer.toggle(). Eso ya lo tienes en rpgModule.renderIngenieria().
+
+Si al pulsar el botón no ves cambios, puede ser porque:
+
+El botón no está bien conectado (revisa el onclick).
+
+El renderer ASCII no está dibujando porque enabled es false o porque draw no hace nada (aunque tiene una marca de agua, debería verse el texto "ASCII MODE").
+
+f) ¿Otra refactorización?
+Antes de otra refactorización, hay que estabilizar lo que tenemos. El error de character-sheet es prioritario. Luego, conseguir que se vea algo en pantalla.
+
+Cuando todo funcione, puedes plantearte:
+
+Dividir rpgModule en más submódulos (ya lo hicimos).
+
+Separar ui en componentes más pequeños (ya lo hicimos).
+
+Crear un sistema de skins.
+
+Pero no cambies nombres de carpetas ahora, porque romperás las importaciones. Si decides hacerlo, hazlo con mucho cuidado y actualiza todas las referencias.
+
+🗺️ 5. Roadmap priorizado (próximos pasos)
+Fase 0: Estabilización inmediata (1-2 días)
+Arreglar el error de character-sheet.js:
+
+Revisar la sintaxis del archivo.
+
+Añadir logs para ver si se ejecuta y si getEffectiveStats() existe.
+
+Asegurar que el componente se exporta correctamente.
+
+Hacer que el minimapa se vea:
+
+Ajustar mapOffsetX y mapOffsetY a valores pequeños (ej. 10,10) para que aparezca en la esquina.
+
+Verificar que salaActual no es null (en exploration.draw).
+
+Dibujar el jugador:
+
+Asegurar que getPlayerScreenPosition() devuelve algo razonable.
+
+Comprobar que el renderer de sprites se llama correctamente.
+
+Fase 1: Funcionalidad básica visible (2-3 días)
+Probar el movimiento:
+
+Una vez que el minimapa se vea, pulsar WASD debería cambiar la sala actual y actualizar el minimapa.
+
+Si no funciona, revisar exploration.update y _intentarMovimiento.
+
+Probar el combate:
+
+Entrar en una sala de combate (en mundo.yaml, sala [0,1] tiene un slime).
+
+Ver que se inicia el combate y que los sprites (o placeholders) aparecen.
+
+Probar atacar con J.
+
+Fase 2: Pulido y contenido (3-5 días)
+Añadir assets:
+
+Crear la carpeta assets/characters/ y poner player.png.
+
+Crear assets/enemies/ con imágenes para los enemigos (o usar placeholders por ahora).
+
+Implementar el modo ASCII funcional:
+
+Conectar el botón de Ingeniería a asciiRenderer.toggle().
+
+Verificar que al activarlo, el canvas se transforma en caracteres.
+
+Mejorar la UI:
+
+Completar los componentes que faltan (inventory-panel, dialog-modal).
+
+Asegurar que las barras de vida se actualizan.
+
+Fase 3: Profundidad y sistemas avanzados (futuro)
+Eventos narrativos:
+
+Crear eventos en YAML y conectarlos al eventManager.
+
+Facciones y reputación:
+
+Implementar interacciones con NPCs (Varrick, Silas).
+
+Trascendencia:
+
+Sistema de mejora de equipo.
+
+🧠 6. Opinión personal y consejos
+No te abrumes: Has construido una arquitectura enorme y compleja en muy poco tiempo. Es normal que cueste entender todas las piezas. La documentación que estoy escribiendo es precisamente para eso.
+
+Prioriza la visibilidad: Ahora mismo el problema más urgente es que no se ve nada en pantalla. Enfócate en que el minimapa y el jugador aparezcan, aunque sean rectángulos de colores. Eso te dará retroalimentación inmediata y motivación.
+
+Depura con logs: Usa console.log generosamente. En cada método importante, pon un log para saber si se ejecuta y con qué parámetros. Así identificarás rápidamente dónde falla.
+
+No cambies nombres de carpetas ahora: Las importaciones son frágiles. Si necesitas reorganizar, hazlo con calma y actualizando todas las referencias. Mejor espera a que el juego sea estable.
+
+Skins: Déjalos para después de que el juego funcione. Pero ten en cuenta que ya tienes la base para hacerlo: los temas ASCII y la configuración del HUD en rpg.config.hud pueden ser parte de un skin.
+
+El inventario: Está bien donde está. Si crece, ya sabes cómo dividirlo en submódulos.
+
+📝 Resumen de lo que debes hacer ahora
+Abre ui/components/character-sheet.js y asegúrate de que contiene el código correcto (el que te pasé antes). Si no, reemplázalo.
+
+Añade un log al principio del archivo para confirmar que se ejecuta:
+
+javascript
+console.log('⚙️ character-sheet.js se está ejecutando');
+En ui/index.js, cambia temporalmente la importación a:
+
+javascript
+import * as characterTest from './components/character-sheet.js';
+console.log('characterTest:', characterTest);
+Recarga la página y mira la consola. Si ves un objeto con characterSheet dentro, entonces el problema es que la importación nombrada no funciona por algún motivo (raro). Entonces usa characterTest.characterSheet en lugar de characterSheet.
+
+Si el objeto está vacío, entonces el archivo tiene un error de sintaxis. Revisa que todas las llaves estén cerradas y que no haya comas extra.
+
+Una vez que el error de importación desaparezca, el juego arrancará. Luego, enfócate en el minimapa: ajusta los offsets a 10,10 en exploration.init (puedes forzarlos temporalmente).

@@ -1,0 +1,479 @@
+pisos:
+  - piso_index: 0
+    nombre: "Ruinas del Atrio"
+    bioma: "ruinas"
+    tamano: [4, 4]
+    habitaciones:
+      - pos: [0, 0]
+        tipo: "inicio"
+        descripcion: "Has despertado entre columnas derruidas. El aire huele a polvo y a historia."
+      - pos: [0, 1]
+        tipo: "combate"
+        enemigos: ["slime"]
+        descripcion: "Un slime viscoso bloquea el paso."
+      - pos: [0, 2]
+        tipo: "vacio"
+        descripcion: "Una sala vacía, solo polvo y silencio."
+      - pos: [0, 3]
+        tipo: "combate"
+        enemigos: ["goblin"]
+        descripcion: "Un goblin hurgando en los restos de un antiguo altar."
+      - pos: [1, 0]
+        tipo: "combate"
+        enemigos: ["slime", "goblin"]
+        descripcion: "Dos criaturas se pelean por un hueso. Te ven y se alían contra ti."
+      - pos: [1, 1]
+        tipo: "tesoro"
+        descripcion: "Un cofre de madera entre los escombros."
+      - pos: [1, 2]
+        tipo: "evento"
+        evento_id: "altar_olvidado"
+        descripcion: "Un altar olvidado emite una luz tenue."
+      - pos: [1, 3]
+        tipo: "combate"
+        enemigos: ["esqueleto"]
+        descripcion: "Un esqueleto con armadura oxidada te observa."
+      - pos: [2, 0]
+        tipo: "combate"
+        enemigos: ["slime", "esqueleto"]
+        descripcion: "Un slime y un esqueleto han formado una extraña alianza."
+      - pos: [2, 1]
+        tipo: "vacio"
+        descripcion: "Solo silencio y polvo."
+      - pos: [2, 2]
+        tipo: "tesoro"
+        descripcion: "Un cofre de madera, parece intacto."
+      - pos: [2, 3]
+        tipo: "combate"
+        enemigos: ["goblin", "esqueleto"]
+        descripcion: "Un goblin monta a un esqueleto. ¿Cómo es posible?"
+      - pos: [3, 0]
+        tipo: "combate"
+        enemigos: ["slime"]
+        descripcion: "Un slime grande, quizás el más viejo de la sala."
+      - pos: [3, 1]
+        tipo: "vacio"
+        descripcion: "Polvo y más polvo."
+      - pos: [3, 2]
+        tipo: "evento"
+        evento_id: "mercader_astral"
+        descripcion: "Una figura encapuchada te ofrece intercambios extraños."
+      - pos: [3, 3]
+        tipo: "escalera_abajo"
+        descripcion: "Una escalera de caracol desciende a las profundidades."
+
+  - piso_index: 1
+    nombre: "Bastión de Latón"
+    bioma: "brass"
+    tamano: [5, 5]
+    habitaciones:
+      - pos: [0, 0]
+        tipo: "inicio"
+        descripcion: "Llegas a una sala de paredes metálicas. El suelo vibra ligeramente."
+      - pos: [0, 1]
+        tipo: "combate"
+        enemigos: ["centinela_laton"]
+        descripcion: "Un autómata oxidado cobra vida al verte."
+      - pos: [0, 2]
+        tipo: "combate"
+        enemigos: ["engranaje_maldito"]
+        descripcion: "Un engranaje gigante rueda hacia ti, buscando carne."
+      - pos: [0, 3]
+        tipo: "tesoro"
+        descripcion: "Un cofre metálico con brillos."
+      - pos: [0, 4]
+        tipo: "vacio"
+        descripcion: "Una sala de mantenimiento vacía."
+      - pos: [1, 0]
+        tipo: "combate"
+        enemigos: ["centinela_laton", "engranaje_maldito"]
+        descripcion: "Un centinela y un engranaje patrullan juntos."
+      - pos: [1, 1]
+        tipo: "evento"
+        evento_id: "varrick_herrero"
+        descripcion: "Varrick, el herrero errante, golpea su yunque."
+      - pos: [1, 2]
+        tipo: "combate"
+        enemigos: ["forjador_almas"]
+        descripcion: "Una máquina que procesa almas te ataca."
+      - pos: [1, 3]
+        tipo: "vacio"
+        descripcion: "Polvo de latón cubre el suelo."
+      - pos: [1, 4]
+        tipo: "tesoro"
+        descripcion: "Un cofre blindado."
+      - pos: [2, 0]
+        tipo: "combate"
+        enemigos: ["centinela_laton", "forjador_almas"]
+        descripcion: "Dos autómatas te flanquean."
+      - pos: [2, 1]
+        tipo: "vacio"
+        descripcion: "Una sala de engranajes detenidos."
+      - pos: [2, 2]
+        tipo: "tesoro"
+        descripcion: "Un cofre con un brillo anaranjado."
+      - pos: [2, 3]
+        tipo: "combate"
+        enemigos: ["engranaje_maldito", "forjador_almas"]
+        descripcion: "Engranajes y almas en conflicto."
+      - pos: [2, 4]
+        tipo: "vacio"
+        descripcion: "Sala de control abandonada."
+      - pos: [3, 0]
+        tipo: "combate"
+        enemigos: ["centinela_laton"]
+        descripcion: "Un centinela solitario."
+      - pos: [3, 1]
+        tipo: "evento"
+        evento_id: "altar_mecanico"
+        descripcion: "Un altar de metal ofrece mejorar tu equipo a cambio de materiales."
+      - pos: [3, 2]
+        tipo: "vacio"
+        descripcion: "Sala de calderas apagadas."
+      - pos: [3, 3]
+        tipo: "tesoro"
+        descripcion: "Un cofre de acero."
+      - pos: [3, 4]
+        tipo: "combate"
+        enemigos: ["forjador_almas", "centinela_laton"]
+        descripcion: "El guardián de la sala."
+      - pos: [4, 0]
+        tipo: "vacio"
+        descripcion: "Sala de tuberías."
+      - pos: [4, 1]
+        tipo: "combate"
+        enemigos: ["engranaje_maldito"]
+        descripcion: "Un engranaje suelto."
+      - pos: [4, 2]
+        tipo: "tesoro"
+        descripcion: "Cofre de latón."
+      - pos: [4, 3]
+        tipo: "evento"
+        evento_id: "varrick_herrero"
+        descripcion: "Varrick reaparece, esta vez con más ofertas."
+      - pos: [4, 4]
+        tipo: "escalera_abajo"
+        descripcion: "Una rampa mecánica desciende."
+
+  - piso_index: 2
+    nombre: "Nexo del Vacío"
+    bioma: "void"
+    tamano: [5, 5]
+    habitaciones:
+      - pos: [0, 0]
+        tipo: "inicio"
+        descripcion: "El aire está cargado de electricidad estática. La realidad parece distorsionarse."
+      - pos: [0, 1]
+        tipo: "combate"
+        enemigos: ["entidad_fragmentada"]
+        descripcion: "Una entidad inestable parpadea ante ti."
+      - pos: [0, 2]
+        tipo: "combate"
+        enemigos: ["parasito_memorias"]
+        descripcion: "Un parásito que se alimenta de recuerdos."
+      - pos: [0, 3]
+        tipo: "tesoro"
+        descripcion: "Un cofre flotante rodeado de energía."
+      - pos: [0, 4]
+        tipo: "vacio"
+        descripcion: "Un vacío absoluto, apenas puedes mantener la cordura."
+      - pos: [1, 0]
+        tipo: "combate"
+        enemigos: ["entidad_fragmentada", "parasito_memorias"]
+        descripcion: "Dos entidades se alimentan mutuamente."
+      - pos: [1, 1]
+        tipo: "evento"
+        evento_id: "mercader_astral"
+        descripcion: "El mercader astral aparece entre las sombras."
+      - pos: [1, 2]
+        tipo: "combate"
+        enemigos: ["sombra_eco"]
+        descripcion: "Una sombra con forma humanoide te acecha."
+      - pos: [1, 3]
+        tipo: "vacio"
+        descripcion: "Nada, solo el zumbido del vacío."
+      - pos: [1, 4]
+        tipo: "tesoro"
+        descripcion: "Cofre energético."
+      - pos: [2, 0]
+        tipo: "combate"
+        enemigos: ["sombra_eco", "entidad_fragmentada"]
+        descripcion: "Sombras y fragmentos."
+      - pos: [2, 1]
+        tipo: "vacio"
+        descripcion: "Silencio absoluto."
+      - pos: [2, 2]
+        tipo: "tesoro"
+        descripcion: "Cofre brillante."
+      - pos: [2, 3]
+        tipo: "combate"
+        enemigos: ["parasito_memorias", "sombra_eco"]
+        descripcion: "Parásitos y sombras."
+      - pos: [2, 4]
+        tipo: "evento"
+        evento_id: "altar_vacio"
+        descripcion: "Un altar de vacío te ofrece poder a cambio de cordura."
+      - pos: [3, 0]
+        tipo: "combate"
+        enemigos: ["watcher"]
+        descripcion: "Un observador de múltiples ojos te mira fijamente."
+      - pos: [3, 1]
+        tipo: "tesoro"
+        descripcion: "Cofre del vacío."
+      - pos: [3, 2]
+        tipo: "combate"
+        enemigos: ["entidad_fragmentada", "watcher"]
+        descripcion: "Un watcher custodia fragmentos."
+      - pos: [3, 3]
+        tipo: "vacio"
+        descripcion: "Sala vacía, pero sientes que algo te observa."
+      - pos: [3, 4]
+        tipo: "combate"
+        enemigos: ["watcher", "sombra_eco"]
+        descripcion: "El watcher y su sombra."
+      - pos: [4, 0]
+        tipo: "combate"
+        enemigos: ["parasito_memorias"]
+        descripcion: "Un parásito solitario."
+      - pos: [4, 1]
+        tipo: "tesoro"
+        descripcion: "Cofre final del piso."
+      - pos: [4, 2]
+        tipo: "evento"
+        evento_id: "silas_eco"
+        descripcion: "Silas, el coleccionista de ecos, te ofrece un trato."
+      - pos: [4, 3]
+        tipo: "vacio"
+        descripcion: "Nada."
+      - pos: [4, 4]
+        tipo: "escalera_abajo"
+        descripcion: "Un portal descendente."
+
+  - piso_index: 3
+    nombre: "Forjas Eternas"
+    bioma: "forge"
+    tamano: [5, 5]
+    habitaciones:
+      - pos: [0, 0]
+        tipo: "inicio"
+        descripcion: "El calor es sofocante. Forjas en funcionamiento crean un ambiente infernal."
+      - pos: [0, 1]
+        tipo: "combate"
+        enemigos: ["llama_eco"]
+        descripcion: "Una llama viviente te ataca."
+      - pos: [0, 2]
+        tipo: "combate"
+        enemigos: ["constructo_igneo"]
+        descripcion: "Un constructo de roca fundida."
+      - pos: [0, 3]
+        tipo: "tesoro"
+        descripcion: "Cofre al rojo vivo."
+      - pos: [0, 4]
+        tipo: "vacio"
+        descripcion: "Sala de enfriamiento, algo de alivio."
+      - pos: [1, 0]
+        tipo: "combate"
+        enemigos: ["llama_eco", "constructo_igneo"]
+        descripcion: "Llama y constructo."
+      - pos: [1, 1]
+        tipo: "evento"
+        evento_id: "varrick_herrero"
+        descripcion: "Varrick en su forja, te ofrece mejoras."
+      - pos: [1, 2]
+        tipo: "combate"
+        enemigos: ["guardian_forja"]
+        descripcion: "El guardián de la forja."
+      - pos: [1, 3]
+        tipo: "vacio"
+        descripcion: "Sala de lingotes."
+      - pos: [1, 4]
+        tipo: "tesoro"
+        descripcion: "Cofre de hierro."
+      - pos: [2, 0]
+        tipo: "combate"
+        enemigos: ["constructo_igneo", "guardian_forja"]
+        descripcion: "Dos guardianes."
+      - pos: [2, 1]
+        tipo: "vacio"
+        descripcion: "Sala de carbón."
+      - pos: [2, 2]
+        tipo: "tesoro"
+        descripcion: "Cofre de magma."
+      - pos: [2, 3]
+        tipo: "combate"
+        enemigos: ["llama_eco", "guardian_forja"]
+        descripcion: "Llama y guardián."
+      - pos: [2, 4]
+        tipo: "evento"
+        evento_id: "altar_fuego"
+        descripcion: "Altar de fuego, ofrece poder a cambio de salud."
+      - pos: [3, 0]
+        tipo: "combate"
+        enemigos: ["llama_eco"]
+        descripcion: "Llama aislada."
+      - pos: [3, 1]
+        tipo: "tesoro"
+        descripcion: "Cofre de la forja."
+      - pos: [3, 2]
+        tipo: "combate"
+        enemigos: ["constructo_igneo"]
+        descripcion: "Constructo solitario."
+      - pos: [3, 3]
+        tipo: "vacio"
+        descripcion: "Sala de enfriamiento."
+      - pos: [3, 4]
+        tipo: "combate"
+        enemigos: ["guardian_forja"]
+        descripcion: "Último guardián."
+      - pos: [4, 0]
+        tipo: "vacio"
+        descripcion: "Sala de herramientas."
+      - pos: [4, 1]
+        tipo: "combate"
+        enemigos: ["llama_eco", "constructo_igneo"]
+        descripcion: "Pareja ígnea."
+      - pos: [4, 2]
+        tipo: "tesoro"
+        descripcion: "Cofre maestro."
+      - pos: [4, 3]
+        tipo: "evento"
+        evento_id: "varrick_herrero"
+        descripcion: "Varrick tiene algo especial para ti."
+      - pos: [4, 4]
+        tipo: "escalera_abajo"
+        descripcion: "Una escalera de metal al rojo desciende."
+
+  - piso_index: 4
+    nombre: "El Vacío Corrupto"
+    bioma: "corrupted"
+    tamano: [6, 6]
+    habitaciones:
+      - pos: [0, 0]
+        tipo: "inicio"
+        descripcion: "La corrupción distorsiona todo. Oyes susurros en tu mente."
+      - pos: [0, 1]
+        tipo: "combate"
+        enemigos: ["gothic_wraith"]
+        descripcion: "Una aparición gótica te acecha."
+      - pos: [0, 2]
+        tipo: "combate"
+        enemigos: ["void_beast"]
+        descripcion: "Una bestia del vacío emerge."
+      - pos: [0, 3]
+        tipo: "tesoro"
+        descripcion: "Cofre corrupto."
+      - pos: [0, 4]
+        tipo: "vacio"
+        descripcion: "Sala de la nada."
+      - pos: [0, 5]
+        tipo: "combate"
+        enemigos: ["gothic_wraith", "void_beast"]
+        descripcion: "Wraith y bestia juntos."
+      - pos: [1, 0]
+        tipo: "combate"
+        enemigos: ["void_beast"]
+        descripcion: "Bestia solitaria."
+      - pos: [1, 1]
+        tipo: "evento"
+        evento_id: "silas_eco"
+        descripcion: "Silas te ofrece un trato final."
+      - pos: [1, 2]
+        tipo: "combate"
+        enemigos: ["gothic_wraith", "aparicion_corrupta"]
+        descripcion: "Wraith y aparición."
+      - pos: [1, 3]
+        tipo: "vacio"
+        descripcion: "Silencio incómodo."
+      - pos: [1, 4]
+        tipo: "tesoro"
+        descripcion: "Cofre del vacío."
+      - pos: [1, 5]
+        tipo: "combate"
+        enemigos: ["aparicion_corrupta"]
+        descripcion: "Aparición solitaria."
+      - pos: [2, 0]
+        tipo: "combate"
+        enemigos: ["gothic_wraith"]
+        descripcion: "Wraith."
+      - pos: [2, 1]
+        tipo: "vacio"
+        descripcion: "Nada."
+      - pos: [2, 2]
+        tipo: "tesoro"
+        descripcion: "Cofre corrompido."
+      - pos: [2, 3]
+        tipo: "combate"
+        enemigos: ["void_beast", "aparicion_corrupta"]
+        descripcion: "Bestia y aparición."
+      - pos: [2, 4]
+        tipo: "evento"
+        evento_id: "altar_corrupto"
+        descripcion: "Un altar corrupto te ofrece poder a cambio de cordura."
+      - pos: [2, 5]
+        tipo: "combate"
+        enemigos: ["gothic_wraith", "void_beast"]
+        descripcion: "Wraith y bestia."
+      - pos: [3, 0]
+        tipo: "vacio"
+        descripcion: "Sala vacía."
+      - pos: [3, 1]
+        tipo: "combate"
+        enemigos: ["aparicion_corrupta"]
+        descripcion: "Aparición."
+      - pos: [3, 2]
+        tipo: "tesoro"
+        descripcion: "Cofre final."
+      - pos: [3, 3]
+        tipo: "combate"
+        enemigos: ["void_beast"]
+        descripcion: "Bestia."
+      - pos: [3, 4]
+        tipo: "vacio"
+        descripcion: "Nada."
+      - pos: [3, 5]
+        tipo: "combate"
+        enemigos: ["gothic_wraith"]
+        descripcion: "Wraith."
+      - pos: [4, 0]
+        tipo: "combate"
+        enemigos: ["gothic_wraith", "aparicion_corrupta"]
+        descripcion: "Wraith y aparición."
+      - pos: [4, 1]
+        tipo: "tesoro"
+        descripcion: "Cofre maestro."
+      - pos: [4, 2]
+        tipo: "evento"
+        evento_id: "jefe_final"
+        descripcion: "El Arquitecto del Olvido te espera."
+      - pos: [4, 3]
+        tipo: "combate"
+        enemigos: ["void_beast", "aparicion_corrupta"]
+        descripcion: "Bestia y aparición."
+      - pos: [4, 4]
+        tipo: "vacio"
+        descripcion: "Sala vacía."
+      - pos: [4, 5]
+        tipo: "combate"
+        enemigos: ["gothic_wraith", "void_beast"]
+        descripcion: "Wraith y bestia."
+      - pos: [5, 0]
+        tipo: "combate"
+        enemigos: ["aparicion_corrupta"]
+        descripcion: "Aparición."
+      - pos: [5, 1]
+        tipo: "vacio"
+        descripcion: "Sala vacía."
+      - pos: [5, 2]
+        tipo: "combate"
+        enemigos: ["gothic_wraith"]
+        descripcion: "Wraith."
+      - pos: [5, 3]
+        tipo: "tesoro"
+        descripcion: "Cofre legendario."
+      - pos: [5, 4]
+        tipo: "combate"
+        enemigos: ["void_beast"]
+        descripcion: "Bestia."
+      - pos: [5, 5]
+        tipo: "escalera_abajo"
+        descripcion: "Un portal al vacío total. ¿Te atreves?"

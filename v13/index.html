@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>TORRE PROFUNDA - RPG</title>
+  <style>
+    /* Estilos básicos (puedes ampliarlos después) */
+    * { margin: 0; padding: 0; box-sizing: border-box; user-select: none; }
+    html, body { width: 100%; height: 100%; overflow: hidden; background: #000; color: #0f0; font-family: 'Courier New', monospace; }
+    #game-container { position: relative; width: 100%; height: 100%; }
+    #canvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; display: block; z-index: 1; outline: none; }
+    #ui-overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 10; display: grid; grid-template-columns: 1fr 380px; }
+    .right-panel { pointer-events: auto; background: rgba(10,10,10,0.9); border-left: 2px solid #0f0; padding: 10px; overflow-y: auto; }
+    .tabs { display: flex; gap: 2px; background: #111; border-bottom: 1px solid #0f0; }
+    .tab { flex: 1; padding: 5px; text-align: center; cursor: pointer; color: #888; }
+    .tab.active { background: #0f0; color: #000; }
+    .tab-content { display: none; }
+    .tab-content.active { display: block; }
+    .persistent-vitals { position: fixed; top: 10px; left: 10px; background: rgba(0,0,0,0.8); border: 1px solid #0f0; padding: 10px; z-index: 100; pointer-events: auto; }
+    .vital-item { display: flex; align-items: center; gap: 5px; margin-bottom: 2px; }
+    .bar-small { width: 80px; height: 6px; background: #333; }
+    .bar-fill-small { height: 100%; background: #0f0; width: 0%; }
+    #floating-log { position: fixed; bottom: 10px; left: 10px; width: 400px; height: 120px; background: rgba(0,0,0,0.8); border: 1px solid #0f0; overflow-y: auto; padding: 5px; font-size: 10px; z-index: 200; pointer-events: none; }
+    .log-entry { margin-bottom: 2px; }
+    #dialog-overlay { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background: rgba(0,0,0,0.9); border: 2px solid #0f0; padding: 20px; z-index: 1000; display: none; flex-direction: column; gap: 10px; min-width: 300px; text-align: center; }
+    .dialog-btn { background: #1a1a1a; border: 1px solid #0f0; color: #0f0; padding: 5px 15px; cursor: pointer; }
+    .equip-btn { background: #1a1a1a; border: 1px solid #0f0; color: #0f0; padding: 2px 5px; cursor: pointer; font-size: 10px; }
+
+    /* Overlay de creación de personaje */
+    #creation-overlay {
+      position: fixed;
+      top: 0; left: 0; width: 100%; height: 100%;
+      background: rgba(0,0,0,0.95);
+      z-index: 2000;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      backdrop-filter: blur(10px);
+    }
+    .creation-card {
+      background: #1b1528;
+      border: 2px solid #7a5c3a;
+      border-radius: 20px;
+      width: 800px;
+      max-width: 90vw;
+      max-height: 90vh;
+      padding: 20px;
+      color: #e0d9d0;
+      overflow-y: auto;
+    }
+    /* Más estilos... (puedes mantener los que ya tenías) */
+  </style>
+</head>
+<body>
+  <div id="game-container">
+    <!-- Canvas principal -->
+    <canvas id="canvas" tabindex="0" width="800" height="400"></canvas>
+
+    <!-- Barras persistentes -->
+    <div class="persistent-vitals">
+      <div class="vital-item"><span>❤️</span><div class="bar-small"><div id="pers-hp-fill" class="bar-fill-small"></div></div><span id="pers-hp-val">0/0</span></div>
+      <div class="vital-item"><span>🧠</span><div class="bar-small"><div id="pers-san-fill" class="bar-fill-small"></div></div><span id="pers-san-val">0/100</span></div>
+      <div class="vital-item"><span>🔮</span><div class="bar-small"><div id="pers-mp-fill" class="bar-fill-small"></div></div><span id="pers-mp-val">0/0</span></div>
+      <div class="vital-item"><span>✨</span><div class="bar-small"><div id="pers-exp-fill" class="bar-fill-small"></div></div><span id="pers-exp-val">Lv.1</span></div>
+      <div class="vital-item"><span>💰</span><span id="pers-esencia-val">0</span></div>
+    </div>
+
+    <!-- Panel derecho con pestañas -->
+    <div id="ui-overlay">
+      <div></div>
+      <div class="right-panel">
+        <div class="tabs" id="tabs-container">
+          <div class="tab active" data-tab="aventura">AVENTURA</div>
+          <div class="tab" data-tab="mochila">MOCHILA</div>
+          <div class="tab" data-tab="heroe">HÉROE</div>
+          <div class="tab" data-tab="taller">TALLER</div>
+          <div class="tab" data-tab="tactica">ECOS</div>
+          <div class="tab" data-tab="log">REGISTRO</div>
+          <div class="tab" data-tab="misiones">MISIONES</div>
+          <div class="tab" data-tab="bestiario">BESTIARIO</div>
+          <div class="tab" data-tab="ingenieria">INGENIERÍA</div>
+          <div class="tab" id="btn-architect-trigger">⚙️</div>
+        </div>
+
+        <!-- Pestaña AVENTURA -->
+        <div id="tab-aventura" class="tab-content active">
+          <div id="aventura-mapa"></div>
+        </div>
+
+        <!-- Pestaña MOCHILA -->
+        <div id="tab-mochila" class="tab-content">
+          <div id="inv-render"></div>
+        </div>
+
+        <!-- Pestaña HÉROE (con subvistas) -->
+        <div id="tab-heroe" class="tab-content">
+          <div style="display:flex; gap:5px; margin-bottom:15px;">
+            <button class="equip-btn" onclick="window.core.ui.components.characterSheet.showStatsView()">🛡️ STATS</button>
+            <button class="equip-btn" onclick="window.core.ui.components.characterSheet.showEquipmentView()">⚔️ EQUIPO</button>
+            <button class="equip-btn" onclick="window.core.ui.components.characterSheet.showSpellbookView()">📖 LIBRO</button>
+          </div>
+          <div id="heroe-stats-view" style="display:block;">
+            <div id="stats-render"></div>
+          </div>
+          <div id="heroe-equip-view" style="display:none;">
+            <h4 style="color:#50b0ff;">EQUIPO</h4>
+            <div id="equip-inventory-grid" class="inventory-grid"></div>
+          </div>
+          <div id="heroe-spellbook-view" style="display:none;">
+            <h4 style="color:#ffd700;">LIBRO DE HABILIDADES</h4>
+            <div id="spellbook-render"></div>
+          </div>
+        </div>
+
+        <!-- Pestaña TALLER -->
+        <div id="tab-taller" class="tab-content">
+          <div id="forja-render"></div>
+        </div>
+
+        <!-- Pestaña TÁCTICA -->
+        <div id="tab-tactica" class="tab-content">
+          <div id="tactica-grid"></div>
+        </div>
+
+        <!-- Pestaña REGISTRO (log completo) -->
+        <div id="tab-log" class="tab-content">
+          <div id="full-log-history"></div>
+        </div>
+
+        <!-- Pestaña MISIONES -->
+        <div id="tab-misiones" class="tab-content">
+          <div id="misiones-render"></div>
+        </div>
+
+        <!-- Pestaña BESTIARIO -->
+        <div id="tab-bestiario" class="tab-content">
+          <div id="bestiario-render"></div>
+        </div>
+
+        <!-- Pestaña INGENIERÍA -->
+        <div id="tab-ingenieria" class="tab-content">
+          <div id="ingenieria-render"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Log flotante -->
+    <div id="floating-log"></div>
+
+    <!-- Diálogo modal -->
+    <div id="dialog-overlay"></div>
+
+    <!-- Overlay de creación de personaje (se muestra al inicio) -->
+    <div id="creation-overlay">
+      <div class="creation-card">
+        <h2 style="color:#ffd700;">CREA TU HÉROE</h2>
+        <p>Selecciona una clase y distribuye tus puntos.</p>
+        <!-- Aquí irían las opciones de clase y stats, como ya tenías -->
+       <button class="equip-btn" onclick="iniciarJuego()">COMENZAR</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Import map para librerías -->
+  <script type="importmap">
+    {
+      "imports": {
+        "@sister.software/asciify": "https://esm.sh/@sister.software/asciify",
+        "tone": "https://esm.sh/tone@14.7.77"
+      }
+    }
+  </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/js-yaml/4.1.0/js-yaml.min.js"></script>
+
+   <!-- Módulo principal (se carga como módulo) -->
+  <script type="module" src="main.js"></script>
+
+  <!-- Script único para el botón COMENZAR -->
+  <script>
+    function iniciarJuego() {
+      if (window.core && window.core.switchModule) {
+        window.core.switchModule('rpg');
+        const overlay = document.getElementById('creation-overlay');
+        if (overlay) overlay.style.display = 'none';
+        console.log('Cambiando a módulo RPG');
+      } else {
+        console.log('Esperando a que el juego cargue...');
+        setTimeout(iniciarJuego, 100);
+      }
+    }
+  </script>
+</body>
+</html>

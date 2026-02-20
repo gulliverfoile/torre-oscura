@@ -1,0 +1,9 @@
+atributos_base:
+  destreza:
+    acierto_base: 2.5
+    esquiva_base: 1.5
+    critico_base: 0.5
+combate:
+  d20Base: 20
+  umbralCritico: 20
+  mitigacionDefensa: 3

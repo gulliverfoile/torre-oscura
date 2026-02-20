@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Torre Profunda</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; user-select: none; }
+        html, body { width: 100%; height: 100%; overflow: hidden; background: #000; color: #0f0; font-family: 'Courier New', monospace; }
+        #game-container { position: relative; width: 100%; height: 100%; }
+        #canvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; display: block; z-index: 1; outline: none; }
+        #ui-overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 10; display: grid; grid-template-columns: 1fr 380px; }
+        .right-panel { pointer-events: auto; background: rgba(10,10,10,0.9); border-left: 2px solid #0f0; padding: 10px; overflow-y: auto; }
+        .tabs { display: flex; gap: 2px; background: #111; border-bottom: 1px solid #0f0; }
+        .tab { flex: 1; padding: 5px; text-align: center; cursor: pointer; color: #888; }
+        .tab.active { background: #0f0; color: #000; }
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
+
+        /* Barras persistentes */
+        .persistent-vitals { position: fixed; top: 10px; left: 10px; background: rgba(0,0,0,0.8); border: 1px solid #0f0; padding: 10px; z-index: 100; pointer-events: auto; }
+        .vital-item { display: flex; align-items: center; gap: 5px; margin-bottom: 2px; }
+        .bar-small { width: 80px; height: 6px; background: #333; }
+        .bar-fill-small { height: 100%; background: #0f0; width: 0%; }
+
+        /* Log flotante */
+        #floating-log { position: fixed; bottom: 10px; left: 10px; width: 400px; height: 120px; background: rgba(0,0,0,0.8); border: 1px solid #0f0; overflow-y: auto; padding: 5px; font-size: 10px; z-index: 200; pointer-events: none; }
+        .log-entry { margin-bottom: 2px; }
+
+        /* Diálogo modal */
+        #dialog-overlay { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background: rgba(0,0,0,0.9); border: 2px solid #0f0; padding: 20px; z-index: 1000; display: none; flex-direction: column; gap: 10px; min-width: 300px; text-align: center; }
+        .dialog-btn { background: #1a1a1a; border: 1px solid #0f0; color: #0f0; padding: 5px 15px; cursor: pointer; }
+
+        /* Botones de equipo */
+        .equip-btn { background: #1a1a1a; border: 1px solid #0f0; color: #0f0; padding: 2px 5px; cursor: pointer; font-size: 10px; }
+
+        /* Contenedores de pestañas (visibles aunque vacíos) */
+        #stats-render, #inv-render, #ingenieria-render { min-height: 100px; color: #0f0; }
+    </style>
+</head>
+<body>
+    <div id="game-container">
+        <canvas id="canvas" tabindex="0" width="800" height="400"></canvas>
+
+        <!-- Barras persistentes (IDs requeridos) -->
+        <div class="persistent-vitals">
+            <div class="vital-item">
+                <span>❤️</span>
+                <div class="bar-small"><div id="pers-hp-fill" class="bar-fill-small"></div></div>
+                <span id="pers-hp-val">100/100</span>
+            </div>
+            <div class="vital-item">
+                <span>🔮</span>
+                <div class="bar-small"><div id="pers-mp-fill" class="bar-fill-small"></div></div>
+                <span id="pers-mp-val">50/50</span>
+            </div>
+            <div class="vital-item">
+                <span>🧠</span>
+                <div class="bar-small"><div id="pers-san-fill" class="bar-fill-small"></div></div>
+                <span id="pers-san-val">100/100</span>
+            </div>
+            <div class="vital-item">
+                <span>✨</span>
+                <div class="bar-small"><div id="pers-exp-fill" class="bar-fill-small"></div></div>
+                <span id="pers-exp-val">Lv.1</span>
+            </div>
+            <div class="vital-item">
+                <span>💰</span>
+                <span id="pers-esencia-val">0</span>
+            </div>
+        </div>
+
+        <!-- Panel derecho con pestañas -->
+        <div id="ui-overlay">
+            <div></div>
+            <div class="right-panel">
+                <div class="tabs" id="tabs-container">
+                    <div class="tab active" data-tab="aventura">AVENTURA</div>
+                    <div class="tab" data-tab="mochila">MOCHILA</div>
+                    <div class="tab" data-tab="heroe">HÉROE</div>
+                    <div class="tab" data-tab="taller">TALLER</div>
+                    <div class="tab" data-tab="tactica">ECOS</div>
+                    <div class="tab" data-tab="log">REGISTRO</div>
+                    <div class="tab" data-tab="misiones">MISIONES</div>
+                    <div class="tab" data-tab="bestiario">BESTIARIO</div>
+                    <div class="tab" data-tab="ingenieria">INGENIERÍA</div>
+                    <div class="tab" id="btn-architect-trigger">⚙️</div>
+                </div>
+                <div id="tab-aventura" class="tab-content active"></div>
+                <div id="tab-mochila" class="tab-content">
+                    <div id="inv-render"></div>
+                </div>
+                <div id="tab-heroe" class="tab-content">
+                    <div id="stats-render"></div>
+                </div>
+                <div id="tab-taller" class="tab-content"></div>
+                <div id="tab-tactica" class="tab-content"></div>
+                <div id="tab-log" class="tab-content"></div>
+                <div id="tab-misiones" class="tab-content"></div>
+                <div id="tab-bestiario" class="tab-content"></div>
+                <div id="tab-ingenieria" class="tab-content">
+                    <div id="ingenieria-render"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Log flotante -->
+        <div id="floating-log"></div>
+
+        <!-- Diálogo modal -->
+        <div id="dialog-overlay"></div>
+    </div>
+
+    <!-- Import map para librerías -->
+    <script type="importmap">
+        {
+            "imports": {
+                "@sister.software/asciify": "https://esm.sh/@sister.software/asciify",
+                "tone": "https://esm.sh/tone@14.7.77"
+            }
+        }
+    </script>
+    <!-- js-yaml global -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/js-yaml/4.1.0/js-yaml.min.js"></script>
+    <!-- Módulo principal -->
+    <script type="module" src="main.js"></script>
+</body>
+</html>
