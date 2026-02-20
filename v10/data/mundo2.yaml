@@ -1,0 +1,16 @@
+pisos:
+  - piso_index: 0
+    nombre: "Piso de Prueba"
+    mapa:
+      tamano: [3, 3]
+      habitaciones:
+        - pos: [0, 0]
+          tipo: "inicio"
+          descripcion: "Entrada a la torre."
+        - pos: [0, 1]
+          tipo: "combate"
+          enemigos: ["slime"]
+          descripcion: "Un slime te bloquea el paso."
+        - pos: [1, 0]
+          tipo: "vacio"
+          descripcion: "Pasillo vacío."

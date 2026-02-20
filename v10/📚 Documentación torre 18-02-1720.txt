@@ -1,0 +1,196 @@
+📚 Documentación (lo que pides)
+Voy a redactar una guía básica de arquitectura y cómo añadir contenido. Puedes copiarla y adaptarla.
+
+📖 Documentación del Motor RPG "Torre Profunda"
+Estructura de archivos
+text
+/torre4/
+│
+├── index.html          # Punto de entrada
+├── core.js             # Núcleo del motor (módulos, input, audio, assets)
+├── modules/            # Módulos intercambiables
+│   ├── menuInicio.js   # Pantalla de inicio
+│   ├── rpg.js          # Módulo RPG principal
+│   ├── architect.js    # Modo Arquitecto (F2)
+│   └── controls.js     # Gestión de teclado
+├── managers/           # Lógica de juego (independiente del módulo)
+│   ├── combatmanager.js
+│   ├── lootmanager.js
+│   ├── inventorymanager.js
+│   ├── charactermanager.js
+│   ├── explorationmanager.js
+│   ├── sanityManager.js
+│   └── imageManager.js
+├── visual/             # Componentes visuales
+│   └── hudRenderer.js
+├── data/               # Datos del juego (YAML)
+│   ├── mundo.yaml
+│   ├── enciclopedia.yaml
+│   └── reglas.yaml
+└── assets/             # Imágenes (opcional)
+    ├── characters/
+    ├── enemies/
+    └── backgrounds/
+Flujo de datos
+core.js inicia con el módulo menuInicio.
+
+Al pulsar "JUGAR", se cambia al módulo rpg.
+
+rpg.js carga los YAML mediante dataManager y crea los managers.
+
+En cada frame, core.js llama a update y draw del módulo activo.
+
+Los managers se comunican entre sí a través del core (eventos o referencias).
+
+Cómo añadir un nuevo enemigo
+Abre data/enciclopedia.yaml.
+
+Añade una entrada en enemigos:
+
+yaml
+- id: "dragon"
+  nombre: "Dragón"
+  salud: 100
+  ataque: 15
+  defensa: 5
+  exp: 50
+Coloca una imagen (opcional) en assets/enemies/dragon.png (64x64 recomendado). Si no hay, se usará un placeholder.
+
+(Opcional) Añade objetos que dropee en la misma sección.
+
+Cómo añadir una nueva sala
+Abre data/mundo.yaml.
+
+En el piso que corresponda, añade una habitación dentro de habitaciones:
+
+yaml
+- pos: [2, 2]
+  tipo: "combate"
+  enemigos: ["dragon"]
+  descripcion: "Un dragón custodia un tesoro."
+Los tipos pueden ser: inicio, combate, vacio, tesoro, escalera_abajo.
+
+Asegúrate de que las coordenadas estén dentro del tamano del mapa (por ejemplo, si el mapa es 3x3, las coordenadas válidas son 0..2).
+
+Cómo añadir un nuevo objeto (poción, espada, etc.)
+En data/enciclopedia.yaml, dentro de objetos, añade:
+
+yaml
+- id: "pocion_fuerza"
+  nombre: "Poción de fuerza"
+  tipo: "consumible"   # o "equipable"
+  rareza: "rara"
+  descripcion: "Aumenta F en 5 durante el combate."
+  modificadores:
+    F: 5
+    duracion: 1        # número de combates (opcional)
+Si es consumible, define su efecto en inventorymanager.js dentro de aplicarEfecto:
+
+javascript
+if (item.id === 'pocion_fuerza') {
+    // Lógica para aumentar F temporalmente
+}
+Si es equipable, el jugador podrá equiparlo desde el inventario (pendiente de implementar).
+
+Cómo funciona el combate
+combatmanager.js gestiona la lista de enemigos, turnos y animaciones.
+
+Cuando el jugador pulsa J, se inicia una animación de ataque (efecto visual).
+
+Al finalizar la animación, se aplica el daño.
+
+Si un enemigo muere, se genera loot y se añade a lootPendiente.
+
+El jugador puede recoger el loot con L (se añade al inventario).
+
+Configuración del Modo Arquitecto
+Actualmente, el módulo architect.js controla el estilo y posición del HUD. Para añadir nuevos controles (como posición de sprites), modifica architect.js:
+
+Añade sliders en el panel HTML.
+
+En syncWithModule, lee los valores del módulo RPG.
+
+En updateConfig, actualiza la configuración del módulo RPG.
+
+🛠️ Roadmap (hoja de ruta realista)
+Fase 0: Estabilización (inmediata)
+
+Revisar y corregir el bug de "dos sprites" (posible duplicación).
+
+Asegurar que combatActivo se actualiza correctamente en todos los casos (victoria, derrota).
+
+Probar partidas largas y anotar cualquier incoherencia.
+
+Fase 1: Potenciar el Modo Arquitecto
+
+Añadir controles para la posición del jugador (X, Y) y de los enemigos (X, Y).
+
+Añadir control para el tamaño de sprites.
+
+Añadir controles para la posición y tamaño del minimapa.
+
+Hacer que las barras de vida sean independientes (posición, color, tamaño).
+
+Guardar la configuración en localStorage para que persista entre partidas.
+
+Desbloquear el Modo Arquitecto tras completar el primer piso (flag en localStorage).
+
+Fase 2: Mejorar las animaciones de combate
+
+Reemplazar la bola amarilla por el sprite del atacante en movimiento.
+
+Añadir una pequeña sacudida al defensor al recibir daño.
+
+Ajustar la velocidad de animación (configurable desde Arquitecto).
+
+(Opcional) Añadir efectos de sonido (cuando tengas audio).
+
+Fase 3: Profundizar en el sistema de pociones y objetos
+
+Añadir más tipos de pociones (maná, cordura, fuerza, etc.) con efectos variados.
+
+Implementar objetos equipables (armas, armaduras) que modifiquen stats.
+
+Crear un sistema de buffos temporales (duración en combates o tiempo).
+
+Diseñar bosses que dropeen objetos únicos.
+
+Fase 4: Editor de equipo (herramienta para jugador)
+
+Crear un módulo equipmentCreator que permita combinar objetos y modificadores.
+
+Integrarlo como un extra desbloqueable (quizás al llegar a cierto piso).
+
+Permitir guardar las creaciones en el inventario o exportarlas a YAML.
+
+Fase 5: Contenido y pulido
+
+Ampliar mundo.yaml con varios pisos (10+).
+
+Añadir más enemigos y objetos.
+
+Equilibrar la dificultad (daño, vida, loot).
+
+Añadir un sistema de game over y reinicio.
+
+Mejorar la interfaz de inventario (panel gráfico en lugar de solo log).
+
+🧠 Opinión sobre tus ideas
+Centrar sprites: Excelente. Usa el Modo Arquitecto para ajustarlo finamente. Así podrás poner el jugador donde quieras sin recompilar.
+
+Ataque con sprites: Es la evolución natural de la animación. Dale prioridad media, porque es más complejo pero mejora la experiencia.
+
+Pociones variadas: Prioridad alta, porque es fácil de implementar y añade profundidad rápidamente.
+
+Mapa a la derecha y más grande: Puedes hacerlo configurable en Arquitecto. Añade un control para la posición del minimapa.
+
+Barras configurables: Ya lo tienes en parte. Amplía con más opciones.
+
+Creador de equipo: Es una funcionalidad avanzada, pero muy interesante. Podría ser un proyecto en sí mismo. Yo lo dejaría para después de estabilizar el juego base.
+
+Modo Arquitecto desbloqueable: Me encanta. Es un incentivo para jugar y además evita que los jugadores novatos se líen con tantas opciones.
+
+🚀 Conclusión
+Tienes un juego sólido y muchas ideas geniales. Lo importante ahora es priorizar y no desviarse. Empieza por la Fase 0 (estabilización) y luego la Fase 1 (potenciar Arquitecto). Con eso, podrás ajustar todo visualmente sin código y luego meterle más chicha al combate y los objetos.
+
+Si necesitas ayuda con el código de alguna de estas mejoras, ¡dímelo! Podemos ir paso a paso. Y no olvides hacer copias de seguridad (Git, aunque sea local). ¡Ánimo! 💪

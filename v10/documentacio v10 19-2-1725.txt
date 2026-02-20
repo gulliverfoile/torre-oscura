@@ -1,0 +1,518 @@
+Documentación del Proyecto "Torre Profunda"
+📋 Índice
+Visión General
+
+Estado Actual del Juego
+
+Arquitectura del Motor
+
+Estructura de Carpetas
+
+Módulos Principales
+
+Servicios Transversales
+
+Sistema de Eventos
+
+Datos Externos (YAML)
+
+Interfaz de Usuario
+
+Modo Arquitecto y Modo ASCII
+
+Sistemas Avanzados
+
+Bugs Conocidos y Próximos Pasos
+
+Cómo Empezar a Desarrollar
+
+Cómo Añadir Contenido
+
+Créditos y Filosofía
+
+1. Visión General
+Torre Profunda es un RPG de exploración por mazmorras con un motor modular, basado en eventos y con datos externos en YAML. El jugador asciende por una torre de 100 pisos (actualmente en desarrollo los primeros 10), enfrentándose a enemigos, tomando decisiones en eventos narrativos, mejorando su personaje y descubriendo una historia con múltiples finales.
+
+El proyecto destaca por su arquitectura de software profesional, que separa completamente la lógica del juego, la presentación y los datos. Esto lo hace extremadamente mantenible, escalable y fácil de modificar (modding).
+
+2. Estado Actual del Juego (Febrero 2026)
+✅ Lo que ya funciona y está probado
+Exploración básica: Movimiento por salas (4 direcciones) con minimapa que muestra salas visitadas y actual.
+
+Combate por turnos: Con animaciones (sprites que se mueven al atacar), loot automático y dados opcionales.
+
+Inventario y equipo: Recoger objetos, usar consumibles, equipar armas/armaduras (con modificadores de stats).
+
+Personaje: Stats (F, D, I, S), nivel, experiencia, puntos de mejora (aunque la interfaz para gastarlos está pendiente).
+
+Misiones básicas: Sistema preparado, pero con pocas misiones implementadas.
+
+Eventos narrativos: El EventManager permite crear diálogos con opciones y consecuencias (reputación, objetos, daño).
+
+Facciones y reputación: Dos facciones iniciales (Varrick y Silas) con reacciones, descuentos y hostilidad.
+
+Internacionalización: Diccionarios en español, inglés, japonés y ruso. Fácil de ampliar.
+
+Modo Arquitecto: Ajustes en tiempo real de posición de sprites, tamaño, offset del minimapa, velocidad de ataque, uso de dados.
+
+Modo ASCII: Renderizado alternativo con caracteres (varios temas: clásico, retro, matrix, fuego). Activable desde Ingeniería.
+
+Modo Desarrollador: Overlay con información de depuración (posición, FPS, stats) y botones para curar, añadir objetos, etc.
+
+Guardado: El juego guarda automáticamente el progreso en localStorage (falta interfaz de carga manual).
+
+Sonido: Efectos básicos con Tone.js (golpes, curaciones, descubrimientos). Pendiente música.
+
+🐛 Bugs conocidos y limitaciones
+Sprites con caja negra (el más molesto): A veces los placeholders no se cargan bien y aparece un fondo negro. Se solucionará con la unificación de AssetManager.
+
+Cambio de piso intrusivo: Usa confirm nativo. Hay que reemplazarlo por el DialogManager con overlay bonito.
+
+Log no visible permanentemente: Está dentro de la pestaña "REGISTRO". Hay que recuperar el log flotante.
+
+Coordenadas de sprites descentradas: En combate y exploración a veces no coinciden. Se arreglará con SceneManager.
+
+Puntos de mejora sin interfaz: El jugador sube de nivel pero no puede gastar los puntos. Pendiente en la carta de personaje.
+
+Falta de equilibrio: Los enemigos y objetos tienen valores provisionales.
+
+Pocos pisos: Solo hay 3 pisos de ejemplo. Hay que expandir mundo.yaml.
+
+3. Arquitectura del Motor
+El motor sigue un diseño modular y basado en eventos:
+
+Core: Centro neurálgico. Gestiona módulos, eventos, el bucle principal y los servicios transversales.
+
+Módulos: Entidades de alto nivel que representan pantallas completas (menú, juego, arquitecto). Cada módulo puede contener submódulos.
+
+Servicios: Funcionalidades transversales (assets, audio, datos, escena, internacionalización, entrada). Son accesibles desde el core.
+
+Managers: Dentro de los módulos, gestionan aspectos específicos (combate, exploración, inventario...). Se comunican por eventos.
+
+Renderers: Módulos especiales que dibujan en el canvas. Pueden intercambiarse (sprites, ASCII, futuro 3D).
+
+UI: Módulo que maneja la interfaz de usuario HTML, con componentes independientes.
+
+Flujo de datos
+El jugador pulsa una tecla → controls actualiza estado.
+
+El módulo activo (rpg) en su update recibe el input y decide qué hacer.
+
+Si ocurre algo relevante (ej. un enemigo muere), se emite un evento ('enemy:defeated').
+
+Los managers suscritos (inventario, misiones, facciones) reaccionan y actualizan su estado.
+
+El estado actualizado del jugador se emite ('player:updated').
+
+El módulo ui escucha y actualiza las barras, la carta de personaje, etc.
+
+El renderer (sprites o ASCII) escucha los mismos eventos y actualiza la representación visual.
+
+4. Estructura de Carpetas
+text
+torre6/
+├── index.html                 # Página principal
+├── main.js                    # Punto de entrada (registra módulos)
+├── core.js                    # Núcleo del motor
+├── services/                  # Servicios transversales
+│   ├── asset-manager.js       # Carga de imágenes, placeholders
+│   ├── audio-manager.js       # Sonidos con Tone.js
+│   ├── data-manager.js        # Carga de YAML
+│   ├── i18n.js                # Internacionalización
+│   ├── scene-manager.js       # Coordenadas y cámara
+│   └── controls.js            # Entrada de teclado
+├── modules/                   # Módulos de alto nivel
+│   ├── menu-inicio/           # Pantalla de inicio
+│   │   └── index.js
+│   ├── rpg/                   # Módulo principal del juego
+│   │   ├── index.js           # Orquestador
+│   │   ├── combat/            # Combate
+│   │   │   └── index.js
+│   │   ├── exploration/       # Exploración y minimapa
+│   │   │   └── index.js
+│   │   ├── character/         # Stats, nivel, puntos
+│   │   │   └── index.js
+│   │   ├── inventory/         # Inventario y equipo
+│   │   │   └── index.js
+│   │   ├── missions/          # Misiones
+│   │   │   └── index.js
+│   │   ├── event-manager.js   # Eventos narrativos
+│   │   └── faction-manager.js # Facciones y reputación
+│   └── architect/             # Modo arquitecto
+│       └── index.js
+├── ui/                        # Interfaz de usuario
+│   ├── index.js               # Orquestador UI
+│   └── components/            # Componentes reutilizables
+│       ├── floating-log.js
+│       ├── persistent-bars.js
+│       ├── inventory-panel.js
+│       ├── character-sheet.js
+│       ├── dialog-modal.js
+│       └── tabs.js
+├── renderers/                  # Motores de renderizado
+│   ├── sprites/               # Sprites PNG
+│   │   └── index.js
+│   └── ascii/                 # Renderizado ASCII
+│       └── index.js
+└── data/                       # Datos del juego (YAML)
+    ├── mundo.yaml
+    ├── enciclopedia.yaml
+    └── reglas.yaml
+5. Módulos Principales
+Módulo rpg ( modules/rpg/index.js )
+Orquesta todos los subsistemas del juego. Inicializa los managers, carga los datos YAML, y gestiona el flujo entre exploración y combate. Escucha eventos del core y los redirige a los managers correspondientes.
+
+Eventos que emite:
+
+'player:updated' (cada vez que cambia el personaje)
+
+'combat:started', 'combat:ended'
+
+'enemy:defeated'
+
+'room:entered'
+
+'floor:changed'
+
+Submódulos dentro de rpg
+combat/index.js
+Gestiona combates por turnos. Contiene la lista de enemigos, la lógica de turnos, animaciones, cálculo de daño (con dados opcional) y generación de loot. Emite eventos cuando un enemigo muere o termina el combate.
+
+exploration/index.js
+Maneja la exploración por salas. Mantiene el piso actual, las salas visitadas, el minimapa y la posición del jugador. Emite 'room:entered' y 'floor:changing'.
+
+character/index.js
+Controla las estadísticas del personaje: HP, MP, cordura, nivel, experiencia, puntos de mejora. Proporciona métodos para subir de nivel y mejorar stats. Emite 'player:updated'.
+
+inventory/index.js
+Gestiona inventario y equipo. Permite añadir/quitar objetos, equipar/desequipar, y aplicar efectos de consumibles. Emite 'inventory:changed'.
+
+missions/index.js
+Sistema de misiones (básico). Escucha eventos como enemy:defeated y room:entered para actualizar el progreso. Emite 'mission:completed'.
+
+event-manager.js
+Motor de eventos narrativos. Al entrar en una sala de tipo evento, carga un evento desde los datos (o desde un YAML específico) y muestra opciones al jugador mediante el DialogManager. Aplica consecuencias (reputación, objetos, daño, etc.).
+
+faction-manager.js
+Gestiona reputación con facciones. Proporciona reacciones de NPCs, descuentos en tiendas, hostilidad (si la reputación es muy baja) y beneficios (si es muy alta). Emite eventos cuando la reputación cambia.
+
+Módulo architect ( modules/architect/index.js )
+Panel de configuración en tiempo real. Permite ajustar:
+
+Posición y tamaño del sprite del jugador.
+
+Posición y tamaño de los enemigos.
+
+Offset y tamaño de celda del minimapa.
+
+Velocidad y distancia de ataque.
+
+Uso de dados en combate.
+Los cambios se guardan en rpg.config.arch y se aplican inmediatamente a los managers.
+
+Módulo menu-inicio ( modules/menu-inicio/index.js )
+Pantalla de título. Por ahora es muy simple: muestra un mensaje y cambia a rpg al pulsar cualquier tecla.
+
+6. Servicios Transversales
+asset-manager.js
+Centraliza la carga de assets (imágenes). Usa caché y genera placeholders si falla la carga. Devuelve promesas con HTMLImageElement listos para usar.
+
+audio-manager.js
+Envuelve Tone.js. Proporciona métodos para reproducir efectos (golpe, slash, magia, moneda, descubrimiento). La música no está implementada.
+
+data-manager.js
+Carga archivos YAML desde la carpeta data/ y los cachea. Usa la librería global jsyaml.
+
+i18n.js
+Internacionalización. Carga diccionarios (por ahora incrustados) y proporciona un método t(key) para obtener textos en el idioma actual. Emite 'language:changed' cuando se cambia de idioma.
+
+scene-manager.js
+Gestiona coordenadas y cámara. Convierte coordenadas del mundo a pantalla, permite centrar la cámara y hacer zoom. Por ahora no se usa activamente, pero está preparado.
+
+controls.js
+Maneja la entrada de teclado. Proporciona isDown(key) y justPressed(key). Emite eventos de teclas (aunque no se usan directamente).
+
+7. Sistema de Eventos
+El core tiene un bus de eventos sencillo pero potente:
+
+javascript
+// Escuchar
+core.on('player:updated', (player) => { ... });
+
+// Emitir
+core.emit('player:updated', player);
+Lista de eventos principales:
+
+Evento	Emisor	Oyentes típicos
+player:updated	character	ui (barras, carta), missions
+inventory:changed	inventory	ui (panel inventario)
+combat:started	combat	ui, missions
+combat:ended	combat	exploration (reactivar movimiento)
+enemy:defeated	combat	missions, factions, character (exp)
+room:entered	exploration	events, missions
+floor:changing	exploration	dialog (preguntar al jugador)
+floor:changed	exploration	ui (actualizar texto de piso)
+mission:completed	missions	ui (notificación)
+language:changed	i18n	ui (actualizar textos)
+8. Datos Externos (YAML)
+Todos los datos del juego están en archivos YAML dentro de data/. Esto permite modificar el contenido sin tocar el código.
+
+mundo.yaml
+Define los pisos y habitaciones. Ejemplo:
+
+yaml
+pisos:
+  - piso_index: 0
+    nombre: "Las Sombras"
+    tamano: [3, 3]
+    habitaciones:
+      - pos: [0, 0]
+        tipo: "inicio"
+        descripcion: "Has despertado en la entrada."
+      - pos: [0, 1]
+        tipo: "combate"
+        enemigos: ["slime"]
+        descripcion: "Un slime te bloquea."
+      - pos: [1, 1]
+        tipo: "tesoro"
+        descripcion: "Un cofre brillante."
+      - pos: [2, 2]
+        tipo: "escalera_abajo"
+        descripcion: "Bajas de piso."
+Tipos de habitación: inicio, combate, tesoro, vacio, evento, escalera_abajo.
+
+enciclopedia.yaml
+Contiene enemigos, objetos, materiales y habilidades. Ejemplo:
+
+yaml
+enemigos:
+  - id: "slime"
+    nombre: "Slime"
+    salud: 30
+    ataque: 5
+    defensa: 2
+    exp: 20
+    lore: "Una masa amorfa."
+objetos:
+  - id: "pocion_vida"
+    nombre: "Poción de vida"
+    tipo: "consumible"
+    descripcion: "Recupera 20 HP."
+  - id: "espada_hierro"
+    nombre: "Espada de hierro"
+    tipo: "equipable"
+    ranura: "mano_derecha"
+    modificadores: { F: 2 }
+reglas.yaml
+Parámetros del sistema (atributos base, combate). Ejemplo:
+
+yaml
+atributos_base:
+  destreza:
+    acierto_base: 2.5
+    esquiva_base: 1.5
+    critico_base: 0.5
+combate:
+  d20Base: 20
+  umbralCritico: 20
+  mitigacionDefensa: 3
+9. Interfaz de Usuario
+La UI está en ui/ y se compone de un orquestador (index.js) y componentes independientes. Cada componente maneja una parte del DOM y se actualiza mediante eventos.
+
+Componentes
+floating-log.js: Log flotante en la parte inferior de la pantalla (aún no activo, hay que recuperarlo).
+
+persistent-bars.js: Barras de vida, maná, cordura y experiencia en la esquina superior izquierda.
+
+inventory-panel.js: Muestra el inventario en la pestaña "MOCHILA". Permite equipar objetos.
+
+character-sheet.js: Carta de personaje (stats, nivel, puntos de mejora). Incluye botones para subir stats.
+
+dialog-modal.js: Overlay para diálogos (confirmaciones, eventos narrativos).
+
+tabs.js: Gestiona las pestañas de la interfaz y sincroniza el contenido.
+
+Cómo se actualiza la UI
+Un manager emite un evento (ej. 'player:updated').
+
+El módulo ui (orquestador) lo captura y llama al método update del componente correspondiente.
+
+El componente re-renderiza su parte del DOM con los nuevos datos.
+
+10. Modo Arquitecto y Modo ASCII
+Modo Arquitecto ( modules/architect )
+Se activa con F2. Muestra un panel con sliders y checkboxes que modifican en tiempo real parámetros del juego almacenados en rpg.config.arch. Los managers (combat, exploration) leen de esa configuración, por lo que los cambios se aplican al instante.
+
+Modo ASCII ( renderers/ascii )
+Usa la librería @sister.software/asciify para convertir el canvas en caracteres. Se activa desde la pestaña "INGENIERÍA" con un botón. Tiene varios temas predefinidos (clásico, retro, matrix, fuego). No interfiere con la lógica del juego; solo altera la salida visual.
+
+11. Sistemas Avanzados
+Eventos Narrativos
+Cuando el jugador entra en una sala de tipo evento, el EventManager carga un evento (definido en los datos) y muestra opciones mediante el DialogManager. Las opciones pueden:
+
+Requerir una tirada de dado (chequeo de stats).
+
+Lanzar un minijuego (pendiente de implementar).
+
+Aplicar recompensas: cambiar cordura, dar objetos, ganar experiencia, infligir daño, modificar reputación.
+
+Desencadenar un combate.
+
+Facciones y Reputación
+El FactionManager mantiene un objeto con la reputación del jugador hacia cada facción. Al interactuar con NPCs o tomar decisiones en eventos, la reputación cambia. Esto afecta a:
+
+Reacciones: Los NPCs dicen frases diferentes según la reputación.
+
+Precios en tiendas: Descuentos o sobreprecios.
+
+Hostilidad: Si la reputación es muy baja, la facción envía escoltas para atacar al jugador.
+
+Beneficios: Si la reputación es muy alta, el jugador obtiene mejoras permanentes.
+
+Trascendencia (Mejora de Equipo)
+El TranscendenceManager permite mejorar objetos equipados mediante "refinamiento" (gastando puntos de maestría) y, al alcanzar el nivel máximo, "trascender" el objeto eligiendo una senda (poder, eco, vacío) que otorga bonificaciones únicas. Si todo el equipo está trascendido, se desbloquea una habilidad especial ("Trascendencia Total").
+
+12. Bugs Conocidos y Próximos Pasos
+Bugs prioritarios (Fase 0)
+[Sprites caja negra] Unificar AssetManager y asegurar que los placeholders se cargan correctamente.
+
+[Cambio de piso] Sustituir confirm por DialogManager con overlay bonito.
+
+[Log no visible] Recuperar el log flotante.
+
+[Coordenadas descentradas] Implementar SceneManager y usarlo en todos los dibujos.
+
+[Puntos de mejora sin interfaz] Añadir botones en la carta de personaje.
+
+Mejoras para Fase 1
+[Internacionalización] Aplicar i18n a todos los textos de la UI.
+
+[Más eventos] Poblar mundo.yaml con más salas de evento.
+
+[Más misiones] Implementar misiones básicas de ejemplo.
+
+[Guardado manual] Añadir botones para guardar/cargar partida.
+
+Visión a largo plazo (Fases 2-4)
+Sistema de talentos: Árbol de habilidades con puntos de maestría.
+
+Sinergias en combate: Efectos combinados entre habilidades.
+
+Minijuegos: Barra de ritmo para abrir cofres, etc.
+
+Tienda: Usar ShopUI.js para mercaderes.
+
+Expansión de la torre: Hasta 100 pisos con lore propio.
+
+Enemigo final: Una IA con humor negro en el piso 100.
+
+13. Cómo Empezar a Desarrollar
+Requisitos
+Un servidor local (puedes usar python -m http.server o live-server).
+
+Navegador moderno (Chrome, Firefox, Edge).
+
+Editor de código (VS Code recomendado).
+
+Pasos para arrancar
+Clona o descarga el proyecto en una carpeta.
+
+Abre una terminal en esa carpeta.
+
+Ejecuta python -m http.server (o el comando de tu servidor preferido).
+
+Abre el navegador en http://localhost:8000.
+
+El juego arrancará con el menú y pasará automáticamente al módulo RPG.
+
+Flujo de trabajo recomendado
+Si quieres modificar un subsistema (ej. combate), ve a modules/rpg/combat/index.js.
+
+Si quieres añadir una nueva sala, edita data/mundo.yaml.
+
+Si quieres crear un evento narrativo, añádelo a data/eventos.yaml (si existiera) o directamente en el código de event-manager.js como ejemplo.
+
+Para probar cambios, recarga la página (F5). El juego guarda partida en localStorage, así que si quieres empezar de cero, abre las herramientas de desarrollo y borra el localStorage.
+
+14. Cómo Añadir Contenido
+Añadir un nuevo enemigo
+Abre data/enciclopedia.yaml.
+
+Añade una entrada en enemigos con los campos: id, nombre, salud, ataque, defensa, exp, lore (opcional).
+
+(Opcional) Coloca una imagen en assets/enemies/<id>.png. Si no existe, se usará un placeholder.
+
+Para que aparezca en el juego, añade su id a la lista enemigos de una sala de combate en mundo.yaml.
+
+Añadir una nueva sala
+En data/mundo.yaml, localiza el piso deseado.
+
+Añade una entrada en habitaciones con:
+
+pos: [fila, columna]
+
+tipo: uno de los tipos permitidos.
+
+descripcion: texto que se muestra al entrar.
+
+Si es tipo combate, añade enemigos con lista de IDs.
+
+Si es tipo evento, añade evento_id (y define el evento en event-manager.js o en un futuro YAML de eventos).
+
+Ajusta el tamano del piso si es necesario.
+
+Añadir un nuevo objeto
+En data/enciclopedia.yaml, añade una entrada en objetos con:
+
+id, nombre, tipo (consumible, equipable, material), descripcion.
+
+Si es equipable, añade ranura (ej. "mano_derecha") y modificadores (ej. F: 2).
+
+Si es consumible, implementa su efecto en inventory/index.js dentro del método aplicarEfecto.
+
+Añadir un nuevo evento narrativo
+Por ahora, los eventos se definen directamente en event-manager.js (método iniciarEvento). En el futuro, se cargarán desde un YAML. Para añadir uno:
+
+Crea un nuevo objeto evento con id, nombre, descripcion, opciones.
+
+Cada opción tiene texto y resultado (con mensaje y posibles recompensas).
+
+Asigna ese evento a una sala en mundo.yaml usando evento_id.
+
+Añadir una nueva facción
+En faction-manager.js, añade la lógica de reacciones, hostilidad y beneficios en los métodos correspondientes.
+
+Define valores iniciales de reputación si lo deseas.
+
+En eventos o diálogos, llama a factionManager.modificarReputacion(id, cantidad).
+
+15. Créditos y Filosofía
+Filosofía de diseño
+Modularidad ante todo: Cada pieza es independiente y reemplazable.
+
+Datos sobre código: Todo el contenido está en YAML, fácil de modificar y traducir.
+
+Eventos como pegamento: Los componentes se comunican sin conocerse.
+
+Preparado para el futuro: Renderers intercambiables, soporte multilingüe, sistemas complejos ya integrados.
+
+Logros destacados
+Arquitectura de motor profesional en menos de 24 horas de desarrollo.
+
+Integración de internacionalización, facciones, eventos narrativos y trascendencia.
+
+Modo arquitecto y modo ASCII funcionales.
+
+Código limpio, comentado y con convenciones coherentes (nombres en minúsculas, importaciones claras).
+
+Agradecimientos
+Este proyecto es el resultado de una sesión de desarrollo maratoniana, con mucho café y pocas horas de sueño. El autor, que prefiere el anonimato, ha demostrado que con pasión y talento se pueden construir cosas increíbles desde la cama y sin ratón.
+
+🧠 Palabras finales
+Torre Profunda no es un simple juego; es un motor de rol con ambiciones narrativas. En sus cimientos está la creencia de que los videojuegos pueden contar historias tan poderosas como el cine, pero con una diferencia fundamental: el jugador decide.
+
+El enemigo final del piso 100, una IA con humor negro, espera pacientemente. Y cuando llegue el momento, no solo pondrá a prueba las habilidades del jugador, sino también su capacidad para reírse de sí mismo mientras pica las últimas 1000 líneas de código.
+
+Hasta entonces, el desarrollo continúa. Si has llegado hasta aquí, ya eres parte de esta historia. Únete, modifica, expande y, sobre todo, disfruta.
+
+— El Arquitecto del Olvido

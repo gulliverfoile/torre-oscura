@@ -1,0 +1,321 @@
+📚 Documentación Completa de "Torre Profunda"
+Torre Profunda es un motor RPG modular y extensible desarrollado en JavaScript. Permite crear juegos de rol por turnos con exploración procedural, combate táctico, loot, misiones, facciones y minijuegos. Su arquitectura basada en módulos y datos en YAML facilita la personalización y el modding.
+
+📁 Estructura del Proyecto
+text
+/torre-profunda/
+│
+├── index.html               # Punto de entrada principal
+├── core.js                  # Núcleo del motor (bucle, input, audio, módulos)
+├── modules/                 # Módulos de juego intercambiables
+│   ├── rpg.js               # Módulo RPG principal
+│   └── architect.js         # Modo Arquitecto (ajustes en tiempo real)
+├── managers/                 # Lógica de juego independiente
+│   ├── combatmanager.js      # Sistema de combate por turnos
+│   ├── lootmanager.js        # Generación de loot con prefijos/sufijos
+│   ├── inventorymanager.js   # Gestión de inventario y equipo
+│   ├── charactermanager.js   # Estadísticas y progresión del personaje
+│   ├── explorationmanager.js # Exploración por salas y mapas
+│   ├── sanityManager.js      # Lógica de cordura (estado mental)
+│   └── dataManager.js        # Carga y acceso a archivos YAML
+├── visual/                    # Capa visual
+│   ├── uiManager.js           # Interfaz de usuario (paneles, log)
+│   ├── sanityVisual.js        # Efectos visuales de cordura
+│   └── hudRenderer.js         # Dibujado del HUD en canvas (barras/círculos)
+├── data/                       # Archivos YAML con contenido del juego
+│   ├── mundo.yaml              # Definición de pisos y habitaciones
+│   ├── enciclopedia.yaml       # Enemigos, objetos, habilidades, misiones
+│   └── reglas.yaml             # Reglas del sistema (fórmulas, atributos)
+├── assets/                      # Recursos gráficos (opcional)
+│   ├── characters/              # Sprites de personajes
+│   ├── enemies/                 # Sprites de enemigos
+│   └── items/                   # Iconos de objetos
+└── README.md                    # Este documento
+🧠 Visión General del Código
+1. core.js – El Núcleo
+Bucle principal con requestAnimationFrame
+
+Gestión de módulos: registrar, cambiar, iniciar
+
+Servicios:
+
+InputManager: teclado (WASD, flechas, teclas personalizadas)
+
+AudioManager: sonidos y música con Tone.js
+
+AssetLoader: carga imágenes locales o remotas (con fallback)
+
+DataManager: carga archivos YAML y los cachea
+
+Eventos: comunicación entre módulos (on, emit)
+
+UI básica: actualiza elementos del DOM (barras, textos)
+
+2. Módulos de Juego
+Cada módulo es un objeto con métodos init, onEnter, onExit, update, draw. Ejemplo:
+
+javascript
+export const moduloEjemplo = {
+    core: null,
+    onEnter(params) { ... },
+    update(delta, input) { ... },
+    draw(ctx) { ... }
+};
+3. Managers (Lógica de Juego)
+CombatManager: turnos, dados, sinergias, estados alterados.
+
+LootManager: genera objetos con prefijos/sufijos según rareza.
+
+InventoryManager: añade/elimina objetos, equipa y modifica stats.
+
+CharacterManager: gestiona nivel, experiencia, atributos.
+
+ExplorationManager: carga mapas desde YAML, movimiento entre salas.
+
+SanityManager: controla la cordura, emite eventos al cambiar.
+
+DataManager: carga YAML una sola vez y los sirve a quien los necesite.
+
+4. Capa Visual
+UIManager: escucha eventos y actualiza el DOM (barras de vida, log, paneles).
+
+SanityVisual: reacciona a cambios de cordura aplicando filtros CSS y glitch.
+
+HUDRenderer: dibuja en el canvas las estadísticas del jugador (barras o círculos), configurable en tiempo real.
+
+🎮 Cómo Jugar
+Abre index.html con un servidor local (ej. python -m http.server).
+
+Usa WASD o flechas para moverte entre salas.
+
+En combate, pulsa J para atacar.
+
+Pulsa L para recoger el loot cuando aparezca.
+
+Pulsa I para ver el inventario (por ahora en el log).
+
+Pulsa F2 para abrir el Modo Arquitecto y ajustar el HUD.
+
+🛠️ Cómo Personalizar el Juego (Modding)
+Archivos YAML: el corazón del contenido
+Todo el contenido del juego (enemigos, objetos, mapas, misiones) se define en archivos YAML dentro de la carpeta data/. Puedes editarlos con cualquier editor de texto (recomiendo VS Code con extensión YAML).
+
+📄 mundo.yaml – Los pisos y habitaciones
+yaml
+pisos:
+  - piso_index: 0
+    nombre: "Piso de Prueba"
+    mapa:
+      tamano: [3, 3]                # [filas, columnas]
+      habitaciones:
+        - pos: [0, 0]                # [fila, columna]
+          tipo: "inicio"              # tipos: inicio, combate, tesoro, evento, escalera_abajo, etc.
+          descripcion: "Entrada a la torre."
+          enemigos: ["slime"]         # solo para tipo combate (IDs de enciclopedia.yaml)
+          completada: false
+        - pos: [0, 1]
+          tipo: "combate"
+          enemigos: ["slime", "goblin"]
+          descripcion: "Dos enemigos te esperan."
+📄 enciclopedia.yaml – Enemigos, objetos, habilidades
+yaml
+enemigos:
+  - id: "slime"
+    nombre: "Slime"
+    salud: 30
+    ataque: 5
+    defensa: 2
+    exp: 20
+    lore: "Una masa amorfa que absorbe la energía de la torre."
+    debilidades: ["fuego"]
+    resistencias: ["físico"]
+
+objetos:
+  - id: "pocion_vida"
+    nombre: "Poción de vida"
+    tipo: "consumible"
+    rareza: "comun"
+    descripcion: "Recupera 20 HP."
+    efecto: { cura: 20 }
+
+  - id: "espada_hierro"
+    nombre: "Espada de hierro"
+    tipo: "equipable"
+    ranura: "mano_derecha"
+    rareza: "comun"
+    modificadores: { F: 2, D: -1 }
+    descripcion: "Una hoja pesada pero efectiva."
+
+habilidades:
+  - id: "golpe_basico"
+    nombre: "Golpe básico"
+    tipo: "físico"
+    coste: 0
+    efecto: 1.2
+    descripcion: "Un ataque físico simple."
+    anim: "slash"
+📄 reglas.yaml – Parámetros del sistema
+yaml
+atributos_base:
+  destreza:
+    acierto_base: 8
+    esquiva_base: 1.5
+    critico_base: 0.5
+  fuerza:
+    bonus_hp: 5
+  inteligencia:
+    bonus_mp: 5
+
+combate:
+  dado_base: 20
+  mitigacion_defensa: 3
+  umbral_critico: 20
+🧩 Añadir un Nuevo Módulo
+Crea un archivo en modules/ (ej. minijuego.js).
+
+Exporta un objeto con los métodos init(core), onEnter(params), update(delta, input), draw(ctx).
+
+En index.html, impórtalo y regístralo en el core:
+
+javascript
+import { minijuego } from './modules/minijuego.js';
+core.registerModule('minijuego', minijuego);
+Para cambiar a ese módulo desde otro:
+
+javascript
+core.switchModule('minijuego', { opcion: 'valor' });
+⚙️ Modo Arquitecto (tecla F2)
+Permite ajustar parámetros en tiempo real:
+
+Estilo del HUD: barras o círculos.
+
+Posición X/Y, tamaño, espaciado.
+
+(Futuro) velocidad de enemigos, tasa de loot, dificultad.
+
+Todos los cambios se guardan en localStorage y persisten al recargar.
+
+🐛 Depuración y Herramientas
+Consola del navegador: muestra logs de eventos, errores y mensajes del juego.
+
+Analizador de código (proyecto separado): escanea tus archivos JS y YAML en busca de errores, variables no usadas, duplicados, etc.
+
+Editor de personajes (en desarrollo): sube una imagen, recórtala, y úsala como sprite del jugador.
+
+📝 Notas para Desarrolladores
+Convención de nombres: usar camelCase para variables y funciones, snake_case para IDs en YAML. Sé coherente.
+
+Eventos: para comunicación entre módulos, usa core.on('evento', callback) y core.emit('evento', datos). Evita llamadas directas.
+
+Rutas de assets: el AssetLoader busca primero en ./assets/... y luego en las URLs por defecto de Torre Profunda.
+
+Pruebas: después de cada cambio, juega una partida corta y revisa la consola.
+
+🚀 Posibles Ampliaciones
+Más minijuegos: barra de sincronización, hordas de enemigos, Galaga, estrategia por turnos.
+
+Editor de niveles visual (arrastrar y soltar habitaciones).
+
+Soporte multijugador (WebSockets).
+
+Publicación en Steam / Itch.io (empaquetado con Electron).
+
+📄 Archivo YAML_GUIDE.txt (para incluir en el proyecto)
+text
+GUÍA DE ARCHIVOS YAML PARA "TORRE PROFUNDA"
+============================================
+
+Los archivos YAML definen todo el contenido del juego. Puedes editarlos con cualquier editor de texto.
+
+1. mundo.yaml
+-------------
+Define los pisos y las habitaciones.
+
+Estructura:
+pisos:
+  - piso_index: número (0,1,2...)
+    nombre: texto
+    mapa:
+      tamano: [filas, columnas]
+      habitaciones:
+        - pos: [fila, columna]
+          tipo: texto (inicio, combate, tesoro, evento, escalera_abajo, vacio)
+          descripcion: texto
+          enemigos: [lista de IDs]  # solo si tipo = combate
+          completada: true/false    # opcional
+
+Ejemplo:
+pisos:
+  - piso_index: 0
+    nombre: "El Atrio"
+    mapa:
+      tamano: [3,3]
+      habitaciones:
+        - pos: [0,0]
+          tipo: inicio
+          descripcion: "Entrada principal"
+
+2. enciclopedia.yaml
+--------------------
+Define enemigos, objetos y habilidades.
+
+ENEMIGOS:
+enemigos:
+  - id: texto único
+    nombre: texto
+    salud: número
+    ataque: número
+    defensa: número (opcional)
+    exp: número
+    lore: texto (opcional)
+    debilidades: [lista de elementos] (opcional)
+    resistencias: [lista de elementos] (opcional)
+
+OBJETOS:
+objetos:
+  - id: texto único
+    nombre: texto
+    tipo: "consumible" o "equipable"
+    ranura: texto (solo para equipable: "cabeza", "pechera", "mano_derecha", etc.)
+    rareza: "comun", "raro", "epico", "legendario"
+    modificadores: { F: número, D: número, I: número, S: número } (opcional)
+    defensa: número (opcional)
+    descripcion: texto
+    efecto: { cura: número } (para consumibles)
+
+HABILIDADES:
+habilidades:
+  - id: texto único
+    nombre: texto
+    tipo: "fisico" o "magico"
+    coste: número
+    efecto: número (multiplicador de daño)
+    descripcion: texto
+    anim: texto (opcional, para efectos visuales)
+
+3. reglas.yaml
+--------------
+Define las reglas matemáticas del juego.
+
+atributos_base:
+  destreza:
+    acierto_base: número
+    esquiva_base: número
+    critico_base: número
+  fuerza:
+    bonus_hp: número
+  inteligencia:
+    bonus_mp: número
+
+combate:
+  dado_base: número (normalmente 20)
+  mitigacion_defensa: número
+  umbral_critico: número (normalmente 20)
+
+Puedes añadir más secciones según necesites.
+
+¡Copia estos ejemplos y modifícalos a tu gusto!
+📌 Conclusión
+"Torre Profunda" es un proyecto vivo, diseñado para crecer contigo. Su arquitectura modular y basada en datos te permite experimentar sin miedo a romperlo. Usa esta documentación como brújula y no dudes en explorar, modificar y compartir.
+
+¡Que la torre te devuelva el eco de tus esfuerzos! 🏰✨
