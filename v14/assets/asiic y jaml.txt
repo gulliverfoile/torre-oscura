@@ -1,0 +1,172 @@
+=========================================
+PARÁMETROS MODIFICABLES EN ARCHIVOS YAML
+=========================================
+
+ÍNDICE:
+1.  TEMAS ASCII (data/temas.yaml)
+2.  PERSONAJES / CLASES (data/personajes.yaml) [OPCIONAL]
+3.  ENEMIGOS (data/enciclopedia.yaml)
+4.  OBJETOS (data/enciclopedia.yaml)
+5.  REGLAS DEL SISTEMA (data/reglas.yaml)
+
+=========================================
+1. TEMAS ASCII (data/temas.yaml)
+=========================================
+Controla el aspecto del modo ASCII.
+
+Estructura:
+temas:
+  NOMBRE_TEMA:
+    chars: "STRING_DE_CARACTERES"
+    fg:   "COLOR_TEXTO"    (formato HEX: #RRGGBB)
+    bg:   "COLOR_FONDO"    (formato HEX: #RRGGBB)
+
+Ejemplo:
+temas:
+  clasico:
+    chars: " .:-=+*#%@"
+    fg: "#0f0"
+    bg: "#000"
+  fuego:
+    chars: " .:;+=xX$&"
+    fg: "#ff4500"
+    bg: "#000"
+
+REGLAS DE ORO:
+- El primer carácter suele ser un espacio o punto (menor densidad).
+- El último debe ser el de mayor densidad (ej. @, #, &).
+- Cuantos más caracteres, más detalles tendrá la imagen.
+- Puedes usar cualquier carácter Unicode, pero asegúrate de que la fuente los soporte.
+- El color debe estar en formato HEX (ej. #ff0000 para rojo).
+
+=========================================
+2. PERSONAJES / CLASES (data/personajes.yaml)
+=========================================
+Define las clases iniciales del jugador. Si no existe, se usa un héroe por defecto.
+
+Estructura:
+personajes:
+  - id: "CLASE_ID"              # Identificador interno
+    nombre: "Nombre visible"
+    descripcion: "Texto breve"
+    stats_base:                 # Atributos iniciales
+      F: 10
+      D: 10
+      I: 10
+      S: 10
+    hp_base: 100
+    mp_base: 50
+    sanity_base: 100
+    equipo_inicial:             # Objetos equipados al empezar (opcional)
+      mano_derecha: "espada_hierro"
+      cuerpo: "armadura_cuero"
+    inventario_inicial:         # Objetos en la mochila (opcional)
+      - id: "pocion_vida"
+        cantidad: 3
+    habilidades_iniciales:      # Lista de IDs de habilidades
+      - "golpe_basico"
+    sprite: "player_knight.png" # Nombre del archivo en assets/characters/
+
+Ejemplo:
+personajes:
+  - id: "guerrero"
+    nombre: "Guerrero"
+    descripcion: "Alta fuerza y resistencia."
+    stats_base: { F: 12, D: 8, I: 6, S: 8 }
+    hp_base: 120
+    mp_base: 30
+    sanity_base: 100
+    equipo_inicial:
+      mano_derecha: "espada_hierro"
+      cuerpo: "armadura_cuero"
+    inventario_inicial:
+      - id: "pocion_vida"
+        cantidad: 2
+    habilidades_iniciales: ["golpe_basico", "grito_guerra"]
+    sprite: "guerrero.png"
+
+=========================================
+3. ENEMIGOS (data/enciclopedia.yaml)
+=========================================
+Cada enemigo puede tener estos campos:
+
+enemigos:
+  - id: "ID_UNICO"
+    nombre: "Nombre visible"
+    salud: 30                 # Puntos de vida
+    ataque: 5                 # Daño base
+    defensa: 2                # Reducción de daño
+    exp: 20                   # Experiencia que otorga
+    lore: "Texto descriptivo" # (opcional)
+    img: "enemigo.png"        # Nombre del archivo en assets/enemies/ (opcional)
+
+Ejemplo:
+  - id: "slime"
+    nombre: "Slime"
+    salud: 30
+    ataque: 5
+    defensa: 2
+    exp: 20
+    lore: "Una masa amorfa que pulula en los pisos bajos."
+
+=========================================
+4. OBJETOS (data/enciclopedia.yaml)
+=========================================
+Objetos y equipo:
+
+objetos:
+  - id: "ID_UNICO"
+    nombre: "Nombre visible"
+    tipo: "consumible" | "equipable" | "material"
+    rareza: "comun" | "rara" | "epica" | "legendaria" (opcional)
+    descripcion: "Texto breve"
+    valor_esencia: 50         # Precio de venta/compra (opcional)
+    # Si es equipable:
+    ranura: "mano_derecha" | "cabeza" | "cuerpo" | "piernas" | "accesorio"
+    modificadores:
+      F: 2                    # Aumenta Fuerza en 2
+      D: 1                    # Aumenta Destreza en 1
+      defensa: 3              # Aumenta defensa en 3
+    # Si es consumible, el efecto se programa en JavaScript (por ahora)
+    # Pero podríamos externalizar efectos más adelante.
+
+Ejemplo:
+  - id: "espada_hierro"
+    nombre: "Espada de hierro"
+    tipo: "equipable"
+    rareza: "comun"
+    ranura: "mano_derecha"
+    modificadores: { F: 2 }
+    descripcion: "Una espada básica."
+    valor_esencia: 100
+
+  - id: "pocion_vida"
+    nombre: "Poción de vida"
+    tipo: "consumible"
+    descripcion: "Recupera 20 HP."
+    valor_esencia: 50
+
+=========================================
+5. REGLAS DEL SISTEMA (data/reglas.yaml)
+=========================================
+Controla las mecánicas globales:
+
+atributos_base:
+  destreza:
+    acierto_base: 2.5          # Porcentaje de acierto por punto de D
+    esquiva_base: 1.5          # Porcentaje de esquiva por punto de D
+    critico_base: 0.5          # Porcentaje de crítico por punto de D
+combate:
+  d20Base: 20                  # Rango del dado (ej. 20 para d20)
+  umbralCritico: 20             # Valor para crítico (si se usa d20)
+  mitigacionDefensa: 3          # Cuánto reduce cada punto de defensa el daño
+
+Puedes añadir más secciones según necesites. El sistema está preparado para leer cualquier campo.
+
+=========================================
+NOTAS FINALES
+=========================================
+- Los archivos YAML se recargan al iniciar el juego (no en caliente).
+- Si un campo es opcional y no aparece, el motor usará valores por defecto (definidos en código).
+- Para añadir un nuevo tipo de dato (ej. "habilidades"), basta con crearlo en el YAML y luego en JavaScript leerlo. El motor es flexible.
+- Cualquier error de sintaxis en el YAML hará que no se cargue y se usen valores por defecto. Revisa con un validador online si tienes dudas.

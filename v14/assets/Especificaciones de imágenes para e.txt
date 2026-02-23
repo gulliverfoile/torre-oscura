@@ -1,0 +1,73 @@
+Especificaciones de imágenes para el motor
+Para que el juego funcione correctamente con los sprites y fondos que generes, sigue estas pautas. El motor soporta tanto imágenes individuales como hojas de sprites (spritesheets). A continuación, los requisitos técnicos.
+
+🖼️ 1. Imágenes individuales (sprites estáticos)
+Concepto	Requisito mínimo	Recomendado	Formato
+Personaje jugador	64x64 píxeles	128x128 píxeles	PNG (transparencia) o JPG (fondo sólido)
+Enemigo	64x64 píxeles	128x128 píxeles	PNG o JPG
+Objeto (item)	32x32 píxeles	64x64 píxeles	PNG o JPG
+Fondo de nivel	800x400 píxeles (mismo que canvas)	1280x720 píxeles (se escalará)	JPG (mejor compresión) o PNG
+Nota: Si usas JPG, el fondo de la imagen será parte del sprite (no hay transparencia). Para evitar que se vea un recuadro, ajusta las cajas de colisión en el código (ya lo hacemos).
+
+🎞️ 2. Hojas de sprites (spritesheets) para animaciones
+Las hojas de sprites deben tener varios fotogramas del mismo personaje en diferentes filas, cada fila corresponde a una animación.
+
+Estructura de la hoja:
+Cada frame debe tener el mismo tamaño (ancho y alto).
+
+Las filas son animaciones diferentes. Por ejemplo:
+
+Fila 0: IDLE (quieto)
+
+Fila 1: CAMINAR
+
+Fila 2: ATAQUE
+
+Fila 3: DAÑO
+
+Fila 4: MUERTE
+
+Cada fila puede tener diferente número de frames, pero es recomendable que todas tengan la misma cantidad (por simplicidad, 4 frames por animación).
+
+Dimensiones recomendadas:
+Frame individual: 64x64 píxeles (mínimo) o 128x128 (mejor calidad).
+
+Hoja completa: Si tienes 5 animaciones de 4 frames cada una, y cada frame de 64x64, la hoja medirá (4 * 64) x (5 * 64) = 256 x 320 píxeles.
+
+Formato: PNG con transparencia (obligatorio para que se vea bien).
+
+Ejemplo de organización visual:
+text
+Fila 0 (idle):   [frame0] [frame1] [frame2] [frame3]
+Fila 1 (walk):   [frame0] [frame1] [frame2] [frame3]
+Fila 2 (attack): [frame0] [frame1] [frame2] [frame3]
+Fila 3 (hit):    [frame0] [frame1] [frame2] [frame3]
+Fila 4 (death):  [frame0] [frame1] [frame2] [frame3]
+Nombre de archivo:
+Debe terminar en _sheet para que el motor lo reconozca como spritesheet.
+Ejemplo: player_sheet.png, enemy1_sheet.png.
+
+🏞️ 3. Fondos de nivel
+Tamaño mínimo: 800x400 píxeles (para que cubra el canvas sin escalado).
+
+Tamaño recomendado: 1920x1080 píxeles (se escalará, pero se verá bien en pantallas grandes).
+
+Formato: JPG (menor peso) o PNG si necesitas transparencia (no suele ser necesario).
+
+Nombre: fondo1.jpg, fondo2.png, etc. El código los buscará en assets/backgrounds/.
+
+📁 4. Estructura de carpetas obligatoria
+text
+/assets/
+    /characters/      → sprites del jugador (player.png, player_sheet.png)
+    /enemies/         → sprites de enemigos (enemy1.png, enemy1_sheet.png)
+    /backgrounds/     → fondos de nivel (fondo1.jpg, fondo2.jpg)
+    /items/           → sprites de objetos (opcional, por ahora no se usan)
+Importante: Todos los nombres de archivo deben ir en minúsculas y sin espacios (usa guiones bajos si es necesario).
+
+⚙️ 5. Calidad y rendimiento
+Peso máximo por imagen: 200 KB (para evitar tiempos de carga largos). Si usas PNG, optimízalos con herramientas como TinyPNG.
+
+Frames por animación: 4 es suficiente para un estilo pixel art. Si quieres más fluidez, puedes usar 6 u 8, pero aumentará el peso.
+
+Colores: Usa paletas limitadas (estilo retro) para que el juego se vea cohesionado.

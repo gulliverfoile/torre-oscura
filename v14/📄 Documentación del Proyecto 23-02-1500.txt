@@ -1,0 +1,100 @@
+📄 Documentación del Proyecto "Torre Profunda" – Estado Actual (Pre-integración de mejoras)
+📌 Resumen Ejecutivo
+"Torre Profunda" es un RPG por turnos de exploración de mazmorras, construido sobre una arquitectura modular y basada en eventos en JavaScript. El motor está completamente funcional, con sistemas de exploración, combate, personaje, inventario, eventos narrativos y una interfaz de usuario modular. Actualmente el juego es jugable, aunque con algunos bugs menores y carencias de contenido. Se están a punto de integrar mejoras de sonido, loot y subida de nivel con opciones.
+
+✅ Lo que funciona correctamente
+Arquitectura: Core, módulos, servicios, eventos, renderers (sprites). Todo desacoplado y mantenible.
+
+Carga de datos: Los archivos YAML (mundo.yaml, enciclopedia.yaml, reglas.yaml) se cargan sin errores (tras limpiar caché).
+
+Menú de inicio: Pantalla de creación de personaje con selección de clase y dificultad. Al pulsar "COMENZAR", se inicia el módulo RPG.
+
+Exploración: Movimiento por salas (WASD/flechas) con minimapa (configurable). Cambio de piso con diálogo bonito (subir/bajar).
+
+Combate: Por turnos, con animaciones de sprites, daño flotante (en enemigos y jugador), muerte y pantalla de game over con estadísticas básicas.
+
+Inventario y equipo: Se pueden recoger objetos, equipar/desequipar, y los efectos de pociones funcionan.
+
+Personaje: Stats, nivel, experiencia, puntos de mejora (la interfaz de mejora actual es automática, pronto se cambiará).
+
+Eventos narrativos: Diálogos con opciones y recompensas (funcionan correctamente).
+
+Interfaz de usuario: Pestañas (Aventura, Mochila, Héroe, Ingeniería, etc.), vistas de stats/equipo/libro en Héroe, panel de ingeniería con sliders y botones de depuración.
+
+Persistencia: LocalStorage para configuración y estadísticas de partida (enemigos derrotados, salas exploradas).
+
+Sonido: Módulo audioManager preparado, pero aún no integrado en el juego.
+
+❌ Problemas conocidos (antes de las mejoras)
+Modo ASCII y locura: No funcionan. Se ha decidido desactivarlos temporalmente.
+
+Ajustes visuales: Sprites pequeños y mal posicionados (demasiado arriba y juntos). Los límites de los sliders del arquitecto están fijos (no se adaptan al canvas).
+
+Subida de piso: Solo se puede bajar, no hay forma de subir a pisos superiores.
+
+Game over: Muestra pocas estadísticas (solo piso, enemigos y salas).
+
+Contenido: Pocos enemigos, objetos y habilidades. El juego se siente vacío.
+
+Loot: Solo un placeholder básico (50% de probabilidad de poción).
+
+Subida de nivel: Automática y sin decisión del jugador (se suman puntos de mejora que luego se pueden gastar, pero no es intuitivo).
+
+🏆 Puntos fuertes de la arquitectura
+Modularidad total: Cada subsistema está aislado y se comunica por eventos.
+
+Separación datos/código: Todo el contenido está en YAML, lo que facilita el modding y la iteración.
+
+Renderers intercambiables: Aunque el ASCII no funcione, la estructura permite cambiar el motor gráfico fácilmente.
+
+UI modular: Componentes independientes que facilitan el mantenimiento.
+
+Panel de ingeniería: Herramienta de depuración en tiempo real muy potente.
+
+Persistencia y estadísticas: El juego guarda progreso y muestra datos al morir.
+
+🔻 Puntos débiles y áreas de mejora
+Falta de contenido: Enemigos, objetos, habilidades, eventos, misiones.
+
+Progresión insípida: Subir de nivel no tiene impacto emocional.
+
+Combate simple: Solo una habilidad básica, sin sinergias reales.
+
+UI mejorable: Faltan tooltips, comparativa de equipo, efectos visuales.
+
+Sonido no integrado: Aunque el módulo está listo, no se usa.
+
+Bugs visuales: Posición de sprites, límites de sliders.
+
+🗺️ Roadmap (próximos pasos)
+Fase 0: Estabilización (ya casi hecha)
+Desactivar modo ASCII y locura.
+
+Corregir carga de YAML (limpiar caché).
+
+Ajustar posición y tamaño de sprites por defecto (valores en config.arch).
+
+Añadir botón para subir de piso en salas de inicio.
+
+Fase 1: Sonido y loot (en progreso)
+Integrar audioManager en combate, eventos y UI.
+
+Conectar lootManager para que los enemigos suelten objetos variados (definidos en YAML).
+
+Mejorar subida de nivel con diálogo de opciones (usando DialogManager).
+
+Fase 2: Contenido y progresión
+Añadir más enemigos, objetos y habilidades en YAML.
+
+Implementar misiones básicas.
+
+Crear árbol de habilidades simple.
+
+Fase 3: Pulido y extras
+Mejorar estadísticas de game over.
+
+Añadir tooltips y comparativa de equipo.
+
+Posibilidad de teletransporte entre pisos.
+
+(Opcional) Retomar modo ASCII si hay interés.

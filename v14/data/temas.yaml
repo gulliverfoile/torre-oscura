@@ -1,0 +1,17 @@
+temas:
+  classic:
+    chars: " .:-=+*#%@"
+    fg: "#0f0"
+    bg: "#000"
+  retro:
+    chars: "█▓▒░ "
+    fg: "#ff0"
+    bg: "#000"
+  matrix:
+    chars: "01"
+    fg: "#0f0"
+    bg: "#000"
+  fire:
+    chars: " .:;+=xX$&"
+    fg: "#ff4500"
+    bg: "#000"

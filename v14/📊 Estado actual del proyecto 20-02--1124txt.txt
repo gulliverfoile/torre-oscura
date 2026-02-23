@@ -1,0 +1,140 @@
+📊 Estado actual del proyecto (febrero 2026)
+✅ Lo que funciona correctamente
+Arquitectura modular basada en eventos. El core.js gestiona módulos y servicios de forma limpia.
+
+Carga de datos YAML (mundo.yaml, enciclopedia.yaml, reglas.yaml) sin errores.
+
+Internacionalización (i18n) con diccionarios en español/inglés.
+
+Menú de inicio funcional (cambia al módulo RPG con cualquier tecla).
+
+Exploración básica: moverse por salas (WASD/flechas) con minimapa (aunque no se ve bien por defecto).
+
+Combate por turnos con animaciones de sprites y dados opcionales.
+
+Inventario y equipo: se pueden recoger objetos, equipar/desequipar, y los efectos básicos (pociones) funcionan.
+
+Personaje: stats, nivel, experiencia, puntos de mejora (la interfaz para gastarlos está, pero falta probarla).
+
+Renderizado dual: los renderers de sprites y ASCII están registrados y se pueden activar (aunque el ASCII no se vea).
+
+Panel de ingeniería con sliders para el minimapa y botones de depuración (curar, dañar, dar experiencia, etc.).
+
+Modo arquitecto (F2) con controles en tiempo real (posición de sprites, tamaño, etc.).
+
+Log flotante y barras de vida persistentes (se actualizan con player:updated).
+
+❌ Lo que no funciona (bugs conocidos)
+Muerte del jugador no se produce: la vida baja a 1 y no llega a 0.
+Causa probable: en combatManager._aplicarDanioEnemigo, la resta de vida funciona, pero quizás hay un límite mínimo (Math.max) que impide llegar a 0, o el evento player:dead no se emite correctamente.
+
+Modo ASCII activado pero no se ve: enabled = true, pero el canvas no cambia.
+Causa: El asciifier no se crea (error silencioso) o el método draw no está transformando el canvas. Los logs indican que el tema se aplica, pero no hay efecto visual.
+
+Botones de la pestaña HÉROE no funcionan: Cannot read properties of undefined (reading 'components').
+Causa: core.ui es undefined. El módulo UI no se asigna a core.ui en su init.
+
+Sliders del minimapa en ingeniería no interactúan (probablemente porque no se llama a renderIngenieria al cambiar de pestaña).
+
+Pop-ups de daño muestran "undefined": el componente floatingDamage se llama pero el texto no se pasa bien.
+
+El botón de bajar de piso sigue siendo intrusivo (usa confirm nativo) porque core.ui es undefined, por lo que no se usa el DialogModal.
+
+No se puede subir de piso (falta el evento correspondiente desde salas de tipo 'inicio' o un botón).
+
+La locura (modo Matrix) está activada pero no se ve (depende del modo ASCII).
+
+La pantalla de game over no aparece porque el evento player:dead no se lanza o porque core.ui.components.gameOver no existe (por el mismo problema de core.ui).
+
+El panel de ingeniería tiene partes que no responden (ej. los sliders del arquitecto pueden no enlazarse).
+
+🏆 Puntos fuertes de la arquitectura
+Modularidad total: cada subsistema (combate, exploración, personaje, etc.) está en su propia carpeta con un index.js que exporta su manager. Esto facilita el mantenimiento y la escalabilidad.
+
+Comunicación por eventos: los módulos se comunican mediante core.on y core.emit, lo que los desacopla completamente.
+
+Renderers intercambiables: tener spritesRenderer y asciiRenderer permite cambiar el estilo visual sin tocar la lógica del juego.
+
+Servicios transversales: assetManager, audioManager, dataManager, i18n, sceneManager, controls están centralizados y listos para usarse desde cualquier módulo.
+
+UI modular: la interfaz está dividida en componentes pequeños (floating-log, persistent-bars, character-sheet, etc.), lo que facilita su modificación y reutilización.
+
+Internacionalización preparada: el servicio i18n permite añadir más idiomas fácilmente.
+
+Sistemas complejos esbozados: ya tienes esqueletos de eventos narrativos, facciones, trascendencia y loot manager. Solo falta terminarlos y conectarlos.
+
+🔻 Puntos débiles y áreas de mejora
+Falta de feedback visual: muchos eventos (muerte, daño, sinergias) no tienen representación en pantalla o son confusos.
+
+UI incompleta: la pestaña de equipo no está del todo funcional, el bestiario está vacío, las misiones no se muestran.
+
+El modo ASCII no es fiable: depende de una librería externa y su integración es frágil.
+
+La cordura no tiene efectos reales más allá del modo Matrix (que no se ve). Debería afectar al combate o a la exploración.
+
+El combate es simple: solo una habilidad básica, sin sinergias reales ni estados alterados complejos.
+
+Falta contenido: solo hay un par de enemigos y objetos, el mundo es pequeño.
+
+El panel de ingeniería es demasiado potente para el jugador normal (debería estar oculto o ser un "modo debug").
+
+🧠 Críticas y recomendaciones
+Prioridad: estabilizar antes de añadir
+Tu juego tiene una base sólida, pero los bugs actuales impiden una experiencia fluida. Mi recomendación es:
+
+Arreglar primero los bugs críticos (muerte, ASCII, UI). No tiene sentido añadir loot si el jugador no puede morir o no ve el daño.
+
+Mientras corriges, aprovecha para añadir pequeñas mejoras que no requieran mucho código (ej. números flotantes bien formateados, el diálogo de cambio de piso con estilo).
+
+Luego, centrarte en el contenido (loot, habilidades, árbol) sobre una base estable.
+
+Sobre el modo ASCII: si sigue dando problemas, considera tenerlo como una característica "experimental" y prioriza el renderizado de sprites. Puedes incluso desactivarlo por defecto hasta que funcione perfectamente.
+
+Sobre la muerte: es el bug más molesto. Sin muerte, el juego no tiene tensión. Arréglalo ya.
+
+🗺️ Roadmap detallado
+Fase 0: Estabilización inmediata (1-2 sesiones)
+Arreglar core.ui añadiendo core.ui = this en ui/index.js.
+Esto soluciona los botones de héroe, el diálogo de piso y el game over.
+
+Corregir la muerte del jugador: revisar combatManager._aplicarDanioEnemigo para que la vida pueda llegar a 0 y emitir player:dead. Añadir un log para confirmar.
+
+Hacer visible el modo ASCII: en renderers/ascii/index.js, capturar errores de Asciify y asegurar que el draw se llama. Si no funciona, dejar un mensaje claro en consola.
+
+Ajustar los pop-ups de daño: en combatManager, al emitir combat:damage, pasar correctamente la cantidad (sin 'undefined').
+
+Activar el diálogo de cambio de piso: una vez que core.ui exista, el diálogo con estilo funcionará automáticamente. Añadir también opción para subir de piso desde salas de inicio.
+
+Fase 1: Contenido básico (2-3 sesiones)
+Añadir loot al combate: al derrotar un enemigo, llamar a lootManager.generarLoot y añadir los objetos al inventario.
+
+Mejorar la subida de nivel: en lugar de puntos automáticos, mostrar un diálogo con opciones de mejora (usando DialogManager).
+
+Implementar objetos consumibles (pociones, pergaminos) con efectos reales (ya hay esqueleto, solo falta conectarlos).
+
+Añadir más enemigos y objetos en los YAML para que el juego tenga variedad.
+
+Fase 2: Profundidad en combate (3-4 sesiones)
+Refactorizar habilidades en un skillManager centralizado.
+
+Definir nuevas habilidades en enciclopedia.yaml con tipos elementales y estados.
+
+Implementar sinergias visuales (iconos, colores) en el panel de combate.
+
+Crear un árbol de habilidades simple (interfaz de texto con nodos) para gastar puntos de maestría.
+
+Fase 3: Endgame y pulido (largo plazo)
+Sistema de trascendencia (mejora de equipo legendario).
+
+Facciones y reputación (que afecten a la tienda y eventos).
+
+Eventos narrativos con opciones y consecuencias.
+
+Misiones principales y secundarias.
+
+Logros que desbloqueen opciones en el modo arquitecto.
+
+Mejorar la interfaz con tooltips, animaciones y efectos visuales (daño flotante ya funcional).
+
+📌 Conclusión
+Tienes un motor de juego profesional y escalable. Los bugs actuales son de conexión, no de diseño. Una vez que estabilices los puntos críticos (muerte, UI, ASCII), el juego será perfectamente jugable y podrás centrarte en lo divertido: meter chicha

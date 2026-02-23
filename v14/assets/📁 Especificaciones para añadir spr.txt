@@ -1,0 +1,174 @@
+📁 Especificaciones para añadir sprites a "Torre Profunda"
+El juego utiliza un AssetLoader que busca imágenes en dos lugares:
+
+Carpeta local ./assets/ (recomendado para sprites personalizados).
+
+URLs remotas por defecto (si no encuentra la imagen local, usa las de Torre Profunda online).
+
+Esto te permite tener tus propios sprites sin perder los originales.
+
+📂 Estructura de carpetas obligatoria
+Dentro de la raíz del proyecto (junto a index.html), crea la carpeta assets/ y dentro de ella las siguientes subcarpetas:
+
+text
+/assets/
+│
+├── /characters/       → Sprites del jugador y NPCs
+├── /enemies/          → Sprites de enemigos
+├── /items/            → Iconos de objetos (pociones, armas, etc.)
+├── /backgrounds/      → Fondos para las salas
+└── /fx/               → (Opcional) Sprites para efectos especiales (partículas, animaciones)
+🖼️ Formatos y dimensiones
+Formatos compatibles: PNG (recomendado para transparencia) y JPG (para fondos sólidos).
+
+Tamaño recomendado:
+
+Personajes y enemigos: 64x64 píxeles (o 128x128 si quieres más detalle). El motor escalará la imagen automáticamente para que quepa en su caja.
+
+Objetos (iconos): 32x32 o 64x64.
+
+Fondos: 800x400 píxeles (el tamaño del canvas) o superior; se escalará para llenar el área.
+
+Spritesheets (animaciones):
+
+Si quieres animaciones (idle, caminar, atacar, etc.), necesitas una imagen que contenga varios fotogramas organizados en filas.
+
+Cada fotograma debe tener el mismo tamaño (ej. 64x64).
+
+El nombre del archivo debe terminar en _sheet (ej. player_sheet.png).
+
+Las filas suelen ser: fila 0 = idle, fila 1 = caminar, fila 2 = atacar, fila 3 = recibir daño, fila 4 = morir. (Puedes ajustar esto en el código).
+
+🏷️ Nombres de archivo según el ID
+El motor busca el archivo cuyo nombre coincida con el ID utilizado en los YAML o en el código. A continuación, una lista de los IDs más comunes y sus rutas esperadas.
+
+Personajes (characters/)
+ID	Ruta esperada	Descripción
+player	assets/characters/player.png	Sprite por defecto del héroe
+player_knight	assets/characters/player_knight.png	Caballero (clase)
+player_knight_alt	assets/characters/player_knight_alt.png	Variante de caballero
+player_sorceress	assets/characters/player_sorceress.png	Hechicera (clase vacía)
+player_monk	assets/characters/player_monk.png	Monje
+player_assassin	assets/characters/player_assassin.png	Asesino (pícaro)
+player_rogue	assets/characters/player_rogue.png	Pícaro
+player_paladin	assets/characters/player_paladin.png	Paladín (clérigo)
+gothic_knight_hero	assets/characters/gothic_knight_hero.png	Varrick (herrero)
+shadow_weaver	assets/characters/shadow_weaver.png	Silas (mercader)
+hero_silhouette	assets/characters/hero_silhouette.png	Silueta por defecto (fallback)
+Para spritesheets animados, añade _sheet al nombre, ej. player_sheet.png.
+
+Enemigos (enemies/)
+Los IDs de enemigos están definidos en enciclopedia.yaml. Por ejemplo:
+
+ID	Ruta esperada
+slime	assets/enemies/slime.png
+goblin	assets/enemies/goblin.png
+esqueleto	assets/enemies/esqueleto.png
+sombra_eco	assets/enemies/sombra_eco.png
+mimic	assets/enemies/mimic.png
+watcher	assets/enemies/watcher.png
+gothic_wraith	assets/enemies/gothic_wraith.png
+void_beast	assets/enemies/void_beast.png
+dragon	assets/enemies/dragon.png
+automata_laton	assets/enemies/automata_laton.png
+...	(cualquier otro ID que añadas)
+También soporta spritesheets con el mismo nombre + _sheet (ej. slime_sheet.png). En combatmanager.js puedes definir animaciones.
+
+Objetos (items/)
+Los objetos se buscan en assets/items/ con su ID. Ejemplos de enciclopedia.yaml:
+
+ID	Ruta esperada
+espada_oxidada	assets/items/espada_oxidada.png
+pocion_vida	assets/items/pocion_vida.png
+anillo_ecos	assets/items/anillo_ecos.png
+moneda_antigua	assets/items/moneda_antigua.png
+...	(cualquier ID)
+Si no se encuentra, se usará un icono por defecto (un cuadrado de color con una "?").
+
+Fondos (backgrounds/)
+El juego selecciona fondos según el tipo de sala o el piso. Los nombres usados en explorationmanager.js y gamescene.js son:
+
+Nombre	Uso típico
+bg_default	Fondo por defecto
+bg_camp	Sala de descanso
+bg_stairs	Escaleras
+bg_boss	Jefe final
+bg_corridor	Pasillo
+bg_brass	Piso de latón
+bg_void	Nexo del vacío
+bg_corrupted	Vacío corrupto
+bg_nexus	Nexo del destino
+Coloca tus imágenes en assets/backgrounds/ con esos nombres y extensión .png o .jpg.
+
+Efectos (fx/)
+Las partículas se generan por código (sangre, magia, etc.) y no usan sprites externos por defecto. Sin embargo, si deseas personalizar las partículas con sprites, puedes hacerlo modificando las configuraciones de Particles en gamescene.js. Coloca esos sprites en assets/fx/.
+
+🚀 Cómo cargar los sprites en el código
+El AssetLoader ya está integrado en el core. Para usarlo, por ejemplo en el módulo RPG, puedes hacer:
+
+javascript
+// En rpg.js, dentro de onEnter o al iniciar combate
+const img = await this.core.assets.getImage('characters/player.png');
+// o usando solo el ID si está en la lista de URLs por defecto
+const img = await this.core.assets.getImage('player');
+En combatmanager.js, para cargar el sprite de un enemigo:
+
+javascript
+// Cuando se genera un enemigo
+enemigo.img = await this.core.assets.getImage(`enemies/${enemigo.id}.png`);
+Luego, en el método draw, dibujas la imagen:
+
+javascript
+if (enemigo.img) {
+    ctx.drawImage(enemigo.img, x, y, 64, 64);
+} else {
+    // Placeholder de color
+    ctx.fillStyle = '#ff0000';
+    ctx.fillRect(x, y, 64, 64);
+}
+🎨 Ejemplo de spritesheet animado
+Si tienes un spritesheet (por ejemplo, player_sheet.png con 4 filas y 4 columnas), puedes definir animaciones en el manager correspondiente:
+
+javascript
+// En characterManager, al cargar el jugador
+this.player.sheet = await this.core.assets.getImage('characters/player_sheet.png');
+this.player.frameWidth = 64;
+this.player.frameHeight = 64;
+this.player.framesPerRow = 4;
+this.player.currentAnim = 'idle'; // idle, walk, attack, hit, death
+this.player.animFrame = 0;
+Y en el update, actualizar el frame según el tiempo. Esto es más avanzado, pero el AssetLoader ya te da la imagen.
+
+🌐 URLs por defecto (si no tienes assets locales)
+El AssetLoader tiene una lista interna de URLs remotas de Torre Profunda. Si no colocas un archivo en la carpeta local, el juego usará esas URLs automáticamente. Por ejemplo, player cargará desde:
+https://rosebud.ai/assets/player_knight.webp?91Mg
+
+Esto te permite tener un juego funcional sin necesidad de descargar nada.
+
+📥 Dónde conseguir sprites gratuitos
+Kenney.nl: Packs de sprites RPG gratuitos (https://kenney.nl/assets/tag:rpg)
+
+Game-icons.net: Iconos en SVG/PNG (https://game-icons.net/)
+
+OpenGameArt.org: Comunidad con miles de recursos libres
+
+Itch.io: Muchos packs gratuitos o de pago
+
+🧪 Prueba rápida
+Crea la carpeta assets/characters/ en tu proyecto.
+
+Descarga una imagen PNG de 64x64 (puede ser un cuadrado rojo) y nómbrala player.png.
+
+Abre el juego con servidor local. El personaje debería aparecer con tu imagen.
+
+Si no, abre la consola (F12) para ver si hay errores de carga.
+
+📌 Resumen
+Tipo	Carpeta	Nombre de archivo	Ejemplo
+Personaje	assets/characters/	ID.png	player_knight.png
+Enemigo	assets/enemies/	ID.png	slime.png
+Objeto	assets/items/	ID.png	pocion_vida.png
+Fondo	assets/backgrounds/	nombre.png	bg_default.png
+Spritesheet	assets/.../	ID_sheet.png	player_sheet.png
+Con esta estructura, el AssetLoader encontrará tus imágenes y las usará en el juego. ¡Ahora puedes personalizar Torre Profunda a tu gusto!
+

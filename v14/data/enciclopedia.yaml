@@ -1,0 +1,172 @@
+enemigos:
+  - id: "goblin"
+    nombre: "Goblin"
+    salud: 25
+    ataque: 6
+    defensa: 1
+    exp: 25
+    lore: "Pequeño, rápido y molesto."
+  - id: "esqueleto"
+    nombre: "Esqueleto"
+    salud: 35
+    ataque: 7
+    defensa: 3
+    exp: 30
+    lore: "Un guerrero caído que aún busca batalla."
+  - id: "centinela_laton"
+    nombre: "Centinela de Latón"
+    salud: 50
+    ataque: 8
+    defensa: 5
+    exp: 40
+    lore: "Autómata oxidado pero funcional."
+  - id: "engranaje_maldito"
+    nombre: "Engranaje Maldito"
+    salud: 40
+    ataque: 7
+    defensa: 4
+    exp: 35
+    lore: "Rueda con dientes afilados."
+  - id: "forjador_almas"
+    nombre: "Forjador de Almas"
+    salud: 60
+    ataque: 10
+    defensa: 6
+    exp: 50
+    lore: "Máquina que procesa almas."
+  - id: "entidad_fragmentada"
+    nombre: "Entidad Fragmentada"
+    salud: 45
+    ataque: 9
+    defensa: 3
+    exp: 45
+    lore: "Un ser inestable del vacío."
+  - id: "parasito_memorias"
+    nombre: "Parásito de Memorias"
+    salud: 35
+    ataque: 8
+    defensa: 2
+    exp: 40
+    lore: "Se alimenta de recuerdos."
+  - id: "sombra_eco"
+    nombre: "Eco Sombrío"
+    salud: 50
+    ataque: 10
+    defensa: 4
+    exp: 50
+    lore: "Sombra de un héroe caído."
+  - id: "watcher"
+    nombre: "Observador del Vacío"
+    salud: 70
+    ataque: 12
+    defensa: 7
+    exp: 70
+    lore: "Sus múltiples ojos ven tu fin."
+  - id: "llama_eco"
+    nombre: "Llama del Eco"
+    salud: 55
+    ataque: 11
+    defensa: 5
+    exp: 55
+    lore: "Fuego fatuo con voluntad propia."
+  - id: "constructo_igneo"
+    nombre: "Constructo Ígneo"
+    salud: 65
+    ataque: 13
+    defensa: 8
+    exp: 65
+    lore: "Roca fundida con odio."
+  - id: "guardian_forja"
+    nombre: "Guardián de la Forja"
+    salud: 80
+    ataque: 15
+    defensa: 10
+    exp: 80
+    lore: "Protector de los secretos del metal."
+  - id: "gothic_wraith"
+    nombre: "Eco Gótico"
+    salud: 75
+    ataque: 14
+    defensa: 9
+    exp: 75
+    lore: "Aparición de una era olvidada."
+  - id: "void_beast"
+    nombre: "Bestia del Vacío"
+    salud: 90
+    ataque: 18
+    defensa: 12
+    exp: 100
+    lore: "Criatura de pesadilla."
+  - id: "aparicion_corrupta"
+    nombre: "Aparición Corrupta"
+    salud: 85
+    ataque: 16
+    defensa: 10
+    exp: 90
+    lore: "Corrupción personificada."
+  - id: "jefe_final"
+    nombre: "Arquitecto del Olvido"
+    salud: 150
+    ataque: 20
+    defensa: 15
+    exp: 300
+    lore: "La mente que sostiene la torre."
+
+objetos:
+  - id: "pocion_vida"
+    nombre: "Poción de vida"
+    tipo: "consumible"
+    rareza: "comun"
+    descripcion: "Recupera 20 HP."
+    valor_esencia: 50
+  - id: "pocion_mana"
+    nombre: "Poción de maná"
+    tipo: "consumible"
+    rareza: "comun"
+    descripcion: "Recupera 20 MP."
+    valor_esencia: 50
+  - id: "espada_hierro"
+    nombre: "Espada de hierro"
+    tipo: "equipable"
+    rareza: "comun"
+    ranura: "mano_derecha"
+    modificadores:
+      F: 2
+    descripcion: "Una espada básica."
+    valor_esencia: 100
+  - id: "armadura_cuero"
+    nombre: "Armadura de cuero"
+    tipo: "equipable"
+    rareza: "comun"
+    ranura: "cuerpo"
+    modificadores:
+      defensa: 2
+    descripcion: "Ligera y flexible."
+    valor_esencia: 100
+
+materiales:
+  - id: "fragmento_hueso"
+    nombre: "Fragmento de hueso"
+    tier: 1
+    descripcion: "Restos de esqueletos."
+    valor_esencia: 20
+  - id: "esencia_viscosa"
+    nombre: "Esencia viscosa"
+    tier: 1
+    descripcion: "Restos de slime."
+    valor_esencia: 20
+  - id: "acero_almas"
+    nombre: "Acero de almas"
+    tier: 2
+    descripcion: "Metal imbuido con esencia."
+    valor_esencia: 50
+  - id: "cristal_vacio"
+    nombre: "Cristal del vacío"
+    tier: 3
+    descripcion: "Brilla con luz propia."
+    valor_esencia: 100
+  - id: "eter_absoluto"
+    nombre: "Éter absoluto"
+    tier: 4
+    descripcion: "Esencia pura de la torre."
+    valor_esencia: 200

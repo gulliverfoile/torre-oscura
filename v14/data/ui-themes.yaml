@@ -1,0 +1,33 @@
+themes:
+  gothic:
+    name: "Estilo Gótico"
+    colors:
+      primary: "#8b7355"
+      secondary: "#4a0404"
+      text: "#d1d1d1"
+      background: "#0a0a0c"
+      accent: "#ffd700"
+    bars:
+      hp: "█▓▒░"
+      mp: "█▓▒░"
+      sanity: "█▓▒░"
+      exp: "█▓▒░"
+    fonts:
+      main: "'Courier Prime', monospace"
+      title: "'Press Start 2P', cursive"
+  retro:
+    name: "Retro"
+    colors:
+      primary: "#0f0"
+      secondary: "#00f"
+      text: "#0f0"
+      background: "#000"
+      accent: "#ff0"
+    bars:
+      hp: "█▓▒░"
+      mp: "█▓▒░"
+      sanity: "█▓▒░"
+      exp: "█▓▒░"
+    fonts:
+      main: "'Courier New', monospace"
+      title: "'Courier New', monospace"

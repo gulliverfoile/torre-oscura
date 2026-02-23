@@ -1,0 +1,142 @@
+===========================================
+   GUÍA DE ASSETS PARA TORRE PROFUNDA
+===========================================
+Este documento explica cómo nombrar y organizar los archivos
+de imágenes (fondos y personajes) para que el juego los cargue
+automáticamente.
+
+Todas las imágenes deben estar en formato PNG (preferiblemente
+con transparencia) y ubicadas en las carpetas indicadas.
+
+===========================================
+1. FONDOS (backgrounds)
+===========================================
+Carpeta: assets/backgrounds/
+
+Los fondos se asignan automáticamente según el bioma del piso.
+Puedes personalizarlos editando data/enciclopedia.yaml o usando
+los nombres por defecto.
+
+📌 NOMBRES DE ARCHIVO POR DEFECTO (según bioma):
+
+  default.png          -> Fondo genérico (si no hay otro)
+  inicio.png           -> Sala de inicio
+  escalera_abajo.png   -> Sala con escaleras
+  combate.png          -> Sala de combate genérica
+  boss.png             -> Sala de jefe
+  tienda.png           -> Tienda (Varrick o mercader)
+  santuario.png        -> Santuario / descanso
+  tesoro.png           -> Sala de cofre
+  evento.png           -> Sala de evento narrativo
+
+  # Biomas específicos (según piso)
+  shadows.png          -> Pisos 0-9 (Sombras)
+  brass.png            -> Pisos 10-19 (Bastión de Latón)
+  void.png             -> Pisos 20-29 (Nexo del Vacío)
+  fire.png             -> Pisos 30-39 (Forjas Eternas)
+  corrupted.png        -> Pisos 40-59 (Vacío Corrupto)
+  nexus.png            -> Pisos 60+ (Nexo del Destino)
+
+📌 CÓMO SE USA:
+  En explorationManager.draw() se llama a una función que
+  elige el fondo según el bioma y tipo de sala. Si no existe
+  el archivo, se usa default.png.
+
+===========================================
+2. PERSONAJES (jugador y NPCs)
+===========================================
+Carpeta: assets/characters/
+
+📌 JUGADOR:
+  Archivo: player.png
+  (Puedes tener variantes según la clase, pero el juego carga
+   siempre player.png por defecto. Si quieres skins, puedes
+   cambiar la lógica para que use otro nombre según la clase)
+
+📌 NPCs CLAVE (eventos):
+  varrick.png          -> Herrero Varrick
+  silas.png            -> Mercader de ecos (Silas)
+  carnicero.png        -> El carnicero retirado (para la tienda)
+
+📌 OTROS NPCs (para eventos futuros):
+  guardia.png
+  mercader.png
+  ermitano.png
+  etc.
+
+📌 NOTA: Los NPCs se usan en eventos narrativos. Para que
+  aparezcan, en el YAML del evento debes incluir el campo
+  "sprite": "nombre_del_archivo.png"
+
+===========================================
+3. ENEMIGOS
+===========================================
+Carpeta: assets/enemies/
+
+Los enemigos se cargan automáticamente usando su ID (definido
+en enciclopedia.yaml) como nombre de archivo.
+
+Ejemplo: si tienes un enemigo con id: "slime", el juego buscará
+  assets/enemies/slime.png
+
+📌 LISTA DE ENEMIGOS POR DEFECTO (puedes añadir más):
+  slime.png
+  goblin.png
+  esqueleto.png
+  espectro.png
+  dragon.png
+  guardia_laton.png
+  aparicion_corrupta.png
+  etc.
+
+===========================================
+4. PROMPT PARA GENERAR FONDOS (IA)
+===========================================
+Copia y pega este prompt en una IA de imágenes (Midjourney,
+DALL-E, Stable Diffusion, etc.) para generar fondos
+coherentes con el estilo del juego.
+
+"""
+Genera un fondo de pantalla para un juego RPG gótico oscuro
+en 2D, con perspectiva cenital (vista desde arriba). El estilo
+debe ser similar a dungeon crawler clásico, con texturas
+detalladas pero oscuras. La imagen debe ser cuadrada (800x800)
+para usar como fondo de sala.
+
+Biomas específicos:
+
+1. "Sombras": mazmorra de piedra gris, neblina tenue, velas.
+2. "Bastión de Latón": metal oxidado, engranajes, tuberías de vapor.
+3. "Nexo del Vacío": espacio estrellado, distorsiones, geometrías imposibles.
+4. "Forjas Eternas": lava, yunques, cadenas, calor.
+5. "Vacío Corrupto": estática, glitch, colores deformados.
+6. "Nexo del Destino": mármol blanco, hilos dorados, relojes.
+
+La imagen no debe tener personajes ni UI, solo el suelo y paredes
+o el entorno. Usa colores oscuros con toques de color (verde,
+dorado, morado) según el bioma.
+"""
+
+===========================================
+5. PROMPT PARA GENERAR PERSONAJES (IA)
+===========================================
+"""
+Genera un sprite de personaje para un juego RPG gótico oscuro,
+estilo 2D, vista de perfil o 3/4, con armadura y capa.
+El personaje debe ser un héroe (guerrero) con armadura oscura,
+espada, y aspecto sombrío. Fondo transparente, formato PNG.
+Estilo pixel art suave o ilustración detallada, pero que se
+vea bien en tamaño pequeño (64x64 píxeles aproximadamente).
+"""
+
+===========================================
+NOTAS FINALES
+===========================================
+- Todos los archivos deben estar en minúsculas y sin espacios.
+- El assetManager.js se encarga de cargarlos y usar placeholders
+  si no existen.
+- Si añades nuevos biomas o tipos de sala, recuerda actualizar
+  la función que selecciona el fondo en explorationManager o
+  en el renderer.
+
+¡A crear! 🎨
