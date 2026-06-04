@@ -1,0 +1,1232 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Generador Pixel Art Definitivo – Usable</title>
+  <style>
+    :root {
+      --bg: #1a1a2e; --text: #e0e0e0; --accent: #ff6600;
+      --border: #2a2a4a; --input-bg: #12122a; --success: #2ecc71; --error: #e74c3c;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      background: #0a0a0a; color: var(--text);
+      display: flex; flex-direction: column; align-items: center;
+      padding: 20px; min-height: 100vh;
+    }
+    h1, h2, h3 { color: var(--accent); }
+    .panel {
+      background: var(--bg); border: 1px solid var(--border);
+      border-radius: 12px; padding: 20px; max-width: 1100px;
+      width: 100%; margin-bottom: 20px;
+    }
+    .tabs { display: flex; gap: 5px; margin-bottom: 15px; }
+    .tab {
+      padding: 8px 16px; background: var(--border);
+      border-radius: 8px 8px 0 0; cursor: pointer; opacity: 0.7;
+    }
+    .tab.active { background: var(--accent); color: #000; opacity: 1; font-weight: bold; }
+    .tab-content {
+      display: none; background: var(--bg);
+      border: 1px solid var(--border); border-radius: 0 12px 12px 12px; padding: 20px;
+    }
+    .tab-content.active { display: block; }
+    .controles {
+      display: flex; flex-wrap: wrap; gap: 10px;
+      align-items: center; margin-bottom: 15px;
+    }
+    label { font-size: 0.9rem; color: #aab; display: flex; align-items: center; gap: 4px; }
+    select, input, button {
+      background: var(--input-bg); border: 1px solid var(--border);
+      border-radius: 6px; color: var(--text); padding: 6px 10px;
+      font-size: 0.9rem; font-family: inherit;
+    }
+    button {
+      background: var(--accent); border: none; color: #000;
+      font-weight: bold; cursor: pointer;
+    }
+    button:hover { filter: brightness(1.2); }
+    button.secundario { background: var(--border); color: var(--text); }
+    button.activo { background: var(--success); }
+    .checkbox-list { display: flex; flex-wrap: wrap; gap: 10px; margin: 8px 0; }
+    .anim-preview {
+      display: flex; flex-direction: column; align-items: center;
+      margin: 15px 0; position: relative;
+    }
+    canvas {
+      border: 1px solid var(--border); border-radius: 8px;
+      background: #000; image-rendering: pixelated;
+    }
+    .info { font-size: 0.8rem; color: #99a; margin-top: 5px; }
+    .status.ok { color: var(--success); } .status.error { color: var(--error); }
+    .edit-tools {
+      display: flex; gap: 5px; flex-wrap: wrap; margin-top: 10px;
+    }
+    .palette-colors {
+      display: flex; gap: 4px; flex-wrap: wrap; margin: 5px 0;
+    }
+    .palette-colors div {
+      width: 20px; height: 20px; border: 1px solid var(--border); cursor: pointer;
+    }
+    .linea-tiempo {
+      display: flex; gap: 5px; overflow-x: auto; padding: 10px 0;
+      background: var(--border); border-radius: 8px; margin: 10px 0;
+    }
+    .frame-miniatura {
+      width: 50px; height: 50px; border: 2px solid var(--border);
+      border-radius: 4px; cursor: pointer; background: #000;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 10px; color: #aaa; flex-shrink: 0;
+    }
+    .frame-miniatura.activo { border-color: var(--accent); box-shadow: 0 0 10px var(--accent); }
+    .preview-hover {
+      position: absolute; pointer-events: none; z-index: 100;
+      border: 1px solid var(--accent); background: #000; display: none;
+    }
+    .zoom-controls { display: flex; gap: 5px; align-items: center; }
+    .offset-group {
+      display: flex; gap: 4px; align-items: center;
+      font-size: 0.8rem; color: #aab;
+    }
+    .offset-group input {
+      width: 45px; text-align: center;
+    }
+    .parte-row {
+      display: flex; align-items: center; gap: 10px; margin-bottom: 5px;
+      flex-wrap: wrap;
+    }
+    .tooltip {
+      position: relative; cursor: help;
+      border-bottom: 1px dotted var(--accent);
+    }
+    .tooltip::after {
+      content: attr(data-tip);
+      position: absolute; left: 0; top: 1.5em;
+      background: #333; color: #fff; padding: 4px 8px;
+      border-radius: 4px; font-size: 0.8rem; white-space: nowrap;
+      z-index: 10; opacity: 0; pointer-events: none; transition: opacity 0.2s;
+    }
+    .tooltip:hover::after { opacity: 1; }
+  </style>
+</head>
+<body>
+  <h1>🎞️ Generador Pixel Art Definitivo – Usable</h1>
+  <div class="panel">
+    <div class="tabs">
+      <div class="tab active" data-tab="jugador">👤 Jugador</div>
+      <div class="tab" data-tab="enemigos">👾 Enemigos</div>
+    </div>
+
+    <!-- PESTAÑA JUGADOR -->
+    <div id="tab-jugador" class="tab-content active">
+      <h2>Personalización del Jugador</h2>
+      <div class="controles">
+        <label>Vista: <select id="jugVista"><option value="frontal">Frontal</option><option value="lateral" selected>Lateral</option></select></label>
+        <label>Paleta: <select id="jugPaleta"><option value="default">Default</option><option value="fuego">Fuego</option><option value="hielo">Hielo</option><option value="bosque">Bosque</option></select></label>
+        <button id="jugAleatorio">🎲 Aleatorio y generar</button>
+        <button id="jugDescargar">⬇️ Descargar PNG</button>
+        <button id="jugGuardarConfig">💾 Guardar config</button>
+        <input type="file" id="jugCargarConfig" accept=".json" style="display:none;">
+        <button id="jugCargarConfigBtn">📂 Cargar config</button>
+      </div>
+      <div id="jug-partes-container">
+        <!-- partes dinámicas con offset -->
+      </div>
+      <div class="controles">
+        <label>Cargar PNG externo: <input type="file" id="jugCargarParte" accept="image/png"></label>
+        <select id="jugParteExterna"><option value="">Asignar a...</option></select>
+        <button id="jugAplicarImagen">Aplicar imagen</button>
+        <div id="jugPreviewImagen" style="width:40px;height:40px;border:1px solid var(--border);display:inline-block;background:#000;"></div>
+        <button id="jugLimpiarExternas" class="secundario">Limpiar externas</button>
+      </div>
+      <div class="controles">
+        <label>Cargar JSON de parte: <input type="file" id="jugCargarJSON" accept=".json"></label>
+        <button id="jugCargarJSONBtn">Cargar JSON</button>
+      </div>
+      <h3>Accesorios</h3>
+      <div class="checkbox-list" id="jugAccesorios"></div>
+      <div class="controles">
+        <label>Animación: <select id="jugAnimTipo"><option value="ataque">Ataque</option><option value="caminar">Caminar</option></select></label>
+        <label>Frames: <input type="number" id="jugFrames" value="6" min="3" max="20" step="1" style="width:60px;"></label>
+        <button id="jugReproducir">▶️ Reproducir</button>
+        <button id="jugDetener">⏹️ Detener</button>
+        <button id="jugDanio">💥 Simular daño</button>
+      </div>
+      <div class="anim-preview">
+        <canvas id="jugAnimCanvas" width="256" height="256"></canvas>
+        <div class="preview-hover" id="jugPreviewHover"><canvas width="64" height="64"></canvas></div>
+        <div class="info" id="jugInfo">Haz clic en Aleatorio para empezar.</div>
+      </div>
+      <h3>Línea de tiempo</h3>
+      <div class="linea-tiempo" id="jugLineaTiempo"></div>
+      <button id="jugExportarSpritesheet">📤 Exportar spritesheet</button>
+      <h3>Editor de píxeles</h3>
+      <div class="edit-tools">
+        <button id="jugModoEditar" class="secundario">🖌️ Modo edición</button>
+        <button id="jugHerramientaLapiz" class="secundario activo">✏️ Lápiz</button>
+        <button id="jugHerramientaBorrador" class="secundario">🧹 Borrador</button>
+        <button id="jugHerramientaRelleno" class="secundario">🪣 Relleno</button>
+        <button id="jugHerramientaCuentagotas" class="secundario">💉 Cuentagotas</button>
+        <div class="zoom-controls">
+          <button id="jugZoomIn">➕</button>
+          <span id="jugZoomNivel">1x</span>
+          <button id="jugZoomOut">➖</button>
+        </div>
+        <button id="jugGuardarEdicion" class="secundario">💾 Guardar edición</button>
+        <button id="jugDeshacerEdicion" class="secundario">↩️ Deshacer</button>
+      </div>
+      <div class="palette-colors" id="jugPaletaColores"></div>
+    </div>
+
+    <!-- PESTAÑA ENEMIGOS -->
+    <div id="tab-enemigos" class="tab-content">
+      <h2>Personalización de Enemigos</h2>
+      <div class="controles">
+        <label>Vista: <select id="eneVista"><option value="frontal">Frontal</option><option value="lateral" selected>Lateral</option></select></label>
+        <label>Tipo: <select id="eneTipo"><option value="humanoide">Humanoide</option><option value="bestia">Bestia</option></select></label>
+        <label>Rareza: <select id="eneRareza"><option value="comun">Común</option><option value="elite" selected>Élite</option><option value="jefe">Jefe</option></select></label>
+        <label>Paleta: <select id="enePaleta"><option value="default">Default</option><option value="fuego">Fuego</option><option value="hielo">Hielo</option><option value="bosque">Bosque</option></select></label>
+        <label>Semilla: <input type="text" id="eneSemilla" value="semilla1" size="8"></label>
+        <button id="eneAleatorio">🎲 Aleatorio y generar</button>
+        <button id="eneDescargar">⬇️ Descargar PNG</button>
+        <button id="eneGuardarConfig">💾 Guardar config</button>
+        <input type="file" id="eneCargarConfig" accept=".json" style="display:none;">
+        <button id="eneCargarConfigBtn">📂 Cargar config</button>
+      </div>
+      <div id="ene-partes-container"></div>
+      <div class="controles">
+        <label>Cargar PNG externo: <input type="file" id="eneCargarParte" accept="image/png"></label>
+        <select id="eneParteExterna"><option value="">Asignar a...</option></select>
+        <button id="eneAplicarImagen">Aplicar imagen</button>
+        <div id="enePreviewImagen" style="width:40px;height:40px;border:1px solid var(--border);display:inline-block;background:#000;"></div>
+        <button id="eneLimpiarExternas" class="secundario">Limpiar externas</button>
+      </div>
+      <div class="controles">
+        <label>Cargar JSON de parte: <input type="file" id="eneCargarJSON" accept=".json"></label>
+        <button id="eneCargarJSONBtn">Cargar JSON</button>
+      </div>
+      <h3>Accesorios</h3>
+      <div class="checkbox-list" id="eneAccesorios"></div>
+      <div class="controles">
+        <label>Animación: <select id="eneAnimTipo"><option value="ataque">Ataque</option><option value="caminar">Caminar</option></select></label>
+        <label>Frames: <input type="number" id="eneFrames" value="6" min="3" max="20" step="1" style="width:60px;"></label>
+        <button id="eneReproducir">▶️ Reproducir</button>
+        <button id="eneDetener">⏹️ Detener</button>
+        <button id="eneDanio">💥 Simular daño</button>
+      </div>
+      <div class="anim-preview">
+        <canvas id="eneAnimCanvas" width="256" height="256"></canvas>
+        <div class="preview-hover" id="enePreviewHover"><canvas width="64" height="64"></canvas></div>
+        <div class="info" id="eneInfo">Haz clic en Aleatorio para empezar.</div>
+      </div>
+      <h3>Línea de tiempo</h3>
+      <div class="linea-tiempo" id="eneLineaTiempo"></div>
+      <button id="eneExportarSpritesheet">📤 Exportar spritesheet</button>
+      <h3>Editor de píxeles</h3>
+      <div class="edit-tools">
+        <button id="eneModoEditar" class="secundario">🖌️ Modo edición</button>
+        <button id="eneHerramientaLapiz" class="secundario activo">✏️ Lápiz</button>
+        <button id="eneHerramientaBorrador" class="secundario">🧹 Borrador</button>
+        <button id="eneHerramientaRelleno" class="secundario">🪣 Relleno</button>
+        <button id="eneHerramientaCuentagotas" class="secundario">💉 Cuentagotas</button>
+        <div class="zoom-controls">
+          <button id="eneZoomIn">➕</button>
+          <span id="eneZoomNivel">1x</span>
+          <button id="eneZoomOut">➖</button>
+        </div>
+        <button id="eneGuardarEdicion" class="secundario">💾 Guardar edición</button>
+        <button id="eneDeshacerEdicion" class="secundario">↩️ Deshacer</button>
+      </div>
+      <div class="palette-colors" id="enePaletaColores"></div>
+    </div>
+  </div>
+
+  <script>
+    (() => {
+      // ===================== PALETAS =====================
+      const PALETAS = {
+        default: {
+          piel:"#ffccaa", piel_sombra:"#cc9977", piel_brillo:"#ffe0cc",
+          armadura:"#557799", armadura_sombra:"#334a66", armadura_brillo:"#7799bb",
+          tela:"#3366cc", tela_sombra:"#1a3399", tela_brillo:"#5588ee",
+          metal:"#aaaaaa", metal_sombra:"#777777", metal_brillo:"#cccccc",
+          cuero:"#553300", cuero_sombra:"#331a00", cuero_brillo:"#775522",
+          detalle:"#000000"
+        },
+        fuego: {
+          piel:"#ff9966", piel_sombra:"#cc6633", piel_brillo:"#ffcc99",
+          armadura:"#cc3300", armadura_sombra:"#991a00", armadura_brillo:"#ff5522",
+          tela:"#ff6600", tela_sombra:"#cc4400", tela_brillo:"#ff9933",
+          metal:"#ffcc00", metal_sombra:"#cc9900", metal_brillo:"#ffdd44",
+          cuero:"#660000", cuero_sombra:"#330000", cuero_brillo:"#993333",
+          detalle:"#000000"
+        },
+        hielo: {
+          piel:"#aaccff", piel_sombra:"#7799cc", piel_brillo:"#ddeeff",
+          armadura:"#6699cc", armadura_sombra:"#336699", armadura_brillo:"#99bbee",
+          tela:"#aaddff", tela_sombra:"#7799cc", tela_brillo:"#ddeeff",
+          metal:"#ffffff", metal_sombra:"#cccccc", metal_brillo:"#ffffff",
+          cuero:"#334455", cuero_sombra:"#112233", cuero_brillo:"#556677",
+          detalle:"#000000"
+        },
+        bosque: {
+          piel:"#ccaa88", piel_sombra:"#997755", piel_brillo:"#eeddcc",
+          armadura:"#557744", armadura_sombra:"#334422", armadura_brillo:"#779966",
+          tela:"#88aa55", tela_sombra:"#668833", tela_brillo:"#aacc77",
+          metal:"#aaaa55", metal_sombra:"#888833", metal_brillo:"#cccc77",
+          cuero:"#443322", cuero_sombra:"#221100", cuero_brillo:"#665544",
+          detalle:"#000000"
+        }
+      };
+
+      // ===================== PARTES BASE =====================
+      const PARTES_BASE = {
+        frontal: {
+          humanoide: {
+            cabeza: [
+              { id:"cabeza_pixel", pivote:[32,24], matriz: [
+                "....####....",
+                "..########..",
+                ".##########.",
+                "##..####..##",
+                "##..####..##",
+                "############",
+                ".##########.",
+                "..########.."
+              ], colores: {'#':'piel','.':null} },
+              { id:"cabeza_casco", pivote:[32,24], capas:[
+                {tipo:"elipse",x:32,y:28,rx:20,ry:18,color:"piel",sombra:"piel_sombra",brillo:"piel_brillo",borde:"detalle"},
+                {tipo:"elipse",x:32,y:14,rx:22,ry:14,color:"metal",sombra:"metal_sombra",brillo:"metal_brillo",borde:"detalle"}
+              ]},
+              { id:"cabeza_elfo", pivote:[32,24], matriz: [
+                "....####....",
+                "...######...",
+                "..########..",
+                ".##########.",
+                "##..####..##",
+                "############",
+                ".##########.",
+                "..##....##.."
+              ], colores: {'#':'piel','.':null} }
+            ],
+            cuerpo: [
+              { id:"cuerpo_armadura", pivote:[32,8], capas:[
+                {tipo:"rect",x:14,y:8,w:36,h:50,color:"armadura",sombra:"armadura_sombra",brillo:"armadura_brillo",borde:"detalle"},
+                {tipo:"rect",x:18,y:20,w:28,h:4,color:"metal",sombra:"metal_sombra",brillo:"metal_brillo"},
+                {tipo:"elipse",x:32,y:22,rx:6,ry:4,color:"metal_brillo"}
+              ]},
+              { id:"cuerpo_tunica", pivote:[32,8], capas:[
+                {tipo:"rect",x:16,y:8,w:32,h:50,color:"tela",sombra:"tela_sombra",brillo:"tela_brillo",borde:"detalle"},
+                {tipo:"rect",x:20,y:30,w:24,h:2,color:"tela_sombra"}
+              ]}
+            ],
+            brazo_izq: [
+              { id:"brazo_izq_normal", pivote:[20,8], capas:[
+                {tipo:"rect",x:4,y:8,w:16,h:48,color:"tela",sombra:"tela_sombra",brillo:"tela_brillo",borde:"detalle"}
+              ]}
+            ],
+            brazo_der: [
+              { id:"brazo_der_espada", pivote:[44,8], capas:[
+                {tipo:"rect",x:44,y:8,w:16,h:48,color:"tela",sombra:"tela_sombra",brillo:"tela_brillo",borde:"detalle"},
+                {tipo:"rect",x:58,y:4,w:14,h:2,color:"metal",sombra:"metal_sombra",brillo:"metal_brillo"}
+              ]}
+            ],
+            piernas: [
+              { id:"piernas_normales", pivote:[32,4], capas:[
+                {tipo:"rect",x:18,y:4,w:12,h:44,color:"tela",sombra:"tela_sombra",brillo:"tela_brillo",borde:"detalle"},
+                {tipo:"rect",x:34,y:4,w:12,h:44,color:"tela",sombra:"tela_sombra",brillo:"tela_brillo",borde:"detalle"}
+              ]}
+            ]
+          },
+          bestia: {
+            cabeza: [
+              { id:"cabeza_dragon", pivote:[32,8], capas:[
+                {tipo:"poligono",puntos:[[32,8],[12,48],[52,48]],color:"piel",sombra:"piel_sombra",brillo:"piel_brillo",borde:"detalle"},
+                {tipo:"elipse",x:32,y:36,rx:8,ry:6,color:"metal_brillo"}
+              ]}
+            ],
+            cuerpo: [
+              { id:"cuerpo_escamas", pivote:[32,8], capas:[
+                {tipo:"elipse",x:32,y:36,rx:20,ry:28,color:"armadura",sombra:"armadura_sombra",brillo:"armadura_brillo",borde:"detalle"},
+                {tipo:"dither",x:12,y:10,w:40,h:40,color1:"armadura",color2:"armadura_sombra",patron:"checker"}
+              ]}
+            ],
+            brazo_izq: [
+              { id:"brazo_izq_garra", pivote:[12,12], capas:[
+                {tipo:"rect",x:4,y:12,w:16,h:40,color:"cuero",sombra:"cuero_sombra",brillo:"cuero_brillo",borde:"detalle"}
+              ]}
+            ],
+            brazo_der: [
+              { id:"brazo_der_garra", pivote:[52,12], capas:[
+                {tipo:"rect",x:44,y:12,w:16,h:40,color:"cuero",sombra:"cuero_sombra",brillo:"cuero_brillo",borde:"detalle"},
+                {tipo:"poligono",puntos:[[60,16],[64,4],[72,12]],color:"metal"}
+              ]}
+            ],
+            piernas: [
+              { id:"piernas_pezuñas", pivote:[32,4], capas:[
+                {tipo:"rect",x:18,y:4,w:12,h:44,color:"cuero",sombra:"cuero_sombra",brillo:"cuero_brillo",borde:"detalle"},
+                {tipo:"rect",x:34,y:4,w:12,h:44,color:"cuero",sombra:"cuero_sombra",brillo:"cuero_brillo",borde:"detalle"},
+                {tipo:"rect",x:18,y:44,w:12,h:4,color:"metal"},
+                {tipo:"rect",x:34,y:44,w:12,h:4,color:"metal"}
+              ]}
+            ]
+          }
+        },
+        lateral: {
+          humanoide: {
+            cabeza: [
+              { id:"cabeza_lat_casco", pivote:[32,28], capas:[
+                {tipo:"elipse",x:32,y:28,rx:22,ry:20,color:"piel",sombra:"piel_sombra",brillo:"piel_brillo",borde:"detalle"},
+                {tipo:"elipse",x:32,y:14,rx:24,ry:12,color:"metal",sombra:"metal_sombra",brillo:"metal_brillo",borde:"detalle"}
+              ]}
+            ],
+            cuerpo: [
+              { id:"cuerpo_lat_armadura", pivote:[32,8], capas:[
+                {tipo:"rect",x:12,y:8,w:40,h:56,color:"armadura",sombra:"armadura_sombra",brillo:"armadura_brillo",borde:"detalle"},
+                {tipo:"rect",x:16,y:30,w:32,h:4,color:"metal",sombra:"metal_sombra"}
+              ]}
+            ],
+            brazo_der: [
+              { id:"brazo_lat_espada", pivote:[32,16], capas:[
+                {tipo:"rect",x:32,y:16,w:32,h:16,color:"tela",sombra:"tela_sombra",brillo:"tela_brillo",borde:"detalle"},
+                {tipo:"rect",x:56,y:10,w:16,h:2,color:"metal",sombra:"metal_sombra",brillo:"metal_brillo"}
+              ]}
+            ],
+            piernas: [
+              { id:"piernas_lat_normales", pivote:[32,4], capas:[
+                {tipo:"rect",x:20,y:4,w:20,h:48,color:"tela",sombra:"tela_sombra",brillo:"tela_brillo",borde:"detalle"},
+                {tipo:"rect",x:40,y:4,w:20,h:48,color:"tela",sombra:"tela_sombra",brillo:"tela_brillo",borde:"detalle"},
+                {tipo:"rect",x:18,y:44,w:24,h:8,color:"cuero"},
+                {tipo:"rect",x:38,y:44,w:24,h:8,color:"cuero"}
+              ]}
+            ]
+          },
+          bestia: {
+            cabeza: [
+              { id:"cabeza_lat_cuernos", pivote:[36,24], capas:[
+                {tipo:"elipse",x:36,y:24,rx:24,ry:20,color:"piel",sombra:"piel_sombra",brillo:"piel_brillo",borde:"detalle"},
+                {tipo:"poligono",puntos:[[20,20],[8,4],[28,12]],color:"metal",sombra:"metal_sombra"}
+              ]}
+            ],
+            cuerpo: [
+              { id:"cuerpo_lat_robusto", pivote:[36,8], capas:[
+                {tipo:"elipse",x:36,y:36,rx:28,ry:32,color:"armadura",sombra:"armadura_sombra",brillo:"armadura_brillo",borde:"detalle"}
+              ]}
+            ],
+            brazo_der: [
+              { id:"brazo_lat_garra", pivote:[36,16], capas:[
+                {tipo:"rect",x:32,y:16,w:32,h:16,color:"cuero",sombra:"cuero_sombra",brillo:"cuero_brillo",borde:"detalle"},
+                {tipo:"poligono",puntos:[[60,12],[68,8],[60,20]],color:"metal"}
+              ]}
+            ],
+            piernas: [
+              { id:"piernas_lat_robustas", pivote:[32,4], capas:[
+                {tipo:"rect",x:20,y:4,w:20,h:48,color:"tela",sombra:"tela_sombra",brillo:"tela_brillo",borde:"detalle"},
+                {tipo:"rect",x:40,y:4,w:20,h:48,color:"tela",sombra:"tela_sombra",brillo:"tela_brillo",borde:"detalle"}
+              ]}
+            ]
+          }
+        }
+      };
+
+      // ===================== ACCESORIOS =====================
+      const ACCESORIOS = [
+        { id:"cuernos", tipo:"cabeza", pivote:[32,8], capas:[
+          {tipo:"poligono",puntos:[[20,16],[6,0],[32,8]],color:"metal",sombra:"metal_sombra",brillo:"metal_brillo",borde:"detalle"}
+        ]},
+        { id:"alas", tipo:"espalda", pivote:[20,40], capas:[
+          {tipo:"poligono",puntos:[[0,40],[40,10],[20,60]],color:"tela",sombra:"tela_sombra",brillo:"tela_brillo",borde:"detalle"}
+        ]},
+        { id:"espada_larga", tipo:"mano", pivote:[56,10], capas:[
+          {tipo:"rect",x:56,y:10,w:24,h:4,color:"metal",sombra:"metal_sombra",brillo:"metal_brillo"},
+          {tipo:"rect",x:60,y:8,w:8,h:8,color:"metal_brillo"}
+        ]},
+        { id:"corona", tipo:"cabeza", pivote:[32,16], capas:[
+          {tipo:"poligono",puntos:[[20,16],[28,4],[36,16]],color:"metal",sombra:"metal_sombra",brillo:"metal_brillo",borde:"detalle"}
+        ]},
+        { id:"escudo", tipo:"brazo_izq", pivote:[8,32], capas:[
+          {tipo:"elipse",x:8,y:32,rx:16,ry:24,color:"armadura",sombra:"armadura_sombra",brillo:"armadura_brillo",borde:"detalle"},
+          {tipo:"elipse",x:8,y:32,rx:8,ry:12,color:"metal_brillo"}
+        ]}
+      ];
+
+      // ===================== REGLAS =====================
+      const REGLAS_COMPATIBILIDAD = [
+        { tipo:"exclusion", partes:["alas","capa"], mensaje:"Alas y capa no pueden coexistir" },
+        { tipo:"exclusion", partes:["corona","cabeza_casco"], mensaje:"Corona incompatible con casco" }
+      ];
+      const REGLAS_ENEMIGOS = [
+        { condicion:{tipo:"humanoide",rareza:"elite"}, variantes_base:{cuerpo:1,cabeza:1}, accesorios:["cuernos","espada_larga"], probabilidad:0.9 },
+        { condicion:{tipo:"humanoide",rareza:"jefe"}, variantes_base:{cuerpo:1,cabeza:1,piernas:0}, accesorios:["corona","alas","espada_larga","escudo"], probabilidad:1.0 },
+        { condicion:{tipo:"bestia",rareza:"elite"}, variantes_base:{cabeza:0}, accesorios:["cuernos"], probabilidad:0.9 },
+        { condicion:{tipo:"bestia",rareza:"jefe"}, variantes_base:{cabeza:0,cuerpo:0}, accesorios:["corona","alas"], probabilidad:1.0 }
+      ];
+
+      // ===================== UTILIDADES =====================
+      const parteToId = (prefijo, nombre) =>
+        prefijo + nombre.split('_').map(p => p[0].toUpperCase() + p.slice(1)).join('');
+      const crearRNG = semilla => {
+        let hash = 0;
+        for (let i = 0; i < semilla.length; i++) hash = ((hash << 5) - hash + semilla.charCodeAt(i)) | 0;
+        return () => { hash = (hash * 1664525 + 1013904223) | 0; return (hash >>> 0) / 4294967296; };
+      };
+
+      // ===================== DIBUJO DE CAPAS =====================
+      const resolverColor = (ref, paleta) => PALETAS[paleta]?.[ref] || ref;
+      const dibujarForma = (ctx, capa) => {
+        ctx.beginPath();
+        if (capa.tipo === 'rect') ctx.rect(capa.x, capa.y, capa.w, capa.h);
+        else if (capa.tipo === 'elipse') ctx.ellipse(capa.x, capa.y, capa.rx, capa.ry, 0, 0, Math.PI*2);
+        else if (capa.tipo === 'poligono' && capa.puntos?.length) {
+          ctx.moveTo(capa.puntos[0][0], capa.puntos[0][1]);
+          for (let i = 1; i < capa.puntos.length; i++) ctx.lineTo(capa.puntos[i][0], capa.puntos[i][1]);
+          ctx.closePath();
+        }
+      };
+      const aplicarSombreado = (ctx, capa, paleta) => {
+        if (capa.sombra) {
+          ctx.save(); dibujarForma(ctx, capa); ctx.clip();
+          ctx.fillStyle = resolverColor(capa.sombra, paleta); ctx.globalAlpha = 0.3;
+          ctx.fillRect(capa.x-10, capa.y-10, capa.w||capa.rx*2||60, capa.h||capa.ry*2||60);
+          ctx.restore();
+        }
+        if (capa.brillo) {
+          ctx.save(); dibujarForma(ctx, capa); ctx.clip();
+          ctx.fillStyle = resolverColor(capa.brillo, paleta); ctx.globalAlpha = 0.4;
+          const w = capa.w || capa.rx || 30, h = capa.h || capa.ry || 30;
+          ctx.fillRect(capa.x-5, capa.y-5, w/2, h/2);
+          ctx.restore();
+        }
+      };
+      const dibujarCapa = (ctx, capa, paleta) => {
+        if (capa.tipo === 'dither') {
+          const c1 = resolverColor(capa.color1, paleta), c2 = resolverColor(capa.color2, paleta);
+          for (let y = capa.y; y < capa.y + capa.h; y += 4)
+            for (let x = capa.x; x < capa.x + capa.w; x += 4)
+              ctx.fillRect(x, y, 4, 4), ctx.fillStyle = ((Math.floor(x/4) + Math.floor(y/4)) % 2 === 0) ? c1 : c2;
+          return;
+        }
+        ctx.fillStyle = resolverColor(capa.color, paleta);
+        dibujarForma(ctx, capa); ctx.fill();
+        aplicarSombreado(ctx, capa, paleta);
+        if (capa.borde) { ctx.strokeStyle = resolverColor(capa.borde, paleta); ctx.lineWidth = capa.bordeAncho||1; dibujarForma(ctx, capa); ctx.stroke(); }
+      };
+      const dibujarMatriz = (ctx, matriz, colores, paleta, ox, oy, ps=2) => {
+        for (let y=0; y<matriz.length; y++)
+          for (let x=0; x<matriz[y].length; x++) {
+            const ch = matriz[y][x]; if (ch==='.') continue;
+            ctx.fillStyle = resolverColor(colores[ch]||ch, paleta);
+            ctx.fillRect(ox + x*ps, oy + y*ps, ps, ps);
+          }
+      };
+      const crearCanvasDeParte = (def, dims, paleta) => {
+        const canvas = document.createElement('canvas');
+        canvas.width = dims[0]; canvas.height = dims[1];
+        const ctx = canvas.getContext('2d');
+        if (def.matriz) {
+          const ps = Math.min(dims[0]/(def.matriz[0].length*2), dims[1]/(def.matriz.length*2))*2;
+          const ox = (dims[0] - def.matriz[0].length*ps)/2, oy = (dims[1] - def.matriz.length*ps)/2;
+          dibujarMatriz(ctx, def.matriz, def.colores, paleta, ox, oy, ps);
+        }
+        if (def.capas) def.capas.forEach(c => dibujarCapa(ctx, c, paleta));
+        if (def.imagen) ctx.drawImage(def.imagen, 0, 0, dims[0], dims[1]);
+        return { canvas, pivote: def.pivote || [dims[0]/2, dims[1]/2] };
+      };
+
+      // ===================== GENERACIÓN DE SPRITE =====================
+      const generarSpriteData = (vista, tipo, seleccion, accsIds, semilla, paleta, externas, offsets) => {
+        const receta = getReceta(vista);
+        const rng = semilla ? crearRNG(semilla) : null;
+        const partesGen = {};
+        for (const nombre of receta.partes) {
+          let def = externas[nombre] ? { imagen: externas[nombre], pivote: [32,32] } : null;
+          if (!def) {
+            const vars = PARTES_BASE[vista]?.[tipo]?.[nombre];
+            if (!vars?.length) continue;
+            const idx = seleccion[nombre] !== undefined ? Math.min(seleccion[nombre], vars.length-1)
+                                                        : (rng ? Math.floor(rng()*vars.length) : 0);
+            def = vars[idx];
+          }
+          partesGen[nombre] = crearCanvasDeParte(def, receta.dimensiones[nombre], paleta);
+        }
+        const accBitmaps = accsIds.map(id => {
+          const acc = ACCESORIOS.find(a => a.id === id);
+          return acc ? { ...crearCanvasDeParte(acc, [64,64], paleta), tipo: acc.tipo } : null;
+        }).filter(Boolean);
+
+        const componerFrame = (rotaciones = {}, efecto = null) => {
+          const canvas = document.createElement('canvas');
+          canvas.width = 256; canvas.height = 256;
+          const ctx = canvas.getContext('2d');
+          for (const nombre of receta.partes) {
+            const img = partesGen[nombre]; if (!img) continue;
+            const basePos = receta.posiciones[nombre];
+            const off = offsets[nombre] || {x:0, y:0};
+            const px = basePos[0] * 256 + off.x;
+            const py = basePos[1] * 256 + off.y;
+            const ang = rotaciones[nombre] || 0;
+            ctx.save();
+            ctx.translate(px + img.pivote[0], py + img.pivote[1]);
+            ctx.rotate(ang * Math.PI/180);
+            ctx.drawImage(img.canvas, -img.pivote[0], -img.pivote[1]);
+            ctx.restore();
+          }
+          accBitmaps.forEach(acc => {
+            if (!acc) return;
+            let ax = 0, ay = 0;
+            if (acc.tipo === 'cabeza') { ax = 0.25*256; ay = 0.0*256; }
+            else if (acc.tipo === 'espalda') { ax = 0.15*256; ay = 0.1*256; }
+            else if (acc.tipo === 'mano') { ax = 0.5*256; ay = 0.25*256; }
+            else if (acc.tipo === 'brazo_izq') { ax = 0.0*256; ay = 0.3*256; }
+            ctx.drawImage(acc.canvas, ax, ay);
+          });
+          if (efecto) {
+            const [ex, ey] = efecto;
+            const g = document.createElement('canvas'); g.width=32; g.height=32;
+            const gctx = g.getContext('2d');
+            gctx.fillStyle='#fff'; gctx.beginPath(); gctx.arc(16,16,12,0,Math.PI*2); gctx.fill();
+            gctx.fillStyle='#ff0'; gctx.beginPath(); gctx.arc(16,16,7,0,Math.PI*2); gctx.fill();
+            ctx.drawImage(g, ex*256, ey*256);
+          }
+          return canvas;
+        };
+
+        const frameBase = componerFrame({}, null);
+        const frameAtaqueMax = componerFrame({ [receta.animacion_ataque.parte]: receta.animacion_ataque.angulo }, [0.7, 0.25]);
+        const frameCaminarMax = componerFrame({ [receta.animacion_caminar.parte]: receta.animacion_caminar.angulo }, null);
+        return { frameBase, frameAtaqueMax, frameCaminarMax, receta, partesGen, accBitmaps, componerFrame,
+                 anguloAtaque: receta.animacion_ataque.angulo, anguloCaminar: receta.animacion_caminar.angulo,
+                 parteAtaque: receta.animacion_ataque.parte, parteCaminar: receta.animacion_caminar.parte };
+      };
+
+      const getReceta = vista => {
+        if (vista === 'frontal') {
+          return {
+            partes: ['cabeza','cuerpo','brazo_izq','brazo_der','piernas'],
+            posiciones: { cabeza:[0.25,0.0], cuerpo:[0.2,0.2], brazo_izq:[0.07,0.22], brazo_der:[0.67,0.22], piernas:[0.2,0.48] },
+            dimensiones: { cabeza:[64,64], cuerpo:[80,100], brazo_izq:[32,96], brazo_der:[32,96], piernas:[64,84] },
+            animacion_ataque: { parte:'brazo_der', angulo:-70 }, animacion_caminar: { parte:'piernas', angulo:10 }
+          };
+        } else {
+          return {
+            partes: ['cabeza','cuerpo','brazo_der','piernas'],
+            posiciones: { cabeza:[0.3,0.0], cuerpo:[0.3,0.2], brazo_der:[0.25,0.28], piernas:[0.32,0.50] },
+            dimensiones: { cabeza:[64,64], cuerpo:[80,100], brazo_der:[64,40], piernas:[64,84] },
+            animacion_ataque: { parte:'brazo_der', angulo:70 }, animacion_caminar: { parte:'piernas', angulo:12 }
+          };
+        }
+      };
+
+      // ===================== ANIMACIÓN =====================
+      const easeInOutQuad = t => t < 0.5 ? 2*t*t : 1 - Math.pow(-2*t + 2, 2)/2;
+      const interpolarFrames = (data, tipoAnim, num) => {
+        const esAtaque = tipoAnim === 'ataque';
+        const parte = esAtaque ? data.parteAtaque : data.parteCaminar;
+        const angMax = esAtaque ? data.anguloAtaque : data.anguloCaminar;
+        const frames = [];
+        const mitad = Math.ceil(num/2), resto = num - mitad;
+        for (let i=0; i<mitad; i++) {
+          const t = easeInOutQuad(i/(mitad-1||1));
+          frames.push(data.componerFrame({ [parte]: angMax * t }));
+        }
+        for (let i=1; i<resto; i++) {
+          const t = easeInOutQuad(1 - i/(resto||1));
+          frames.push(data.componerFrame({ [parte]: angMax * t }));
+        }
+        return frames;
+      };
+      const aplicarDanio = frame => {
+        const c = document.createElement('canvas'); c.width = frame.width; c.height = frame.height;
+        const ctx = c.getContext('2d'); ctx.drawImage(frame,0,0);
+        ctx.globalCompositeOperation = 'source-atop';
+        ctx.fillStyle = 'rgba(255,0,0,0.5)'; ctx.fillRect(0,0,frame.width,frame.height);
+        return c;
+      };
+
+      // ===================== VALIDACIÓN =====================
+      const validarCompatibilidad = (vista, tipo, indices, accs) => {
+        const ids = {};
+        for (const [nombre, idx] of Object.entries(indices)) {
+          const vars = PARTES_BASE[vista]?.[tipo]?.[nombre];
+          if (vars && vars[idx]) ids[nombre] = vars[idx].id;
+        }
+        const todos = [...Object.values(ids), ...accs];
+        for (const regla of REGLAS_COMPATIBILIDAD)
+          if (regla.tipo === 'exclusion' && regla.partes.filter(p => todos.includes(p)).length >= 2)
+            return { valido: false, mensaje: regla.mensaje };
+        return { valido: true };
+      };
+
+      // ===================== GESTIÓN DE PANELES =====================
+      const paneles = {
+        jug: { prefijo:'jug', tipoFijo:'humanoide', tieneTipo:false, tieneRareza:false, tieneSemilla:false,
+               spriteData:null, frames:[], timer:null, modoEdicion:false, partesExternas:{}, zoom:1,
+               herrActual:'lapiz', colorEdicion:'#ffccaa', offsets: {} },
+        ene: { prefijo:'ene', tipoFijo:null, tieneTipo:true, tieneRareza:true, tieneSemilla:true,
+               spriteData:null, frames:[], timer:null, modoEdicion:false, partesExternas:{}, zoom:1,
+               herrActual:'lapiz', colorEdicion:'#ffccaa', offsets: {} }
+      };
+
+      const setInfo = (panel, msg, err) => {
+        document.getElementById(panel.prefijo+'Info').innerHTML =
+          `<span class="status ${err?'error':'ok'}">${msg}</span>`;
+      };
+
+      // ===================== INTERFAZ DE PARTES (con offset en vivo) =====================
+      const construirInterfazPartes = (panel) => {
+        const p = panel.prefijo;
+        const cont = document.getElementById(p+'-partes-container');
+        cont.innerHTML = '';
+        const vista = document.getElementById(p+'Vista').value;
+        const tipo = panel.tipoFijo || document.getElementById(p+'Tipo').value;
+        const visibles = vista === 'frontal' ? ['cabeza','cuerpo','brazo_izq','brazo_der','piernas']
+                                             : ['cabeza','cuerpo','brazo_der','piernas'];
+        const todosNombres = ['cabeza','cuerpo','brazo_izq','brazo_der','piernas'];
+
+        // Valores predeterminados para lateral humanoide (jugador)
+        const defaultOffsets = (vista === 'lateral' && tipo === 'humanoide') ? {
+          brazo_der: { x: 9, y: -19 },
+          piernas: { x: -12, y: -16 }
+        } : {};
+
+        todosNombres.forEach(nombre => {
+          const idSelector = parteToId(p, nombre);
+          const row = document.createElement('div');
+          row.className = 'parte-row';
+          const label = document.createElement('label');
+          label.textContent = nombre.replace('_',' ') + ': ';
+          const sel = document.createElement('select');
+          sel.id = idSelector;
+          sel.innerHTML = '';
+          if (visibles.includes(nombre)) {
+            sel.style.display = '';
+            const vars = PARTES_BASE[vista]?.[tipo]?.[nombre] || [];
+            vars.forEach((v,i) => sel.appendChild(new Option(v.id, i)));
+            if (panel.partesExternas[nombre]) sel.appendChild(new Option('Externa ('+nombre+')', 'externa'));
+          } else {
+            sel.style.display = 'none';
+          }
+          label.appendChild(sel);
+          row.appendChild(label);
+
+          // Inicializar offset si no existe
+          if (!panel.offsets[nombre]) {
+            panel.offsets[nombre] = defaultOffsets[nombre] ? { ...defaultOffsets[nombre] } : { x: 0, y: 0 };
+          }
+
+          const offGroup = document.createElement('div');
+          offGroup.className = 'offset-group';
+          offGroup.innerHTML = `X:<input type="number" value="${panel.offsets[nombre].x}" step="1" style="width:45px"> Y:<input type="number" value="${panel.offsets[nombre].y}" step="1" style="width:45px">`;
+          const offXInput = offGroup.querySelectorAll('input')[0];
+          const offYInput = offGroup.querySelectorAll('input')[1];
+          offXInput.addEventListener('input', () => {
+            panel.offsets[nombre].x = parseInt(offXInput.value) || 0;
+            generarYMostrar(panel); // live update
+          });
+          offYInput.addEventListener('input', () => {
+            panel.offsets[nombre].y = parseInt(offYInput.value) || 0;
+            generarYMostrar(panel);
+          });
+          // Botón reset
+          const resetBtn = document.createElement('button');
+          resetBtn.textContent = '↺';
+          resetBtn.style.cssText = 'padding:2px 6px;font-size:0.8rem;';
+          resetBtn.title = 'Reset offset';
+          resetBtn.addEventListener('click', () => {
+            panel.offsets[nombre] = defaultOffsets[nombre] ? { ...defaultOffsets[nombre] } : { x:0, y:0 };
+            offXInput.value = panel.offsets[nombre].x;
+            offYInput.value = panel.offsets[nombre].y;
+            generarYMostrar(panel);
+          });
+          offGroup.appendChild(resetBtn);
+          row.appendChild(offGroup);
+          cont.appendChild(row);
+        });
+      };
+
+      const cargarSelectores = (panel) => {
+        construirInterfazPartes(panel);
+        const p = panel.prefijo;
+        const accDiv = document.getElementById(p+'Accesorios');
+        accDiv.innerHTML = '';
+        ACCESORIOS.forEach(acc => {
+          const lb = document.createElement('label');
+          lb.innerHTML = `<input type="checkbox" value="${acc.id}"> ${acc.id}`;
+          accDiv.appendChild(lb);
+        });
+        actualizarPaletaColores(panel);
+        const selExt = document.getElementById(p+'ParteExterna');
+        selExt.innerHTML = '<option value="">Asignar a...</option>';
+        const vista = document.getElementById(p+'Vista').value;
+        const tipo = panel.tipoFijo || document.getElementById(p+'Tipo').value;
+        const visibles = vista === 'frontal' ? ['cabeza','cuerpo','brazo_izq','brazo_der','piernas'] : ['cabeza','cuerpo','brazo_der','piernas'];
+        visibles.forEach(n => selExt.appendChild(new Option(n, n)));
+      };
+
+      // ===================== GENERACIÓN Y MOSTRAR =====================
+      const generarYMostrar = async (panel) => {
+        const p = panel.prefijo;
+        const vista = document.getElementById(p+'Vista').value;
+        const tipo = panel.tipoFijo || document.getElementById(p+'Tipo').value;
+        const paleta = document.getElementById(p+'Paleta').value;
+        const semilla = panel.tieneSemilla ? document.getElementById(p+'Semilla').value||'semilla' : null;
+        const seleccion = obtenerSeleccion(panel);
+        const accs = obtenerAccs(panel);
+        const val = validarCompatibilidad(vista, tipo, seleccion, accs);
+        if (!val.valido) { setInfo(panel, val.mensaje, true); return null; }
+        try {
+          const data = generarSpriteData(vista, tipo, seleccion, accs, semilla, paleta, panel.partesExternas, panel.offsets);
+          panel.spriteData = data;
+          panel.frames = [data.frameBase];
+          actualizarCanvas(panel, data.frameBase);
+          setInfo(panel, 'Sprite generado.');
+          actualizarLineaTiempo(panel);
+          return data;
+        } catch(e) {
+          console.error(e);
+          setInfo(panel, e.message, true);
+          return null;
+        }
+      };
+      const actualizarCanvas = (panel, frame) => {
+        const canvas = document.getElementById(panel.prefijo+'AnimCanvas');
+        const ctx = canvas.getContext('2d'); ctx.clearRect(0,0,256,256); ctx.drawImage(frame,0,0,256,256);
+      };
+      const obtenerSeleccion = panel => {
+        const p = panel.prefijo, vista = document.getElementById(p+'Vista').value;
+        const receta = getReceta(vista);
+        const sel = {};
+        receta.partes.forEach(nombre => {
+          const el = document.getElementById(parteToId(p, nombre));
+          if (el && el.style.display !== 'none') sel[nombre] = el.value === 'externa' ? -1 : parseInt(el.value);
+        });
+        return sel;
+      };
+      const obtenerAccs = panel =>
+        Array.from(document.querySelectorAll(`#${panel.prefijo}Accesorios input:checked`)).map(cb => cb.value);
+
+      // ===================== ANIMACIÓN, LÍNEA DE TIEMPO, EXPORT =====================
+      const iniciarAnim = panel => {
+        detenerAnim(panel);
+        if (!panel.spriteData) { generarYMostrar(panel).then(() => { if(panel.spriteData) iniciarAnim(panel); }); return; }
+        const p = panel.prefijo;
+        const num = parseInt(document.getElementById(p+'Frames').value)||6;
+        const tipo = document.getElementById(p+'AnimTipo').value;
+        panel.frames = interpolarFrames(panel.spriteData, tipo, num);
+        actualizarLineaTiempo(panel);
+        const canvas = document.getElementById(p+'AnimCanvas');
+        const ctx = canvas.getContext('2d'); ctx.imageSmoothingEnabled = false;
+        let idx = 0;
+        const dib = () => { ctx.clearRect(0,0,256,256); ctx.drawImage(panel.frames[idx],0,0,256,256); idx = (idx+1)%panel.frames.length; };
+        dib(); panel.timer = setInterval(dib, 100);
+        setInfo(panel, 'Animación en curso.');
+      };
+      const detenerAnim = panel => { if(panel.timer) { clearInterval(panel.timer); panel.timer=null; } };
+      const simularDanio = panel => {
+        if(!panel.frames.length) return;
+        detenerAnim(panel);
+        const framesDanio = panel.frames.map(aplicarDanio);
+        const canvas = document.getElementById(panel.prefijo+'AnimCanvas');
+        const ctx = canvas.getContext('2d'); ctx.imageSmoothingEnabled = false;
+        let idx=0;
+        const dib = () => { ctx.clearRect(0,0,256,256); ctx.drawImage(framesDanio[idx],0,0,256,256); idx=(idx+1)%framesDanio.length; };
+        dib(); panel.timer = setInterval(dib, 100);
+        setInfo(panel, 'Daño simulado.');
+      };
+      const actualizarLineaTiempo = panel => {
+        const linea = document.getElementById(panel.prefijo+'LineaTiempo'); linea.innerHTML = '';
+        panel.frames.forEach((f,i) => {
+          const div = document.createElement('div'); div.className = 'frame-miniatura' + (i===0?' activo':'');
+          const mini = document.createElement('canvas'); mini.width=50; mini.height=50;
+          mini.getContext('2d').drawImage(f,0,0,50,50);
+          div.appendChild(mini);
+          div.addEventListener('click', () => {
+            actualizarCanvas(panel, f);
+            document.querySelectorAll(`#${panel.prefijo}LineaTiempo .frame-miniatura`).forEach(d => d.classList.remove('activo'));
+            div.classList.add('activo');
+          });
+          linea.appendChild(div);
+        });
+      };
+      const exportarSpritesheet = panel => {
+        if(!panel.frames.length) return alert('Sin frames');
+        const cols = Math.min(panel.frames.length,4);
+        const rows = Math.ceil(panel.frames.length/cols);
+        const sheet = document.createElement('canvas'); sheet.width = cols*256; sheet.height = rows*256;
+        const ctx = sheet.getContext('2d');
+        panel.frames.forEach((f,i) => ctx.drawImage(f, (i%cols)*256, Math.floor(i/cols)*256));
+        sheet.toBlob(b => {
+          const a = document.createElement('a'); a.href = URL.createObjectURL(b); a.download = panel.prefijo+'_spritesheet.png'; a.click();
+        });
+      };
+
+      // ===================== EDITOR DE PÍXELES =====================
+      const actualizarPaletaColores = panel => {
+        const p = panel.prefijo;
+        const paleta = PALETAS[document.getElementById(p+'Paleta').value];
+        const cont = document.getElementById(p+'PaletaColores'); cont.innerHTML = '';
+        [...new Set(Object.values(paleta))].forEach(color => {
+          const d = document.createElement('div'); d.style.backgroundColor = color;
+          d.addEventListener('click', () => {
+            panel.colorEdicion = color;
+            document.querySelectorAll(`#${p}PaletaColores div`).forEach(el => el.style.border='1px solid var(--border)');
+            d.style.border='2px solid white';
+          });
+          cont.appendChild(d);
+        });
+        if(cont.firstChild) cont.firstChild.style.border='2px solid white';
+      };
+      const toggleModoEdicion = panel => {
+        panel.modoEdicion = !panel.modoEdicion;
+        document.getElementById(panel.prefijo+'ModoEditar').classList.toggle('activo', panel.modoEdicion);
+      };
+      const setupEditor = panel => {
+        const p = panel.prefijo;
+        const canvas = document.getElementById(p+'AnimCanvas');
+        let dibujando = false;
+        const getCoords = e => {
+          const rect = canvas.getBoundingClientRect();
+          return { x: Math.floor((e.clientX-rect.left)*256/rect.width), y: Math.floor((e.clientY-rect.top)*256/rect.height) };
+        };
+        const aplicar = (x,y) => {
+          if(!panel.spriteData) return;
+          const ctx = canvas.getContext('2d');
+          if(panel.herrActual==='lapiz') { ctx.fillStyle = panel.colorEdicion; ctx.fillRect(x,y,1,1); }
+          else if(panel.herrActual==='borrador') ctx.clearRect(x,y,1,1);
+          else if(panel.herrActual==='relleno') {
+            const imgData = ctx.getImageData(0,0,256,256);
+            const idx = (y*256+x)*4;
+            const target = imgData.data.slice(idx,idx+4);
+            const fill = panel.colorEdicion;
+            const col = [parseInt(fill.slice(1,3),16), parseInt(fill.slice(3,5),16), parseInt(fill.slice(5,7),16), 255];
+            const stack = [[x,y]]; const visited = new Set();
+            while(stack.length) {
+              const [cx,cy] = stack.pop();
+              if(cx<0||cx>=256||cy<0||cy>=256) continue;
+              const k = `${cx},${cy}`; if(visited.has(k)) continue;
+              const i = (cy*256+cx)*4;
+              if(imgData.data[i]!==target[0]||imgData.data[i+1]!==target[1]||imgData.data[i+2]!==target[2]||imgData.data[i+3]!==target[3]) continue;
+              visited.add(k);
+              imgData.data.set(col, i);
+              stack.push([cx+1,cy],[cx-1,cy],[cx,cy+1],[cx,cy-1]);
+            }
+            ctx.putImageData(imgData,0,0);
+            return;
+          } else if(panel.herrActual==='cuentagotas') {
+            const [r,g,b] = ctx.getImageData(x,y,1,1).data;
+            panel.colorEdicion = `#${r.toString(16).padStart(2,'0')}${g.toString(16).padStart(2,'0')}${b.toString(16).padStart(2,'0')}`;
+          }
+          panel.spriteData.frameBase = canvas;
+          if(panel.frames.length) panel.frames[0] = canvas;
+        };
+        canvas.addEventListener('mousedown', e => { if(!panel.modoEdicion) return; dibujando=true; const c=getCoords(e); aplicar(c.x,c.y); });
+        canvas.addEventListener('mousemove', e => { if(!panel.modoEdicion||!dibujando||panel.herrActual==='relleno'||panel.herrActual==='cuentagotas') return; const c=getCoords(e); aplicar(c.x,c.y); });
+        canvas.addEventListener('mouseup', ()=> dibujando=false);
+        canvas.addEventListener('mouseleave', ()=> dibujando=false);
+      };
+
+      // ===================== ZOOM =====================
+      const setupZoom = panel => {
+        const p = panel.prefijo;
+        document.getElementById(p+'ZoomIn').addEventListener('click', ()=>{
+          panel.zoom = Math.min(panel.zoom+0.5,5);
+          document.getElementById(p+'ZoomNivel').textContent = panel.zoom+'x';
+          document.getElementById(p+'AnimCanvas').style.transform = `scale(${panel.zoom})`;
+        });
+        document.getElementById(p+'ZoomOut').addEventListener('click', ()=>{
+          panel.zoom = Math.max(panel.zoom-0.5,0.5);
+          document.getElementById(p+'ZoomNivel').textContent = panel.zoom+'x';
+          document.getElementById(p+'AnimCanvas').style.transform = `scale(${panel.zoom})`;
+        });
+      };
+
+      // ===================== CARGA DE EXTERNAS =====================
+      const manejarCargaImagen = (panel) => {
+        const p = panel.prefijo;
+        const file = document.getElementById(p+'CargarParte').files[0];
+        const parte = document.getElementById(p+'ParteExterna').value;
+        if(!file) return setInfo(panel, 'Selecciona un archivo PNG.', true);
+        if(!parte) return setInfo(panel, 'Elige a qué parte asignar la imagen.', true);
+        const reader = new FileReader();
+        reader.onload = e => {
+          const img = new Image();
+          img.onload = () => {
+            panel.partesExternas[parte] = img;
+            const preview = document.getElementById(p+'PreviewImagen');
+            preview.innerHTML = '';
+            const pvCanvas = document.createElement('canvas'); pvCanvas.width=40; pvCanvas.height=40;
+            pvCanvas.getContext('2d').drawImage(img,0,0,40,40);
+            preview.appendChild(pvCanvas);
+            cargarSelectores(panel);
+            document.getElementById(parteToId(p, parte)).value = 'externa';
+            setInfo(panel, `Imagen cargada para ${parte}.`);
+          };
+          img.src = e.target.result;
+        };
+        reader.readAsDataURL(file);
+      };
+      const cargarParteJSON = (panel) => {
+        const p = panel.prefijo;
+        const file = document.getElementById(p+'CargarJSON').files[0];
+        if(!file) return setInfo(panel, 'Selecciona un archivo JSON.', true);
+        const reader = new FileReader();
+        reader.onload = e => {
+          try {
+            const parte = JSON.parse(e.target.result);
+            if(!parte.id || !parte.tipo || !parte.vista) throw new Error('Faltan campos: id, tipo, vista');
+            const vista = parte.vista;
+            const categoria = parte.categoria || panel.tipoFijo || 'humanoide';
+            const tipoParte = parte.tipo;
+            if(!PARTES_BASE[vista]) PARTES_BASE[vista] = {};
+            if(!PARTES_BASE[vista][categoria]) PARTES_BASE[vista][categoria] = {};
+            if(!PARTES_BASE[vista][categoria][tipoParte]) PARTES_BASE[vista][categoria][tipoParte] = [];
+            const existente = PARTES_BASE[vista][categoria][tipoParte].find(p => p.id === parte.id);
+            if(existente) Object.assign(existente, parte);
+            else PARTES_BASE[vista][categoria][tipoParte].push(parte);
+            cargarSelectores(panel);
+            setInfo(panel, `Parte "${parte.id}" cargada.`);
+          } catch(err) {
+            setInfo(panel, `Error: ${err.message}`, true);
+          }
+        };
+        reader.readAsText(file);
+      };
+
+      // ===================== GUARDAR / CARGAR CONFIG =====================
+      const guardarConfig = (panel) => {
+        const p = panel.prefijo;
+        const config = {
+          vista: document.getElementById(p+'Vista').value,
+          paleta: document.getElementById(p+'Paleta').value,
+          tipo: panel.tipoFijo || document.getElementById(p+'Tipo')?.value,
+          rareza: document.getElementById(p+'Rareza')?.value,
+          semilla: document.getElementById(p+'Semilla')?.value,
+          offsets: panel.offsets,
+          accesorios: obtenerAccs(panel),
+          externas: {} // las imágenes no se pueden serializar fácilmente, las omitimos
+        };
+        // Guardar selección de partes
+        const seleccion = obtenerSeleccion(panel);
+        config.seleccion = seleccion;
+        const json = JSON.stringify(config, null, 2);
+        const blob = new Blob([json], {type:'application/json'});
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = `${p}-config.json`;
+        a.click();
+        setInfo(panel, 'Configuración guardada.');
+      };
+      const cargarConfig = (panel, file) => {
+        const reader = new FileReader();
+        reader.onload = e => {
+          try {
+            const config = JSON.parse(e.target.result);
+            const p = panel.prefijo;
+            document.getElementById(p+'Vista').value = config.vista || 'lateral';
+            document.getElementById(p+'Paleta').value = config.paleta || 'default';
+            if (config.tipo && document.getElementById(p+'Tipo')) document.getElementById(p+'Tipo').value = config.tipo;
+            if (config.rareza && document.getElementById(p+'Rareza')) document.getElementById(p+'Rareza').value = config.rareza;
+            if (config.semilla && document.getElementById(p+'Semilla')) document.getElementById(p+'Semilla').value = config.semilla;
+            panel.offsets = config.offsets || {};
+            cargarSelectores(panel);
+            // Restaurar selección de partes
+            if (config.seleccion) {
+              for (const [nombre, idx] of Object.entries(config.seleccion)) {
+                const sel = document.getElementById(parteToId(p, nombre));
+                if (sel && sel.style.display !== 'none') {
+                  if (idx === -1) {
+                    if (panel.partesExternas[nombre]) sel.value = 'externa';
+                  } else {
+                    sel.selectedIndex = idx;
+                  }
+                }
+              }
+            }
+            // Restaurar accesorios
+            document.querySelectorAll(`#${p}Accesorios input`).forEach(cb => {
+              cb.checked = config.accesorios?.includes(cb.value) || false;
+            });
+            generarYMostrar(panel);
+            setInfo(panel, 'Configuración cargada.');
+          } catch(err) {
+            setInfo(panel, 'Error al cargar configuración.', true);
+          }
+        };
+        reader.readAsText(file);
+      };
+
+      // ===================== PREVIEW HOVER =====================
+      const setupPreviewHover = panel => {
+        const p = panel.prefijo;
+        const previewDiv = document.getElementById(p+'PreviewHover');
+        const previewCanvas = previewDiv.querySelector('canvas');
+        document.querySelectorAll(`#${p}-partes-container select`).forEach(sel => {
+          sel.addEventListener('mouseenter', e => {
+            const nombre = sel.id.replace(p, '').toLowerCase();
+            const map = { cabeza:'cabeza', cuerpo:'cuerpo', brazoder:'brazo_der', brazoizq:'brazo_izq', piernas:'piernas' };
+            const nom = map[nombre]; if(!nom) return;
+            const vista = document.getElementById(p+'Vista').value;
+            const tipo = panel.tipoFijo || document.getElementById(p+'Tipo').value;
+            const vars = PARTES_BASE[vista]?.[tipo]?.[nom]; if(!vars) return;
+            const idx = sel.value === 'externa' ? -1 : parseInt(sel.value);
+            const def = idx === -1 ? { imagen: panel.partesExternas[nom], pivote:[32,32] } : vars[idx];
+            if(!def) return;
+            const dims = [64,64];
+            const paleta = document.getElementById(p+'Paleta').value;
+            const { canvas } = crearCanvasDeParte(def, dims, paleta);
+            const ctx = previewCanvas.getContext('2d');
+            ctx.clearRect(0,0,64,64); ctx.drawImage(canvas,0,0);
+            const rect = sel.getBoundingClientRect();
+            previewDiv.style.left = rect.right+10+'px'; previewDiv.style.top = rect.top+'px';
+            previewDiv.style.display = 'block';
+          });
+          sel.addEventListener('mouseleave', ()=> previewDiv.style.display = 'none');
+        });
+      };
+
+      // ===================== ALEATORIEDAD =====================
+      const randomizarYGenerarJugador = () => {
+        const p = 'jug';
+        ['Cabeza','Cuerpo','BrazoDer','Piernas'].forEach(n => {
+          const sel = document.getElementById(p+n);
+          if(sel && sel.style.display!=='none') sel.selectedIndex = Math.floor(Math.random()*sel.options.length);
+        });
+        const selIzq = document.getElementById(p+'BrazoIzq');
+        if(selIzq && selIzq.style.display!=='none') selIzq.selectedIndex = Math.floor(Math.random()*selIzq.options.length);
+        document.querySelectorAll(`#${p}Accesorios input`).forEach(cb => cb.checked = Math.random()>0.6);
+        // Reiniciar offsets a los valores por defecto para lateral
+        const vista = document.getElementById(p+'Vista').value;
+        paneles.jug.offsets = {};
+        if (vista === 'lateral') {
+          paneles.jug.offsets = {
+            brazo_der: { x: 9, y: -19 },
+            piernas: { x: -12, y: -16 }
+          };
+        }
+        construirInterfazPartes(paneles.jug);
+        generarYMostrar(paneles.jug);
+      };
+      const randomizarYGenerarEnemigo = () => {
+        const p = 'ene';
+        document.getElementById(p+'Tipo').value = ['humanoide','bestia'][Math.floor(Math.random()*2)];
+        document.getElementById(p+'Rareza').value = ['comun','elite','jefe'][Math.floor(Math.random()*3)];
+        const semilla = Math.random().toString(36).substr(2,8);
+        document.getElementById(p+'Semilla').value = semilla;
+        paneles.ene.offsets = {};
+        construirInterfazPartes(paneles.ene);
+        const rng = crearRNG(semilla);
+        const tipo = document.getElementById(p+'Tipo').value, rareza = document.getElementById(p+'Rareza').value;
+        const vista = document.getElementById(p+'Vista').value;
+        let varsForzadas = {}, accsForzados = [];
+        REGLAS_ENEMIGOS.forEach(r => {
+          if(r.condicion.tipo===tipo && r.condicion.rareza===rareza && rng()<r.probabilidad) {
+            if(r.variantes_base) Object.assign(varsForzadas, r.variantes_base);
+            if(r.accesorios) accsForzados.push(...r.accesorios);
+          }
+        });
+        accsForzados = [...new Set(accsForzados)];
+        getReceta(vista).partes.forEach(nombre => {
+          const sel = document.getElementById(parteToId(p, nombre));
+          if(!sel || sel.style.display==='none') return;
+          if(varsForzadas[nombre]!==undefined) sel.value = varsForzadas[nombre];
+          else sel.selectedIndex = Math.floor(rng()*sel.options.length);
+        });
+        document.querySelectorAll(`#${p}Accesorios input`).forEach(cb => cb.checked = accsForzados.includes(cb.value));
+        generarYMostrar(paneles.ene);
+      };
+
+      // ===================== INICIALIZACIÓN =====================
+      window.addEventListener('load', () => {
+        document.querySelectorAll('.tab').forEach(tab => tab.addEventListener('click', () => {
+          document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+          document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+          tab.classList.add('active');
+          document.getElementById('tab-'+tab.dataset.tab).classList.add('active');
+        }));
+
+        ['jug','ene'].forEach(pr => {
+          const panel = paneles[pr];
+          cargarSelectores(panel);
+          setupEditor(panel);
+          setupPreviewHover(panel);
+          setupZoom(panel);
+        });
+
+        // Eventos Jugador
+        document.getElementById('jugVista').addEventListener('change', () => {
+          paneles.jug.offsets = {};
+          cargarSelectores(paneles.jug);
+        });
+        document.getElementById('jugAleatorio').addEventListener('click', randomizarYGenerarJugador);
+        document.getElementById('jugDescargar').addEventListener('click', () => {
+          if(!paneles.jug.spriteData?.frameBase) return alert('Genera primero.');
+          paneles.jug.spriteData.frameBase.toBlob(b => {
+            const a = document.createElement('a'); a.href = URL.createObjectURL(b); a.download = 'jugador.png'; a.click();
+          });
+        });
+        document.getElementById('jugReproducir').addEventListener('click', () => iniciarAnim(paneles.jug));
+        document.getElementById('jugDetener').addEventListener('click', () => detenerAnim(paneles.jug));
+        document.getElementById('jugDanio').addEventListener('click', () => simularDanio(paneles.jug));
+        document.getElementById('jugModoEditar').addEventListener('click', () => toggleModoEdicion(paneles.jug));
+        document.getElementById('jugHerramientaLapiz').addEventListener('click', () => paneles.jug.herrActual='lapiz');
+        document.getElementById('jugHerramientaBorrador').addEventListener('click', () => paneles.jug.herrActual='borrador');
+        document.getElementById('jugHerramientaRelleno').addEventListener('click', () => paneles.jug.herrActual='relleno');
+        document.getElementById('jugHerramientaCuentagotas').addEventListener('click', () => paneles.jug.herrActual='cuentagotas');
+        document.getElementById('jugAplicarImagen').addEventListener('click', () => manejarCargaImagen(paneles.jug));
+        document.getElementById('jugLimpiarExternas').addEventListener('click', () => {
+          paneles.jug.partesExternas = {};
+          cargarSelectores(paneles.jug);
+          setInfo(paneles.jug, 'Imágenes externas limpiadas.');
+        });
+        document.getElementById('jugCargarJSONBtn').addEventListener('click', () => cargarParteJSON(paneles.jug));
+        document.getElementById('jugExportarSpritesheet').addEventListener('click', () => exportarSpritesheet(paneles.jug));
+        document.getElementById('jugGuardarConfig').addEventListener('click', () => guardarConfig(paneles.jug));
+        document.getElementById('jugCargarConfigBtn').addEventListener('click', () => document.getElementById('jugCargarConfig').click());
+        document.getElementById('jugCargarConfig').addEventListener('change', (e) => {
+          if (e.target.files[0]) cargarConfig(paneles.jug, e.target.files[0]);
+        });
+
+        // Eventos Enemigo
+        document.getElementById('eneVista').addEventListener('change', () => {
+          paneles.ene.offsets = {};
+          cargarSelectores(paneles.ene);
+        });
+        document.getElementById('eneTipo').addEventListener('change', () => cargarSelectores(paneles.ene));
+        document.getElementById('eneAleatorio').addEventListener('click', randomizarYGenerarEnemigo);
+        document.getElementById('eneDescargar').addEventListener('click', () => {
+          if(!paneles.ene.spriteData?.frameBase) return alert('Genera primero.');
+          paneles.ene.spriteData.frameBase.toBlob(b => {
+            const a = document.createElement('a'); a.href = URL.createObjectURL(b); a.download = 'enemigo.png'; a.click();
+          });
+        });
+        document.getElementById('eneReproducir').addEventListener('click', () => iniciarAnim(paneles.ene));
+        document.getElementById('eneDetener').addEventListener('click', () => detenerAnim(paneles.ene));
+        document.getElementById('eneDanio').addEventListener('click', () => simularDanio(paneles.ene));
+        document.getElementById('eneModoEditar').addEventListener('click', () => toggleModoEdicion(paneles.ene));
+        document.getElementById('eneHerramientaLapiz').addEventListener('click', () => paneles.ene.herrActual='lapiz');
+        document.getElementById('eneHerramientaBorrador').addEventListener('click', () => paneles.ene.herrActual='borrador');
+        document.getElementById('eneHerramientaRelleno').addEventListener('click', () => paneles.ene.herrActual='relleno');
+        document.getElementById('eneHerramientaCuentagotas').addEventListener('click', () => paneles.ene.herrActual='cuentagotas');
+        document.getElementById('eneAplicarImagen').addEventListener('click', () => manejarCargaImagen(paneles.ene));
+        document.getElementById('eneLimpiarExternas').addEventListener('click', () => {
+          paneles.ene.partesExternas = {};
+          cargarSelectores(paneles.ene);
+          setInfo(paneles.ene, 'Imágenes externas limpiadas.');
+        });
+        document.getElementById('eneCargarJSONBtn').addEventListener('click', () => cargarParteJSON(paneles.ene));
+        document.getElementById('eneExportarSpritesheet').addEventListener('click', () => exportarSpritesheet(paneles.ene));
+        document.getElementById('eneGuardarConfig').addEventListener('click', () => guardarConfig(paneles.ene));
+        document.getElementById('eneCargarConfigBtn').addEventListener('click', () => document.getElementById('eneCargarConfig').click());
+        document.getElementById('eneCargarConfig').addEventListener('change', (e) => {
+          if (e.target.files[0]) cargarConfig(paneles.ene, e.target.files[0]);
+        });
+
+        randomizarYGenerarJugador();
+        console.log('Generador usable listo.');
+      });
+    })();
+  </script>
+</body>
+</html>
