@@ -1,0 +1,84 @@
+# 🎞️ Generador Pixel Art Definitivo
+
+Herramienta web para crear y animar sprites de personajes y enemigos en estilo pixel art.  
+Combina generación procedural (partes, accesorios, paletas) con edición manual de píxeles y animación por fotogramas.  
+Pensado para prototipado rápido, game jams y aprendizaje de técnicas de sprites.
+
+## ✨ Características
+
+- **Modos** → Jugador (humanoide) y Enemigos (tipo + rareza configurable).
+- **Vistas** → Frontal y lateral con partes específicas para cada una.
+- **Partes del cuerpo** → Cabeza, cuerpo, brazos, piernas, con múltiples variantes por parte.
+- **Accesorios** → Cuernos, alas, espada, corona, escudo, capa (con reglas de compatibilidad).
+- **Paletas de color** → 4 temas predefinidos (default, fuego, hielo, bosque) con colores indexados (sombra y brillo).
+- **Generación procedural** → Basada en semilla (enemigos) o aleatoria, con reglas de rareza.
+- **Controles de posición (offsets)** → Ajuste manual de cada parte (X/Y) con previsualización en vivo.
+- **Carga de imágenes externas** → Sustituye cualquier parte del cuerpo con tu propio PNG.
+- **Carga de partes en formato JSON** → Amplía la librería con nuevas variantes sin tocar el código.
+- **Editor de píxeles integrado** → Lápiz, borrador, relleno y cuentagotas sobre el sprite final.
+- **Animaciones** → Ataque y caminar interpolados con easing, más línea de tiempo de fotogramas.
+- **Efectos** → Simulación de daño (capa roja semitransparente).
+- **Exportación** → Descarga del sprite base como PNG y de todos los frames como spritesheet.
+- **Guardar / cargar configuración** → Archivo JSON con todos los parámetros (partes, offsets, accesorios, paleta).
+
+## 🚀 Cómo usar
+
+1. Abre `index.html` en cualquier navegador moderno.
+2. Elige la pestaña **Jugador** o **Enemigos**.
+3. Configura vista, paleta, tipo/rareza (en enemigos) y pulsa **🎲 Aleatorio y generar**.
+4. Ajusta manualmente las partes, accesorios y los offsets X/Y si es necesario.
+5. Para animar, selecciona el tipo de animación y número de frames, luego **▶️ Reproducir**.
+6. Usa el **editor de píxeles** (🖌️ Modo edición) para retocar detalles.
+7. Guarda tu configuración con **💾 Guardar config** y recupérala más tarde con **📂 Cargar config**.
+8. Exporta el sprite o el spritesheet con los botones de descarga.
+
+## 📁 Estructura del proyecto
+generador-pixel-art/
+├── index.html ← Todo el código (HTML + CSS + JS)
+├── README.md
+└── LICENSE
+
+text
+
+No requiere instalación ni dependencias externas.
+
+## 🧩 Formato de JSON para partes externas
+
+Puedes añadir tus propias variantes creando un archivo `.json` con esta estructura:
+
+```json
+{
+  "id": "cabeza_elfo",
+  "tipo": "cabeza",
+  "vista": "frontal",
+  "categoria": "humanoide",
+  "pivote": [32, 24],
+  "matriz": [
+    "....####....",
+    "...######...",
+    "..########..",
+    ".##########.",
+    "##..####..##",
+    "############",
+    ".##########.",
+    "..##....##.."
+  ],
+  "colores": { "#": "piel", ".": null }
+}
+También puedes usar capas con formas geométricas o imagen si prefieres un PNG.
+
+🛠️ Tecnologías
+HTML5 Canvas
+
+JavaScript ES6+
+
+CSS3
+
+📜 Licencia
+GNU Affero General Public License v3.0 (AGPL-3.0)
+
+Este programa es software libre: puedes redistribuirlo y/o modificarlo bajo los términos de la AGPLv3, tal como se publica por la Free Software Foundation.
+
+Se distribuye con la esperanza de que sea útil, pero sin ninguna garantía; sin la garantía implícita de comerciabilidad o adecuación a un fin particular.
+
+Si utilizas este código en un servicio web, debes proporcionar el código fuente completo a los usuarios que interactúen con él.
