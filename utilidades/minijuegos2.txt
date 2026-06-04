@@ -1,0 +1,54 @@
+# 🧩 Minijuegos Procedurales con Sistema de Cordura
+
+Prototipo de motor de minijuegos que combina **sprites generados proceduralmente** con un **sistema de cordura** que altera la representación visual (pixel art ↔ ASCII). Pensado para juegos de terror psicológico, narrativa emergente o prototipado rápido de mecánicas.
+
+## ✨ Características
+
+- **Minijuegos integrados**: Damas, Tres en Raya, Prueba de la Mente y Simon Dice.
+- **Sprites procedurales**: cada pieza se define mediante capas vectoriales (para modo pixel art) o matrices de caracteres (para modo ASCII). Los gráficos se generan en tiempo real.
+- **Sistema de cordura**:
+  - Barra de cordura (0–100) modificable por el jugador o por eventos.
+  - Por debajo de 40, el modo gráfico cambia automáticamente a ASCII, distorsionando la percepción del juego.
+  - Los efectos son inmediatos y afectan a todas las piezas del tablero.
+- **IA básica**: el oponente controlado por la máquina realiza movimientos aleatorios (ampliable).
+- **Paletas de colores indexadas**: default, fuego, hielo… fáciles de extender.
+- **Configuración declarativa**: cada juego se define como un objeto JavaScript con tablero, piezas, reglas y sprites. Preparado para cargar desde YAML.
+- **Todo en un solo archivo HTML**: sin dependencias externas. Se abre directamente en el navegador.
+
+## 🕹️ Cómo usar
+
+1. Descarga o clona el repositorio.
+2. Abre `index.html` en un navegador moderno.
+3. Selecciona un minijuego en el desplegable.
+4. Haz clic en las celdas para mover/colocar fichas (según el juego).
+5. Usa los botones **+ Cordura** / **- Cordura** para ver cómo cambia el estilo visual.
+6. En **Simon Dice**, haz clic en los botones de colores para repetir la secuencia.
+
+## 📁 Estructura del proyecto
+├── index.html # Todo el código (HTML + CSS + JS)
+├── README.md
+└── LICENSE
+
+text
+
+## 🧠 Ideas para expandir
+
+- Cargar juegos desde archivos YAML externos.
+- Añadir animaciones de movimiento y capturas completas.
+- Integrar con un motor de juego principal (Godot, Unity, Phaser) mediante un bus de eventos.
+- Conectar el sistema de cordura a un mundo persistente (mazmorras, diálogos, etc.).
+- Usar una API de IA para generar sprites más detallados.
+
+## 📜 Licencia
+
+[GNU Affero General Public License v3.0 (AGPL-3.0)](https://www.gnu.org/licenses/agpl-3.0.html)
+
+Este proyecto es software libre. Puedes redistribuirlo y/o modificarlo bajo los términos de la AGPLv3. Se distribuye sin garantía de ningún tipo.
+
+## 👤 Autor
+
+[Tu nombre o alias] – [enlace a tu perfil/contacto opcional]
+
+---
+
+*“La locura no es un bug, es una feature.”*
