@@ -1,0 +1,58 @@
+# 🧰 Suite Completa de Diseño de Juegos ASCII
+
+Herramienta web todo-en-uno para crear, animar y gestionar sprites en arte ASCII.  
+Incluye editor de sprites, generador procedural de entidades y sistema de proyectos con exportación/importación JSON.  
+Ideal para prototipado rápido de gráficos estilo retro, juegos de consola o aprendizaje de técnicas de sprites.
+
+## ✨ Características
+
+- **Conversión de imagen a ASCII** → Carga cualquier imagen y conviértela en una cuadrícula de caracteres usando paletas predefinidas o personalizadas.
+- **Editor de sprites** → Pinta con caracteres y colores, selecciona regiones, desplaza, aplica sombreado y gestiona historial de cambios (deshacer/rehacer).
+- **Generador procedural de entidades** → Crea humanoides o bestias a partir de partes básicas (cabeza, torso, brazos, piernas) usando una semilla para resultados reproducibles.
+- **Animación por fotogramas** → Línea de tiempo con miniaturas; añade frames manualmente, con temblor (shake) o generación automática de ataque a partir de una región.
+- **Regiones guardadas** → Almacena áreas seleccionadas para reutilizarlas o animarlas.
+- **Gestión de proyecto** → Nombre de proyecto, lista de entidades con posición en el mundo, exportación e importación de todo el proyecto en JSON.
+- **Examinador Enactivo** → Sistema de validación configurable que evalúa la coherencia, integridad y ética del proyecto al importar/exportar, aplicando inferencias y negociación de versiones.
+- **Exportación de spritesheets** → Descarga el sprite completo o una cuadrícula con todos los frames de la animación.
+- **Interfaz por pestañas** → Navegación sencilla entre editor, generador y proyecto.
+
+## 🚀 Cómo usar
+
+1. Abre `index.html` en cualquier navegador moderno.
+2. En la pestaña **🎨 Editor**:
+   - Carga una imagen con `Convertir` para obtener una cuadrícula ASCII.
+   - Usa el pincel para dibujar caracteres, el modo selección para regiones, y los botones de sombra/mover/guardar región.
+   - Añade frames en la línea de tiempo y reproduce la animación.
+3. En la pestaña **🌱 Generador**:
+   - Elige tipo (humanoide/bestia), introduce una semilla y pulsa `Generar Entidad`.
+   - La entidad aparecerá en la cuadrícula. Puedes enviarla al editor con `Enviar al Editor`.
+4. En la pestaña **📦 Proyecto**:
+   - Asigna un nombre al proyecto.
+   - Añade entidades con su ID, sprite y coordenadas.
+   - Exporta el proyecto como JSON o importa uno existente; el examinador validará la importación automáticamente.
+
+## 📁 Estructura del proyecto
+suite-ascii/
+├── index.html ← Todo el código (HTML + CSS + JS)
+├── README.md
+└── LICENSE
+
+text
+
+No requiere instalación ni dependencias externas.
+
+## 🛠️ Tecnologías
+
+- HTML5 Canvas
+- JavaScript ES6+
+- CSS3
+
+## 📜 Licencia
+
+[GNU Affero General Public License v3.0 (AGPL-3.0)](https://www.gnu.org/licenses/agpl-3.0.html)
+
+Este programa es software libre: puedes redistribuirlo y/o modificarlo bajo los términos de la AGPLv3, tal como se publica por la Free Software Foundation.
+
+Se distribuye con la esperanza de que sea útil, pero **sin ninguna garantía**; sin la garantía implícita de comerciabilidad o adecuación a un fin particular.
+
+Si utilizas este código en un servicio web, debes proporcionar el código fuente completo a los usuarios que interactúen con él.
