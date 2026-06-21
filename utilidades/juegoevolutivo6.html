@@ -1,0 +1,1378 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>Gacha Evolutivo - Sistema Modular</title>
+    <style>
+        * { margin:0; padding:0; box-sizing:border-box; }
+        html, body { width:100%; height:100%; overflow:hidden; background:#000; touch-action:none; }
+        canvas { display:block; position:absolute; top:0; left:0; }
+        #architect-panel, #module-panel {
+            position:fixed; top:20px; right:20px; width:340px; max-height:85vh;
+            background:rgba(10,10,20,0.95); border:2px solid #0f0; color:#0f0; padding:15px;
+            z-index:10000; display:none; font-family:monospace; overflow-y:auto; font-size:12px;
+            border-radius:8px; backdrop-filter:blur(5px);
+        }
+        #module-panel { border-color:#ffd700; color:#ffd700; }
+        #architect-panel h3, #module-panel h3 { margin-top:0; color:#ffd700; }
+        #architect-panel h4, #module-panel h4 { color:#ffd700; margin:12px 0 4px; }
+        #architect-panel button, #module-panel button { background:#0f0; color:#000; border:none; padding:5px 10px; margin:5px 0; cursor:pointer; font-weight:bold; border-radius:4px; }
+        #module-panel button { background:#ffd700; color:#000; }
+        #architect-panel input, #architect-panel select, #module-panel select { width:100%; margin:2px 0 8px 0; background:#222; color:#0f0; border:1px solid #0f0; padding:3px; border-radius:3px; }
+        #architect-panel label, #module-panel label { display:block; margin-top:4px; color:#aaa; }
+        #tienda-panel {
+            position:fixed; top:50%; left:50%; transform:translate(-50%,-50%);
+            background:rgba(0,0,0,0.95); border:2px solid #ffd700; color:#fff; padding:20px;
+            z-index:10001; display:none; font-family:monospace; font-size:14px; border-radius:10px;
+            text-align:center; min-width:300px; max-height:80vh; overflow-y:auto;
+        }
+        #tienda-panel button { background:#ffd700; color:#000; border:none; padding:8px 16px; margin:4px; cursor:pointer; font-weight:bold; border-radius:4px; }
+        #tienda-panel h2 { color:#ffd700; margin-bottom:10px; }
+        #mobile-controls {
+            position:fixed; bottom:20px; right:20px; display:none; z-index:9999;
+            gap:10px; flex-direction:row;
+        }
+        .mobile-btn {
+            width:50px; height:50px; border-radius:50%; background:rgba(255,255,255,0.3); border:2px solid #fff;
+            font-size:20px; display:flex; align-items:center; justify-content:center; color:#fff;
+            cursor:pointer; user-select:none; -webkit-tap-highlight-color:transparent;
+        }
+        #btn-ultimate { background:rgba(255,215,0,0.3); border-color:#ffd700; }
+    </style>
+</head>
+<body>
+    <canvas id="game"></canvas>
+
+    <div id="architect-panel">
+        <h3>🔧 ARQUITECTO</h3>
+        <button id="arch-close">Cerrar [F2]</button>
+        <div id="arch-content"></div>
+    </div>
+
+    <div id="module-panel">
+        <h3>📦 MÓDULOS (I)</h3>
+        <button id="module-close">Cerrar</button>
+        <div id="module-content"></div>
+    </div>
+
+    <div id="tienda-panel">
+        <h2>⭐ TIENDA DE DESTINO</h2>
+        <p>Puntos de Destino: <span id="tienda-puntos">0</span></p>
+        <div id="tienda-opciones"></div>
+        <button id="tienda-cerrar">Cerrar</button>
+    </div>
+
+    <div id="mobile-controls">
+        <div class="mobile-btn" id="btn-dash">💨</div>
+        <div class="mobile-btn" id="btn-ultimate">⚡</div>
+        <div class="mobile-btn" id="btn-module">📦</div>
+    </div>
+
+    <script>
+    'use strict';
+
+    // ============================================================
+    // CONFIGURACIÓN GLOBAL
+    // ============================================================
+    const CONFIG = {
+        input: {
+            leftZone: 0.35,
+            rightZone: 0.35,
+            deadzone: 0.1,
+            sensitivity: 1.0,
+            inertia: 0.92,
+            dashCooldown: 45,
+            dashDuration: 8,
+            dashSpeed: 5.5,
+            vibrate: true,
+            autoFire: false,
+        },
+        player: {
+            baseSpeed: 2.8,
+            baseHp: 100,
+            baseDamage: 10,
+            baseFireRate: 12,
+            baseProjectiles: 1,
+            baseArmor: 0,
+            maxWeaponLevel: 5,
+            baseCritChance: 0.0,
+            critMultiplier: 2.0,
+        },
+        combat: {
+            spawnInterval: 80,
+            maxEnemies: 30,
+            enemyBaseHp: 25,
+            enemyBaseSpeed: 1.2,
+            enemyBaseSize: 14,
+            scalingPerKill: 0.5,
+            evolutionTable: [
+                { min:1, max:3, action:'death' },
+                { min:4, max:5, action:'split', count:2, hpMult:0.5, sizeMult:0.8, speedMult:1.1 },
+                { min:6, max:6, action:'evolve', hpMult:1.4, sizeMult:1.2, speedMult:0.9 },
+            ],
+            dropChance: 0.35,
+            moduleDropChance: 0.1,
+            bossInterval: 50,
+            ultimateChargePerKill: 4,
+        },
+        modules: {
+            maxSlots: 4,
+            tipos: ['ataque','defensa','utilidad','orbe'],
+            runas: ['F','A','W','E','R'],
+            formas: ['circulo','cuadrado','triangulo'],
+            sinergias: {
+                'FF': { dañoFuego:3 },
+                'AA': { velocidadAtaque:2 },
+                'WW': { curacion:1 },
+                'EE': { escudo:20 },
+                'RR': { reboteExtra:1 },
+            },
+        },
+        drops: {
+            rarezas: [
+                { id:'comun', peso:60, color:'#aaa', icon:'📦' },
+                { id:'poco_comun', peso:25, color:'#4ade80', icon:'📗' },
+                { id:'epico', peso:10, color:'#c084fc', icon:'📘' },
+                { id:'legendario', peso:5, color:'#ffd700', icon:'📕' },
+            ],
+            tipos: {
+                hp:           { label:'Vida',       base:20, porNivel:5,  icon:'❤️', color:'#ff6b6b', permanente:false },
+                proyectiles:  { label:'Proyectiles',base:1,  porNivel:0,  icon:'🔫', color:'#ffd93d', permanente:true },
+                cadencia:     { label:'Cadencia',   base:-1, porNivel:0,  icon:'⏱️', color:'#74b9ff', permanente:true },
+                daño:         { label:'Daño',       base:2,  porNivel:1,  icon:'⚔️', color:'#ff9f43', permanente:true },
+                velocidad:    { label:'Velocidad',  base:0.3,porNivel:0.1,icon:'💨', color:'#00d2d3', permanente:true },
+                precision:    { label:'Precisión',  base:0.05,porNivel:0.02,icon:'🎯', color:'#54a0ff', permanente:true },
+                modulo:       { label:'Módulo',     base:0,  porNivel:0,  icon:'🧩', color:'#ffd700', especial:true },
+            },
+        },
+        gameModes: {
+            current: 'standard',
+            horda: { spawnAcceleration:0.98, maxEnemiesMultiplier:2 },
+            jefe: { killsPerBoss:30, bossEvolutionLevel:3 },
+        },
+        persistenceKey: 'gachaEvolutivoModular_v1',
+        ui: { showJoystick:true, showMessages:true },
+        logros: [
+            { id:'kills100', nombre:'Carnicero', desc:'Mata 100 enemigos', meta:100, recompensa:5 },
+            { id:'kills500', nombre:'Exterminador', desc:'Mata 500 enemigos', meta:500, recompensa:10 },
+            { id:'survive120', nombre:'Superviviente', desc:'Sobrevive 2 minutos', meta:120, recompensa:5 },
+            { id:'survive300', nombre:'Inmortal', desc:'Sobrevive 5 minutos', meta:300, recompensa:10 },
+            { id:'boss5', nombre:'Cazajefes', desc:'Derrota 5 jefes', meta:5, recompensa:8 },
+            { id:'drops20', nombre:'Coleccionista', desc:'Recoge 20 drops', meta:20, recompensa:3 },
+            { id:'crit50', nombre:'Golpe crítico', desc:'Asesta 50 críticos', meta:50, recompensa:4 },
+            { id:'ultimate10', nombre:'Demoledor', desc:'Usa el arma definitiva 10 veces', meta:10, recompensa:6 },
+        ],
+    };
+
+    const random = (min, max) => Math.random() * (max - min) + min;
+    const dist = (x1,y1,x2,y2) => Math.hypot(x2-x1, y2-y1);
+
+    // ============================================================
+    // CLASE PIEZA (MÓDULO)
+    // ============================================================
+    class Pieza {
+        constructor(tipo, runa, forma, stats) {
+            this.tipo = tipo;
+            this.runa = runa;
+            this.forma = forma;
+            this.stats = { damage:0, speed:0, fireRate:0, projectiles:0, critChance:0, ...stats };
+            this.color = this.getColor();
+        }
+        getColor() {
+            const colores = { ataque:'#ff4444', defensa:'#44aaff', utilidad:'#44ff44', orbe:'#ffaa00' };
+            return colores[this.tipo] || '#ffffff';
+        }
+    }
+
+    // ============================================================
+    // CLASE PRINCIPAL DEL JUEGO
+    // ============================================================
+    class Game {
+        constructor(canvas) {
+            this.canvas = canvas;
+            this.ctx = canvas.getContext('2d');
+            this.baseWidth = 900;
+            this.baseHeight = 600;
+            this.esMovil = /Mobi|Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+
+            this.input = new InputManager(canvas);
+            this.jugador = new Player(canvas);
+            this.evolManager = new EvolutionManager();
+            this.dropManager = new DropManager(this);
+            this.ui = new UIManager(canvas);
+            this.modoJuego = new GameModeManager();
+            this.persistencia = new PersistenceManager();
+            this.architect = new ArchitectModule(this);
+            this.moduleUI = new ModuleUI(this);
+
+            this.enemigos = [];
+            this.balas = [];
+            this.drops = [];
+            this.gameOver = false;
+            this.kills = 0;
+            this.tiempoSobrevivido = 0;
+            this.spawnTimer = 60;
+            this.cargaUltimate = 0;
+            this.maxCargaUltimate = 100;
+            this.ultiUsos = 0;
+            this.criticosRealizados = 0;
+            this.dropsRecogidos = 0;
+            this.jefesDerrotados = 0;
+            this.mensajesPospartida = [];
+
+            const save = this.persistencia.load();
+            this.jugador.init(this.canvas.width/2, this.canvas.height/2, save);
+            this.logrosDesbloqueados = save.logros || [];
+            this.jugador.modulosEquipados = save.modulosEquipados || [null, null, null, null];
+            this.jugador.inventarioModulos = save.inventarioModulos || [];
+
+            this.resize();
+            window.addEventListener('resize', () => this.resize());
+
+            if (this.esMovil) {
+                document.getElementById('mobile-controls').style.display = 'flex';
+                document.getElementById('btn-dash').addEventListener('touchstart', (e) => {
+                    e.preventDefault(); this.input.touch.dashRequested = true;
+                });
+                document.getElementById('btn-ultimate').addEventListener('touchstart', (e) => {
+                    e.preventDefault(); this.activarUltimate();
+                });
+                document.getElementById('btn-module').addEventListener('touchstart', (e) => {
+                    e.preventDefault(); this.moduleUI.toggle();
+                });
+            }
+
+            document.addEventListener('keydown', (e) => {
+                if (e.key.toLowerCase() === 'e' && !this.gameOver) { e.preventDefault(); this.activarUltimate(); }
+                if (e.key.toLowerCase() === 't' && !this.gameOver) { e.preventDefault(); this.abrirTienda(); }
+                if (e.key.toLowerCase() === 'i' && !this.gameOver) { e.preventDefault(); this.moduleUI.toggle(); }
+            });
+
+            if (this.esMovil) {
+                document.addEventListener('click', () => {
+                    if (!document.fullscreenElement) document.documentElement.requestFullscreen?.().catch(()=>{});
+                }, { once:true });
+            }
+
+            this._bindReinicio();
+            this._loop();
+        }
+
+        resize() {
+            const maxW = window.innerWidth;
+            const maxH = window.innerHeight;
+            let newW, newH;
+            if (maxW / maxH > this.baseWidth / this.baseHeight) {
+                newH = maxH;
+                newW = (this.baseWidth / this.baseHeight) * newH;
+            } else {
+                newW = maxW;
+                newH = (this.baseHeight / this.baseWidth) * newW;
+            }
+            this.canvas.width = newW;
+            this.canvas.height = newH;
+            this.input.updateCanvasSize(newW, newH);
+        }
+
+        _bindReinicio() {
+            document.addEventListener('keydown', (e) => {
+                if (e.key.toLowerCase() === 'r' && this.gameOver) this.reiniciarJuego();
+            });
+        }
+
+        reiniciarJuego() {
+            const save = this.persistencia.load();
+            this.jugador.init(this.canvas.width/2, this.canvas.height/2, save);
+            this.jugador.modulosEquipados = save.modulosEquipados || [null, null, null, null];
+            this.jugador.inventarioModulos = save.inventarioModulos || [];
+            this.enemigos = []; this.balas = []; this.drops = [];
+            this.gameOver = false; this.kills = 0; this.tiempoSobrevivido = 0;
+            this.cargaUltimate = 0; this.ultiUsos = 0; this.criticosRealizados = 0;
+            this.dropsRecogidos = 0; this.jefesDerrotados = 0;
+            this.mensajesPospartida = [];
+            this.spawnTimer = 60;
+            this.ui.messages = []; this.ui.particles = [];
+        }
+
+        activarUltimate() {
+            if (this.cargaUltimate >= this.maxCargaUltimate && !this.gameOver) {
+                this.cargaUltimate = 0; this.ultiUsos++;
+                const ang = this.input.getAimAngle();
+                const largo = Math.max(this.canvas.width, this.canvas.height);
+                const xFin = this.jugador.x + Math.cos(ang) * largo;
+                const yFin = this.jugador.y + Math.sin(ang) * largo;
+                for (const e of this.enemigos) {
+                    if (!e.alive) continue;
+                    const d = Math.abs((yFin-this.jugador.y)*e.x - (xFin-this.jugador.x)*e.y + xFin*this.jugador.y - yFin*this.jugador.x) / largo;
+                    if (d < e.radio + 40) {
+                        e.hp -= 80;
+                        e.applyStatusEffect('quemadura', { damage:5, duration:120 });
+                    }
+                }
+                this.ui.shake(0.4);
+                this.ui.emitParticles(this.jugador.x, this.jugador.y, '#ffd700', 30);
+                this.ui.showMessage('⚡ ¡ULTIMATE!', '#ffd700', 60);
+            }
+        }
+
+        abrirTienda() {
+            document.getElementById('tienda-panel').style.display = 'block';
+            document.getElementById('tienda-puntos').textContent = this.jugador.destinyPoints;
+            this.renderizarTienda();
+        }
+
+        renderizarTienda() {
+            const opcionesDiv = document.getElementById('tienda-opciones');
+            const puntos = this.jugador.destinyPoints;
+            const mejoras = [
+                { id:'hpBonus', nombre:'Vida máxima (+5)', costo:10, attr:'hpBonus' },
+                { id:'damageBonus', nombre:'Daño (+2)', costo:15, attr:'damageBonus' },
+                { id:'speedBonus', nombre:'Velocidad (+0.2)', costo:12, attr:'speedBonus' },
+                { id:'fireRateBonus', nombre:'Cadencia (-1 frame)', costo:20, attr:'fireRateBonus' },
+                { id:'projectilesBonus', nombre:'Proyectil inicial (+1)', costo:30, attr:'projectilesBonus' },
+                { id:'critBonus', nombre:'Prob. crítica (+5%)', costo:18, attr:'critBonus' },
+            ];
+            let html = '';
+            mejoras.forEach(m => {
+                const actual = this.jugador.permanentUpgrades[m.attr] || 0;
+                html += `<button ${puntos >= m.costo ? '' : 'disabled'} onclick="window.__game.comprarMejora('${m.attr}', ${m.costo})">${m.nombre} (${m.costo} PD) [${actual}]</button><br>`;
+            });
+            opcionesDiv.innerHTML = html;
+        }
+
+        comprarMejora(attr, costo) {
+            if (this.jugador.destinyPoints >= costo) {
+                this.jugador.destinyPoints -= costo;
+                this.jugador.permanentUpgrades[attr] = (this.jugador.permanentUpgrades[attr] || 0) + 1;
+                if (attr === 'critBonus') this.jugador.critChance = CONFIG.player.baseCritChance + this.jugador.permanentUpgrades.critBonus * 0.05;
+                const save = this.persistencia.load();
+                save.destinyPoints = this.jugador.destinyPoints;
+                save.upgrades = { ...this.jugador.permanentUpgrades };
+                save.modulosEquipados = this.jugador.modulosEquipados;
+                save.inventarioModulos = this.jugador.inventarioModulos;
+                this.persistencia.save(save);
+                this.renderizarTienda();
+                document.getElementById('tienda-puntos').textContent = this.jugador.destinyPoints;
+            }
+        }
+
+        spawnEnemy() {
+            const lado = Math.floor(Math.random() * 4);
+            let x, y;
+            const margen = 30;
+            const W = this.canvas.width, H = this.canvas.height;
+            switch (lado) {
+                case 0: x = Math.random()*W; y = -margen; break;
+                case 1: x = W+margen; y = Math.random()*H; break;
+                case 2: x = Math.random()*W; y = H+margen; break;
+                case 3: x = -margen; y = Math.random()*H; break;
+            }
+            const scaling = 1 + (this.kills * CONFIG.combat.scalingPerKill / 100);
+            const hpBase = CONFIG.combat.enemyBaseHp * scaling;
+            const sizeBase = CONFIG.combat.enemyBaseSize * (1 + scaling*0.2);
+            const speedBase = CONFIG.combat.enemyBaseSpeed * (1 + scaling*0.1);
+            const nivelInicial = Math.random() < 0.1 + scaling*0.05 ? 1 : 0;
+            this.enemigos.push(new Enemy(x, y, nivelInicial, hpBase, sizeBase, speedBase));
+        }
+
+        _loop() {
+            this._update();
+            this._draw();
+            requestAnimationFrame(() => this._loop());
+        }
+
+        _update() {
+            if (this.gameOver) return;
+            this.input.update();
+            this.jugador.update(this.input);
+            this.tiempoSobrevivido++;
+
+            const autoFire = CONFIG.input.autoFire;
+            if (this.jugador.cooldown === 0) {
+                if (autoFire && this.input.isFireHeld() && this.enemigos.length > 0) {
+                    this.jugador.fire(this.input.getAimAngle(), this.balas);
+                } else if (this.input.consumeFireRequest()) {
+                    this.jugador.fire(this.input.getAimAngle(), this.balas);
+                }
+            }
+
+            for (let i = this.balas.length-1; i >= 0; i--) {
+                const b = this.balas[i];
+                b.update(this.canvas, this.enemigos);
+                if (!b.alive) { this.balas.splice(i,1); continue; }
+                let balaDestruida = false;
+                for (let j = this.enemigos.length-1; j >= 0; j--) {
+                    const e = this.enemigos[j];
+                    if (!e.alive) continue;
+                    if (dist(b.x, b.y, e.x, e.y) < b.radio + e.radio) {
+                        let dmg = b.damage;
+                        if (Math.random() < this.jugador.critChance) {
+                            dmg *= CONFIG.player.critMultiplier;
+                            this.criticosRealizados++;
+                            this.ui.emitParticles(e.x, e.y, '#ffd700', 5, 3);
+                        }
+                        e.hp -= dmg;
+                        if (this.jugador.lifesteal > 0) this.jugador.heal(dmg * this.jugador.lifesteal / 100);
+                        if (b.quemadura) e.applyStatusEffect('quemadura', { damage:b.quemadura, duration:90 });
+                        if (b.congelacion) e.applyStatusEffect('congelacion', { factor:b.congelacion, duration:120 });
+                        if (b.explosivo) {
+                            for (const e2 of this.enemigos) {
+                                if (e2 !== e && e2.alive && dist(e.x, e.y, e2.x, e2.y) < 60) e2.hp -= dmg * 0.6;
+                            }
+                            this.ui.emitParticles(e.x, e.y, '#ff4757', 15);
+                        }
+                        if (!e.haMuerto && e.hp <= 0) {
+                            e.haMuerto = true;
+                            this.procesarMuerteEnemigo(e);
+                        }
+                        if (b.perforacion > 0) b.perforacion--;
+                        else if (b.rebotes > 0) {
+                            let target = null, minDist = Infinity;
+                            for (let k = 0; k < this.enemigos.length; k++) {
+                                if (k === j || !this.enemigos[k].alive) continue;
+                                const d = dist(this.enemigos[k].x, this.enemigos[k].y, b.x, b.y);
+                                if (d < minDist && d < 150) { minDist = d; target = this.enemigos[k]; }
+                            }
+                            if (target) b.bounce(target.x, target.y);
+                            else balaDestruida = true;
+                        } else balaDestruida = true;
+                        if (balaDestruida) break;
+                    }
+                }
+                if (balaDestruida) this.balas.splice(i,1);
+            }
+
+            for (let i = this.enemigos.length-1; i >= 0; i--) {
+                const e = this.enemigos[i];
+                if (!e.alive) { this.enemigos.splice(i,1); continue; }
+                e.update(this.jugador, this.canvas, this);
+                if (dist(e.x, e.y, this.jugador.x, this.jugador.y) < e.radio + this.jugador.radio) {
+                    if (this.jugador.takeDamage(e.dañoContacto * 0.5)) {
+                        this.ui.shake(0.08);
+                        this.ui.emitParticles(this.jugador.x, this.jugador.y, '#ff6b6b', 5);
+                    }
+                    const ang = Math.atan2(e.y-this.jugador.y, e.x-this.jugador.x);
+                    e.x += Math.cos(ang)*5; e.y += Math.sin(ang)*5;
+                }
+            }
+
+            for (let i = this.drops.length-1; i >= 0; i--) {
+                const d = this.drops[i];
+                if (dist(d.x, d.y, this.jugador.x, this.jugador.y) < this.jugador.radio + d.radio) {
+                    this.recogerDrop(d);
+                    this.drops.splice(i,1);
+                }
+            }
+
+            this.spawnTimer--;
+            const maxEnemies = this.modoJuego.currentMode === 'horda' ? CONFIG.combat.maxEnemies * 2 : CONFIG.combat.maxEnemies;
+            if (this.spawnTimer <= 0 && this.enemigos.length < maxEnemies) {
+                this.spawnEnemy();
+                this.spawnTimer = this.modoJuego.currentMode === 'horda' ? Math.max(10, CONFIG.combat.spawnInterval - Math.floor(this.kills/10)) : CONFIG.combat.spawnInterval;
+                if (Math.random() < 0.2 && this.enemigos.length < maxEnemies-2) this.spawnEnemy();
+            }
+
+            if (this.kills > 0 && this.kills % CONFIG.combat.bossInterval === 0 && this.enemigos.filter(e=>e.esJefe&&e.alive).length === 0) {
+                this.spawnBoss();
+            }
+
+            // Efecto de módulos orbe (orbitales)
+            this.jugador.updateOrbitales(this.enemigos, this.balas);
+
+            this.ui.update();
+            if (this.jugador.hp <= 0) {
+                this.gameOver = true; this.jugador.hp = 0;
+                this.finalizarPartida();
+            }
+        }
+
+        procesarMuerteEnemigo(e) {
+            const events = this.evolManager.processDeath(e, this.jugador, this.drops);
+            for (const ev of events) {
+                if (ev.type === 'spawn') {
+                    this.enemigos.push(ev.enemy);
+                    this.ui.emitParticles(ev.enemy.x, ev.enemy.y, ev.enemy.color, 15);
+                } else if (ev.type === 'loot') {
+                    if (Math.random() < CONFIG.combat.moduleDropChance) {
+                        const pieza = this.generarPiezaAleatoria(e);
+                        this.jugador.inventarioModulos.push(pieza);
+                        this.ui.showMessage(`🧩 Módulo ${pieza.runa} recogido`, '#ffd700');
+                    } else {
+                        const loot = this.dropManager.generarLoot(e, this.jugador);
+                        if (loot) {
+                            this.drops.push(loot);
+                            this.ui.emitParticles(loot.x, loot.y, loot.color, 8);
+                        }
+                    }
+                } else if (ev.type === 'message') {
+                    this.ui.showMessage(ev.text, ev.color);
+                } else if (ev.type === 'death') {
+                    this.kills++;
+                    this.cargaUltimate = Math.min(this.maxCargaUltimate, this.cargaUltimate + CONFIG.combat.ultimateChargePerKill);
+                    this.ui.emitParticles(e.x, e.y, e.color, 12);
+                    if (e.esJefe) this.jefesDerrotados++;
+                }
+            }
+        }
+
+        generarPiezaAleatoria(enemy) {
+            const tipos = CONFIG.modules.tipos;
+            const runas = CONFIG.modules.runas;
+            const tipo = tipos[Math.floor(Math.random()*tipos.length)];
+            const runa = runas[Math.floor(Math.random()*runas.length)];
+            const stats = {};
+            if (tipo === 'ataque') stats.damage = 2 + enemy.nivelEvo * 2;
+            else if (tipo === 'defensa') stats.armor = 1;
+            else if (tipo === 'utilidad') stats.speed = 0.3;
+            else if (tipo === 'orbe') stats.damage = 1;
+            return new Pieza(tipo, runa, 'circulo', stats);
+        }
+
+        recogerDrop(d) {
+            this.dropsRecogidos++;
+            const val = d.valor;
+            switch (d.tipo) {
+                case 'hp': this.jugador.heal(val); this.ui.showMessage(`❤️ +${val} HP`, '#ff6b6b'); break;
+                case 'proyectiles': this.jugador.upgradeWeapon(); this.ui.showMessage(`🔫 +1 Proyectil`, '#ffd93d'); break;
+                case 'cadencia': this.jugador.permanentUpgrades.fireRateBonus += val; this.ui.showMessage(`⏱️ Cadencia mejorada`, '#74b9ff'); break;
+                case 'daño': this.jugador.permanentUpgrades.damageBonus += val; this.ui.showMessage(`⚔️ Daño +${val}`, '#ff9f43'); break;
+                case 'velocidad': this.jugador.permanentUpgrades.speedBonus += val; this.ui.showMessage(`💨 Velocidad +${val.toFixed(1)}`, '#00d2d3'); break;
+                case 'precision': this.jugador.critChance += val; this.ui.showMessage(`🎯 Crítico +${(val*100).toFixed(1)}%`, '#54a0ff'); break;
+                default: if (d.tipo === 'modulo') this.jugador.inventarioModulos.push(d.pieza);
+            }
+            this.verificarSinergias();
+        }
+
+        verificarSinergias() {
+            const up = this.jugador.permanentUpgrades;
+            if (up.damageBonus >= 6 && up.fireRateBonus <= -3) {
+                if (!this.jugador.buffs.find(b=>b.tipo==='sinergia_furia')) {
+                    this.jugador.addBuff('fireRate', -4, 600);
+                    this.ui.showMessage('🔥 Sinergia: Furia', '#ff4500', 90);
+                }
+            }
+        }
+
+        spawnBoss() {
+            const boss = new Enemy(
+                this.canvas.width/2 + (Math.random()-0.5)*100,
+                this.canvas.height/2 + (Math.random()-0.5)*100,
+                3, CONFIG.combat.enemyBaseHp*3, CONFIG.combat.enemyBaseSize*1.6, CONFIG.combat.enemyBaseSpeed*0.7
+            );
+            boss.esJefe = true;
+            this.enemigos.push(boss);
+            this.ui.showMessage('👑 ¡JEFE!', '#ff6b6b', 120);
+            this.ui.shake(0.15);
+        }
+
+        finalizarPartida() {
+            const save = this.persistencia.load();
+            save.destinyPoints = (save.destinyPoints||0) + 2;
+            save.kills = (save.kills||0) + this.kills;
+            save.upgrades = { ...this.jugador.permanentUpgrades };
+            save.modulosEquipados = this.jugador.modulosEquipados;
+            save.inventarioModulos = this.jugador.inventarioModulos;
+            const nuevosLogros = [];
+            for (const logro of CONFIG.logros) {
+                if (this.logrosDesbloqueados.includes(logro.id)) continue;
+                let cumplido = false;
+                switch (logro.id) {
+                    case 'kills100': cumplido = this.kills >= 100; break;
+                    case 'kills500': cumplido = this.kills >= 500; break;
+                    case 'survive120': cumplido = this.tiempoSobrevivido >= 120*60; break;
+                    case 'survive300': cumplido = this.tiempoSobrevivido >= 300*60; break;
+                    case 'boss5': cumplido = this.jefesDerrotados >= 5; break;
+                    case 'drops20': cumplido = this.dropsRecogidos >= 20; break;
+                    case 'crit50': cumplido = this.criticosRealizados >= 50; break;
+                    case 'ultimate10': cumplido = this.ultiUsos >= 10; break;
+                }
+                if (cumplido) {
+                    nuevosLogros.push(logro);
+                    save.destinyPoints += logro.recompensa;
+                }
+            }
+            save.logros = [...this.logrosDesbloqueados, ...nuevosLogros.map(l=>l.id)];
+            this.persistencia.save(save);
+            this.mensajesPospartida = nuevosLogros.map(l=>`🏆 ${l.nombre}: +${l.recompensa} PD`);
+        }
+
+        _draw() {
+            const ctx = this.ctx;
+            ctx.clearRect(0,0,this.canvas.width,this.canvas.height);
+            ctx.save();
+            if (this.ui.cameraShake.intensity > 0.001) ctx.translate(this.ui.cameraShake.x, this.ui.cameraShake.y);
+
+            ctx.strokeStyle = '#2a2a40'; ctx.lineWidth = 1;
+            for (let x=0; x<this.canvas.width; x+=50) { ctx.beginPath(); ctx.moveTo(x,0); ctx.lineTo(x,this.canvas.height); ctx.stroke(); }
+            for (let y=0; y<this.canvas.height; y+=50) { ctx.beginPath(); ctx.moveTo(0,y); ctx.lineTo(this.canvas.width,y); ctx.stroke(); }
+            for (const d of this.drops) {
+                ctx.shadowColor = d.color; ctx.shadowBlur = 15;
+                ctx.font = '20px serif'; ctx.textAlign='center'; ctx.textBaseline='middle';
+                ctx.fillStyle = d.color; ctx.fillText(d.icono, d.x, d.y);
+                ctx.shadowBlur = 0;
+            }
+            for (const e of this.enemigos) e.draw(ctx);
+            for (const b of this.balas) b.draw(ctx);
+            this.ui.drawParticles(ctx);
+
+            // Dibujar módulos equipados alrededor del jugador
+            this.jugador.drawModulos(ctx);
+            // Dibujar orbitales
+            this.jugador.drawOrbitales(ctx);
+
+            ctx.shadowColor = '#fff'; ctx.shadowBlur = 20;
+            ctx.beginPath(); ctx.arc(this.jugador.x, this.jugador.y, this.jugador.radio, 0, Math.PI*2);
+            ctx.fillStyle = '#00d2ff'; ctx.fill();
+            ctx.shadowBlur = 0;
+            const aim = this.input.getAimAngle();
+            for (let i=-1; i<=1; i+=2) {
+                const ax = this.jugador.x + Math.cos(aim+i*0.4)*10;
+                const ay = this.jugador.y + Math.sin(aim+i*0.4)*10;
+                ctx.beginPath(); ctx.arc(ax, ay, 4, 0, Math.PI*2); ctx.fillStyle='#fff'; ctx.fill();
+                ctx.beginPath(); ctx.arc(ax+Math.cos(aim)*2.5, ay+Math.sin(aim)*2.5, 2, 0, Math.PI*2); ctx.fillStyle='#111'; ctx.fill();
+            }
+            if (this.cargaUltimate > 0) {
+                const anchoBarra = this.jugador.radio*2;
+                const yBarra = this.jugador.y - this.jugador.radio - 12;
+                ctx.fillStyle = '#333'; ctx.fillRect(this.jugador.x - anchoBarra/2, yBarra, anchoBarra, 4);
+                ctx.fillStyle = '#ffd700'; ctx.fillRect(this.jugador.x - anchoBarra/2, yBarra, anchoBarra * (this.cargaUltimate/this.maxCargaUltimate), 4);
+            }
+            ctx.restore();
+            this.ui.draw(ctx, this.jugador, this.enemigos, this.balas, this.drops, this.gameOver, this.input, this);
+        }
+    }
+
+    // ============================================================
+    // PLAYER (con sistema de módulos)
+    // ============================================================
+    class Player {
+        constructor(canvas) {
+            this.canvas = canvas;
+            this.baseConfig = CONFIG.player;
+            this.x = 0; this.y = 0; this.radio = 16;
+            this.permanentUpgrades = { hpBonus:0, speedBonus:0, damageBonus:0, fireRateBonus:0, projectilesBonus:0, armorBonus:0, critBonus:0 };
+            this.weaponLevel = 1;
+            this.buffs = [];
+            this.cooldown = 0;
+            this.dashing = false; this.dashTimer = 0; this.dashCooldown = 0;
+            this.invincible = false;
+            this.destinyPoints = 0;
+            this.critChance = CONFIG.player.baseCritChance;
+            this.lifesteal = 0;
+            this.hp = this.getMaxHp();
+            this.modulosEquipados = [null, null, null, null]; // N, S, E, O
+            this.inventarioModulos = [];
+            this.orbitales = []; // { pieza, angulo }
+        }
+
+        init(x, y, saveData) {
+            this.x = x; this.y = y; this.weaponLevel = 1;
+            this.permanentUpgrades = { hpBonus:0, speedBonus:0, damageBonus:0, fireRateBonus:0, projectilesBonus:0, armorBonus:0, critBonus:0 };
+            if (saveData) {
+                this.destinyPoints = saveData.destinyPoints || 0;
+                if (saveData.upgrades) Object.assign(this.permanentUpgrades, saveData.upgrades);
+                this.modulosEquipados = saveData.modulosEquipados || [null, null, null, null];
+                this.inventarioModulos = saveData.inventarioModulos || [];
+            }
+            this.hp = this.getMaxHp();
+            this.critChance = CONFIG.player.baseCritChance + (this.permanentUpgrades.critBonus || 0) * 0.05;
+            this.cooldown = 0; this.buffs = []; this.dashing = false; this.invincible = false;
+            this.orbitales = [];
+            this.actualizarOrbitalesDesdeModulos();
+        }
+
+        getMaxHp() { return this.baseConfig.baseHp + this.permanentUpgrades.hpBonus * 5; }
+
+        getEffectiveStats() {
+            let speed = this.baseConfig.baseSpeed + this.permanentUpgrades.speedBonus * 0.2;
+            let damage = this.baseConfig.baseDamage + this.permanentUpgrades.damageBonus * 2;
+            let fireRate = this.baseConfig.baseFireRate + this.permanentUpgrades.fireRateBonus;
+            let projectiles = this.baseConfig.baseProjectiles + this.weaponLevel - 1 + this.permanentUpgrades.projectilesBonus;
+            let armor = this.baseConfig.baseArmor + this.permanentUpgrades.armorBonus;
+            for (const buff of this.buffs) {
+                if (buff.tipo === 'speed') speed += buff.valor;
+                if (buff.tipo === 'damage') damage += buff.valor;
+                if (buff.tipo === 'fireRate') fireRate += buff.valor;
+                if (buff.tipo === 'projectiles') projectiles += buff.valor;
+                if (buff.tipo === 'armor') armor += buff.valor;
+            }
+            // Sumar estadísticas de módulos equipados
+            for (const m of this.modulosEquipados) {
+                if (!m) continue;
+                if (m.stats.damage) damage += m.stats.damage;
+                if (m.stats.speed) speed += m.stats.speed;
+                if (m.stats.fireRate) fireRate += m.stats.fireRate;
+                if (m.stats.projectiles) projectiles += m.stats.projectiles;
+                if (m.stats.critChance) this.critChance += m.stats.critChance;
+                if (m.stats.armor) armor += m.stats.armor;
+            }
+            // Sinergias
+            const sinergias = this.obtenerSinergias();
+            if (sinergias.dañoFuego) damage += sinergias.dañoFuego;
+            if (sinergias.velocidadAtaque) fireRate -= sinergias.velocidadAtaque;
+            if (sinergias.escudo) armor += sinergias.escudo;
+
+            fireRate = Math.max(3, fireRate);
+            return { speed, damage, fireRate, projectiles, armor };
+        }
+
+        obtenerSinergias() {
+            const equipados = this.modulosEquipados;
+            const sinergias = {};
+            // Comprobar adyacencias: N-S y E-O
+            if (equipados[0] && equipados[2]) {
+                const key = equipados[0].runa + equipados[2].runa;
+                if (CONFIG.modules.sinergias[key]) Object.assign(sinergias, CONFIG.modules.sinergias[key]);
+            }
+            if (equipados[1] && equipados[3]) {
+                const key = equipados[1].runa + equipados[3].runa;
+                if (CONFIG.modules.sinergias[key]) Object.assign(sinergias, CONFIG.modules.sinergias[key]);
+            }
+            return sinergias;
+        }
+
+        actualizarOrbitalesDesdeModulos() {
+            this.orbitales = [];
+            for (const m of this.modulosEquipados) {
+                if (m && m.tipo === 'orbe') {
+                    this.orbitales.push({ pieza: m, angulo: Math.random() * Math.PI * 2 });
+                }
+            }
+        }
+
+        updateOrbitales(enemigos, balas) {
+            for (const orb of this.orbitales) {
+                orb.angulo += 0.02;
+                if (orb.angulo > Math.PI*2) orb.angulo -= Math.PI*2;
+                const orbX = this.x + Math.cos(orb.angulo) * 25;
+                const orbY = this.y + Math.sin(orb.angulo) * 25;
+                // Disparo automático
+                if (this.cooldown === 0 && enemigos.length > 0) {
+                    let target = null, minD = 200;
+                    for (const e of enemigos) {
+                        if (!e.alive) continue;
+                        const d = dist(orbX, orbY, e.x, e.y);
+                        if (d < minD) { minD = d; target = e; }
+                    }
+                    if (target) {
+                        const ang = Math.atan2(target.y - orbY, target.x - orbX);
+                        balas.push(new Bullet(orbX, orbY, Math.cos(ang)*5, Math.sin(ang)*5, 5 + (orb.pieza.stats.damage||0)));
+                    }
+                }
+            }
+        }
+
+        drawModulos(ctx) {
+            const posiciones = [
+                { x: 0, y: -this.radio-8 },  // N
+                { x: 0, y: this.radio+8 },   // S
+                { x: this.radio+8, y: 0 },   // E
+                { x: -this.radio-8, y: 0 }   // O
+            ];
+            for (let i = 0; i < this.modulosEquipados.length; i++) {
+                const m = this.modulosEquipados[i];
+                if (!m) continue;
+                const px = this.x + posiciones[i].x;
+                const py = this.y + posiciones[i].y;
+                ctx.fillStyle = m.color;
+                ctx.beginPath();
+                ctx.arc(px, py, 6, 0, Math.PI*2);
+                ctx.fill();
+                ctx.fillStyle = '#fff';
+                ctx.font = '10px monospace';
+                ctx.textAlign = 'center';
+                ctx.fillText(m.runa, px, py+4);
+            }
+        }
+
+        drawOrbitales(ctx) {
+            for (const orb of this.orbitales) {
+                const x = this.x + Math.cos(orb.angulo) * 25;
+                const y = this.y + Math.sin(orb.angulo) * 25;
+                ctx.fillStyle = orb.pieza.color;
+                ctx.beginPath();
+                ctx.arc(x, y, 5, 0, Math.PI*2);
+                ctx.fill();
+                ctx.fillStyle = '#fff';
+                ctx.font = '8px monospace';
+                ctx.textAlign = 'center';
+                ctx.fillText(orb.pieza.runa, x, y+3);
+            }
+        }
+
+        update(input) {
+            this.updateBuffs();
+            if (this.cooldown > 0) this.cooldown--;
+            if (this.dashCooldown > 0) this.dashCooldown--;
+            if (this.dashing) {
+                this.dashTimer--;
+                if (this.dashTimer <= 0) { this.dashing = false; this.invincible = false; }
+            }
+            const move = input.getMove();
+            let speed = this.getEffectiveStats().speed;
+            if (this.dashing) speed *= CONFIG.input.dashSpeed;
+            this.x += move.dx * speed;
+            this.y += move.dy * speed;
+            const margen = this.radio + 10;
+            this.x = Math.max(margen, Math.min(this.canvas.width - margen, this.x));
+            this.y = Math.max(margen, Math.min(this.canvas.height - margen, this.y));
+            if (input.shouldDash(this) && !this.dashing && this.dashCooldown === 0) {
+                this.dashing = true; this.dashTimer = CONFIG.input.dashDuration;
+                this.invincible = true; this.dashCooldown = CONFIG.input.dashCooldown;
+            }
+        }
+
+        updateBuffs() {
+            for (let i = this.buffs.length-1; i >= 0; i--) {
+                this.buffs[i].duracion--;
+                if (this.buffs[i].duracion <= 0) {
+                    if (this.buffs[i].tipo === 'roboVida') this.lifesteal = 0;
+                    this.buffs.splice(i,1);
+                }
+            }
+        }
+
+        addBuff(tipo, valor, duracion) {
+            const existente = this.buffs.find(b => b.tipo === tipo);
+            if (existente) existente.duracion = Math.max(existente.duracion, duracion);
+            else {
+                this.buffs.push({ tipo, valor, duracion });
+                if (tipo === 'roboVida') this.lifesteal = valor;
+            }
+        }
+
+        aplicarBuffProyectil(tipo, valor, duracion) { this.addBuff(tipo, valor, duracion); }
+
+        takeDamage(amount) {
+            if (this.invincible) return false;
+            const armor = this.getEffectiveStats().armor;
+            const finalDamage = Math.max(1, amount - (armor || 0));
+            this.hp -= finalDamage;
+            if (this.hp < 0) this.hp = 0;
+            if (CONFIG.input.vibrate && navigator.vibrate) navigator.vibrate(20);
+            return true;
+        }
+
+        heal(amount) { this.hp = Math.min(this.getMaxHp(), this.hp + amount); }
+
+        upgradeWeapon() {
+            if (this.weaponLevel < CONFIG.player.maxWeaponLevel) { this.weaponLevel++; return true; }
+            return false;
+        }
+
+        fire(aimAngle, bullets) {
+            if (this.cooldown > 0) return;
+            const stats = this.getEffectiveStats();
+            const count = stats.projectiles;
+            const speed = 6;
+            const damage = stats.damage;
+            const totalAngle = 0.4 * (count - 1);
+            const startAngle = aimAngle - totalAngle/2;
+            // Aplicar efectos de módulos tipo ataque/defensa a las balas
+            let tieneFuego = false, tieneRebote = false, tieneExplosivo = false;
+            for (const m of this.modulosEquipados) {
+                if (!m) continue;
+                if (m.runa === 'F') tieneFuego = true;
+                if (m.runa === 'R') tieneRebote = true;
+                if (m.tipo === 'ataque') tieneExplosivo = true;
+            }
+            for (let i = 0; i < count; i++) {
+                const ang = count === 1 ? aimAngle : startAngle + i * (totalAngle/(count-1));
+                const b = new Bullet(
+                    this.x + Math.cos(ang)*this.radio,
+                    this.y + Math.sin(ang)*this.radio,
+                    Math.cos(ang)*speed, Math.sin(ang)*speed,
+                    damage, tieneRebote ? 1 : 0
+                );
+                if (tieneFuego) b.quemadura = 2;
+                if (tieneExplosivo) b.explosivo = true;
+                for (const buff of this.buffs) {
+                    if (buff.tipo === 'perforacion') b.perforacion = buff.valor;
+                    if (buff.tipo === 'rebote') b.rebotes = buff.valor;
+                    if (buff.tipo === 'explosivo') b.explosivo = true;
+                    if (buff.tipo === 'teledirigido') b.teledirigido = true;
+                    if (buff.tipo === 'quemadura') b.quemadura = buff.valor;
+                    if (buff.tipo === 'congelacion') b.congelacion = buff.valor;
+                }
+                bullets.push(b);
+            }
+            this.cooldown = stats.fireRate;
+        }
+    }
+
+    // ============================================================
+    // BULLET, ENEMY, etc. (sin cambios relevantes)
+    // ============================================================
+    class Bullet {
+        constructor(x, y, vx, vy, damage, rebotes=0) {
+            this.x = x; this.y = y; this.vx = vx; this.vy = vy;
+            this.damage = damage || 10; this.radio = 4; this.alive = true;
+            this.rebotes = rebotes; this.perforacion = 0;
+            this.explosivo = false; this.teledirigido = false;
+            this.quemadura = 0; this.congelacion = 0;
+        }
+        update(canvas, enemigos) {
+            if (this.teledirigido && enemigos.length > 0) {
+                let target = null, minDist = 200;
+                for (const e of enemigos) { if (!e.alive) continue; const d = dist(this.x, this.y, e.x, e.y); if (d < minDist) { minDist = d; target = e; } }
+                if (target) {
+                    const ang = Math.atan2(target.y-this.y, target.x-this.x);
+                    this.vx += Math.cos(ang)*0.5; this.vy += Math.sin(ang)*0.5;
+                    const spd = Math.hypot(this.vx, this.vy);
+                    if (spd > 7) { this.vx *= 7/spd; this.vy *= 7/spd; }
+                }
+            }
+            this.x += this.vx; this.y += this.vy;
+            if (this.x < -50 || this.x > canvas.width+50 || this.y < -50 || this.y > canvas.height+50) this.alive = false;
+        }
+        draw(ctx) {
+            ctx.beginPath(); ctx.arc(this.x, this.y, this.radio, 0, Math.PI*2);
+            ctx.fillStyle = this.explosivo ? '#ff4757' : '#0ff';
+            ctx.shadowColor = this.explosivo ? '#ff4757' : '#0ff'; ctx.shadowBlur = 12; ctx.fill(); ctx.shadowBlur = 0;
+        }
+        bounce(targetX, targetY) {
+            if (this.rebotes > 0) {
+                const dx = targetX - this.x, dy = targetY - this.y, len = Math.hypot(dx, dy);
+                if (len > 1) { this.vx = (dx/len)*6; this.vy = (dy/len)*6; this.rebotes--; return true; }
+            }
+            return false;
+        }
+    }
+
+    class Enemy {
+        constructor(x, y, nivelEvo, hpBase, sizeBase, speedBase) {
+            this.x = x; this.y = y; this.nivelEvo = nivelEvo || 0;
+            const mult = Math.pow(1.6, this.nivelEvo);
+            this.hpMax = Math.floor((hpBase||25) * mult); this.hp = this.hpMax;
+            this.radio = (sizeBase||14) * (0.9 + this.nivelEvo*0.2);
+            this.speed = (speedBase||1.2) * (0.9 + this.nivelEvo*0.1);
+            this.dañoContacto = Math.floor(8 * mult);
+            this.alive = true; this.haMuerto = false; this.esJefe = false;
+            this.statusEffects = []; this.jefeDisparoTimer = 0;
+            const colores = ['#4ade80','#facc15','#f87171','#c084fc'];
+            this.color = colores[Math.min(this.nivelEvo,3)];
+        }
+        update(jugador, canvas, game) {
+            for (let i=this.statusEffects.length-1; i>=0; i--) {
+                const eff = this.statusEffects[i];
+                if (eff.tipo === 'quemadura') { this.hp -= eff.damagePerTick; eff.duration--; if (eff.duration<=0) this.statusEffects.splice(i,1); }
+                if (eff.tipo === 'congelacion') { this.speed *= eff.factor; eff.duration--; if (eff.duration<=0) { this.speed /= eff.factor; this.statusEffects.splice(i,1); } }
+            }
+            if (this.hp <= 0) { this.alive = false; this.haMuerto = true; return; }
+            const dx = jugador.x - this.x, dy = jugador.y - this.y, d = Math.hypot(dx, dy);
+            if (d > 1) { this.x += (dx/d)*this.speed; this.y += (dy/d)*this.speed; }
+            this.x = Math.max(this.radio, Math.min(canvas.width-this.radio, this.x));
+            this.y = Math.max(this.radio, Math.min(canvas.height-this.radio, this.y));
+            if (this.esJefe) {
+                this.jefeDisparoTimer++;
+                if (this.jefeDisparoTimer >= 90) {
+                    this.jefeDisparoTimer = 0;
+                    game.ui.emitParticles(this.x, this.y, '#ff0000', 10);
+                    if (dist(this.x, this.y, jugador.x, jugador.y) < 200) jugador.takeDamage(5);
+                }
+            }
+        }
+        draw(ctx) {
+            ctx.shadowColor = this.color; ctx.shadowBlur = 15;
+            ctx.beginPath(); ctx.arc(this.x, this.y, this.radio, 0, Math.PI*2);
+            ctx.fillStyle = this.color; ctx.fill();
+            ctx.shadowBlur = 0;
+            ctx.strokeStyle = '#fff'; ctx.lineWidth = 1.5; ctx.stroke();
+            ctx.fillStyle = '#fff'; ctx.font = 'bold 12px monospace'; ctx.textAlign='center'; ctx.textBaseline='middle';
+            ctx.fillText('⬆️'.repeat(this.nivelEvo), this.x, this.y-this.radio-14);
+            const anchoBarra = this.radio*2.2, yBarra = this.y-this.radio-6;
+            ctx.fillStyle = '#222'; ctx.fillRect(this.x-anchoBarra/2, yBarra, anchoBarra, 4);
+            const pct = this.hp/this.hpMax;
+            ctx.fillStyle = pct>0.6?'#4ade80':pct>0.3?'#facc15':'#ef4444';
+            ctx.fillRect(this.x-anchoBarra/2, yBarra, anchoBarra*pct, 4);
+        }
+        applyStatusEffect(tipo, params) {
+            if (tipo === 'quemadura') this.statusEffects.push({ tipo:'quemadura', damagePerTick:params.damage, duration:params.duration });
+            if (tipo === 'congelacion') this.statusEffects.push({ tipo:'congelacion', factor:params.factor, duration:params.duration });
+        }
+    }
+
+    class EvolutionManager {
+        processDeath(enemy, player, dropsList) {
+            if (enemy.nivelEvo >= 3) return [{ type:'loot', enemy }, { type:'death' }];
+            const dado = Math.floor(Math.random()*6)+1;
+            const table = CONFIG.combat.evolutionTable;
+            let action = 'death';
+            for (const row of table) if (dado >= row.min && dado <= row.max) { action = row.action; break; }
+            const events = [];
+            if (action === 'death') {
+                events.push({ type:'loot', enemy }, { type:'death' });
+            } else if (action === 'split') {
+                const nuevoNivel = enemy.nivelEvo+1;
+                const hpBase = Math.floor(enemy.hpMax*0.5), sizeBase = enemy.radio*0.8, speedBase = enemy.speed*1.1;
+                for (let i=0; i<2; i++) {
+                    const hijo = new Enemy(enemy.x+((i===0?-30:30)+(Math.random()-0.5)*20), enemy.y+((Math.random()-0.5)*20), nuevoNivel, hpBase, sizeBase, speedBase);
+                    events.push({ type:'spawn', enemy:hijo });
+                }
+                events.push({ type:'death' });
+            } else if (action === 'evolve') {
+                const nuevoNivel = enemy.nivelEvo+1;
+                const evolucionado = new Enemy(enemy.x+(Math.random()-0.5)*40, enemy.y+(Math.random()-0.5)*40, nuevoNivel, Math.floor(enemy.hpMax*1.4), enemy.radio*1.2, enemy.speed*0.9);
+                events.push({ type:'spawn', enemy:evolucionado });
+                events.push({ type:'message', text:`🌟 ¡Evolución a Nv.${nuevoNivel}!`, color:'#ffd700' });
+                events.push({ type:'death' });
+            }
+            return events;
+        }
+    }
+
+    class DropManager {
+        constructor(game) { this.game = game; }
+        generarLoot(enemy, player) {
+            if (this.game.modoJuego.currentMode === 'sin_drops') return null;
+            if (Math.random() > CONFIG.combat.dropChance) return null;
+            let rarezaIndex = 0;
+            const evo = enemy.nivelEvo;
+            if (evo >= 2) rarezaIndex = Math.min(3, evo);
+            else if (evo === 1) rarezaIndex = 1;
+            const rarezas = CONFIG.drops.rarezas;
+            let totalPeso = 0;
+            for (let i=0; i<=rarezaIndex; i++) totalPeso += rarezas[i].peso;
+            let r = Math.random() * totalPeso;
+            let selected = rarezas[0];
+            for (let i=0; i<=rarezaIndex; i++) { r -= rarezas[i].peso; if (r <= 0) { selected = rarezas[i]; break; } }
+            const tiposKeys = Object.keys(CONFIG.drops.tipos).filter(k => k !== 'modulo');
+            const tipoKey = tiposKeys[Math.floor(Math.random()*tiposKeys.length)];
+            const tipoData = CONFIG.drops.tipos[tipoKey];
+            const valor = tipoData.base + (player.weaponLevel * tipoData.porNivel);
+            return { tipo: tipoKey, valor, icono: tipoData.icon, color: selected.color, rareza: selected.id, label: tipoData.label, x: enemy.x+(Math.random()-0.5)*30, y: enemy.y+(Math.random()-0.5)*30, alive:true, radio:10 };
+        }
+    }
+
+    class UIManager {
+        constructor(canvas) { this.canvas = canvas; this.messages = []; this.particles = []; this.cameraShake = { x:0, y:0, intensity:0 }; }
+        showMessage(text, color='#0f0', duration=90) { this.messages.push({ text, color, duration, timer:0 }); }
+        emitParticles(x, y, color, count=10, speed=4) {
+            for (let i=0; i<count; i++) {
+                const angle = Math.random()*Math.PI*2, spd = Math.random()*speed+1;
+                this.particles.push({ x, y, vx: Math.cos(angle)*spd, vy: Math.sin(angle)*spd, life: 30+Math.random()*30, maxLife: 60, color, size: 2+Math.random()*4 });
+            }
+        }
+        update() {
+            for (let i=this.messages.length-1; i>=0; i--) { this.messages[i].timer++; if (this.messages[i].timer >= this.messages[i].duration) this.messages.splice(i,1); }
+            for (let i=this.particles.length-1; i>=0; i--) {
+                const p = this.particles[i]; p.x += p.vx; p.y += p.vy; p.vx *= 0.98; p.vy *= 0.98; p.life--;
+                if (p.life <= 0) this.particles.splice(i,1);
+            }
+            if (this.cameraShake.intensity > 0) {
+                this.cameraShake.x = (Math.random()-0.5)*this.cameraShake.intensity*2;
+                this.cameraShake.y = (Math.random()-0.5)*this.cameraShake.intensity*2;
+                this.cameraShake.intensity *= 0.9;
+                if (this.cameraShake.intensity < 0.01) { this.cameraShake.intensity = 0; this.cameraShake.x = 0; this.cameraShake.y = 0; }
+            }
+        }
+        shake(intensity) { this.cameraShake.intensity = Math.max(this.cameraShake.intensity, intensity); }
+        draw(ctx, player, enemies, bullets, drops, gameOver, input, game) {
+            const W = this.canvas.width, H = this.canvas.height;
+            if (CONFIG.ui.showJoystick && input) {
+                const state = input.getTouchState();
+                if (state) {
+                    ctx.save(); ctx.globalAlpha = 0.3; ctx.strokeStyle = '#fff'; ctx.lineWidth = 2;
+                    ctx.beginPath(); ctx.arc(state.centerX, state.centerY, state.radius, 0, Math.PI*2); ctx.stroke();
+                    ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(state.touchX, state.touchY, 8, 0, Math.PI*2); ctx.fill();
+                    ctx.restore();
+                }
+            }
+            if (CONFIG.ui.showMessages) {
+                ctx.textAlign='center'; ctx.textBaseline='middle';
+                this.messages.forEach((msg, i) => {
+                    ctx.globalAlpha = 1 - (msg.timer/msg.duration);
+                    ctx.fillStyle = msg.color; ctx.font = 'bold 20px monospace'; ctx.shadowColor = '#000'; ctx.shadowBlur = 8;
+                    ctx.fillText(msg.text, W/2, 100 + i*35);
+                });
+                ctx.shadowBlur = 0; ctx.globalAlpha = 1;
+            }
+            const hpPct = player.hp / player.getMaxHp();
+            ctx.fillStyle = '#222'; ctx.fillRect(20, 20, 200, 20);
+            ctx.fillStyle = hpPct>0.6?'#4ade80':hpPct>0.3?'#facc15':'#ef4444'; ctx.fillRect(20, 20, 200*hpPct, 20);
+            ctx.strokeStyle = '#fff'; ctx.strokeRect(20, 20, 200, 20);
+            ctx.fillStyle = '#fff'; ctx.font = '12px monospace'; ctx.textAlign='left';
+            ctx.fillText(`❤️ ${Math.floor(player.hp)}/${player.getMaxHp()}`, 25, 30);
+            ctx.fillStyle = '#ffd93d'; ctx.font = '14px monospace'; ctx.textAlign='right';
+            ctx.fillText(`🔫 Nv.${player.weaponLevel}`, W-20, 30);
+            ctx.fillStyle = '#ffd700'; ctx.textAlign='left';
+            ctx.fillText(`✨ Destino: ${player.destinyPoints}`, 20, 55);
+            ctx.fillText(`⚡ Ultimate: ${Math.floor(game.cargaUltimate)}%`, 20, 75);
+            if (gameOver) {
+                ctx.fillStyle = 'rgba(0,0,0,0.7)'; ctx.fillRect(0,0,W,H);
+                ctx.fillStyle = '#ff4757'; ctx.font = 'bold 60px monospace'; ctx.textAlign='center';
+                ctx.fillText('💀 GAME OVER', W/2, H/2-30);
+                ctx.fillStyle = '#fff'; ctx.font = '20px monospace';
+                ctx.fillText('Presiona R para reiniciar', W/2, H/2+40);
+                let yOff = H/2+80;
+                if (game.mensajesPospartida) game.mensajesPospartida.forEach(m => { ctx.fillText(m, W/2, yOff); yOff += 30; });
+            }
+        }
+        drawParticles(ctx) {
+            for (const p of this.particles) { ctx.globalAlpha = p.life/p.maxLife; ctx.fillStyle = p.color; ctx.beginPath(); ctx.arc(p.x, p.y, p.size, 0, Math.PI*2); ctx.fill(); }
+            ctx.globalAlpha = 1;
+        }
+    }
+
+    class InputManager {
+        constructor(canvas) {
+            this.canvas = canvas; this.config = CONFIG.input;
+            this.keys = { w:false, a:false, s:false, d:false, arrowup:false, arrowdown:false, arrowleft:false, arrowright:false };
+            this._spacePressed = false; this._shiftRightPressed = false;
+            this.mouse = { x:0, y:0, down:false };
+            this.touch = { active:false, moveX:0, moveY:0, rightZoneActive:false, hasAimAngle:false, aimAngle:0, dashRequested:false };
+            this._inertiaX = 0; this._inertiaY = 0;
+            this._lastTouchTime = 0; this._touchStartTime = 0; this._touchStartX = 0; this._touchStartY = 0;
+            this._bindEvents();
+        }
+        _bindEvents() {
+            document.addEventListener('keydown', (e) => {
+                const k = e.key.toLowerCase();
+                if (k in this.keys) { this.keys[k] = true; e.preventDefault(); }
+                if (k === ' ' || k === 'space') { e.preventDefault(); this._spacePressed = true; }
+                if (k === 'shiftright' || e.code === 'ShiftRight') { e.preventDefault(); this._shiftRightPressed = true; }
+            });
+            document.addEventListener('keyup', (e) => { const k = e.key.toLowerCase(); if (k in this.keys) { this.keys[k] = false; e.preventDefault(); } });
+            this.canvas.addEventListener('mousemove', (e) => { const r = this.canvas.getBoundingClientRect(); this.mouse.x = (e.clientX-r.left)*(this.canvas.width/r.width); this.mouse.y = (e.clientY-r.top)*(this.canvas.height/r.height); });
+            this.canvas.addEventListener('mousedown', (e) => { const r = this.canvas.getBoundingClientRect(); this.mouse.x = (e.clientX-r.left)*(this.canvas.width/r.width); this.mouse.y = (e.clientY-r.top)*(this.canvas.height/r.height); this.mouse.down = true; e.preventDefault(); });
+            this.canvas.addEventListener('mouseup', () => this.mouse.down = false);
+            ['touchstart','touchmove','touchend','touchcancel'].forEach(evt => this.canvas.addEventListener(evt, (e) => this._handleTouch(e), { passive:false }));
+        }
+        updateCanvasSize(w, h) { this.canvas.width = w; this.canvas.height = h; }
+        _handleTouch(e) {
+            e.preventDefault();
+            const rect = this.canvas.getBoundingClientRect(), scaleX = this.canvas.width/rect.width, scaleY = this.canvas.height/rect.height, now = Date.now();
+            if (e.type === 'touchstart' || e.type === 'touchmove') {
+                let hasLeft = false, hasRight = false;
+                for (const touch of e.touches) {
+                    const lx = (touch.clientX-rect.left)*scaleX, ly = (touch.clientY-rect.top)*scaleY;
+                    const ancho = this.canvas.width, alto = this.canvas.height;
+                    if (lx < ancho*this.config.leftZone) {
+                        hasLeft = true;
+                        const cx = ancho*this.config.leftZone/2, cy = alto/2;
+                        let dx = lx-cx, dy = ly-cy, len = Math.sqrt(dx*dx+dy*dy), maxDist = Math.min(ancho*this.config.leftZone/2, alto/2);
+                        if (len > this.config.deadzone) {
+                            const norm = Math.min(1, len/maxDist);
+                            this.touch.moveX = (dx/len)*norm*this.config.sensitivity;
+                            this.touch.moveY = (dy/len)*norm*this.config.sensitivity;
+                            this.touch.active = true;
+                        } else { this.touch.moveX = 0; this.touch.moveY = 0; this.touch.active = false; }
+                        if (e.type === 'touchstart') {
+                            if (now - this._lastTouchTime < 300) this.touch.dashRequested = true;
+                            this._lastTouchTime = now; this._touchStartTime = now; this._touchStartX = lx; this._touchStartY = ly;
+                        }
+                    } else if (lx > ancho*(1-this.config.rightZone)) {
+                        hasRight = true; this.touch.rightZoneActive = true;
+                        if (e.type === 'touchmove' && now-this._touchStartTime > 200) {
+                            const cx = ancho - (ancho*this.config.rightZone)/2, cy = alto/2;
+                            const aimDx = lx-cx, aimDy = ly-cy;
+                            if (Math.abs(aimDx)>5 || Math.abs(aimDy)>5) { this.touch.aimAngle = Math.atan2(aimDy, aimDx); this.touch.hasAimAngle = true; }
+                        }
+                    }
+                }
+                if (!hasLeft) { this.touch.active = false; this.touch.moveX = 0; this.touch.moveY = 0; }
+                if (!hasRight) { this.touch.rightZoneActive = false; this.touch.hasAimAngle = false; }
+            } else if (e.type === 'touchend' || e.type === 'touchcancel') {
+                if (e.touches.length === 0) {
+                    this.touch.active = false; this.touch.moveX = 0; this.touch.moveY = 0;
+                    this.touch.rightZoneActive = false; this.touch.hasAimAngle = false;
+                } else this._procesarToquesActivos(e.touches, rect);
+            }
+        }
+        _procesarToquesActivos(touches, rect) {
+            const scaleX = this.canvas.width/rect.width, scaleY = this.canvas.height/rect.height;
+            let hasLeft = false, hasRight = false;
+            for (const touch of touches) {
+                const lx = (touch.clientX-rect.left)*scaleX, ly = (touch.clientY-rect.top)*scaleY;
+                const ancho = this.canvas.width, alto = this.canvas.height;
+                if (lx < ancho*this.config.leftZone) {
+                    hasLeft = true;
+                    const cx = ancho*this.config.leftZone/2, cy = alto/2;
+                    let dx = lx-cx, dy = ly-cy, len = Math.sqrt(dx*dx+dy*dy), maxDist = Math.min(ancho*this.config.leftZone/2, alto/2);
+                    if (len > this.config.deadzone) {
+                        const norm = Math.min(1, len/maxDist);
+                        this.touch.moveX = (dx/len)*norm*this.config.sensitivity;
+                        this.touch.moveY = (dy/len)*norm*this.config.sensitivity;
+                        this.touch.active = true;
+                    } else { this.touch.moveX = 0; this.touch.moveY = 0; this.touch.active = false; }
+                } else if (lx > ancho*(1-this.config.rightZone)) { hasRight = true; this.touch.rightZoneActive = true; }
+            }
+            if (!hasLeft) { this.touch.active = false; this.touch.moveX = 0; this.touch.moveY = 0; }
+            if (!hasRight) { this.touch.rightZoneActive = false; this.touch.hasAimAngle = false; }
+        }
+        update() {
+            if (!this.touch.active && !this.keys.w && !this.keys.a && !this.keys.s && !this.keys.d && !this.keys.arrowup && !this.keys.arrowdown && !this.keys.arrowleft && !this.keys.arrowright) {
+                this._inertiaX *= this.config.inertia; this._inertiaY *= this.config.inertia;
+                if (Math.abs(this._inertiaX)<0.01) this._inertiaX = 0;
+                if (Math.abs(this._inertiaY)<0.01) this._inertiaY = 0;
+            } else { const raw = this._getRawMove(); this._inertiaX = raw.dx; this._inertiaY = raw.dy; }
+        }
+        _getRawMove() {
+            let dx = 0, dy = 0;
+            if (this.keys.w || this.keys.arrowup) dy -= 1;
+            if (this.keys.s || this.keys.arrowdown) dy += 1;
+            if (this.keys.a || this.keys.arrowleft) dx -= 1;
+            if (this.keys.d || this.keys.arrowright) dx += 1;
+            if (this.touch.active) { dx = this.touch.moveX; dy = this.touch.moveY; }
+            const len = Math.sqrt(dx*dx+dy*dy); if (len > 1) { dx /= len; dy /= len; }
+            return { dx, dy };
+        }
+        getMove() { const raw = this._getRawMove(); return (raw.dx !== 0 || raw.dy !== 0) ? raw : { dx: this._inertiaX, dy: this._inertiaY }; }
+        isFireHeld() { return this.mouse.down || this.touch.rightZoneActive || this._shiftRightPressed; }
+        consumeFireRequest() { if (this._spacePressed) { this._spacePressed = false; return true; } return false; }
+        shouldDash(player) { if (this.touch.dashRequested && player.dashCooldown === 0) { this.touch.dashRequested = false; return true; } return false; }
+        getAimAngle() {
+            if (this.touch.hasAimAngle) return this.touch.aimAngle;
+            if (this.mouse.down) return Math.atan2(this.mouse.y-this.canvas.height/2, this.mouse.x-this.canvas.width/2);
+            const move = this.getMove(); if (move.dx !== 0 || move.dy !== 0) return Math.atan2(move.dy, move.dx);
+            return -Math.PI/2;
+        }
+        getTouchState() {
+            if (!this.touch.active) return null;
+            const ancho = this.canvas.width, alto = this.canvas.height;
+            const centerX = ancho*CONFIG.input.leftZone/2, centerY = alto/2;
+            const maxDist = Math.min(ancho*CONFIG.input.leftZone/2, alto/2);
+            const normX = this.touch.moveX/this.config.sensitivity, normY = this.touch.moveY/this.config.sensitivity;
+            const len = Math.sqrt(normX*normX+normY*normY), clampedLen = Math.min(1, len);
+            return { centerX, centerY, touchX: centerX+normX*maxDist*(clampedLen/(len||1)), touchY: centerY+normY*maxDist*(clampedLen/(len||1)), radius: maxDist };
+        }
+    }
+
+    class GameModeManager {
+        constructor() { this.currentMode = CONFIG.gameModes.current; }
+        setMode(mode) { this.currentMode = mode; }
+    }
+
+    class PersistenceManager {
+        constructor() { this.key = CONFIG.persistenceKey; this.data = this.load(); }
+        load() { try { return JSON.parse(localStorage.getItem(this.key)) || this.getDefault(); } catch(e) {} return this.getDefault(); }
+        getDefault() { return { destinyPoints:0, upgrades:{}, kills:0, logros:[], modulosEquipados:[null,null,null,null], inventarioModulos:[] }; }
+        save(data) { try { localStorage.setItem(this.key, JSON.stringify(data)); } catch(e) {} }
+    }
+
+    // ============================================================
+    // MODULE UI (Panel de módulos con tecla I o botón)
+    // ============================================================
+    class ModuleUI {
+        constructor(game) {
+            this.game = game;
+            this.panel = document.getElementById('module-panel');
+            this.content = document.getElementById('module-content');
+            document.getElementById('module-close').addEventListener('click', () => this.toggle());
+        }
+        toggle() {
+            if (this.panel.style.display === 'block') this.panel.style.display = 'none';
+            else { this.actualizar(); this.panel.style.display = 'block'; }
+        }
+        actualizar() {
+            let html = '<h4>Slots equipados</h4>';
+            const nombres = ['Norte','Sur','Este','Oeste'];
+            for (let i=0; i<4; i++) {
+                const m = this.game.jugador.modulosEquipados[i];
+                html += `<div style="margin:2px 0">${nombres[i]}: `;
+                if (m) html += `<span style="color:${m.color}">${m.runa} (${m.tipo})</span> <button onclick="window.__game.jugador.quitarModulo(${i})">X</button>`;
+                else html += `vacío`;
+                html += `</div>`;
+            }
+            html += '<h4>Inventario</h4>';
+            this.game.jugador.inventarioModulos.forEach((m, idx) => {
+                html += `<div><span style="color:${m.color}">${m.runa} (${m.tipo})</span> <button onclick="window.__game.jugador.equiparDesdeInventario(${idx})">Equipar</button></div>`;
+            });
+            this.content.innerHTML = html;
+        }
+    }
+
+    // Extender Player con métodos para manejar módulos desde UI
+    Player.prototype.quitarModulo = function(slot) {
+        if (this.modulosEquipados[slot]) {
+            this.inventarioModulos.push(this.modulosEquipados[slot]);
+            this.modulosEquipados[slot] = null;
+        }
+        this.actualizarOrbitalesDesdeModulos();
+        window.__game.moduleUI.actualizar();
+    };
+    Player.prototype.equiparDesdeInventario = function(idx) {
+        if (!this.inventarioModulos[idx]) return;
+        const pieza = this.inventarioModulos.splice(idx,1)[0];
+        // Buscar primer slot vacío
+        let slot = this.modulosEquipados.indexOf(null);
+        if (slot === -1) slot = 0; // sobrescribir el primero si no hay vacío
+        if (this.modulosEquipados[slot]) this.inventarioModulos.push(this.modulosEquipados[slot]);
+        this.modulosEquipados[slot] = pieza;
+        this.actualizarOrbitalesDesdeModulos();
+        window.__game.moduleUI.actualizar();
+    };
+
+    // ============================================================
+    // ARCHITECT MODULE (con submenú de módulos)
+    // ============================================================
+    class ArchitectModule {
+        constructor(game) {
+            this.game = game;
+            this.panel = document.getElementById('architect-panel');
+            this.content = document.getElementById('arch-content');
+            this._buildUI();
+            this._bindEvents();
+            document.addEventListener('keydown', (e) => { if (e.key === 'F2') { e.preventDefault(); this.toggle(); } });
+            document.getElementById('arch-close').addEventListener('click', () => this.toggle());
+            document.getElementById('tienda-cerrar').addEventListener('click', () => document.getElementById('tienda-panel').style.display = 'none');
+        }
+        toggle() { this.panel.style.display = this.panel.style.display === 'none' ? 'block' : 'none'; }
+        _buildUI() {
+            let html = '';
+            html += `<h4>🎮 Controles</h4>`;
+            html += `Deadzone: <input type="range" id="arch-deadzone" min="0" max="0.3" step="0.01" value="${CONFIG.input.deadzone}"><br>`;
+            html += `Sensibilidad: <input type="range" id="arch-sensitivity" min="0.5" max="2" step="0.1" value="${CONFIG.input.sensitivity}"><br>`;
+            html += `Inercia: <input type="range" id="arch-inertia" min="0.7" max="0.99" step="0.01" value="${CONFIG.input.inertia}"><br>`;
+            html += `<label><input type="checkbox" id="arch-autofire" ${CONFIG.input.autoFire?'checked':''}> Disparo automático</label><br>`;
+            html += `<label><input type="checkbox" id="arch-vibrate" ${CONFIG.input.vibrate?'checked':''}> Vibración</label><br>`;
+            html += `<h4>🧩 Módulos (prueba)</h4>`;
+            html += `<button id="arch-forzar-modulo">Forzar drop de módulo</button><br>`;
+            html += `<h4>⚔️ Combate</h4>`;
+            html += `Spawn interval: <input type="range" id="arch-spawninterval" min="20" max="150" step="5" value="${CONFIG.combat.spawnInterval}"><br>`;
+            html += `Max enemigos: <input type="range" id="arch-maxenemies" min="10" max="50" step="5" value="${CONFIG.combat.maxEnemies}"><br>`;
+            html += `Drop chance: <input type="range" id="arch-dropchance" min="0" max="0.7" step="0.05" value="${CONFIG.combat.dropChance}"><br>`;
+            html += `<select id="arch-mode">
+                <option value="standard" ${CONFIG.gameModes.current==='standard'?'selected':''}>Estándar</option>
+                <option value="horda" ${CONFIG.gameModes.current==='horda'?'selected':''}>Horda</option>
+                <option value="jefe" ${CONFIG.gameModes.current==='jefe'?'selected':''}>Jefe</option>
+                <option value="sin_drops" ${CONFIG.gameModes.current==='sin_drops'?'selected':''}>Sin drops</option>
+            </select><br>`;
+            html += `<button id="arch-reset">Reset progreso</button>`;
+            this.content.innerHTML = html;
+        }
+        _bindEvents() {
+            this.content.querySelectorAll('input[type="range"]').forEach(s => s.addEventListener('input', () => this._updateConfig(s.id.replace('arch-',''), parseFloat(s.value))));
+            this.content.querySelectorAll('input[type="checkbox"][id]').forEach(cb => cb.addEventListener('change', () => this._updateConfig(cb.id.replace('arch-',''), cb.checked)));
+            document.getElementById('arch-mode').addEventListener('change', (e) => this.game.modoJuego.setMode(e.target.value));
+            document.getElementById('arch-forzar-modulo').addEventListener('click', () => {
+                const p = this.game.generarPiezaAleatoria({ nivelEvo:1 });
+                this.game.jugador.inventarioModulos.push(p);
+                this.game.ui.showMessage(`🧩 Módulo ${p.runa} forzado`, '#ffd700');
+                if (this.game.moduleUI.panel.style.display === 'block') this.game.moduleUI.actualizar();
+            });
+            document.getElementById('arch-reset').addEventListener('click', () => {
+                this.game.persistencia.save(this.game.persistencia.getDefault());
+                this.game.jugador.init(this.game.canvas.width/2, this.game.canvas.height/2, this.game.persistencia.load());
+            });
+        }
+        _updateConfig(id, value) {
+            const map = {
+                deadzone:'input.deadzone', sensitivity:'input.sensitivity', inertia:'input.inertia',
+                autofire:'input.autoFire', vibrate:'input.vibrate',
+                spawninterval:'combat.spawnInterval', maxenemies:'combat.maxEnemies', dropchance:'combat.dropChance',
+            };
+            if (map[id]) { const keys = map[id].split('.'); let obj = CONFIG; for (let i=0; i<keys.length-1; i++) obj = obj[keys[i]]; obj[keys[keys.length-1]] = value; }
+        }
+    }
+
+    // INICIALIZACIÓN
+    document.addEventListener('DOMContentLoaded', () => {
+        const canvas = document.getElementById('game');
+        if (!canvas) return;
+        window.__game = new Game(canvas);
+    });
+    </script>
+</body>
+</html>
