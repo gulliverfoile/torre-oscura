@@ -1,0 +1,110 @@
+📖 README – Gacha Evolutivo Modular (Fase 2)
+🎮 Descripción general
+Juego de acción 2D con vista cenital, controles táctiles, ratón y teclado.
+Elimina enemigos que evolucionan, recoge drops (vida, mejoras permanentes, módulos) y equípate con piezas modulares que se acoplan alrededor del jugador formando combinaciones únicas (como las varitas de Noita).
+El personaje y los enemigos se transforman a lo largo de la partida. ¡Evolutivo de verdad!
+
+⌨️ Controles
+Acción	Teclado	Ratón / Táctil
+Moverse	W A S D / Flechas	Joystick virtual (zona izquierda)
+Dash (impulso)	Doble toque en zona izquierda / Botón 💨 en móvil	Doble toque en joystick
+Disparar	Clic izquierdo / Espacio	Zona táctil derecha / Disparo automático (si se activa)
+Arma definitiva	E	Botón ⚡ en móvil
+Tienda de mejoras	T	–
+Panel de módulos (hoja)	I	Botón 📦 en móvil
+Arquitecto (configuración)	F2	–
+Reiniciar partida (tras muerte)	R	–
+🧩 Sistema modular (la gran novedad)
+Los enemigos pueden soltar piezas (módulos) con una runa (F, A, W, E, R) y un tipo: ataque (rojo), defensa (azul), utilidad (verde), orbe (naranja).
+
+Cada pieza otorga estadísticas (daño, velocidad, cadencia…) o efectos especiales.
+
+Dispones de 4 ranuras (Norte, Sur, Este, Oeste) alrededor del personaje.
+
+Abre la hoja de módulos (I o 📦) para equipar/des equipar piezas desde un inventario.
+
+Sinergias: dos piezas con la misma runa en ranuras opuestas (N‑S o E‑O) activan un bono extra (ej. FF → daño de fuego añadido a los disparos).
+
+Orbitales: las piezas tipo orbe orbitan alrededor del jugador y disparan automáticamente a los enemigos cercanos.
+
+Los disparos se ven modificados por las piezas equipadas: runa F añade quemadura, R añade rebote, tipo ataque añade explosión.
+
+⚙️ Panel de Arquitecto (F2)
+Permite modificar en tiempo real algunos parámetros (pero no todos se actualizan sin reinicio):
+
+Sensibilidad, deadzone, inercia del joystick.
+
+Disparo automático, vibración.
+
+Velocidad base, HP, daño y cadencia del jugador.
+
+Intervalo de spawn, máximo de enemigos, probabilidad de drop.
+
+Modo de juego: Estándar, Horda (más enemigos, spawn acelerado), Jefe (jefes cada 30 muertes), Sin drops.
+
+Forzar drop de módulo: genera una pieza aleatoria y la añade al inventario del jugador (para pruebas).
+
+Resetear progreso (borra guardado local).
+
+🔬 Sistema de evolución de enemigos
+Al morir, los enemigos tiran un dado (1‑6).
+
+1‑3: muerte normal.
+
+4‑5: se divide en dos enemigos más pequeños.
+
+6: evoluciona a un enemigo más grande y resistente.
+
+Cada N kills aparece un jefe con un ataque de área.
+
+Los enemigos aumentan de vida, tamaño y velocidad según las muertes totales (scaling).
+
+⭐ Tienda de Destino (tecla T)
+Usa Puntos de Destino (ganados al morir y por logros) para comprar mejoras permanentes que se conservan entre partidas:
+
+Vida máxima, daño, velocidad, cadencia, proyectil inicial, probabilidad crítica.
+
+🏆 Logros
+Desbloquea logros por kills, tiempo sobrevivido, jefes derrotados, drops recogidos, críticos y usos del arma definitiva. Otorgan Puntos de Destino extra.
+
+🐛 Fallos detectados (revisión del código entregado)
+Panel de Arquitecto no actualiza variables vivas
+
+Los sliders modifican CONFIG, pero el juego a menudo guarda copias internas (ej. this.spawnInterval) que no se recalcan. Cambiar "Intervalo de spawn" no tiene efecto hasta reiniciar la partida.
+
+Los módulos recogidos no muestran un mensaje claro
+
+Aunque el código incluye showMessage, en la versión anterior faltaba la confirmación visual. En la última revisión debería aparecer "🧩 Módulo X recogido".
+
+Botón "Forzar drop de módulo" desde Arquitecto no actualiza la UI de módulos
+
+Si la hoja de módulos está abierta, no se refresca automáticamente; hay que cerrarla y reabrirla para ver la pieza nueva.
+
+Sinergias solo se activan entre ranuras N‑S y E‑O
+
+Está limitado a esos pares; no hay sinergia en diagonal ni entre todas las combinaciones.
+
+Los orbitales heredan el cooldown del jugador
+
+Si el jugador acaba de disparar, los orbitales también dejan de disparar aunque deberían ser independientes.
+
+Al reiniciar partida (R), los módulos equipados se restauran desde el guardado
+
+Esto puede ser intencionado, pero si el jugador muere y el guardado ya tiene los módulos, la nueva partida empieza con ellos, lo cual puede ser confuso.
+
+El botón de módulo en móvil (📦) no tiene un estilo claro
+
+Funciona, pero es fácil tocarlo sin querer en plena acción; falta confirmación táctil.
+
+Fallo crítico anterior corregido: el jugador ahora sí muere
+
+La propiedad baseArmor ya está definida en CONFIG, así que la armadura se calcula bien y el daño no queda NaN.
+
+🚧 Para la siguiente fase (propuesta)
+Intérprete de hechizos: cada módulo aporta una letra rúnica y el orden forma una palabra que define un ataque especial (tipo Noita).
+
+Interfaz de arrastrar módulos visualmente en la hoja.
+
+Enemigos modulares: que también tengan piezas visibles y te las suelten al morir.
+
+Más combinaciones de sinergias (tríos, formas especiales).
