@@ -1,121 +1,127 @@
-EADME – Gacha Evolutivo «Arquitectura Hexagonal» (Fase 2.5)
-🎮 ¿Qué es?
-Prototipo de juego de acción 2D con vista cenital, perteneciente al género bullet heaven / survivor-like. El jugador se mueve por un escenario mientras dispara automática (o manualmente) a enemigos que evolucionan, sueltan botín y reaccionan a combinaciones elementales. La gran novedad de esta versión es la refactorización completa a una arquitectura hexagonal (puertos y adaptadores), lo que permite cambiar el sistema de input (teclado/ratón, táctil) y el renderizador sin tocar la lógica del juego.
+README – Gacha Evolutivo (Prototipo Hexagonal)
+🎮 ¿Qué es esto?
+Un prototipo de juego de acción 2D con vista cenital, perteneciente al género bullet heaven / survivor-like.
+El jugador se mueve por un escenario mientras dispara automática (o manualmente) a enemigos que evolucionan, recogen drops, se equipan módulos y reaccionan a combinaciones elementales.
+El proyecto ha sido construido en iteraciones rápidas (fines de semana) como experimento de diseño y arquitectura de software, utilizando una arquitectura hexagonal (puertos y adaptadores) que separa la lógica del juego del input y el renderizado.
+Todo está contenido en un único archivo HTML, sin dependencias externas.
 
-🧱 Arquitectura
-El código se organiza en tres capas bien diferenciadas:
+🕹️ Controles
+Acción	Teclado (PC)	Móvil (táctil)
+Moverse	W A S D / Flechas	Joystick virtual (zona izquierda)
+Dash	Doble toque en zona izquierda / Swipe rápido	Botón 💨 (abajo derecha)
+Apuntar	Ratón (clic sostenido)	Zona táctil derecha (arrastrar)
+Disparar	Clic izq. / Espacio / ShiftDerecho	Zona táctil derecha (toque)
+Disparo automático	Activado por defecto	Activado por defecto
+Autoapuntado libre	Configurable en Arquitecto	Dispara al enemigo más cercano
+Arma definitiva	E	Botón ⚡ (abajo derecha)
+Menú lateral	Tab	Botón 📋 (abajo derecha)
+Reiniciar (tras muerte)	R	Tocar la pantalla (fuera de botones)
+Nota importante sobre móvil:
+La adaptación a pantalla táctil está en desarrollo. Actualmente se recomienda jugar en horizontal (landscape) para una mejor experiencia. El control táctil puede presentar fallos (ver sección de fallos conocidos).
 
-Dominio: Contiene las reglas del juego. No sabe nada de Canvas, ni de eventos del DOM.
+🧩 Mecánicas implementadas
+1. Sistema de módulos elementales
+Los enemigos (o el Arquitecto) sueltan piezas con una runa (F fuego, W hielo, E veneno, A agua, R físico) y un tipo (ataque, defensa, utilidad, orbe).
 
-Clases: Player, Enemy, Bullet, Pieza (módulo), ZonaElemental, Structure.
+Se equipan en 4 ranuras (Norte, Sur, Este, Oeste) desde el menú lateral (Tab o 📋).
 
-Servicios: CombatService, EvolutionService, DropService, NivelService, SinergiaService, ProyectilService, DifficultyService.
+Cada módulo otorga efectos cualitativos (quemadura, ralentización, veneno, empuje) que escalan con su afinidad (1‑5).
 
-Puertos (interfaces): Definen cómo se comunica el dominio con el exterior.
+Sinergias: dos runas iguales en ranuras opuestas (N‑S, E‑O) activan bonificaciones (ej. FF añade daño de fuego).
 
-InputPort: movimiento, aim, disparo.
-
-RendererPort: dibujo de todas las entidades.
-
-PersistencePort: carga y guardado de partida.
-
-Adaptadores: Implementan los puertos para una tecnología concreta.
-
-WebInputAdapter: control con teclado y ratón.
-
-MobileInputAdapter: control táctil (joystick virtual, aim relativo, swipe para dash).
-
-CanvasRenderer: renderizado 2D con Canvas.
-
-LocalStorageRepo: persistencia en localStorage.
-
-Aplicación: La clase Game orquesta el bucle principal e inyecta los adaptadores.
-
-Todo el código reside en un único archivo HTML, sin dependencias externas.
-
-✨ Características principales
-🧩 Sistema de Módulos Elementales
-Recoge piezas con runas (F fuego, W hielo, E veneno, A agua, R físico).
-
-Colócalas en 4 ranuras (Norte, Sur, Este, Oeste) desde el menú lateral (Tab).
-
-Cada módulo otorga efectos cualitativos (quemadura, ralentización, veneno, empuje) en lugar de solo estadísticas.
-
-La afinidad elemental (1‑5) escala la potencia de los efectos.
-
-🔥 Reacciones Elementales
-Si un enemigo muere con dos estados (ej. quemadura + veneno), se desencadena una reacción especial (choque térmico, nube inflamable, vapor…).
+2. Reacciones elementales
+Si un enemigo muere con dos estados elementales (ej. quemadura + veneno), se desencadena una reacción especial (choque térmico, nube inflamable, vapor, putrefacción…).
 
 Las reacciones dejan zonas en el suelo (fuego, hielo, veneno, agua) que afectan a enemigos y al jugador.
 
-👾 Enemigos con personalidad
-Evolución: Al morir, un dado decide si el enemigo se divide en dos o se transforma en una versión más grande y agresiva.
+3. Enemigos dinámicos
+Evolución: al morir, un dado (1‑6) decide si el enemigo se divide en dos, evoluciona a una versión más grande, o simplemente muere.
 
-Tipos especiales: Barrera (absorbe disparos), Proyectil (lanza balas al morir), Kamikaze (explota en área), Constructor (levanta paredes destructibles).
+Tipos especiales: Barrera (absorbe disparos), Proyectil (lanza balas al morir), Kamikaze (explota en área), Constructor (levanta paredes destructibles), Arquero (dispara al jugador).
 
-Jefes aparecen cada 50 muertes.
+Enemigos que se equipan: algunos enemigos pueden recoger drops del suelo (vida, daño, módulos) y usarlos contra el jugador.
 
-⬆️ Subida de nivel con aprendizaje gradual
+Rebote de balas enemigo: ciertos enemigos (prob. 15 %, jefes siempre) devuelven las balas del jugador como proyectiles enemigos.
+
+4. Subida de nivel con aprendizaje gradual
 Ganas XP al matar enemigos.
 
-Los niveles 2, 3 y 5 enseñan respectivamente los sistemas de estadísticas, proyectiles y módulos.
+Los niveles 2, 3 y 5 enseñan respectivamente los sistemas de stats, proyectil y módulos.
 
-Después, las opciones se mezclan aleatoriamente.
+A partir de ahí, las opciones se mezclan aleatoriamente.
 
 El juego se pausa mientras eliges.
 
-⚡ Barra de Poder Destructivo
-Se carga al infligir daño. Al llenarse, tus disparos atraviesan enemigos y hacen el doble de daño durante unos segundos.
+5. Barra de Poder Destructivo
+Se carga al infligir daño. Al llenarse, tus disparos atraviesan enemigos y hacen mucho más daño durante unos segundos.
 
-🛠️ Arquitecto (Debug)
+6. Arquitecto (Debug)
 Panel de configuración en vivo accesible desde el menú lateral.
 
 Ajusta sensibilidad, asistencia de apuntado, spawn de enemigos, modo práctica (inmortal), forzar módulos, etc.
 
-💾 Persistencia
+7. Persistencia
 Guarda automáticamente Puntos de Destino y mejoras permanentes al morir.
 
 Los módulos equipados se conservan entre partidas (hasta que reseteas el progreso).
 
-🎮 Controles híbridos
-Escritorio: Movimiento con WASD/Flechas. Apuntado con ratón. Disparo con clic izquierdo o automático.
+8. Arquitectura hexagonal
+Dominio: Player, Enemy, Bullet, Pieza, servicios (CombatService, EvolutionService, DropService, NivelService, SinergiaService, ProyectilService, DifficultyService).
 
-Móvil: Joystick izquierdo para mover. Aim relativo (arrastrar en zona derecha desde el punto de contacto). Swipe rápido para dash. Botones dedicados para dash, ultimate y menú.
+Puertos: InputPort, RendererPort, PersistencePort.
 
-Input buffering: Dash y ultimate se ejecutan en el primer frame disponible tras el cooldown, evitando la sensación de "no respondió".
+Adaptadores: WebInputAdapter (ratón + teclado), MobileInputAdapter (táctil), CanvasRenderer (2D), LocalStorageRepo (persistencia).
 
-🐛 Simulación de fallos encontrados
-#	Fallo	Causa probable	Consecuencia
-1	El menú lateral no se abre en móvil	El botón btn-menu usa touchstart, pero el canvas o el body podrían estar capturando el evento.	Imposible equipar módulos o usar la tienda.
-2	_refreshModulosTab no está definido en el contexto global	Se asignó al prototipo de Game, pero se llama desde window.__game._refreshModulosTab(). Funciona si __game es la instancia.	Si falla, los botones de la UI de módulos no actualizarán la vista.
-3	El autoapuntado libre no prioriza enemigos cercanos si hay estructuras delante	_getAimAngle() busca el enemigo más cercano sin comprobar línea de visión.	Disparos contra paredes en lugar de enemigos.
-4	El drop de módulo "forzado" desde Arquitecto no actualiza la pestaña Módulos si no está activa	Solo se refresca si menuPanel.style.display === 'block', pero no se comprueba si la pestaña activa es la de módulos.	El jugador no ve el módulo hasta que cambia de pestaña manualmente.
-5	La barra de poder destructivo no se pausa al subir de nivel	El temporizador powerTimer se decrementa en _update(), que se ejecuta incluso si pausado es true.	Pierdes el poder mientras eliges mejora.
-6	El dash con swipe en móvil puede dispararse sin querer al levantar el dedo	El umbral de 40px en 150ms es bajo; un movimiento rápido para esquivar puede activarlo.	Dashes accidentales en momentos críticos.
-7	La afinidad elemental no se refleja en los disparos hasta que se equipa un nuevo módulo	obtenerAfinidades() se calcula en fire(), pero las balas toman el elemento dominante en ese instante. Funciona, pero no hay retroalimentación inmediata al cambiar módulos.	Confusión sobre qué elemento está activo.
-8	El DifficultyService se resetea al reiniciar la partida	reiniciarJuego() no reinicia this.difficulty.	Los multiplicadores de la partida anterior se mantienen, haciendo la nueva partida más difícil de lo esperado.
-9	La pantalla de Game Over no muestra estadísticas	Aunque se guardan kills, tiempo, etc., no se renderizan en el método drawUI del CanvasRenderer.	Muerte sin feedback.
-10	Posible error de referencia en MobileInputAdapter.consumeFireRequest	El puerto InputPort no declara ese método, pero Game._update() lo llama con ?..	En móvil, el disparo manual con espacio no funciona; no es grave porque el auto‑disparo está activo.
+🐛 Fallos conocidos
+#	Fallo	Descripción	Reproducción
+1	Control táctil no funciona correctamente en móvil	El joystick virtual no responde bien tras el redimensionado. Las zonas táctiles no se actualizan con el nuevo tamaño del canvas.	Jugar en móvil (especialmente tras rotar la pantalla).
+2	Velocidad superior en móvil	La inercia del joystick no está sincronizada con el delta time, lo que acelera el movimiento en pantallas de alta tasa de refresco.	Jugar en móvil a 90 Hz o 120 Hz.
+3	Disparo automático no permite strafing	El autoapuntado libre dispara al enemigo más cercano, pero no hay opción de disparar en una dirección mientras te mueves en otra sin usar el ratón.	Activar autoapuntado libre y mover al personaje hacia un lado; el disparo va hacia los enemigos.
+4	Balance descompensado en niveles altos	Con mucha cadencia y proyectiles, el juego se vuelve demasiado fácil. La dificultad enemiga no escala adecuadamente con el poder del jugador.	Alcanzar nivel 10+ con varios módulos de ataque.
+5	El menú lateral y la subida de nivel a veces se solapan	Si abriste el menú lateral justo antes de subir de nivel, la interfaz puede quedar en un estado inconsistente.	Abrir el menú con Tab justo cuando estás a punto de subir de nivel.
+6	Sinergias rúnicas no definidas	CONFIG.modules.sinergias no contiene datos; el servicio SinergiaService existe pero no produce bonificaciones reales.	Equipar dos módulos con la misma runa y revisar las stats.
+7	La pantalla de Game Over no muestra estadísticas	Aunque se guardan kills y tiempo, no se renderizan en la pantalla final.	Morir y observar la pantalla de Game Over.
+8	El botón "Forzar módulo" del Arquitecto no actualiza la afinidad	Genera un módulo con afinidad aleatoria, pero el mensaje no muestra la afinidad.	Usar "Forzar módulo" y buscar la pieza en el inventario.
+9	Persistencia de módulos solo al morir	Los cambios de equipamiento no se guardan durante la partida; si cierras el navegador antes de morir, los módulos equipados se pierden.	Equipar módulos, cerrar la pestaña y volver a abrir el juego.
+🚧 Limitaciones actuales
+Sin sonido ni música.
+
+Gráficos minimalistas (formas geométricas y emojis).
+
+Rendimiento: pensado para ~25 enemigos simultáneos. No se han implementado optimizaciones avanzadas (spatial hashing, object pooling) porque no son necesarias a esta escala.
+
+Sin tutorial completo: solo las pistas durante los primeros niveles.
+
+Sin meta‑progresión profunda: los Puntos de Destino compran mejoras lineales. No hay árboles de talentos ni desbloqueo de personajes.
+
+Interfaz de módulos con prompt(): funcional pero poco amigable en móvil.
+
 🧪 Cómo probar
-Abre el archivo .html en Chrome/Edge (escritorio o móvil).
+Guarda el código en un archivo .html.
 
-En escritorio, usa ratón para apuntar y WASD para moverte.
+Ábrelo en un navegador moderno (Chrome, Edge, Firefox).
 
-En móvil, toca la mitad izquierda para moverte y la mitad derecha para apuntar (arrastra desde el punto de contacto).
+En PC, usa ratón y teclado. En móvil, pon el dispositivo en horizontal.
 
-Pulsa Tab (o botón 📋 en móvil) para abrir el menú lateral.
+Pulsa Tab (o botón 📋) para abrir el menú lateral.
 
-En la pestaña Arquitecto, activa "Modo práctica" para explorar sin presión.
+En la pestaña Arquitecto, activa Modo práctica para explorar sin presión.
 
-Prueba a equipar módulos de diferentes elementos y observa las reacciones al matar enemigos.
+Experimenta equipando módulos y observa las reacciones elementales.
 
-🚧 Estado actual y próximos pasos
-Esta versión consolida la arquitectura hexagonal. Los siguientes pasos serían:
+🛣️ Próximos pasos (cuando se retome)
+Arreglar el control táctil (prioridad alta para móvil).
 
-Corregir los fallos listados arriba (priorizando el menú en móvil y el reinicio del DifficultyService).
+Ajustar el balance de dificultad (escalado por nivel del jugador, enemigos con resistencia).
 
-Migrar el renderizado de la UI a HTML/CSS en lugar de dibujarlo en Canvas (mejor accesibilidad y rendimiento).
+Añadir más propiedades de proyectil en los módulos (rebote, perforación, minas, drones).
 
-Añadir más contenido: nuevos enemigos, módulos con afijos únicos, más combinaciones elementales.
+Mejorar la ultimate para que refleje los módulos equipados.
 
-Implementar control con gamepad (un nuevo adaptador de InputPort).
+Profundizar el sistema de elementos con más reacciones y efectos emergentes.
+
+Sustituir los prompts por una interfaz gráfica para equipar módulos.
+
+🎯 Conclusión
+Este prototipo es un sandbox de mecánicas construido en tiempo récord. Tiene más sistemas innovadores que muchos juegos comerciales en fase temprana, y su arquitectura hexagonal permite iterar rápidamente.
+No está pensado para producción, sino para experimentar, aprender y divertirse en el proceso
