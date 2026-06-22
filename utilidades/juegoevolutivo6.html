@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>Gacha Evolutivo – Mobile Ready</title>
+    <title>Gacha Evolutivo – Mobile Fix</title>
     <style>
         * { margin:0; padding:0; box-sizing:border-box; }
         html, body { width:100%; height:100%; overflow:hidden; background:#000; touch-action:none; }
@@ -45,6 +45,11 @@
             text-align:center; width:320px;
         }
         #levelup-panel button { font-size:14px; width:100%; }
+        #rotate-hint {
+            position:fixed; top:50%; left:50%; transform:translate(-50%,-50%);
+            background:rgba(0,0,0,0.8); color:#ffd700; padding:20px; border-radius:16px;
+            z-index:20000; display:none; font-family:monospace; text-align:center; font-size:1.2rem;
+        }
     </style>
 </head>
 <body>
@@ -76,6 +81,7 @@
         <div class="mobile-btn" id="btn-ultimate">⚡</div>
         <div class="mobile-btn" id="btn-menu">📋</div>
     </div>
+    <div id="rotate-hint">📱 Gira el dispositivo para jugar</div>
     <script>
     'use strict';
 
@@ -90,7 +96,7 @@
             swipeDashThreshold: 40, swipeDashTime: 150
         },
         player: {
-            baseSpeed: 2.8, baseHp: 200, baseDamage: 10,   // Vida base aumentada a 200
+            baseSpeed: 2.8, baseHp: 200, baseDamage: 10,
             baseFireRate: 12, baseProjectiles: 1, baseArmor: 0,
             maxWeaponLevel: 6, baseCritChance: 0.0, critMultiplier: 2.0
         },
@@ -110,27 +116,19 @@
             specialEnemyChance: 0.2,
             barreraHP: 30, proyectilCount: 5, kamikazeArea: 80,
             spawnAdaptativo: true, oleadasPeriodicas: true,
-            // Límites para balas enemigas
             maxEnemyBullets: 40,
             enemyBulletSpeed: 2.5,
             enemyBulletDamage: 6,
-            // Configuración de disparo por tipo de enemigo
             shootIntervals: {
-                normal: 0,        // no dispara
-                barrera: 0,
-                proyectil: 120,   // dispara cada 2 segundos
-                kamikaze: 0,
-                constructor: 0,
-                arquero: 70       // nuevo tipo, dispara cada ~1.2s
+                normal: 0, barrera: 0, proyectil: 120, kamikaze: 0,
+                constructor: 0, arquero: 70
             },
             enemyMaxModulos: {
-                normal: 1,
-                barrera: 1,
-                proyectil: 1,
-                kamikaze: 0,
-                constructor: 2,
-                arquero: 1
-            }
+                normal: 1, barrera: 1, proyectil: 1, kamikaze: 0,
+                constructor: 2, arquero: 1
+            },
+            reboundChance: 0.15,
+            maxEnemyRebounds: 1
         },
         structures: { maxOnScreen: 15, hp: 30, radio: 18, builderInterval: 450 },
         elements: {
@@ -166,7 +164,7 @@
             }
         },
         gameModes: { current: 'standard' },
-        persistenceKey: 'gachaHex_v4',
+        persistenceKey: 'gachaHex_v6',
         ui: { showJoystick:true, showMessages:true }
     };
 
@@ -182,6 +180,8 @@
         bufferAction(action) {}
         consumeBuffered(action, canExecute) { return false; }
         update() {}
+        // Para reinicio táctil en móvil
+        onGameOverTouch(callback) { this._gameOverTouchCallback = callback; }
     }
 
     class RendererPort {
@@ -396,18 +396,27 @@
                         if (b.elemento === 'hielo') e.applyStatusEffect('congelacion', { factor:0.5-(player.obtenerAfinidades().hielo||0)*0.1, duration:120 });
                         if (b.elemento === 'veneno') e.applyStatusEffect('veneno', { damage:2+(player.obtenerAfinidades().veneno||0)*0.5, duration:180 });
                         if (b.elemento === 'agua') { e.x += (e.x - player.x)*0.1; e.y += (e.y - player.y)*0.1; }
-                        if (!e.haMuerto && e.hp <= 0) { e.haMuerto = true; game.procesarMuerteEnemigo(e); }
-                        if (b.perforacion > 0) b.perforacion--;
-                        else if (b.rebotes > 0) {
-                            let target = null, minD = Infinity;
-                            for (let k = 0; k < enemies.length; k++) {
-                                if (k === j || !enemies[k].alive) continue;
-                                const d = dist(enemies[k].x, enemies[k].y, b.x, b.y);
-                                if (d < minD && d < 150) { minD = d; target = enemies[k]; }
-                            }
-                            if (target) b.bounce(target.x, target.y);
-                            else destruida = true;
-                        } else destruida = true;
+
+                        // --- REBOTE ENEMIGO ---
+                        if (e.rebotaBalas && b.rebotes < CONFIG.combat.maxEnemyRebounds) {
+                            b.vx *= -1; b.vy *= -1;
+                            b.owner = 'enemy';
+                            b.rebotes++;
+                            b.alive = true;
+                        } else {
+                            if (!e.haMuerto && e.hp <= 0) { e.haMuerto = true; game.procesarMuerteEnemigo(e); }
+                            if (b.perforacion > 0) b.perforacion--;
+                            else if (b.rebotes > 0) {
+                                let target = null, minD = Infinity;
+                                for (let k = 0; k < enemies.length; k++) {
+                                    if (k === j || !enemies[k].alive) continue;
+                                    const d = dist(enemies[k].x, enemies[k].y, b.x, b.y);
+                                    if (d < minD && d < 150) { minD = d; target = enemies[k]; }
+                                }
+                                if (target) b.bounce(target.x, target.y);
+                                else destruida = true;
+                            } else destruida = true;
+                        }
                         if (destruida) break;
                     }
                 }
@@ -460,7 +469,6 @@
                         }
                     }
                 }
-                // Recoger drops del suelo
                 if (e.modulosEquipados.filter(Boolean).length < e.maxModulos) {
                     for (let d = game.drops.length-1; d >= 0; d--) {
                         const drop = game.drops[d];
@@ -490,6 +498,7 @@
                 for (let i = 0; i < 2; i++) {
                     const h = new Enemy(enemy.x+((i===0?-30:30)+(Math.random()-0.5)*20), enemy.y+(Math.random()-0.5)*20, nv, hp, sz, sp, enemy.tipo);
                     h.evolucionando = true; setTimeout(() => h.evolucionando = false, 500);
+                    h.rebotaBalas = enemy.rebotaBalas;
                     events.push({ type:'spawn', enemy:h });
                 }
                 events.push({ type:'death' });
@@ -497,6 +506,7 @@
                 const nv = enemy.nivelEvo+1;
                 const ev = new Enemy(enemy.x+(Math.random()-0.5)*40, enemy.y+(Math.random()-0.5)*40, nv, Math.floor(enemy.hpMax*1.4), enemy.radio*1.2, enemy.speed*0.9, enemy.tipo);
                 ev.evolucionando = true; setTimeout(() => ev.evolucionando = false, 500);
+                ev.rebotaBalas = enemy.rebotaBalas;
                 events.push({ type:'spawn', enemy:ev }, { type:'message', text:`🌟 ¡Evolución a Nv.${nv}!`, color:'#ffd700' }, { type:'death' });
             }
             return events;
@@ -532,7 +542,7 @@
     }
 
     class NivelService {
-        constructor(player) { this.player = player; }
+        constructor(player, game) { this.player = player; this.game = game; }
         addXP(xp) {
             this.player.xp += xp;
             if (this.player.xp >= this.player.xpProximoNivel) {
@@ -564,7 +574,10 @@
             if (nivel === 5 && !desbloqueados.includes('modulos')) {
                 desbloqueados.push('modulos');
                 return [
-                    { texto:'Recibir módulo aleatorio', accion:()=>{ /* se maneja en Game */ } },
+                    { texto:'Recibir módulo aleatorio', accion: ()=>{
+                        const pieza = this.game.dropService.generarModule({ nivelEvo:1 });
+                        this.player.inventarioModulos.push(pieza);
+                    }},
                     { texto:'+1 Proyectil', accion:()=>this.player.upgradeWeapon() },
                     { texto:'+2 Daño', accion:()=>this.player.permanentUpgrades.damageBonus+=2 }
                 ];
@@ -729,6 +742,10 @@
                 ctx.fillStyle = '#ffd700';
                 ctx.beginPath(); ctx.arc(enemy.x, enemy.y - enemy.radio - 6, 5, 0, Math.PI*2); ctx.fill();
             }
+            if (enemy.rebotaBalas) {
+                ctx.fillStyle = '#ff00ff';
+                ctx.beginPath(); ctx.arc(enemy.x + enemy.radio, enemy.y - enemy.radio, 4, 0, Math.PI*2); ctx.fill();
+            }
             ctx.fillStyle = '#fff'; ctx.font = 'bold 12px monospace'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
             ctx.fillText('⬆️'.repeat(enemy.nivelEvo) + (enemy.tipo!=='normal'?'⚡':''), enemy.x, enemy.y-enemy.radio-14);
             const ancho = enemy.radio*2.2, yb = enemy.y-enemy.radio-6;
@@ -789,14 +806,14 @@
             ctx.fillText(`🔫 Nv.${player.weaponLevel}`, W-20, 30);
             ctx.fillStyle = '#ffd700'; ctx.textAlign = 'left';
             ctx.fillText(`✨ Destino: ${player.destinyPoints}`, 20, 55);
-            ctx.fillText(`Nv.${game.nivel} (XP: ${Math.floor(game.xp)}/${game.xpProximoNivel})`, 20, 75);
+            ctx.fillText(`Nv.${player.nivel} (XP: ${Math.floor(player.xp)}/${player.xpProximoNivel})`, 20, 75);
             if (game.powerActive) { ctx.fillStyle = '#ff4500'; ctx.fillText('💥 PODER ACTIVO', W/2, 50); }
             if (game.gameOver) {
                 ctx.fillStyle = 'rgba(0,0,0,0.7)'; ctx.fillRect(0, 0, W, H);
                 ctx.fillStyle = '#ff4757'; ctx.font = 'bold 60px monospace'; ctx.textAlign = 'center';
-                ctx.fillText('💀 GAME OVER', W/2, H/2-30);
+                ctx.fillText('💀 GAME OVER', W/2, H/2-40);
                 ctx.fillStyle = '#fff'; ctx.font = '20px monospace';
-                ctx.fillText('Presiona R para reiniciar', W/2, H/2+40);
+                ctx.fillText('Pulsa en la pantalla para reiniciar', W/2, H/2+30);
             }
         }
     }
@@ -889,6 +906,27 @@
             const sx = this.canvas.width / rect.width;
             const sy = this.canvas.height / rect.height;
             const now = performance.now();
+
+            // Si el juego ha terminado y se toca la pantalla, reiniciar (excepto en los botones)
+            if (this._gameOverTouchCallback && e.type === 'touchstart') {
+                const touch = e.changedTouches[0];
+                const tx = (touch.clientX - rect.left) * sx;
+                const ty = (touch.clientY - rect.top) * sy;
+                // Comprobar si el toque NO está en los botones de control
+                const btnDash = document.getElementById('btn-dash');
+                const btnUlt = document.getElementById('btn-ultimate');
+                const btnMenu = document.getElementById('btn-menu');
+                let sobreBoton = false;
+                [btnDash, btnUlt, btnMenu].forEach(btn => {
+                    const r = btn.getBoundingClientRect();
+                    if (tx >= r.left && tx <= r.right && ty >= r.top && ty <= r.bottom) sobreBoton = true;
+                });
+                if (!sobreBoton) {
+                    this._gameOverTouchCallback();
+                    return;
+                }
+            }
+
             if (e.type === 'touchstart' || e.type === 'touchmove') {
                 for (const t of e.changedTouches) {
                     const x = (t.clientX - rect.left) * sx;
@@ -1136,7 +1174,7 @@
             this.hpMax = Math.floor((hpBase||25)*mult); this.hp = this.hpMax;
             this.radio = (sizeBase||14)*(0.9+this.nivelEvo*0.2);
             this.speed = (speedBase||1.2)*(0.9+this.nivelEvo*0.1);
-            this.dañoContacto = Math.floor(4 * mult);  // Reducido para balance inicial
+            this.dañoContacto = Math.floor(2 * mult);
             this.alive = true; this.haMuerto = false; this.esJefe = false;
             this.statusEffects = []; this.jefeDisparoTimer = 0;
             this.buildTimer = CONFIG.structures.builderInterval;
@@ -1150,6 +1188,7 @@
             this.shootInterval = CONFIG.combat.shootIntervals[tipo] || 0;
             this.shootTimer = this.shootInterval;
             this.bulletDamage = CONFIG.combat.enemyBulletDamage;
+            this.rebotaBalas = Math.random() < CONFIG.combat.reboundChance;
         }
         hasStatus(tipo) { return this.statusEffects.some(e=>e.tipo===tipo); }
         recogerDrop(drop) {
@@ -1200,10 +1239,8 @@
             this.esMovil = inputPort instanceof MobileInputAdapter;
             this.baseWidth = 900; this.baseHeight = 600;
 
-            // Delta time
             this._lastFrame = performance.now();
 
-            // Servicios
             this.difficulty = new DifficultyService();
             this.combatService = new CombatService();
             this.evolutionService = new EvolutionService();
@@ -1211,7 +1248,6 @@
             this.spriteGenerator = new SpriteGenerator();
             this.sinergiaService = new SinergiaService();
 
-            // Estado
             this.enemigos = []; this.balas = []; this.drops = []; this.estructuras = []; this.zonas = [];
             this.pausado = false; this.gameOver = false;
             this.kills = 0; this.tiempoSobrevivido = 0;
@@ -1225,15 +1261,20 @@
             this.oleadaTimer = 600;
             this.ui = { messages: [], particles: [], cameraShake: { x:0, y:0, intensity:0 } };
 
-            // Jugador (se crea antes que los servicios que dependen de él)
             this.jugador = new Player();
             const save = this.persistence.load();
             this.jugador.init(canvas.width/2, canvas.height/2, save);
             this.logrosDesbloqueados = save.logros || [];
 
-            // Servicios que dependen del jugador
             this.proyectilService = new ProyectilService(this.jugador, this.sinergiaService);
-            this.nivelService = new NivelService(this.jugador);
+            this.nivelService = new NivelService(this.jugador, this);
+
+            // Configurar reinicio táctil en móvil
+            if (this.esMovil) {
+                this.input.onGameOverTouch(() => {
+                    if (this.gameOver) this.reiniciarJuego();
+                });
+            }
 
             this._initSideMenu();
             this.resize();
@@ -1411,9 +1452,27 @@
         resize() {
             const mw = window.innerWidth, mh = window.innerHeight;
             let w, h;
-            if (mw/mh > this.baseWidth/this.baseHeight) { h = mh; w = (this.baseWidth/this.baseHeight)*h; }
-            else { w = mw; h = (this.baseHeight/this.baseWidth)*w; }
-            this.canvas.width = w; this.canvas.height = h;
+            if (this.esMovil) {
+                // En móvil, forzar landscape: usar todo el ancho y alto disponibles
+                w = Math.max(mw, mh);
+                h = Math.min(mw, mh);
+                // Mostrar hint si está en portrait
+                const hint = document.getElementById('rotate-hint');
+                if (hint) {
+                    hint.style.display = (mw < mh) ? 'flex' : 'none';
+                }
+            } else {
+                // Escritorio: mantener relación de aspecto
+                if (mw/mh > this.baseWidth/this.baseHeight) {
+                    h = mh;
+                    w = (this.baseWidth/this.baseHeight) * h;
+                } else {
+                    w = mw;
+                    h = (this.baseHeight/this.baseWidth) * w;
+                }
+            }
+            this.canvas.width = w;
+            this.canvas.height = h;
         }
 
         _bindInput() {
@@ -1427,6 +1486,10 @@
                 document.getElementById('btn-dash').addEventListener('touchstart', e => { e.preventDefault(); this.input.bufferAction('dash'); });
                 document.getElementById('btn-ultimate').addEventListener('touchstart', e => { e.preventDefault(); this.input.bufferAction('ultimate'); });
                 document.getElementById('btn-menu').addEventListener('touchstart', e => { e.preventDefault(); this.toggleMenu(); });
+                // Intentar bloquear orientación en landscape
+                if (screen.orientation && screen.orientation.lock) {
+                    screen.orientation.lock('landscape').catch(() => {});
+                }
             }
         }
 
@@ -1561,6 +1624,9 @@
         }
 
         _mostrarOpcionesNivel() {
+            if (this.menuPanel.style.display === 'block') {
+                this.menuPanel.style.display = 'none';
+            }
             const panel = document.getElementById('levelup-panel');
             const desc = document.getElementById('levelup-desc');
             const op = document.getElementById('levelup-options');
@@ -1579,6 +1645,9 @@
             this.pausado = false;
             this._opcionesNivel = null;
             this.jugador.critChance = CONFIG.player.baseCritChance + (this.jugador.permanentUpgrades.critBonus||0)*0.05;
+            if (this.menuPanel.style.display === 'block') {
+                this._refreshModulosTab();
+            }
         }
 
         recogerDrop(d) {
@@ -1602,6 +1671,7 @@
             b.bulletDamage = 12;
             b.maxModulos = 3;
             b.modulosEquipados = new Array(3).fill(null);
+            b.rebotaBalas = true;
             b.sprite = this.spriteGenerator.getSprite('normal','jefe','fisico',`boss,${this.kills}`, false);
             this.enemigos.push(b);
         }
@@ -1627,7 +1697,7 @@
 
         _loop() {
             const now = performance.now();
-            const dt = Math.min((now - this._lastFrame) / (1000/60), 2); // Delta time normalizado a 60fps, máximo 2x
+            const dt = Math.min((now - this._lastFrame) / (1000/60), 2);
             this._lastFrame = now;
             this._update(dt);
             this._draw();
