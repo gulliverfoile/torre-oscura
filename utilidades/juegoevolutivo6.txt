@@ -1,9 +1,10 @@
-README – Gacha Evolutivo (Prototipo Hexagonal)
+
+📜 README – Gacha Evolutivo: Edición "Metralleta Parlante"
 🎮 ¿Qué es esto?
-Un prototipo de juego de acción 2D con vista cenital, perteneciente al género bullet heaven / survivor-like.
-El jugador se mueve por un escenario mientras dispara automática (o manualmente) a enemigos que evolucionan, recogen drops, se equipan módulos y reaccionan a combinaciones elementales.
-El proyecto ha sido construido en iteraciones rápidas (fines de semana) como experimento de diseño y arquitectura de software, utilizando una arquitectura hexagonal (puertos y adaptadores) que separa la lógica del juego del input y el renderizado.
-Todo está contenido en un único archivo HTML, sin dependencias externas.
+Un bullet heaven caótico donde el jugador no esquiva balas: las fabrica.
+Literalmente. Con los módulos adecuados, te conviertes en una ametralladora de proyectiles elementales que arrasan con todo.
+Los enemigos intentan seguir tu ritmo: evolucionan, te roban los módulos, se equipan con ellos y, si te matan, se convierten en tu Némesis personal y te persiguen en la siguiente partida.
+Todo construido en un solo archivo HTML, con arquitectura hexagonal y en un tiempo récord de desarrollo iterativo.
 
 🕹️ Controles
 Acción	Teclado (PC)	Móvil (táctil)
@@ -12,15 +13,14 @@ Dash	Doble toque en zona izquierda / Swipe rápido	Botón 💨 (abajo derecha)
 Apuntar	Ratón (clic sostenido)	Zona táctil derecha (arrastrar)
 Disparar	Clic izq. / Espacio / ShiftDerecho	Zona táctil derecha (toque)
 Disparo automático	Activado por defecto	Activado por defecto
-Autoapuntado libre	Configurable en Arquitecto	Dispara al enemigo más cercano
 Arma definitiva	E	Botón ⚡ (abajo derecha)
 Menú lateral	Tab	Botón 📋 (abajo derecha)
 Reiniciar (tras muerte)	R	Tocar la pantalla (fuera de botones)
-Nota importante sobre móvil:
-La adaptación a pantalla táctil está en desarrollo. Actualmente se recomienda jugar en horizontal (landscape) para una mejor experiencia. El control táctil puede presentar fallos (ver sección de fallos conocidos).
+⚠️ Nota importante sobre móvil:
+La experiencia óptima es en horizontal (landscape). Se recomienda girar el dispositivo para jugar.
 
-🧩 Mecánicas implementadas
-1. Sistema de módulos elementales
+🧩 Mecánicas principales
+1. Sistema de Módulos Elementales
 Los enemigos (o el Arquitecto) sueltan piezas con una runa (F fuego, W hielo, E veneno, A agua, R físico) y un tipo (ataque, defensa, utilidad, orbe).
 
 Se equipan en 4 ranuras (Norte, Sur, Este, Oeste) desde el menú lateral (Tab o 📋).
@@ -29,21 +29,23 @@ Cada módulo otorga efectos cualitativos (quemadura, ralentización, veneno, emp
 
 Sinergias: dos runas iguales en ranuras opuestas (N‑S, E‑O) activan bonificaciones (ej. FF añade daño de fuego).
 
-2. Reacciones elementales
+Aviso: Un módulo físico con afinidad alta puede convertir tu arma en una metralleta de balas elementales. Disfruta del caos.
+
+2. Reacciones Elementales
 Si un enemigo muere con dos estados elementales (ej. quemadura + veneno), se desencadena una reacción especial (choque térmico, nube inflamable, vapor, putrefacción…).
 
 Las reacciones dejan zonas en el suelo (fuego, hielo, veneno, agua) que afectan a enemigos y al jugador.
 
-3. Enemigos dinámicos
-Evolución: al morir, un dado (1‑6) decide si el enemigo se divide en dos, evoluciona a una versión más grande, o simplemente muere.
+3. Enemigos Dinámicos
+Evolución: al morir, un dado (1‑6) decide si el enemigo se divide en dos, evoluciona a una versión más grande, o simplemente muere. Sí, ese bichito que acabas de matar puede convertirse en un jefe gigante.
 
 Tipos especiales: Barrera (absorbe disparos), Proyectil (lanza balas al morir), Kamikaze (explota en área), Constructor (levanta paredes destructibles), Arquero (dispara al jugador).
 
-Enemigos que se equipan: algunos enemigos pueden recoger drops del suelo (vida, daño, módulos) y usarlos contra el jugador.
+Enemigos que se equipan: algunos enemigos pueden recoger módulos del suelo y usarlos contra ti. Te roban tus propias mejoras.
 
-Rebote de balas enemigo: ciertos enemigos (prob. 15 %, jefes siempre) devuelven las balas del jugador como proyectiles enemigos.
+Rebote de balas enemigo: ciertos enemigos (prob. 15 %, jefes siempre) devuelven las balas del jugador como proyectiles enemigos. Cuidado con disparar a lo loco.
 
-4. Subida de nivel con aprendizaje gradual
+4. Subida de Nivel con Aprendizaje Gradual
 Ganas XP al matar enemigos.
 
 Los niveles 2, 3 y 5 enseñan respectivamente los sistemas de stats, proyectil y módulos.
@@ -55,47 +57,43 @@ El juego se pausa mientras eliges.
 5. Barra de Poder Destructivo
 Se carga al infligir daño. Al llenarse, tus disparos atraviesan enemigos y hacen mucho más daño durante unos segundos.
 
-6. Arquitecto (Debug)
+6. El Némesis (Sistema de Rivalidad Persistente)
+El enemigo que te mata se convierte en tu Némesis y se guarda en localStorage.
+
+En la siguiente partida, hay un 15 % de probabilidad de que aparezca como un mini‑jefe especial (aura púrpura, nombre propio, tus módulos robados).
+
+Si lo derrotas, recuperas tus módulos. Si te vuelve a matar, se vuelve más fuerte.
+
+Ahora tus derrotas tienen consecuencias. Véngate.
+
+7. Arquitecto (Debug)
 Panel de configuración en vivo accesible desde el menú lateral.
 
-Ajusta sensibilidad, asistencia de apuntado, spawn de enemigos, modo práctica (inmortal), forzar módulos, etc.
+Ajusta sensibilidad, asistencia de apuntado, spawn de enemigos, modo práctica (inmortal), forzar módulos, forzar Némesis, etc.
 
-7. Persistencia
-Guarda automáticamente Puntos de Destino y mejoras permanentes al morir.
+8. Persistencia
+Guarda automáticamente Puntos de Destino, mejoras permanentes y el Némesis al morir.
 
 Los módulos equipados se conservan entre partidas (hasta que reseteas el progreso).
 
-8. Arquitectura hexagonal
+9. Arquitectura Hexagonal
 Dominio: Player, Enemy, Bullet, Pieza, servicios (CombatService, EvolutionService, DropService, NivelService, SinergiaService, ProyectilService, DifficultyService).
 
 Puertos: InputPort, RendererPort, PersistencePort.
 
 Adaptadores: WebInputAdapter (ratón + teclado), MobileInputAdapter (táctil), CanvasRenderer (2D), LocalStorageRepo (persistencia).
 
-🐛 Fallos conocidos
-#	Fallo	Descripción	Reproducción
-1	Control táctil no funciona correctamente en móvil	El joystick virtual no responde bien tras el redimensionado. Las zonas táctiles no se actualizan con el nuevo tamaño del canvas.	Jugar en móvil (especialmente tras rotar la pantalla).
-2	Velocidad superior en móvil	La inercia del joystick no está sincronizada con el delta time, lo que acelera el movimiento en pantallas de alta tasa de refresco.	Jugar en móvil a 90 Hz o 120 Hz.
-3	Disparo automático no permite strafing	El autoapuntado libre dispara al enemigo más cercano, pero no hay opción de disparar en una dirección mientras te mueves en otra sin usar el ratón.	Activar autoapuntado libre y mover al personaje hacia un lado; el disparo va hacia los enemigos.
-4	Balance descompensado en niveles altos	Con mucha cadencia y proyectiles, el juego se vuelve demasiado fácil. La dificultad enemiga no escala adecuadamente con el poder del jugador.	Alcanzar nivel 10+ con varios módulos de ataque.
-5	El menú lateral y la subida de nivel a veces se solapan	Si abriste el menú lateral justo antes de subir de nivel, la interfaz puede quedar en un estado inconsistente.	Abrir el menú con Tab justo cuando estás a punto de subir de nivel.
-6	Sinergias rúnicas no definidas	CONFIG.modules.sinergias no contiene datos; el servicio SinergiaService existe pero no produce bonificaciones reales.	Equipar dos módulos con la misma runa y revisar las stats.
-7	La pantalla de Game Over no muestra estadísticas	Aunque se guardan kills y tiempo, no se renderizan en la pantalla final.	Morir y observar la pantalla de Game Over.
-8	El botón "Forzar módulo" del Arquitecto no actualiza la afinidad	Genera un módulo con afinidad aleatoria, pero el mensaje no muestra la afinidad.	Usar "Forzar módulo" y buscar la pieza en el inventario.
-9	Persistencia de módulos solo al morir	Los cambios de equipamiento no se guardan durante la partida; si cierras el navegador antes de morir, los módulos equipados se pierden.	Equipar módulos, cerrar la pestaña y volver a abrir el juego.
-🚧 Limitaciones actuales
-Sin sonido ni música.
-
-Gráficos minimalistas (formas geométricas y emojis).
-
-Rendimiento: pensado para ~25 enemigos simultáneos. No se han implementado optimizaciones avanzadas (spatial hashing, object pooling) porque no son necesarias a esta escala.
-
-Sin tutorial completo: solo las pistas durante los primeros niveles.
-
-Sin meta‑progresión profunda: los Puntos de Destino compran mejoras lineales. No hay árboles de talentos ni desbloqueo de personajes.
-
-Interfaz de módulos con prompt(): funcional pero poco amigable en móvil.
-
+🐛 Estado actual y "features" conocidos
+#	Comportamiento	¿Es un bug o una feature?
+1	Te conviertes en una metralleta con módulos físicos.	Feature. El equilibrio vendrá después.
+2	El hielo puede ralentizar (y a veces congelar) a cualquiera, incluidos jefes.	Feature con necesidad de balance.
+3	Los enemigos te roban módulos y se vuelven más fuertes.	Feature intencionada.
+4	Si mueres, tu asesino se convierte en tu Némesis y vuelve en la siguiente partida.	Feature intencionada.
+5	Las estructuras (cubos) a veces muestran una barra de vida invertida al recibir daño excesivo.	Bug conocido (visual).
+6	El dash con swipe en móvil puede activarse sin querer al esquivar rápido.	Bug/Ajuste de sensibilidad.
+7	El juego es extremadamente rápido en móviles con tasas de refresco altas (120 Hz) si no se usa delta‑time.	Solucionado en la última versión con delta‑time universal.
+8	Los drops de módulos pueden ser recogidos por enemigos antes que por el jugador.	Feature. Los enemigos también quieren mejorar.
+9	La pantalla de Game Over no muestra estadísticas detalladas.	Pendiente de implementar.
 🧪 Cómo probar
 Guarda el código en un archivo .html.
 
@@ -107,21 +105,23 @@ Pulsa Tab (o botón 📋) para abrir el menú lateral.
 
 En la pestaña Arquitecto, activa Modo práctica para explorar sin presión.
 
-Experimenta equipando módulos y observa las reacciones elementales.
+Equipa un módulo físico con afinidad alta y contempla el caos.
 
-🛣️ Próximos pasos (cuando se retome)
-Arreglar el control táctil (prioridad alta para móvil).
+🚧 Próximos pasos (cuando se retome)
+Balancear el escalado de poder: evitar que el jugador se convierta en una ametralladora imparable demasiado pronto.
 
-Ajustar el balance de dificultad (escalado por nivel del jugador, enemigos con resistencia).
+Añadir más comportamientos de proyectil (rebote, perforación, minas, drones).
 
-Añadir más propiedades de proyectil en los módulos (rebote, perforación, minas, drones).
+Mejorar la interfaz de módulos (sustituir los prompts por una UI gráfica).
 
-Mejorar la ultimate para que refleje los módulos equipados.
+Añadir sonido y música (ya hay vibración para los impactos).
 
-Profundizar el sistema de elementos con más reacciones y efectos emergentes.
+Implementar la mochila‑cuadrícula (Tetris) para la colocación de módulos.
 
-Sustituir los prompts por una interfaz gráfica para equipar módulos.
+Añadir más reacciones elementales y enemigos con resistencias.
 
 🎯 Conclusión
-Este prototipo es un sandbox de mecánicas construido en tiempo récord. Tiene más sistemas innovadores que muchos juegos comerciales en fase temprana, y su arquitectura hexagonal permite iterar rápidamente.
-No está pensado para producción, sino para experimentar, aprender y divertirse en el proceso
+Este prototipo es un generador de caos y diversión.
+No está equilibrado, no es justo y probablemente te matará de formas absurdas. Pero cuando encuentras la build perfecta y te conviertes en una metralleta de fuego que arrasa hordas de enemigos, es increíblemente satisfactorio.
+
+Disfruta del caos. El equilibrio ya llegará
