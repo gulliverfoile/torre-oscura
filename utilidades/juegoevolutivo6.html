@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>Gacha Evolutivo – Arquitectura Hexagonal</title>
+    <title>Gacha Evolutivo – Hexagonal + Sprites</title>
     <style>
         * { margin:0; padding:0; box-sizing:border-box; }
         html, body { width:100%; height:100%; overflow:hidden; background:#000; touch-action:none; }
@@ -77,7 +77,6 @@
     </div>
     <script>
     'use strict';
-
     // ==================== CONFIGURACIÓN GLOBAL ====================
     const CONFIG = {
         input: {
@@ -233,10 +232,85 @@
             this.alive = true; this.color = '#8b7355';
         }
     }
-    <script>
+
+    // ==================== SPRITE GENERATOR ====================
+    class SpriteGenerator {
+        constructor() { this.cache = new Map(); }
+        getSprite(tipo, rareza, elemento, seed) {
+            const key = `${tipo}|${rareza}|${elemento}|${seed}`;
+            if (this.cache.has(key)) return this.cache.get(key);
+            const canvas = document.createElement('canvas');
+            canvas.width = 64; canvas.height = 64;
+            const ctx = canvas.getContext('2d');
+            ctx.imageSmoothingEnabled = false;
+            const pal = this._palette(elemento, rareza);
+            const rng = this._rng(seed + tipo + rareza + elemento);
+            // Sombra
+            ctx.fillStyle = pal.skin[1];
+            ctx.beginPath(); ctx.arc(32, 34, 16, 0, Math.PI*2); ctx.fill();
+            // Cuerpo
+            ctx.fillStyle = pal.skin[0];
+            ctx.beginPath(); ctx.arc(32, 32, 16, 0, Math.PI*2); ctx.fill();
+            // Brillo
+            ctx.fillStyle = pal.skin[2];
+            ctx.globalAlpha = 0.4;
+            ctx.beginPath(); ctx.arc(28, 28, 6, 0, Math.PI*2); ctx.fill();
+            ctx.globalAlpha = 1.0;
+            // Ojos
+            ctx.fillStyle = '#fff';
+            ctx.beginPath(); ctx.arc(26, 28, 4, 0, Math.PI*2); ctx.fill();
+            ctx.beginPath(); ctx.arc(38, 28, 4, 0, Math.PI*2); ctx.fill();
+            ctx.fillStyle = pal.eye || '#000';
+            ctx.beginPath(); ctx.arc(26, 28, 2, 0, Math.PI*2); ctx.fill();
+            ctx.beginPath(); ctx.arc(38, 28, 2, 0, Math.PI*2); ctx.fill();
+            // Elite / jefe
+            if (rareza === 'elite' || rareza === 'jefe') {
+                ctx.fillStyle = pal.metal[0];
+                ctx.beginPath(); ctx.arc(32, 16, 14, Math.PI, 0); ctx.fill();
+                ctx.fillStyle = pal.metal[2];
+                ctx.fillRect(28, 10, 8, 6);
+                if (rareza === 'jefe') {
+                    ctx.fillStyle = pal.leather ? pal.leather[0] : '#553300';
+                    ctx.beginPath(); ctx.moveTo(18, 18); ctx.lineTo(10, 4); ctx.lineTo(22, 14); ctx.fill();
+                    ctx.beginPath(); ctx.moveTo(46, 18); ctx.lineTo(54, 4); ctx.lineTo(42, 14); ctx.fill();
+                }
+            }
+            // Tipo especial
+            if (tipo === 'barrera') {
+                ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 2;
+                ctx.beginPath(); ctx.arc(32, 32, 20, 0, Math.PI*2); ctx.stroke();
+            } else if (tipo === 'kamikaze') {
+                ctx.fillStyle = '#ff4500'; ctx.beginPath(); ctx.arc(32, 32, 14, 0, Math.PI*2); ctx.fill();
+            } else if (tipo === 'constructor') {
+                ctx.fillStyle = '#a0522d';
+                ctx.fillRect(24, 20, 4, 24); ctx.fillRect(36, 20, 4, 24);
+            }
+            // Variación aleatoria
+            if (rng() > 0.7) {
+                ctx.fillStyle = pal.skin[1];
+                ctx.beginPath(); ctx.arc(22 + rng()*20, 30 + rng()*10, 3, 0, Math.PI*2); ctx.fill();
+            }
+            this.cache.set(key, canvas);
+            return canvas;
+        }
+        _palette(elemento) {
+            const base = {
+                fuego:   { skin:['#ff9966','#cc6633','#ffcc99'], metal:['#ffcc00','#cc9900','#ffdd44'], leather:['#660000','#330000','#993333'], eye:'#ff0000' },
+                hielo:   { skin:['#aaccff','#7799cc','#ddeeff'], metal:['#ffffff','#cccccc','#ffffff'], leather:['#334455','#112233','#556677'], eye:'#88ccff' },
+                veneno:  { skin:['#99cc00','#669900','#bbdd33'], metal:['#aaaa55','#888833','#cccc77'], leather:['#443322','#221100','#665544'], eye:'#44aa22' },
+                agua:    { skin:['#3399ff','#2266cc','#66bbff'], metal:['#cceeff','#99bbdd','#ffffff'], leather:['#334455','#112233','#556677'], eye:'#0044cc' },
+                fisico:  { skin:['#ccaa88','#997755','#eeddcc'], metal:['#aaaaaa','#777777','#cccccc'], leather:['#553300','#331a00','#775522'], eye:'#2244aa' }
+            };
+            return base[elemento] || base.fisico;
+        }
+        _rng(seed) {
+            let h = 0; for (let i = 0; i < seed.length; i++) h = ((h << 5) - h + seed.charCodeAt(i)) | 0;
+            return () => { h = (h * 1664525 + 1013904223) | 0; return (h >>> 0) / 4294967296; };
+        }
+    }
+
     // ==================== SERVICIOS ====================
     class CombatService {
-        constructor(renderer) { this.renderer = renderer; }
         updateBullets(bullets, enemies, structures, player, difficulty, powerActive, game) {
             for (let i = bullets.length-1; i >= 0; i--) {
                 const b = bullets[i]; b.update(game.canvas, enemies);
@@ -246,7 +320,7 @@
                     if (!s.alive) continue;
                     if (dist(b.x, b.y, s.x, s.y) < b.radio + s.radio) {
                         s.hp -= b.damage;
-                        if (!s.alive) game.ui?.emitParticles?.(s.x, s.y, '#8b7355', 8);
+                        if (!s.alive) game._emitParticles(s.x, s.y, '#8b7355', 8);
                         if (b.perforacion <= 0 && b.rebotes <= 0 && !b.explosivo) destruida = true;
                         break;
                     }
@@ -260,7 +334,7 @@
                         if (Math.random() < player.critChance) {
                             dmg *= CONFIG.player.critMultiplier;
                             game.criticosRealizados++;
-                            game.ui?.emitParticles?.(e.x, e.y, '#ffd700', 5, 3);
+                            game._emitParticles(e.x, e.y, '#ffd700', 5);
                         }
                         if (e.barreraHP > 0) {
                             if (dmg >= e.barreraHP) { dmg -= e.barreraHP; e.barreraHP = 0; }
@@ -273,7 +347,6 @@
                             game.powerBar = 0;
                         }
                         if (player.lifesteal > 0) player.heal(dmg * player.lifesteal/100);
-                        // Efectos elementales
                         if (b.elemento === 'fuego') e.applyStatusEffect('quemadura', { damage:2+(player.obtenerAfinidades().fuego||0)*0.5, duration:120 });
                         if (b.elemento === 'hielo') e.applyStatusEffect('congelacion', { factor:0.5-(player.obtenerAfinidades().hielo||0)*0.1, duration:120 });
                         if (b.elemento === 'veneno') e.applyStatusEffect('veneno', { damage:2+(player.obtenerAfinidades().veneno||0)*0.5, duration:180 });
@@ -303,7 +376,7 @@
                 e.update(player, canvas, game);
                 if (dist(e.x, e.y, player.x, player.y) < e.radio + player.radio) {
                     if (player.takeDamage(e.dañoContacto*0.5)) {
-                        game.ui?.emitParticles?.(player.x, player.y, '#ff6b6b', 5);
+                        game._emitParticles(player.x, player.y, '#ff6b6b', 5);
                     }
                 }
                 if (e.tipo === 'constructor') {
@@ -384,8 +457,7 @@
             return false;
         }
         getOptions() {
-            const nivel = this.player.nivel;
-            const desbloqueados = this.player.sistemasDesbloqueados;
+            const nivel = this.player.nivel, desbloqueados = this.player.sistemasDesbloqueados;
             if (nivel === 2 && !desbloqueados.includes('stats')) {
                 desbloqueados.push('stats');
                 return [
@@ -518,8 +590,7 @@
             return { speed: this.multSpeed, damage: this.multDamage, hp: this.multHp };
         }
     }
-    </script>
-    <script>
+
     // ==================== ADAPTADORES ====================
     class CanvasRenderer extends RendererPort {
         constructor(canvas) { super(); this.canvas = canvas; this.ctx = canvas.getContext('2d'); }
@@ -537,14 +608,12 @@
             ctx.beginPath(); ctx.arc(player.x, player.y, player.radio, 0, Math.PI*2);
             ctx.fillStyle = '#00d2ff'; ctx.fill();
             ctx.shadowBlur = 0;
-            // Módulos equipados
             const pos = [{x:0,y:-player.radio-8},{x:0,y:player.radio+8},{x:player.radio+8,y:0},{x:-player.radio-8,y:0}];
             for (let i = 0; i < 4; i++) {
                 const m = player.modulosEquipados[i]; if (!m) continue;
                 ctx.fillStyle = m.color; ctx.beginPath(); ctx.arc(player.x+pos[i].x, player.y+pos[i].y, 6, 0, Math.PI*2); ctx.fill();
                 ctx.fillStyle = '#fff'; ctx.font = '10px monospace'; ctx.textAlign = 'center'; ctx.fillText(m.runa, player.x+pos[i].x, player.y+pos[i].y+4);
             }
-            // Orbitales
             for (const orb of player.orbitales) {
                 const ox = player.x + Math.cos(orb.angulo)*25, oy = player.y + Math.sin(orb.angulo)*25;
                 ctx.fillStyle = orb.pieza.color; ctx.beginPath(); ctx.arc(ox, oy, 5, 0, Math.PI*2); ctx.fill();
@@ -556,11 +625,15 @@
             const ctx = this.ctx;
             if (enemy.evolucionando) { ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(enemy.x, enemy.y, enemy.radio+4, 0, Math.PI*2); ctx.fill(); }
             ctx.save();
-            ctx.shadowColor = enemy.color; ctx.shadowBlur = 15;
-            ctx.beginPath(); ctx.arc(enemy.x, enemy.y, enemy.radio, 0, Math.PI*2);
-            ctx.fillStyle = enemy.color; ctx.fill();
-            ctx.shadowBlur = 0;
-            ctx.strokeStyle = '#fff'; ctx.lineWidth = 1.5; ctx.stroke();
+            if (enemy.sprite) {
+                const size = enemy.radio * 2;
+                ctx.drawImage(enemy.sprite, enemy.x - size/2, enemy.y - size/2, size, size);
+            } else {
+                ctx.shadowColor = enemy.color; ctx.shadowBlur = 15;
+                ctx.beginPath(); ctx.arc(enemy.x, enemy.y, enemy.radio, 0, Math.PI*2);
+                ctx.fillStyle = enemy.color; ctx.fill();
+                ctx.shadowBlur = 0;
+            }
             if (enemy.barreraHP > 0) { ctx.strokeStyle = '#fff'; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(enemy.x, enemy.y, enemy.radio+2, 0, Math.PI*2); ctx.stroke(); }
             ctx.fillStyle = '#fff'; ctx.font = 'bold 12px monospace'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
             ctx.fillText('⬆️'.repeat(enemy.nivelEvo) + (enemy.tipo!=='normal'?'⚡':''), enemy.x, enemy.y-enemy.radio-14);
@@ -612,7 +685,6 @@
             const ctx = this.ctx;
             const { player, game, canvas } = gameState;
             const W = canvas.width, H = canvas.height;
-            // Barra de vida
             const hpPct = player.hp / player.getMaxHp();
             ctx.fillStyle = '#222'; ctx.fillRect(20, 20, 200, 20);
             ctx.fillStyle = hpPct>0.6?'#4ade80':hpPct>0.3?'#facc15':'#ef4444'; ctx.fillRect(20, 20, 200*hpPct, 20);
@@ -709,8 +781,6 @@
             this._lastTouchTime = 0;
             this._inertiaX = 0;
             this._inertiaY = 0;
-            this._moveDx = 0;
-            this._moveDy = 0;
             this.actionBuffer = [];
             this._bindEvents();
         }
@@ -744,8 +814,7 @@
                     const tracked = this.touches.get(t.identifier);
                     if (tracked && tracked.zone === 'move') {
                         const dx = tracked.x - tracked.startX, dy = tracked.y - tracked.startY;
-                        const distSq = dx*dx+dy*dy;
-                        if (distSq > this.config.swipeDashThreshold*this.config.swipeDashThreshold && (now - tracked.time) < this.config.swipeDashTime) {
+                        if (dx*dx+dy*dy > this.config.swipeDashThreshold*this.config.swipeDashThreshold && (now - tracked.time) < this.config.swipeDashTime) {
                             this.bufferAction('dash');
                         }
                     }
@@ -805,8 +874,7 @@
         getDefault() { return { destinyPoints:0, upgrades:{}, kills:0, logros:[], modulosEquipados:[null,null,null,null], inventarioModulos:[] }; }
         save(data) { try { localStorage.setItem(this.key, JSON.stringify(data)); } catch(e) {} }
     }
-    </script>
-    <script>
+
     // ==================== PLAYER ====================
     class Player {
         constructor() {
@@ -880,7 +948,7 @@
         }
         takeDamage(amount) {
             if (this.invincible) return false;
-            const armor = 0; // simplificado
+            const armor = 0;
             const final = Math.max(1, amount - (armor||0));
             this.hp -= final;
             if (this.hp < 0) this.hp = 0;
@@ -978,6 +1046,7 @@
             this.color = { normal:['#4ade80','#facc15','#f87171','#c084fc'][Math.min(this.nivelEvo,3)],
                 barrera:'#add8e6', proyectil:'#ffb6c1', kamikaze:'#ff4500', constructor:'#a0522d' }[tipo]||'#fff';
             this.evolucionando = false;
+            this.sprite = null; // lo asigna Game.spawnEnemy
         }
         hasStatus(tipo) { return this.statusEffects.some(e=>e.tipo===tipo); }
         update(player, canvas, game) {
@@ -1004,7 +1073,7 @@
         }
     }
 
-    // ==================== GAME (orquestador) ====================
+    // ==================== GAME ====================
     class Game {
         constructor(canvas, inputPort, rendererPort, persistencePort) {
             this.canvas = canvas;
@@ -1014,14 +1083,13 @@
             this.esMovil = inputPort instanceof MobileInputAdapter;
             this.baseWidth = 900; this.baseHeight = 600;
 
-            // Servicios
+            // Servicios (se crean después del jugador)
             this.difficulty = new DifficultyService();
-            this.combatService = new CombatService(this.renderer);
+            this.combatService = new CombatService();
             this.evolutionService = new EvolutionService();
             this.dropService = new DropService();
+            this.spriteGenerator = new SpriteGenerator();
             this.sinergiaService = new SinergiaService();
-            this.proyectilService = new ProyectilService(this.jugador, this.sinergiaService);
-            this.nivelService = new NivelService(this.jugador);
 
             // Estado
             this.enemigos = []; this.balas = []; this.drops = []; this.estructuras = []; this.zonas = [];
@@ -1037,12 +1105,18 @@
             this.oleadaTimer = 600;
             this.ui = { messages: [], particles: [], cameraShake: { x:0, y:0, intensity:0 } };
 
-            const save = this.persistence.load();
+            // Jugador (se crea antes que los servicios que dependen de él)
             this.jugador = new Player();
+            const save = this.persistence.load();
             this.jugador.init(canvas.width/2, canvas.height/2, save);
             this.logrosDesbloqueados = save.logros || [];
             this.jugador.modulosEquipados = save.modulosEquipados || [null,null,null,null];
             this.jugador.inventarioModulos = save.inventarioModulos || [];
+
+            // Servicios que dependen del jugador
+            this.proyectilService = new ProyectilService(this.jugador, this.sinergiaService);
+            this.nivelService = new NivelService(this.jugador);
+
             this._initSideMenu();
             this.resize();
             window.addEventListener('resize', () => this.resize());
@@ -1050,16 +1124,166 @@
             this._loop();
         }
 
-        _initSideMenu() { /* igual que antes, se completa en Bloque 5 */ }
-        toggleMenu() { /* Bloque 5 */ }
-        _switchTab(id) { /* Bloque 5 */ }
-        _refreshModulosTab() { /* Bloque 5 */ }
-        _refreshStatsTab() { /* Bloque 5 */ }
-        _refreshTiendaTab() { /* Bloque 5 */ }
-        comprarMejora(attr,costo) { /* Bloque 5 */ }
-        _buildArchitectTab() { /* Bloque 5 */ }
-        _applyArchitect(id,val) { /* Bloque 5 */ }
-        asignarModuloASlot(slot) { /* Bloque 5 */ }
+        _initSideMenu() {
+            this.menuPanel = document.getElementById('side-menu');
+            this.tabButtons = this.menuPanel.querySelectorAll('.tab-buttons button');
+            this.tabContents = {
+                modulos: document.getElementById('tab-modulos'),
+                stats: document.getElementById('tab-stats'),
+                tienda: document.getElementById('tab-tienda'),
+                architect: document.getElementById('tab-architect')
+            };
+            this.tabButtons.forEach(btn => btn.addEventListener('click', () => this._switchTab(btn.dataset.tab)));
+            document.getElementById('menu-close').addEventListener('click', () => this.toggleMenu());
+            this._buildArchitectTab();
+            this._buildTiendaTab();
+        }
+
+        toggleMenu() {
+            if (this.menuPanel.style.display === 'block') {
+                this.menuPanel.style.display = 'none';
+                if (!this._opcionesNivel) this.pausado = false;
+            } else {
+                this.pausado = true;
+                this._refreshModulosTab();
+                this._refreshStatsTab();
+                this._refreshTiendaTab();
+                this.menuPanel.style.display = 'block';
+                this._switchTab('modulos');
+            }
+        }
+
+        _switchTab(id) {
+            this.tabButtons.forEach(b => b.classList.remove('active'));
+            this.menuPanel.querySelector(`[data-tab="${id}"]`).classList.add('active');
+            Object.keys(this.tabContents).forEach(k => this.tabContents[k].classList.remove('active'));
+            this.tabContents[id].classList.add('active');
+            if (id === 'modulos') this._refreshModulosTab();
+            if (id === 'stats') this._refreshStatsTab();
+            if (id === 'tienda') this._refreshTiendaTab();
+        }
+
+        _refreshModulosTab() {
+            let html = '<h4>Slots equipados</h4>';
+            const nombres = ['Norte','Sur','Este','Oeste'];
+            for (let i = 0; i < 4; i++) {
+                const m = this.jugador.modulosEquipados[i];
+                html += `<div style="margin:4px 0">${nombres[i]}: `;
+                if (m) {
+                    html += `<span style="color:${m.color}">${m.runa} (${m.elemento})</span> ${m.descripcion()}`;
+                    html += ` <button onclick="window.__game.jugador.quitarModulo(${i});window.__game._refreshModulosTab();">X</button>`;
+                } else {
+                    html += `vacío <button onclick="window.__game.asignarModuloASlot(${i})">Asignar</button>`;
+                }
+                html += `</div>`;
+            }
+            html += '<h4>Inventario</h4>';
+            this.jugador.inventarioModulos.forEach((m, idx) => {
+                html += `<div><span style="color:${m.color}">${m.runa} (${m.elemento})</span> ${m.descripcion()} <button onclick="window.__game.jugador.equiparDesdeInventario(${idx});window.__game._refreshModulosTab();">Equipar (auto)</button></div>`;
+            });
+            this.tabContents.modulos.innerHTML = html;
+        }
+
+        asignarModuloASlot(slot) {
+            if (this.jugador.inventarioModulos.length === 0) { alert('No hay módulos'); return; }
+            const nombres = ['Norte','Sur','Este','Oeste'];
+            const lista = this.jugador.inventarioModulos.map((m,i) => `${i}: ${m.runa} (${m.elemento}) - ${m.descripcion()}`).join('\n');
+            const idx = parseInt(prompt(`Selecciona módulo para ${nombres[slot]}:\n${lista}\nNúmero:`));
+            if (!isNaN(idx) && idx >= 0 && idx < this.jugador.inventarioModulos.length) {
+                const pieza = this.jugador.inventarioModulos.splice(idx, 1)[0];
+                if (this.jugador.modulosEquipados[slot]) this.jugador.inventarioModulos.push(this.jugador.modulosEquipados[slot]);
+                this.jugador.modulosEquipados[slot] = pieza;
+                this.jugador.actualizarOrbitalesDesdeModulos();
+                this._refreshModulosTab();
+            }
+        }
+
+        _refreshStatsTab() {
+            const s = this.proyectilService.getStats();
+            const af = this.jugador.obtenerAfinidades();
+            let html = '<h4>Estadísticas</h4>';
+            html += `<p>❤️ Vida: ${Math.floor(this.jugador.hp)}/${this.jugador.getMaxHp()}</p>`;
+            html += `<p>⚔️ Daño: ${s.damage}</p><p>⏱️ Cadencia: ${s.fireRate} frames</p>`;
+            html += `<p>🔫 Proyectiles: ${s.projectiles}</p><p>🎯 Crítico: ${(this.jugador.critChance*100).toFixed(1)}% (x${CONFIG.player.critMultiplier})</p>`;
+            html += `<p>💨 Velocidad: ${s.speed.toFixed(2)}</p><p>🛡️ Armadura: ${s.armor}</p>`;
+            html += '<h4>Afinidades elementales</h4>';
+            for (const el in af) html += `<p style="color:${this._colorElemento(el)}">${el}: ${af[el]} / ${CONFIG.elements.afinidadMax}</p>`;
+            html += '<h4>Efectos activos</h4>';
+            html += this.jugador.buffs.map(b => `${b.tipo}: ${b.valor} (${b.duracion}f)`).join('<br>') || 'Ninguno';
+            this.tabContents.stats.innerHTML = html;
+        }
+
+        _colorElemento(el) {
+            return { fuego:'#ff6600', hielo:'#00ccff', veneno:'#99cc00', agua:'#3399ff', fisico:'#ccc' }[el] || '#fff';
+        }
+
+        _buildTiendaTab() {}
+        _refreshTiendaTab() {
+            const pts = this.jugador.destinyPoints;
+            const mejoras = [
+                { id:'hpBonus', n:'Vida +5', c:10, a:'hpBonus' }, { id:'damageBonus', n:'Daño +2', c:15, a:'damageBonus' },
+                { id:'speedBonus', n:'Velocidad +0.2', c:12, a:'speedBonus' }, { id:'fireRateBonus', n:'Cadencia -1', c:20, a:'fireRateBonus' },
+                { id:'projectilesBonus', n:'Proyectil +1', c:30, a:'projectilesBonus' }, { id:'critBonus', n:'Crítico +5%', c:18, a:'critBonus' }
+            ];
+            let html = `<p>Puntos de Destino: ${pts}</p>`;
+            mejoras.forEach(m => {
+                const act = this.jugador.permanentUpgrades[m.a] || 0;
+                html += `<button ${pts >= m.c ? '' : 'disabled'} onclick="window.__game.comprarMejora('${m.a}',${m.c})">${m.n} (${m.c} PD) [${act}]</button><br>`;
+            });
+            this.tabContents.tienda.innerHTML = html;
+        }
+
+        comprarMejora(attr, costo) {
+            if (this.jugador.destinyPoints >= costo) {
+                this.jugador.destinyPoints -= costo;
+                this.jugador.permanentUpgrades[attr] = (this.jugador.permanentUpgrades[attr] || 0) + 1;
+                if (attr === 'critBonus') this.jugador.critChance = CONFIG.player.baseCritChance + this.jugador.permanentUpgrades.critBonus * 0.05;
+                this._guardarProgreso();
+                this._refreshTiendaTab();
+                this._refreshStatsTab();
+            }
+        }
+
+        _buildArchitectTab() {
+            let h = '<h4>Controles</h4>';
+            h += `Asistencia: <input type="range" id="arch-aimassist" min="0" max="90" step="5" value="${CONFIG.input.aimAssist}"><br>`;
+            h += `<label><input type="checkbox" id="arch-autofire" ${CONFIG.input.autoFire?'checked':''}> Disparo automático</label><br>`;
+            h += `<label><input type="checkbox" id="arch-freeautoaim" ${CONFIG.input.freeAutoAim?'checked':''}> Autoapuntado libre</label><br>`;
+            h += `<h4>Combate</h4>`;
+            h += `Spawn: <input type="range" id="arch-spawninterval" min="20" max="200" step="5" value="${CONFIG.combat.spawnInterval}"><br>`;
+            h += `Max enemigos: <input type="range" id="arch-maxenemies" min="10" max="60" step="5" value="${CONFIG.combat.maxEnemies}"><br>`;
+            h += `Especiales: <input type="range" id="arch-specialenemychance" min="0" max="0.5" step="0.05" value="${CONFIG.combat.specialEnemyChance}"><br>`;
+            h += `<button id="arch-forzar-modulo">Forzar módulo</button><br>`;
+            h += `<button id="arch-invencible">Invencibilidad 30s</button><br>`;
+            h += `<button id="arch-practica">${this.practiceMode?'Desactivar':'Activar'} práctica</button><br>`;
+            h += `<button id="arch-reset">Reset progreso</button>`;
+            this.tabContents.architect.innerHTML = h;
+            this.tabContents.architect.querySelectorAll('input[type="range"]').forEach(s => s.addEventListener('input', () => this._applyArchitect(s.id.replace('arch-',''), parseFloat(s.value))));
+            this.tabContents.architect.querySelectorAll('input[type="checkbox"][id]').forEach(cb => cb.addEventListener('change', () => this._applyArchitect(cb.id.replace('arch-',''), cb.checked)));
+            document.getElementById('arch-forzar-modulo').addEventListener('click', () => {
+                const p = this.dropService.generarModule({ nivelEvo:1 });
+                this.jugador.inventarioModulos.push(p);
+                if (this.menuPanel.style.display === 'block') this._refreshModulosTab();
+            });
+            document.getElementById('arch-invencible').addEventListener('click', () => {
+                this.jugador.invincible = true;
+                setTimeout(() => { this.jugador.invincible = false; }, 30000);
+            });
+            document.getElementById('arch-practica').addEventListener('click', () => {
+                this.practiceMode = !this.practiceMode;
+                this._buildArchitectTab();
+            });
+            document.getElementById('arch-reset').addEventListener('click', () => {
+                this.persistence.save(this.persistence.getDefault());
+                this.jugador.init(this.canvas.width/2, this.canvas.height/2, this.persistence.load());
+                this._refreshModulosTab(); this._refreshStatsTab();
+            });
+        }
+
+        _applyArchitect(id, val) {
+            const map = { aimassist:'input.aimAssist', autofire:'input.autoFire', freeautoaim:'input.freeAutoAim', spawninterval:'combat.spawnInterval', maxenemies:'combat.maxEnemies', specialenemychance:'combat.specialEnemyChance' };
+            if (map[id]) { const k = map[id].split('.'); let o = CONFIG; for (let i = 0; i < k.length-1; i++) o = o[k[i]]; o[k[k.length-1]] = val; }
+        }
 
         resize() {
             const mw = window.innerWidth, mh = window.innerHeight;
@@ -1097,6 +1321,8 @@
             this.powerBar = 0; this.powerActive = false; this.powerTimer = 0;
             this.oleadaTimer = 600;
             this.ui.messages = []; this.ui.particles = [];
+            this.difficulty = new DifficultyService();
+            this.spriteGenerator.cache.clear();
             document.getElementById('levelup-panel').style.display = 'none';
         }
 
@@ -1138,7 +1364,12 @@
             const ni = Math.random()<0.1+scaling*0.05?1:0;
             let tipo = 'normal';
             if (Math.random()<CONFIG.combat.specialEnemyChance) tipo = ['barrera','proyectil','kamikaze','constructor'][Math.floor(Math.random()*4)];
-            this.enemigos.push(new Enemy(x,y,ni,hp,sz,sp,tipo));
+            const enemy = new Enemy(x,y,ni,hp,sz,sp,tipo);
+            // Asignar sprite
+            const elemento = ['fuego','hielo','veneno','agua','fisico'][Math.floor(Math.random()*5)];
+            const rareza = ni >= 2 ? 'jefe' : (ni === 1 ? 'elite' : 'comun');
+            enemy.sprite = this.spriteGenerator.getSprite(tipo, rareza, elemento, `${x},${y},${this.kills}`);
+            this.enemigos.push(enemy);
         }
 
         spawnStructure(x,y) { if (this.estructuras.length < CONFIG.structures.maxOnScreen) this.estructuras.push(new Structure(x,y)); }
@@ -1170,8 +1401,11 @@
             }
             const events = this.evolutionService.processDeath(e);
             for (const ev of events) {
-                if (ev.type==='spawn') this.enemigos.push(ev.enemy);
-                else if (ev.type==='loot') {
+                if (ev.type==='spawn') {
+                    const hijo = ev.enemy;
+                    hijo.sprite = this.spriteGenerator.getSprite(hijo.tipo, 'comun', 'fisico', `${hijo.x},${hijo.y},${this.kills}`);
+                    this.enemigos.push(hijo);
+                } else if (ev.type==='loot') {
                     if (Math.random()<CONFIG.combat.moduleDropChance) {
                         const pieza = this.dropService.generarModule(e);
                         this.jugador.inventarioModulos.push(pieza);
@@ -1223,7 +1457,9 @@
 
         spawnBoss() {
             const b = new Enemy(this.canvas.width/2,this.canvas.height/2,3,CONFIG.combat.enemyBaseHp*3,CONFIG.combat.enemyBaseSize*1.6,CONFIG.combat.enemyBaseSpeed*0.7,'normal');
-            b.esJefe = true; this.enemigos.push(b);
+            b.esJefe = true;
+            b.sprite = this.spriteGenerator.getSprite('normal','jefe','fisico',`boss,${this.kills}`);
+            this.enemigos.push(b);
         }
 
         finalizarPartida() {
@@ -1257,7 +1493,6 @@
             this.jugador.update(this.input);
             this.tiempoSobrevivido++;
 
-            // Movimiento del jugador
             const move = this.input.getMove();
             let speed = this.proyectilService.getStats().speed;
             if (this.jugador.dashing) speed *= CONFIG.input.dashSpeed;
@@ -1267,13 +1502,11 @@
             this.jugador.x = Math.max(margen, Math.min(this.canvas.width - margen, this.jugador.x));
             this.jugador.y = Math.max(margen, Math.min(this.canvas.height - margen, this.jugador.y));
 
-            // Disparo
             if (this.jugador.cooldown === 0 && (CONFIG.input.autoFire || this.input.isFireHeld() || this.input.consumeFireRequest?.())) {
                 const stats = this.proyectilService.getStats();
                 this.jugador.fire(this._getAimAngle(), this.balas, stats);
             }
 
-            // Buffered actions
             if (this.input.consumeBuffered('dash', this.jugador.dashCooldown === 0)) {
                 this.jugador.dashing = true;
                 this.jugador.dashTimer = CONFIG.input.dashDuration;
@@ -1300,7 +1533,6 @@
                 else { this.zonas[i].afectaJugador(this.jugador); for (const e of this.enemigos) if (e.alive) this.zonas[i].afectaEnemigo(e); }
             }
 
-            // Spawn
             const maxEn = CONFIG.combat.maxEnemies;
             this.spawnTimer--;
             const enVivos = this.enemigos.filter(e=>e.alive).length;
@@ -1318,7 +1550,6 @@
             this.jugador.updateOrbitales(this.enemigos, this.balas);
             this.difficulty.update(this.jugador, this.kills);
 
-            // UI particles
             for (let i = this.ui.particles.length-1; i >= 0; i--) {
                 const p = this.ui.particles[i]; p.x += p.vx; p.y += p.vy; p.vx *= 0.98; p.vy *= 0.98; p.life--;
                 if (p.life <= 0) this.ui.particles.splice(i,1);
@@ -1349,172 +1580,6 @@
             this.renderer.drawUI({ player: this.jugador, game: this, canvas: this.canvas });
         }
     }
-    </script>
-    <script>
-    // ==================== MÉTODOS DE UI DEL MENÚ LATERAL ====================
-    // (Se añaden al prototipo de Game)
-
-    Game.prototype._initSideMenu = function() {
-        this.menuPanel = document.getElementById('side-menu');
-        this.tabButtons = this.menuPanel.querySelectorAll('.tab-buttons button');
-        this.tabContents = {
-            modulos: document.getElementById('tab-modulos'),
-            stats: document.getElementById('tab-stats'),
-            tienda: document.getElementById('tab-tienda'),
-            architect: document.getElementById('tab-architect')
-        };
-        this.tabButtons.forEach(btn => btn.addEventListener('click', () => this._switchTab(btn.dataset.tab)));
-        document.getElementById('menu-close').addEventListener('click', () => this.toggleMenu());
-        this._buildArchitectTab();
-        this._buildTiendaTab();
-    };
-
-    Game.prototype.toggleMenu = function() {
-        if (this.menuPanel.style.display === 'block') {
-            this.menuPanel.style.display = 'none';
-            if (!this.pausado) this.pausado = false; // mantener pausa si ya estaba
-            else this.pausado = true;
-        } else {
-            this.pausado = true;
-            this._refreshModulosTab();
-            this._refreshStatsTab();
-            this._refreshTiendaTab();
-            this.menuPanel.style.display = 'block';
-            this._switchTab('modulos');
-        }
-    };
-
-    Game.prototype._switchTab = function(id) {
-        this.tabButtons.forEach(b => b.classList.remove('active'));
-        this.menuPanel.querySelector(`[data-tab="${id}"]`).classList.add('active');
-        Object.keys(this.tabContents).forEach(k => this.tabContents[k].classList.remove('active'));
-        this.tabContents[id].classList.add('active');
-        if (id === 'modulos') this._refreshModulosTab();
-        if (id === 'stats') this._refreshStatsTab();
-        if (id === 'tienda') this._refreshTiendaTab();
-    };
-
-    Game.prototype._refreshModulosTab = function() {
-        let html = '<h4>Slots equipados</h4>';
-        const nombres = ['Norte','Sur','Este','Oeste'];
-        for (let i = 0; i < 4; i++) {
-            const m = this.jugador.modulosEquipados[i];
-            html += `<div style="margin:4px 0">${nombres[i]}: `;
-            if (m) {
-                html += `<span style="color:${m.color}">${m.runa} (${m.elemento})</span> ${m.descripcion()}`;
-                html += ` <button onclick="window.__game.jugador.quitarModulo(${i});window.__game._refreshModulosTab();">X</button>`;
-            } else {
-                html += `vacío <button onclick="window.__game.asignarModuloASlot(${i})">Asignar</button>`;
-            }
-            html += `</div>`;
-        }
-        html += '<h4>Inventario</h4>';
-        this.jugador.inventarioModulos.forEach((m, idx) => {
-            html += `<div><span style="color:${m.color}">${m.runa} (${m.elemento})</span> ${m.descripcion()} <button onclick="window.__game.jugador.equiparDesdeInventario(${idx});window.__game._refreshModulosTab();">Equipar (auto)</button></div>`;
-        });
-        this.tabContents.modulos.innerHTML = html;
-    };
-
-    Game.prototype.asignarModuloASlot = function(slot) {
-        if (this.jugador.inventarioModulos.length === 0) { alert('No hay módulos'); return; }
-        const nombres = ['Norte','Sur','Este','Oeste'];
-        const lista = this.jugador.inventarioModulos.map((m,i) => `${i}: ${m.runa} (${m.elemento}) - ${m.descripcion()}`).join('\n');
-        const idx = parseInt(prompt(`Selecciona módulo para ${nombres[slot]}:\n${lista}\nNúmero:`));
-        if (!isNaN(idx) && idx >= 0 && idx < this.jugador.inventarioModulos.length) {
-            const pieza = this.jugador.inventarioModulos.splice(idx, 1)[0];
-            if (this.jugador.modulosEquipados[slot]) this.jugador.inventarioModulos.push(this.jugador.modulosEquipados[slot]);
-            this.jugador.modulosEquipados[slot] = pieza;
-            this.jugador.actualizarOrbitalesDesdeModulos();
-            this._refreshModulosTab();
-        }
-    };
-
-    Game.prototype._refreshStatsTab = function() {
-        const s = this.proyectilService.getStats();
-        const af = this.jugador.obtenerAfinidades();
-        let html = '<h4>Estadísticas</h4>';
-        html += `<p>❤️ Vida: ${Math.floor(this.jugador.hp)}/${this.jugador.getMaxHp()}</p>`;
-        html += `<p>⚔️ Daño: ${s.damage}</p><p>⏱️ Cadencia: ${s.fireRate} frames</p>`;
-        html += `<p>🔫 Proyectiles: ${s.projectiles}</p><p>🎯 Crítico: ${(this.jugador.critChance*100).toFixed(1)}% (x${CONFIG.player.critMultiplier})</p>`;
-        html += `<p>💨 Velocidad: ${s.speed.toFixed(2)}</p><p>🛡️ Armadura: ${s.armor}</p>`;
-        html += '<h4>Afinidades elementales</h4>';
-        for (const el in af) html += `<p style="color:${this._colorElemento(el)}">${el}: ${af[el]} / ${CONFIG.elements.afinidadMax}</p>`;
-        html += '<h4>Efectos activos</h4>';
-        html += this.jugador.buffs.map(b => `${b.tipo}: ${b.valor} (${b.duracion}f)`).join('<br>') || 'Ninguno';
-        this.tabContents.stats.innerHTML = html;
-    };
-
-    Game.prototype._colorElemento = function(el) {
-        return { fuego:'#ff6600', hielo:'#00ccff', veneno:'#99cc00', agua:'#3399ff', fisico:'#ccc' }[el] || '#fff';
-    };
-
-    Game.prototype._buildTiendaTab = function() {};
-    Game.prototype._refreshTiendaTab = function() {
-        const pts = this.jugador.destinyPoints;
-        const mejoras = [
-            { id:'hpBonus', n:'Vida +5', c:10, a:'hpBonus' }, { id:'damageBonus', n:'Daño +2', c:15, a:'damageBonus' },
-            { id:'speedBonus', n:'Velocidad +0.2', c:12, a:'speedBonus' }, { id:'fireRateBonus', n:'Cadencia -1', c:20, a:'fireRateBonus' },
-            { id:'projectilesBonus', n:'Proyectil +1', c:30, a:'projectilesBonus' }, { id:'critBonus', n:'Crítico +5%', c:18, a:'critBonus' }
-        ];
-        let html = `<p>Puntos de Destino: ${pts}</p>`;
-        mejoras.forEach(m => {
-            const act = this.jugador.permanentUpgrades[m.a] || 0;
-            html += `<button ${pts >= m.c ? '' : 'disabled'} onclick="window.__game.comprarMejora('${m.a}',${m.c})">${m.n} (${m.c} PD) [${act}]</button><br>`;
-        });
-        this.tabContents.tienda.innerHTML = html;
-    };
-
-    Game.prototype.comprarMejora = function(attr, costo) {
-        if (this.jugador.destinyPoints >= costo) {
-            this.jugador.destinyPoints -= costo;
-            this.jugador.permanentUpgrades[attr] = (this.jugador.permanentUpgrades[attr] || 0) + 1;
-            if (attr === 'critBonus') this.jugador.critChance = CONFIG.player.baseCritChance + this.jugador.permanentUpgrades.critBonus * 0.05;
-            this._guardarProgreso();
-            this._refreshTiendaTab();
-            this._refreshStatsTab();
-        }
-    };
-
-    Game.prototype._buildArchitectTab = function() {
-        let h = '<h4>Controles</h4>';
-        h += `Asistencia: <input type="range" id="arch-aimassist" min="0" max="90" step="5" value="${CONFIG.input.aimAssist}"><br>`;
-        h += `<label><input type="checkbox" id="arch-autofire" ${CONFIG.input.autoFire?'checked':''}> Disparo automático</label><br>`;
-        h += `<label><input type="checkbox" id="arch-freeautoaim" ${CONFIG.input.freeAutoAim?'checked':''}> Autoapuntado libre</label><br>`;
-        h += `<h4>Combate</h4>`;
-        h += `Spawn: <input type="range" id="arch-spawninterval" min="20" max="200" step="5" value="${CONFIG.combat.spawnInterval}"><br>`;
-        h += `Max enemigos: <input type="range" id="arch-maxenemies" min="10" max="60" step="5" value="${CONFIG.combat.maxEnemies}"><br>`;
-        h += `Especiales: <input type="range" id="arch-specialenemychance" min="0" max="0.5" step="0.05" value="${CONFIG.combat.specialEnemyChance}"><br>`;
-        h += `<button id="arch-forzar-modulo">Forzar módulo</button><br>`;
-        h += `<button id="arch-invencible">Invencibilidad 30s</button><br>`;
-        h += `<button id="arch-practica">${this.practiceMode?'Desactivar':'Activar'} práctica</button><br>`;
-        h += `<button id="arch-reset">Reset progreso</button>`;
-        this.tabContents.architect.innerHTML = h;
-        this.tabContents.architect.querySelectorAll('input[type="range"]').forEach(s => s.addEventListener('input', () => this._applyArchitect(s.id.replace('arch-',''), parseFloat(s.value))));
-        this.tabContents.architect.querySelectorAll('input[type="checkbox"][id]').forEach(cb => cb.addEventListener('change', () => this._applyArchitect(cb.id.replace('arch-',''), cb.checked)));
-        document.getElementById('arch-forzar-modulo').addEventListener('click', () => {
-            const p = this.dropService.generarModule({ nivelEvo:1 });
-            this.jugador.inventarioModulos.push(p);
-            if (this.menuPanel.style.display === 'block') this._refreshModulosTab();
-        });
-        document.getElementById('arch-invencible').addEventListener('click', () => {
-            this.jugador.invincible = true;
-            setTimeout(() => { this.jugador.invincible = false; }, 30000);
-        });
-        document.getElementById('arch-practica').addEventListener('click', () => {
-            this.practiceMode = !this.practiceMode;
-            this._buildArchitectTab();
-        });
-        document.getElementById('arch-reset').addEventListener('click', () => {
-            this.persistence.save(this.persistence.getDefault());
-            this.jugador.init(this.canvas.width/2, this.canvas.height/2, this.persistence.load());
-            this._refreshModulosTab(); this._refreshStatsTab();
-        });
-    };
-
-    Game.prototype._applyArchitect = function(id, val) {
-        const map = { aimassist:'input.aimAssist', autofire:'input.autoFire', freeautoaim:'input.freeAutoAim', spawninterval:'combat.spawnInterval', maxenemies:'combat.maxEnemies', specialenemychance:'combat.specialEnemyChance' };
-        if (map[id]) { const k = map[id].split('.'); let o = CONFIG; for (let i = 0; i < k.length-1; i++) o = o[k[i]]; o[k[k.length-1]] = val; }
-    };
 
     // ==================== INICIALIZACIÓN ====================
     document.addEventListener('DOMContentLoaded', () => {
