@@ -1,110 +1,184 @@
-📖 README – Gacha Evolutivo Modular (Fase 2)
+README – Gacha Evolutivo Modular (Alpha)
 🎮 Descripción general
-Juego de acción 2D con vista cenital, controles táctiles, ratón y teclado.
-Elimina enemigos que evolucionan, recoge drops (vida, mejoras permanentes, módulos) y equípate con piezas modulares que se acoplan alrededor del jugador formando combinaciones únicas (como las varitas de Noita).
-El personaje y los enemigos se transforman a lo largo de la partida. ¡Evolutivo de verdad!
+Gacha Evolutivo es un juego de acción 2D con vista cenital, controles híbridos (táctil, ratón y teclado) y una profunda personalización del personaje mediante módulos con runas que se acoplan alrededor del núcleo y cambian los disparos, otorgan orbitales y activan sinergias.
+Los enemigos evolucionan, algunos construyen estructuras destructibles y una barra de poder destructivo recompensa el daño infligido con un modo de disparo perforante temporal.
+Incluye un menú lateral unificado (pestañas: Módulos, Tienda, Arquitecto) que pausa el juego y facilita la gestión.
+Todo el juego está contenido en un solo archivo HTML (sin dependencias externas) y se adapta a cualquier pantalla (escritorio y móvil).
 
-⌨️ Controles
-Acción	Teclado	Ratón / Táctil
-Moverse	W A S D / Flechas	Joystick virtual (zona izquierda)
-Dash (impulso)	Doble toque en zona izquierda / Botón 💨 en móvil	Doble toque en joystick
-Disparar	Clic izquierdo / Espacio	Zona táctil derecha / Disparo automático (si se activa)
-Arma definitiva	E	Botón ⚡ en móvil
-Tienda de mejoras	T	–
-Panel de módulos (hoja)	I	Botón 📦 en móvil
-Arquitecto (configuración)	F2	–
-Reiniciar partida (tras muerte)	R	–
-🧩 Sistema modular (la gran novedad)
-Los enemigos pueden soltar piezas (módulos) con una runa (F, A, W, E, R) y un tipo: ataque (rojo), defensa (azul), utilidad (verde), orbe (naranja).
+🚦 Estado actual
+Alpha funcional
 
-Cada pieza otorga estadísticas (daño, velocidad, cadencia…) o efectos especiales.
+La mayoría de los sistemas están implementados y responden en tiempo real.
 
-Dispones de 4 ranuras (Norte, Sur, Este, Oeste) alrededor del personaje.
+Aún existen fallos (especialmente en el control táctil) que impiden una experiencia completamente fluida en móviles.
 
-Abre la hoja de módulos (I o 📦) para equipar/des equipar piezas desde un inventario.
+El bucle de juego, la evolución enemiga, los drops, los módulos, las sinergias, la barra de poder y la subida de nivel funcionan correctamente en la versión actual.
 
-Sinergias: dos piezas con la misma runa en ranuras opuestas (N‑S o E‑O) activan un bono extra (ej. FF → daño de fuego añadido a los disparos).
+🕹️ Controles
+Acción	Teclado	Ratón	Móvil (táctil)
+Moverse	W A S D / Flechas	–	Joystick virtual (zona izquierda)
+Dash	Doble toque en zona izquierda	–	Botón 💨 (abajo derecha)
+Apuntar	–	Mover ratón (clic sostenido para disparar)	Zona derecha (toque + arrastre)
+Disparar	Clic izq. sostenido / Espacio / ShiftDerecho	Clic izq. sostenido	Zona derecha (toque)
+Disparo automático	–	–	Se activa en Arquitecto; solo requiere movimiento
+Arma definitiva	E	–	Botón ⚡ (abajo derecha)
+Menú lateral	Tab	–	Botón 📋 (abajo derecha)
+Reiniciar (tras muerte)	R	–	–
+🧩 Mecánicas implementadas
+1. Módulos y runas
+Los enemigos (o el Arquitecto) sueltan piezas con una runa (F, A, W, E, R) y un tipo (ataque, defensa, utilidad, orbe).
 
-Orbitales: las piezas tipo orbe orbitan alrededor del jugador y disparan automáticamente a los enemigos cercanos.
+Se equipan en 4 ranuras (Norte, Sur, Este, Oeste) desde el menú lateral.
 
-Los disparos se ven modificados por las piezas equipadas: runa F añade quemadura, R añade rebote, tipo ataque añade explosión.
+Cada pieza otorga estadísticas (daño, velocidad, cadencia, crítico…) o efectos especiales.
 
-⚙️ Panel de Arquitecto (F2)
-Permite modificar en tiempo real algunos parámetros (pero no todos se actualizan sin reinicio):
+Sinergias: dos runas iguales en ranuras opuestas (N‑S, E‑O) activan un bono extra (ej. FF añade daño de fuego a los disparos).
 
-Sensibilidad, deadzone, inercia del joystick.
+2. Orbitales
+Las piezas de tipo orbe orbitan alrededor del personaje y disparan automáticamente con cadencia propia (sin interferir con el arma del jugador).
 
-Disparo automático, vibración.
+3. Estructuras enemigas
+Enemigos constructores (aparecen con baja probabilidad) levantan paredes destructibles que bloquean el paso y los disparos.
 
-Velocidad base, HP, daño y cadencia del jugador.
+Las paredes se pueden romper con cualquier arma (más rápido con explosivos o perforación).
 
-Intervalo de spawn, máximo de enemigos, probabilidad de drop.
+4. Barra de poder destructivo
+Se carga al infligir daño a los enemigos.
 
-Modo de juego: Estándar, Horda (más enemigos, spawn acelerado), Jefe (jefes cada 30 muertes), Sin drops.
+Al llenarse, se activa automáticamente: durante unos segundos los disparos atraviesan enemigos y hacen 2.5 veces más daño.
 
-Forzar drop de módulo: genera una pieza aleatoria y la añade al inventario del jugador (para pruebas).
+Indicador visual en el personaje.
 
-Resetear progreso (borra guardado local).
+5. Subida de nivel con tutorial integrado
+Ganas XP al matar enemigos.
 
-🔬 Sistema de evolución de enemigos
-Al morir, los enemigos tiran un dado (1‑6).
+Los primeros niveles explican los sistemas gradualmente:
 
-1‑3: muerte normal.
+Nivel 2: estadísticas básicas (vida, daño, velocidad).
 
-4‑5: se divide en dos enemigos más pequeños.
+Nivel 3: propiedades del proyectil (cadencia, proyectiles extra, crítico).
 
-6: evoluciona a un enemigo más grande y resistente.
+Nivel 5: introducción a los módulos (recibes uno gratis).
 
-Cada N kills aparece un jefe con un ataque de área.
+A partir de ahí, las opciones se mezclan aleatoriamente.
 
-Los enemigos aumentan de vida, tamaño y velocidad según las muertes totales (scaling).
+El juego se pausa mientras eliges.
 
-⭐ Tienda de Destino (tecla T)
-Usa Puntos de Destino (ganados al morir y por logros) para comprar mejoras permanentes que se conservan entre partidas:
+6. Tienda de Destino
+Accesible desde el menú lateral (pestaña Tienda).
 
-Vida máxima, daño, velocidad, cadencia, proyectil inicial, probabilidad crítica.
+Gastas Puntos de Destino (ganados al morir) en mejoras permanentes que se conservan entre partidas.
 
-🏆 Logros
-Desbloquea logros por kills, tiempo sobrevivido, jefes derrotados, drops recogidos, críticos y usos del arma definitiva. Otorgan Puntos de Destino extra.
+7. Arquitecto (modo debug)
+Dentro del menú lateral, ajusta en tiempo real:
 
-🐛 Fallos detectados (revisión del código entregado)
-Panel de Arquitecto no actualiza variables vivas
+Asistencia de apuntado, sensibilidad, disparo automático.
 
-Los sliders modifican CONFIG, pero el juego a menudo guarda copias internas (ej. this.spawnInterval) que no se recalcan. Cambiar "Intervalo de spawn" no tiene efecto hasta reiniciar la partida.
+Intervalo de spawn, máximo de enemigos, modo de juego (estándar, horda, jefe, sin drops).
 
-Los módulos recogidos no muestran un mensaje claro
+Forzar módulo, invencibilidad temporal (30 s), reset de progreso.
 
-Aunque el código incluye showMessage, en la versión anterior faltaba la confirmación visual. En la última revisión debería aparecer "🧩 Módulo X recogido".
+8. Evolución enemiga
+Al morir, los enemigos pueden:
 
-Botón "Forzar drop de módulo" desde Arquitecto no actualiza la UI de módulos
+Dividirse en dos más pequeños.
 
-Si la hoja de módulos está abierta, no se refresca automáticamente; hay que cerrarla y reabrirla para ver la pieza nueva.
+Evolucionar a una versión más grande y resistente.
 
-Sinergias solo se activan entre ranuras N‑S y E‑O
+Cada 50 muertes aparece un jefe que daña en área.
 
-Está limitado a esos pares; no hay sinergia en diagonal ni entre todas las combinaciones.
+🐛 Fallos detectados (con simulación)
+🔴 Críticos
+Control táctil no funciona correctamente
 
-Los orbitales heredan el cooldown del jugador
+El método _handleTouch en InputManager está incompleto (solo un comentario).
 
-Si el jugador acaba de disparar, los orbitales también dejan de disparar aunque deberían ser independientes.
+El joystick virtual no responde; el movimiento en móvil no es posible.
 
-Al reiniciar partida (R), los módulos equipados se restauran desde el guardado
+Consecuencia: el juego es injugable en dispositivos táctiles sin ratón.
 
-Esto puede ser intencionado, pero si el jugador muere y el guardado ya tiene los módulos, la nueva partida empieza con ellos, lo cual puede ser confuso.
+Inercia del movimiento no se actualiza
 
-El botón de módulo en móvil (📦) no tiene un estilo claro
+El método update() de InputManager no contiene la lógica de inercia.
 
-Funciona, pero es fácil tocarlo sin querer en plena acción; falta confirmación táctil.
+Al soltar las teclas de movimiento, el personaje se detiene instantáneamente, sin deslizamiento suave.
 
-Fallo crítico anterior corregido: el jugador ahora sí muere
+🟡 Medios
+La barra de poder destructivo no se descarga al cambiar de nivel
 
-La propiedad baseArmor ya está definida en CONFIG, así que la armadura se calcula bien y el daño no queda NaN.
+Si estás en pleno poder y aparece la ventana de subida de nivel, el efecto no se pausa (el temporizador sigue corriendo mientras eliges).
 
-🚧 Para la siguiente fase (propuesta)
-Intérprete de hechizos: cada módulo aporta una letra rúnica y el orden forma una palabra que define un ataque especial (tipo Noita).
+Puedes perder la mayor parte del poder sin aprovecharlo.
 
-Interfaz de arrastrar módulos visualmente en la hoja.
+Persistencia de módulos no se guarda hasta la muerte
 
-Enemigos modulares: que también tengan piezas visibles y te las suelten al morir.
+Si equipas módulos, cierras el navegador y vuelves a abrir, los cambios no se guardan (solo se graban al finalizar la partida por muerte).
 
-Más combinaciones de sinergias (tríos, formas especiales).
+El progreso en la Tienda de Destino sí se guarda al comprar.
+
+El botón "Forzar módulo" en Arquitecto no actualiza la vista de módulos si estás en otra pestaña
+
+El módulo se añade al inventario (funciona internamente), pero no lo ves reflejado hasta que cambias manualmente a la pestaña Módulos y se refresca.
+
+Disparo automático con asistencia de apuntado ignora las estructuras
+
+La búsqueda del enemigo más cercano no tiene en cuenta si hay una pared entre el jugador y el objetivo; disparará contra la pared sin intentar flanquear.
+
+🟢 Leves
+La pantalla de Game Over no muestra estadísticas finales (kills, tiempo, drops recogidos).
+
+No hay sonido ni música.
+
+Los logros están definidos pero no se muestran ni otorgan recompensa en partida (aunque la estructura de datos existe).
+
+El dash no tiene indicador de cooldown visual (sabes que está disponible por intuición).
+
+La invencibilidad del Arquitecto (30 s) no se indica en la interfaz (solo un mensaje fugaz).
+
+✅ Lo que sí funciona bien
+El bucle principal (game loop) y el renderizado Canvas.
+
+La evolución de enemigos (split/evolve) y el escalado progresivo.
+
+El sistema de drops con rarezas y tipos.
+
+Los módulos, sus sinergias y los orbitales.
+
+La barra de poder destructivo y su efecto perforante.
+
+El menú lateral unificado (pausa, pestañas).
+
+La subida de nivel con aprendizaje contextual.
+
+La Tienda de Destino y la persistencia de mejoras.
+
+El disparo manual con ratón y la asistencia de auto‑apuntado (en escritorio).
+
+La adaptación responsive (redimensionado del canvas).
+
+🔧 Próximos pasos (propuesta)
+Completar el InputManager táctil (implementar _handleTouch y la inercia) para que el juego sea jugable en móvil.
+
+Pausar la barra de poder durante la elección de nivel.
+
+Guardar el estado de los módulos automáticamente al equipar/des equipar, no solo al morir.
+
+Mejorar la prioridad del auto‑apuntado para evitar que las paredes bloqueen la selección de blancos.
+
+Añadir feedback visual para el cooldown del dash y la invencibilidad.
+
+Implementar sonidos básicos (disparos, daño, recogida de drops, subida de nivel).
+
+🧪 Cómo probar
+Guarda el código en un archivo .html.
+
+Ábrelo en un navegador moderno (Chrome, Edge, Firefox).
+
+Pulsa F2 para abrir el Arquitecto y activa la invencibilidad temporal si quieres explorar sin presión.
+
+Usa el ratón para apuntar y disparar, o activa el disparo automático desde Arquitecto.
+
+Abre el menú lateral con Tab para gestionar módulos y comprar mejoras.
+
+¡Gracias por probar este prototipo!
+Creado en una conversación iterativa entre un diseñador de juego, q no se flipe q solo razonamos no se diseñar, y una IA.
