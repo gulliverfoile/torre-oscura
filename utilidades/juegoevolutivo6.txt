@@ -1,184 +1,121 @@
-README – Gacha Evolutivo Modular (Alpha)
-🎮 Descripción general
-Gacha Evolutivo es un juego de acción 2D con vista cenital, controles híbridos (táctil, ratón y teclado) y una profunda personalización del personaje mediante módulos con runas que se acoplan alrededor del núcleo y cambian los disparos, otorgan orbitales y activan sinergias.
-Los enemigos evolucionan, algunos construyen estructuras destructibles y una barra de poder destructivo recompensa el daño infligido con un modo de disparo perforante temporal.
-Incluye un menú lateral unificado (pestañas: Módulos, Tienda, Arquitecto) que pausa el juego y facilita la gestión.
-Todo el juego está contenido en un solo archivo HTML (sin dependencias externas) y se adapta a cualquier pantalla (escritorio y móvil).
+EADME – Gacha Evolutivo «Arquitectura Hexagonal» (Fase 2.5)
+🎮 ¿Qué es?
+Prototipo de juego de acción 2D con vista cenital, perteneciente al género bullet heaven / survivor-like. El jugador se mueve por un escenario mientras dispara automática (o manualmente) a enemigos que evolucionan, sueltan botín y reaccionan a combinaciones elementales. La gran novedad de esta versión es la refactorización completa a una arquitectura hexagonal (puertos y adaptadores), lo que permite cambiar el sistema de input (teclado/ratón, táctil) y el renderizador sin tocar la lógica del juego.
 
-🚦 Estado actual
-Alpha funcional
+🧱 Arquitectura
+El código se organiza en tres capas bien diferenciadas:
 
-La mayoría de los sistemas están implementados y responden en tiempo real.
+Dominio: Contiene las reglas del juego. No sabe nada de Canvas, ni de eventos del DOM.
 
-Aún existen fallos (especialmente en el control táctil) que impiden una experiencia completamente fluida en móviles.
+Clases: Player, Enemy, Bullet, Pieza (módulo), ZonaElemental, Structure.
 
-El bucle de juego, la evolución enemiga, los drops, los módulos, las sinergias, la barra de poder y la subida de nivel funcionan correctamente en la versión actual.
+Servicios: CombatService, EvolutionService, DropService, NivelService, SinergiaService, ProyectilService, DifficultyService.
 
-🕹️ Controles
-Acción	Teclado	Ratón	Móvil (táctil)
-Moverse	W A S D / Flechas	–	Joystick virtual (zona izquierda)
-Dash	Doble toque en zona izquierda	–	Botón 💨 (abajo derecha)
-Apuntar	–	Mover ratón (clic sostenido para disparar)	Zona derecha (toque + arrastre)
-Disparar	Clic izq. sostenido / Espacio / ShiftDerecho	Clic izq. sostenido	Zona derecha (toque)
-Disparo automático	–	–	Se activa en Arquitecto; solo requiere movimiento
-Arma definitiva	E	–	Botón ⚡ (abajo derecha)
-Menú lateral	Tab	–	Botón 📋 (abajo derecha)
-Reiniciar (tras muerte)	R	–	–
-🧩 Mecánicas implementadas
-1. Módulos y runas
-Los enemigos (o el Arquitecto) sueltan piezas con una runa (F, A, W, E, R) y un tipo (ataque, defensa, utilidad, orbe).
+Puertos (interfaces): Definen cómo se comunica el dominio con el exterior.
 
-Se equipan en 4 ranuras (Norte, Sur, Este, Oeste) desde el menú lateral.
+InputPort: movimiento, aim, disparo.
 
-Cada pieza otorga estadísticas (daño, velocidad, cadencia, crítico…) o efectos especiales.
+RendererPort: dibujo de todas las entidades.
 
-Sinergias: dos runas iguales en ranuras opuestas (N‑S, E‑O) activan un bono extra (ej. FF añade daño de fuego a los disparos).
+PersistencePort: carga y guardado de partida.
 
-2. Orbitales
-Las piezas de tipo orbe orbitan alrededor del personaje y disparan automáticamente con cadencia propia (sin interferir con el arma del jugador).
+Adaptadores: Implementan los puertos para una tecnología concreta.
 
-3. Estructuras enemigas
-Enemigos constructores (aparecen con baja probabilidad) levantan paredes destructibles que bloquean el paso y los disparos.
+WebInputAdapter: control con teclado y ratón.
 
-Las paredes se pueden romper con cualquier arma (más rápido con explosivos o perforación).
+MobileInputAdapter: control táctil (joystick virtual, aim relativo, swipe para dash).
 
-4. Barra de poder destructivo
-Se carga al infligir daño a los enemigos.
+CanvasRenderer: renderizado 2D con Canvas.
 
-Al llenarse, se activa automáticamente: durante unos segundos los disparos atraviesan enemigos y hacen 2.5 veces más daño.
+LocalStorageRepo: persistencia en localStorage.
 
-Indicador visual en el personaje.
+Aplicación: La clase Game orquesta el bucle principal e inyecta los adaptadores.
 
-5. Subida de nivel con tutorial integrado
+Todo el código reside en un único archivo HTML, sin dependencias externas.
+
+✨ Características principales
+🧩 Sistema de Módulos Elementales
+Recoge piezas con runas (F fuego, W hielo, E veneno, A agua, R físico).
+
+Colócalas en 4 ranuras (Norte, Sur, Este, Oeste) desde el menú lateral (Tab).
+
+Cada módulo otorga efectos cualitativos (quemadura, ralentización, veneno, empuje) en lugar de solo estadísticas.
+
+La afinidad elemental (1‑5) escala la potencia de los efectos.
+
+🔥 Reacciones Elementales
+Si un enemigo muere con dos estados (ej. quemadura + veneno), se desencadena una reacción especial (choque térmico, nube inflamable, vapor…).
+
+Las reacciones dejan zonas en el suelo (fuego, hielo, veneno, agua) que afectan a enemigos y al jugador.
+
+👾 Enemigos con personalidad
+Evolución: Al morir, un dado decide si el enemigo se divide en dos o se transforma en una versión más grande y agresiva.
+
+Tipos especiales: Barrera (absorbe disparos), Proyectil (lanza balas al morir), Kamikaze (explota en área), Constructor (levanta paredes destructibles).
+
+Jefes aparecen cada 50 muertes.
+
+⬆️ Subida de nivel con aprendizaje gradual
 Ganas XP al matar enemigos.
 
-Los primeros niveles explican los sistemas gradualmente:
+Los niveles 2, 3 y 5 enseñan respectivamente los sistemas de estadísticas, proyectiles y módulos.
 
-Nivel 2: estadísticas básicas (vida, daño, velocidad).
-
-Nivel 3: propiedades del proyectil (cadencia, proyectiles extra, crítico).
-
-Nivel 5: introducción a los módulos (recibes uno gratis).
-
-A partir de ahí, las opciones se mezclan aleatoriamente.
+Después, las opciones se mezclan aleatoriamente.
 
 El juego se pausa mientras eliges.
 
-6. Tienda de Destino
-Accesible desde el menú lateral (pestaña Tienda).
+⚡ Barra de Poder Destructivo
+Se carga al infligir daño. Al llenarse, tus disparos atraviesan enemigos y hacen el doble de daño durante unos segundos.
 
-Gastas Puntos de Destino (ganados al morir) en mejoras permanentes que se conservan entre partidas.
+🛠️ Arquitecto (Debug)
+Panel de configuración en vivo accesible desde el menú lateral.
 
-7. Arquitecto (modo debug)
-Dentro del menú lateral, ajusta en tiempo real:
+Ajusta sensibilidad, asistencia de apuntado, spawn de enemigos, modo práctica (inmortal), forzar módulos, etc.
 
-Asistencia de apuntado, sensibilidad, disparo automático.
+💾 Persistencia
+Guarda automáticamente Puntos de Destino y mejoras permanentes al morir.
 
-Intervalo de spawn, máximo de enemigos, modo de juego (estándar, horda, jefe, sin drops).
+Los módulos equipados se conservan entre partidas (hasta que reseteas el progreso).
 
-Forzar módulo, invencibilidad temporal (30 s), reset de progreso.
+🎮 Controles híbridos
+Escritorio: Movimiento con WASD/Flechas. Apuntado con ratón. Disparo con clic izquierdo o automático.
 
-8. Evolución enemiga
-Al morir, los enemigos pueden:
+Móvil: Joystick izquierdo para mover. Aim relativo (arrastrar en zona derecha desde el punto de contacto). Swipe rápido para dash. Botones dedicados para dash, ultimate y menú.
 
-Dividirse en dos más pequeños.
+Input buffering: Dash y ultimate se ejecutan en el primer frame disponible tras el cooldown, evitando la sensación de "no respondió".
 
-Evolucionar a una versión más grande y resistente.
-
-Cada 50 muertes aparece un jefe que daña en área.
-
-🐛 Fallos detectados (con simulación)
-🔴 Críticos
-Control táctil no funciona correctamente
-
-El método _handleTouch en InputManager está incompleto (solo un comentario).
-
-El joystick virtual no responde; el movimiento en móvil no es posible.
-
-Consecuencia: el juego es injugable en dispositivos táctiles sin ratón.
-
-Inercia del movimiento no se actualiza
-
-El método update() de InputManager no contiene la lógica de inercia.
-
-Al soltar las teclas de movimiento, el personaje se detiene instantáneamente, sin deslizamiento suave.
-
-🟡 Medios
-La barra de poder destructivo no se descarga al cambiar de nivel
-
-Si estás en pleno poder y aparece la ventana de subida de nivel, el efecto no se pausa (el temporizador sigue corriendo mientras eliges).
-
-Puedes perder la mayor parte del poder sin aprovecharlo.
-
-Persistencia de módulos no se guarda hasta la muerte
-
-Si equipas módulos, cierras el navegador y vuelves a abrir, los cambios no se guardan (solo se graban al finalizar la partida por muerte).
-
-El progreso en la Tienda de Destino sí se guarda al comprar.
-
-El botón "Forzar módulo" en Arquitecto no actualiza la vista de módulos si estás en otra pestaña
-
-El módulo se añade al inventario (funciona internamente), pero no lo ves reflejado hasta que cambias manualmente a la pestaña Módulos y se refresca.
-
-Disparo automático con asistencia de apuntado ignora las estructuras
-
-La búsqueda del enemigo más cercano no tiene en cuenta si hay una pared entre el jugador y el objetivo; disparará contra la pared sin intentar flanquear.
-
-🟢 Leves
-La pantalla de Game Over no muestra estadísticas finales (kills, tiempo, drops recogidos).
-
-No hay sonido ni música.
-
-Los logros están definidos pero no se muestran ni otorgan recompensa en partida (aunque la estructura de datos existe).
-
-El dash no tiene indicador de cooldown visual (sabes que está disponible por intuición).
-
-La invencibilidad del Arquitecto (30 s) no se indica en la interfaz (solo un mensaje fugaz).
-
-✅ Lo que sí funciona bien
-El bucle principal (game loop) y el renderizado Canvas.
-
-La evolución de enemigos (split/evolve) y el escalado progresivo.
-
-El sistema de drops con rarezas y tipos.
-
-Los módulos, sus sinergias y los orbitales.
-
-La barra de poder destructivo y su efecto perforante.
-
-El menú lateral unificado (pausa, pestañas).
-
-La subida de nivel con aprendizaje contextual.
-
-La Tienda de Destino y la persistencia de mejoras.
-
-El disparo manual con ratón y la asistencia de auto‑apuntado (en escritorio).
-
-La adaptación responsive (redimensionado del canvas).
-
-🔧 Próximos pasos (propuesta)
-Completar el InputManager táctil (implementar _handleTouch y la inercia) para que el juego sea jugable en móvil.
-
-Pausar la barra de poder durante la elección de nivel.
-
-Guardar el estado de los módulos automáticamente al equipar/des equipar, no solo al morir.
-
-Mejorar la prioridad del auto‑apuntado para evitar que las paredes bloqueen la selección de blancos.
-
-Añadir feedback visual para el cooldown del dash y la invencibilidad.
-
-Implementar sonidos básicos (disparos, daño, recogida de drops, subida de nivel).
-
+🐛 Simulación de fallos encontrados
+#	Fallo	Causa probable	Consecuencia
+1	El menú lateral no se abre en móvil	El botón btn-menu usa touchstart, pero el canvas o el body podrían estar capturando el evento.	Imposible equipar módulos o usar la tienda.
+2	_refreshModulosTab no está definido en el contexto global	Se asignó al prototipo de Game, pero se llama desde window.__game._refreshModulosTab(). Funciona si __game es la instancia.	Si falla, los botones de la UI de módulos no actualizarán la vista.
+3	El autoapuntado libre no prioriza enemigos cercanos si hay estructuras delante	_getAimAngle() busca el enemigo más cercano sin comprobar línea de visión.	Disparos contra paredes en lugar de enemigos.
+4	El drop de módulo "forzado" desde Arquitecto no actualiza la pestaña Módulos si no está activa	Solo se refresca si menuPanel.style.display === 'block', pero no se comprueba si la pestaña activa es la de módulos.	El jugador no ve el módulo hasta que cambia de pestaña manualmente.
+5	La barra de poder destructivo no se pausa al subir de nivel	El temporizador powerTimer se decrementa en _update(), que se ejecuta incluso si pausado es true.	Pierdes el poder mientras eliges mejora.
+6	El dash con swipe en móvil puede dispararse sin querer al levantar el dedo	El umbral de 40px en 150ms es bajo; un movimiento rápido para esquivar puede activarlo.	Dashes accidentales en momentos críticos.
+7	La afinidad elemental no se refleja en los disparos hasta que se equipa un nuevo módulo	obtenerAfinidades() se calcula en fire(), pero las balas toman el elemento dominante en ese instante. Funciona, pero no hay retroalimentación inmediata al cambiar módulos.	Confusión sobre qué elemento está activo.
+8	El DifficultyService se resetea al reiniciar la partida	reiniciarJuego() no reinicia this.difficulty.	Los multiplicadores de la partida anterior se mantienen, haciendo la nueva partida más difícil de lo esperado.
+9	La pantalla de Game Over no muestra estadísticas	Aunque se guardan kills, tiempo, etc., no se renderizan en el método drawUI del CanvasRenderer.	Muerte sin feedback.
+10	Posible error de referencia en MobileInputAdapter.consumeFireRequest	El puerto InputPort no declara ese método, pero Game._update() lo llama con ?..	En móvil, el disparo manual con espacio no funciona; no es grave porque el auto‑disparo está activo.
 🧪 Cómo probar
-Guarda el código en un archivo .html.
+Abre el archivo .html en Chrome/Edge (escritorio o móvil).
 
-Ábrelo en un navegador moderno (Chrome, Edge, Firefox).
+En escritorio, usa ratón para apuntar y WASD para moverte.
 
-Pulsa F2 para abrir el Arquitecto y activa la invencibilidad temporal si quieres explorar sin presión.
+En móvil, toca la mitad izquierda para moverte y la mitad derecha para apuntar (arrastra desde el punto de contacto).
 
-Usa el ratón para apuntar y disparar, o activa el disparo automático desde Arquitecto.
+Pulsa Tab (o botón 📋 en móvil) para abrir el menú lateral.
 
-Abre el menú lateral con Tab para gestionar módulos y comprar mejoras.
+En la pestaña Arquitecto, activa "Modo práctica" para explorar sin presión.
 
-¡Gracias por probar este prototipo!
-Creado en una conversación iterativa entre un diseñador de juego, q no se flipe q solo razonamos no se diseñar, y una IA.
+Prueba a equipar módulos de diferentes elementos y observa las reacciones al matar enemigos.
+
+🚧 Estado actual y próximos pasos
+Esta versión consolida la arquitectura hexagonal. Los siguientes pasos serían:
+
+Corregir los fallos listados arriba (priorizando el menú en móvil y el reinicio del DifficultyService).
+
+Migrar el renderizado de la UI a HTML/CSS en lugar de dibujarlo en Canvas (mejor accesibilidad y rendimiento).
+
+Añadir más contenido: nuevos enemigos, módulos con afijos únicos, más combinaciones elementales.
+
+Implementar control con gamepad (un nuevo adaptador de InputPort).
