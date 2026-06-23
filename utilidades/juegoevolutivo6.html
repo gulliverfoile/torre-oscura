@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>Gacha Evolutivo – Audio Procedural</title>
+    <title>Gacha Evolutivo – Escudos y Fusión</title>
     <style>
         * { margin:0; padding:0; box-sizing:border-box; }
         html, body { width:100%; height:100%; overflow:hidden; background:#000; touch-action:none; }
@@ -59,6 +59,8 @@
             display:none; justify-content:center; align-items:center;
             font-family:monospace; font-size:3rem; pointer-events:none;
         }
+        .fusion-panel { background:#1a1a2e; padding:10px; border-radius:8px; margin:10px 0; }
+        .fusion-panel select { width:auto; display:inline-block; margin:2px; }
     </style>
 </head>
 <body>
@@ -96,7 +98,7 @@
         player: {
             baseSpeed: 168, baseHp: 200, baseDamage: 10, baseFireRate: 0.2, baseProjectiles: 1,
             baseArmor: 0, maxWeaponLevel: 6, baseCritChance: 0.0, critMultiplier: 2.0,
-            invulnerabilityAfterHit: 0.15
+            invulnerabilityAfterHit: 0.15, maxEscudos: 5, vidaPorEscudo: 100
         },
         combat: {
             spawnInterval: 1.5, maxEnemies: 25, enemyBaseHp: 25, enemyBaseSpeed: 72, enemyBaseSize: 14,
@@ -110,6 +112,7 @@
             powerBarChargePerDamage: 0.3, powerBarDuration: 3.0,
             specialEnemyChance: 0.2, barreraHP: 30, proyectilCount: 5, kamikazeArea: 80,
             spawnAdaptativo: true, oleadasPeriodicas: true, oleadaInterval: 10.0,
+            oleadaJefeReboteInterval: 5, // cada N oleadas aparece un jefe de rebote
             maxEnemyBullets: 40, enemyBulletSpeed: 150, enemyBulletDamage: 6, enemyBulletDamagePerModule: 1,
             shootIntervals: { normal:0, barrera:0, proyectil:2.0, kamikaze:0, constructor:0, arquero:1.2 },
             enemyMaxModulos: { normal:1, barrera:1, proyectil:1, kamikaze:0, constructor:2, arquero:1 },
@@ -120,7 +123,8 @@
             patterns: {
                 abanico: { count:5, spread:0.6 },
                 espiral: { count:8, angleStep:0.8, bulletSpeed:100 },
-                mina: { count:1, zoneDuration:3.0, zoneDamage:4 }
+                mina: { count:1, zoneDuration:3.0, zoneDamage:4 },
+                rebotePatron: { count:12, spread:Math.PI*2 } // patrón circular para jefe de rebote
             }
         },
         structures: { maxOnScreen: 15, hp: 30, radio: 18, builderInterval: 7.5 },
@@ -162,14 +166,15 @@
         modules: {
             maxSlots: 4, tipos: ['ataque','defensa','utilidad','orbe'],
             runas: ['F','W','E','A','R'],
-            projMods: ['perforacion','rebote','explosivo','teledirigido','mina']
+            projMods: ['perforacion','rebote','explosivo','teledirigido','mina'],
+            fusionCost: 5 // Puntos de Destino necesarios para fusionar
         },
         drops: {
             rarezas: [
-                { id:'comun', peso:60, color:'#aaa', icon:'📦' },
-                { id:'poco_comun', peso:25, color:'#4ade80', icon:'📗' },
-                { id:'epico', peso:10, color:'#c084fc', icon:'📘' },
-                { id:'legendario', peso:5, color:'#ffd700', icon:'📕' }
+                { id:'comun', peso:60, color:'#aaa', icon:'📦', estrellas:1 },
+                { id:'poco_comun', peso:25, color:'#4ade80', icon:'📗', estrellas:2 },
+                { id:'epico', peso:10, color:'#c084fc', icon:'📘', estrellas:3 },
+                { id:'legendario', peso:5, color:'#ffd700', icon:'📕', estrellas:4 }
             ],
             tipos: {
                 hp:{ label:'Vida', base:20, porNivel:5, icon:'❤️', color:'#ff6b6b' },
@@ -181,7 +186,7 @@
             }
         },
         gameModes: { current: 'standard' },
-        persistenceKey: 'gachaHex_audio_v1',
+        persistenceKey: 'gachaHex_fusion_v1',
         ui: { showJoystick:true, showMessages:true },
         nemesisNames: {
             prefijos: ['Gorthak','Zyrrax','Morthul','Vexis','Kragoth','Nyloth','Xalvador','Thyria'],
@@ -212,31 +217,17 @@
 
     // ==================== AUDIO SERVICE ====================
     class AudioService {
-        constructor() {
-            this.ctx = null;
-            this.initialized = false;
-        }
-        init() {
-            if (this.initialized) return;
-            try {
-                this.ctx = new (window.AudioContext || window.webkitAudioContext)();
-                this.initialized = true;
-            } catch(e) { console.warn('Audio no disponible'); }
-        }
+        constructor() { this.ctx = null; this.initialized = false; }
+        init() { if (this.initialized) return; try { this.ctx = new (window.AudioContext || window.webkitAudioContext)(); this.initialized = true; } catch(e) { console.warn('Audio no disponible'); } }
         _playTone(freq, type, duration, volume = 0.15, filterFreq = 2000) {
             if (!this.ctx || this.ctx.state === 'closed') return;
             if (this.ctx.state === 'suspended') this.ctx.resume();
             const now = this.ctx.currentTime;
-            const osc = this.ctx.createOscillator();
-            const gain = this.ctx.createGain();
-            const filter = this.ctx.createBiquadFilter();
-            osc.type = type;
+            const osc = this.ctx.createOscillator(); osc.type = type;
             osc.frequency.setValueAtTime(freq, now);
-            filter.type = 'lowpass';
-            filter.frequency.setValueAtTime(filterFreq, now);
-            gain.gain.setValueAtTime(0, now);
-            gain.gain.linearRampToValueAtTime(volume, now + 0.01);
-            gain.gain.exponentialRampToValueAtTime(0.001, now + duration);
+            const gain = this.ctx.createGain();
+            const filter = this.ctx.createBiquadFilter(); filter.type = 'lowpass'; filter.frequency.setValueAtTime(filterFreq, now);
+            gain.gain.setValueAtTime(0, now); gain.gain.linearRampToValueAtTime(volume, now + 0.01); gain.gain.exponentialRampToValueAtTime(0.001, now + duration);
             osc.connect(filter); filter.connect(gain); gain.connect(this.ctx.destination);
             osc.start(now); osc.stop(now + duration);
         }
@@ -246,42 +237,34 @@
             const now = this.ctx.currentTime;
             const bufferSize = Math.floor(this.ctx.sampleRate * duration);
             const buffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
-            const data = buffer.getChannelData(0);
-            for (let i = 0; i < bufferSize; i++) data[i] = (Math.random() * 2 - 1) * 0.5;
-            const noise = this.ctx.createBufferSource();
-            noise.buffer = buffer;
-            const gain = this.ctx.createGain();
-            const filter = this.ctx.createBiquadFilter();
-            filter.type = 'lowpass';
-            filter.frequency.setValueAtTime(filterFreq, now);
-            gain.gain.setValueAtTime(0, now);
-            gain.gain.linearRampToValueAtTime(volume, now + 0.01);
-            gain.gain.exponentialRampToValueAtTime(0.001, now + duration);
+            const data = buffer.getChannelData(0); for (let i = 0; i < bufferSize; i++) data[i] = (Math.random() * 2 - 1) * 0.5;
+            const noise = this.ctx.createBufferSource(); noise.buffer = buffer;
+            const gain = this.ctx.createGain(); const filter = this.ctx.createBiquadFilter(); filter.type = 'lowpass'; filter.frequency.setValueAtTime(filterFreq, now);
+            gain.gain.setValueAtTime(0, now); gain.gain.linearRampToValueAtTime(volume, now + 0.01); gain.gain.exponentialRampToValueAtTime(0.001, now + duration);
             noise.connect(filter); filter.connect(gain); gain.connect(this.ctx.destination);
             noise.start(now); noise.stop(now + duration);
         }
-        playShoot(elemento = 'fisico') {
-            const map = { fuego:{freq:180,type:'sawtooth',vol:0.08,dur:0.08,filt:2500}, hielo:{freq:600,type:'sine',vol:0.06,dur:0.06,filt:4000}, veneno:{freq:300,type:'triangle',vol:0.05,dur:0.1,filt:1800}, agua:{freq:400,type:'sine',vol:0.07,dur:0.07,filt:3000}, fisico:{freq:220,type:'square',vol:0.1,dur:0.05,filt:2000} };
-            const s = map[elemento] || map.fisico;
-            this._playTone(s.freq, s.type, s.dur, s.vol, s.filt);
-        }
+        playShoot(elemento = 'fisico') { const map = { fuego:{freq:180,type:'sawtooth',vol:0.08,dur:0.08,filt:2500}, hielo:{freq:600,type:'sine',vol:0.06,dur:0.06,filt:4000}, veneno:{freq:300,type:'triangle',vol:0.05,dur:0.1,filt:1800}, agua:{freq:400,type:'sine',vol:0.07,dur:0.07,filt:3000}, fisico:{freq:220,type:'square',vol:0.1,dur:0.05,filt:2000} }; const s = map[elemento] || map.fisico; this._playTone(s.freq, s.type, s.dur, s.vol, s.filt); }
         playExplosion() { this._playNoise(0.25, 0.2, 800); this._playTone(60, 'sawtooth', 0.2, 0.15, 500); }
         playDropCollected() { this._playTone(880, 'sine', 0.1, 0.08, 5000); setTimeout(() => this._playTone(1100, 'sine', 0.08, 0.06, 6000), 60); }
         playLevelUp() { this._playTone(440, 'triangle', 0.1, 0.1, 3000); setTimeout(() => this._playTone(660, 'triangle', 0.1, 0.1, 4000), 100); setTimeout(() => this._playTone(880, 'triangle', 0.15, 0.12, 5000), 200); }
         playUltimate() { this._playNoise(0.4, 0.25, 1500); this._playTone(55, 'sawtooth', 0.5, 0.2, 400); }
         playNemesisAppear() { this._playTone(110, 'sawtooth', 0.6, 0.2, 300); setTimeout(() => this._playTone(55, 'square', 0.8, 0.3, 200), 200); }
+        playCraft() { this._playTone(660, 'triangle', 0.15, 0.1, 4000); setTimeout(() => this._playTone(880, 'triangle', 0.15, 0.1, 5000), 100); }
     }
 
     // ==================== CLASES DE DOMINIO ====================
     class Pieza {
-        constructor(tipo, runa, stats = {}, afinidad = 1, projMod = null) {
-            this.tipo = tipo; this.runa = runa; this.afinidad = afinidad; this.projMod = projMod;
+        constructor(tipo, runa, stats = {}, afinidad = 1, projMod = null, rareza = 'comun') {
+            this.tipo = tipo; this.runa = runa; this.afinidad = afinidad; this.projMod = projMod; this.rareza = rareza;
             const elemento = CONFIG.elements.runaToElemento[runa] || 'fisico'; this.elemento = elemento;
             this.stats = { damage:0, speed:0, fireRate:0, projectiles:0, critChance:0, armor:0, ...stats };
             this.color = { ataque:'#ff4444', defensa:'#44aaff', utilidad:'#44ff44', orbe:'#ffaa00', fuego:'#ff6600', hielo:'#00ccff', veneno:'#99cc00', agua:'#3399ff', fisico:'#cccccc' }[this.elemento] || '#fff';
+            this.estrellas = CONFIG.drops.rarezas.find(r => r.id === rareza)?.estrellas || 1;
         }
         descripcion() { const e=this.elemento, a=this.afinidad; let d=''; if(e==='fuego')d=`Quemadura ${(a*0.4).toFixed(1)}s`; else if(e==='hielo')d=`Ralentiza ${(a*10+20)}%`; else if(e==='veneno')d=`Veneno ${a} daño/s`; else if(e==='agua')d=`Empuje +${a*30}`; else d='Stats básicos'; if(this.projMod)d+=` [${this.projMod}]`; return d; }
-        static fromData(data) { if(!data||!data.runa)return null; return new Pieza(data.tipo, data.runa, data.stats||{}, data.afinidad||1, data.projMod||null); }
+        getRarezaSuperior() { const idx = CONFIG.drops.rarezas.findIndex(r => r.id === this.rareza); if (idx < CONFIG.drops.rarezas.length-1) return CONFIG.drops.rarezas[idx+1].id; return null; }
+        static fromData(data) { if(!data||!data.runa)return null; return new Pieza(data.tipo, data.runa, data.stats||{}, data.afinidad||1, data.projMod||null, data.rareza||'comun'); }
     }
 
     class ZonaElemental {
@@ -322,7 +305,7 @@
         _palette(elemento) { const base={fuego:{skin:['#ff9966','#cc6633','#ffcc99'],metal:['#ffcc00','#cc9900','#ffdd44'],eye:'#ff0000'},hielo:{skin:['#aaccff','#7799cc','#ddeeff'],metal:['#ffffff','#cccccc','#ffffff'],eye:'#88ccff'},veneno:{skin:['#99cc00','#669900','#bbdd33'],metal:['#aaaa55','#888833','#cccc77'],eye:'#44aa22'},agua:{skin:['#3399ff','#2266cc','#66bbff'],metal:['#cceeff','#99bbdd','#ffffff'],eye:'#0044cc'},fisico:{skin:['#ccaa88','#997755','#eeddcc'],metal:['#aaaaaa','#777777','#cccccc'],eye:'#2244aa'}}; return base[elemento]||base.fisico; }
         _rng(seed) { let h=0; for(let i=0;i<seed.length;i++)h=((h<<5)-h+seed.charCodeAt(i))|0; return()=>{h=(h*1664525+1013904223)|0;return(h>>>0)/4294967296;}; }
     }
-     // ==================== SERVICIOS ====================
+        // ==================== SERVICIOS ====================
     class CombatService {
         updateBullets(bullets, enemies, structures, player, difficulty, powerActive, game) {
             for (let i = bullets.length-1; i >= 0; i--) {
@@ -343,6 +326,7 @@
                     const e = enemies[j]; if (!e.alive) continue;
                     if (dist(b.x, b.y, e.x, e.y) < b.radio + e.radio) {
                         let dmg = b.damage;
+                        // Armadura enemiga
                         if (e.armor > 0) dmg = Math.max(1, dmg - e.armor);
                         if (powerActive) dmg *= 2.5;
                         if (Math.random() < player.critChance) { dmg *= CONFIG.player.critMultiplier; game.criticosRealizados++; game._emitParticles(e.x, e.y, '#ffd700', 5); }
@@ -392,6 +376,7 @@
                         }
                     }
                 }
+                // Recoger módulos del suelo
                 if (e.modulosEquipados.filter(Boolean).length < e.maxModulos) { for (let d = game.drops.length-1; d >= 0; d--) { const drop = game.drops[d]; if (drop.tipo === 'modulo' && drop.pieza) { if (dist(e.x, e.y, drop.x, drop.y) < e.radio + drop.radio + 20) { e.recogerDrop(drop); game.drops.splice(d, 1); break; } } } }
             }
         }
@@ -420,13 +405,35 @@
             const td = CONFIG.drops.tipos[tk]; const val = td.base + player.weaponLevel*td.porNivel;
             return { tipo:tk, valor:val, icono:td.icon, color:sel.color, rareza:sel.id, label:td.label, x:enemy.x+(Math.random()-0.5)*30, y:enemy.y+(Math.random()-0.5)*30, alive:true, radio:10 };
         }
-        generarModule(enemy) {
+        generarModule(enemy, rarezaForzada = null) {
             const runa = CONFIG.modules.runas[Math.floor(Math.random()*CONFIG.modules.runas.length)];
             const tipo = CONFIG.modules.tipos[Math.floor(Math.random()*CONFIG.modules.tipos.length)];
-            const afinidad = 1 + Math.floor(Math.random()*CONFIG.elements.afinidadMax); const stats = {};
-            if (tipo === 'ataque') stats.damage = 1 + afinidad; else if (tipo === 'defensa') stats.armor = 1; else if (tipo === 'utilidad') stats.speed = 12 * afinidad; else if (tipo === 'orbe') stats.damage = afinidad;
+            let rareza = rarezaForzada || 'comun';
+            if (!rarezaForzada) {
+                const roll = Math.random();
+                if (roll < 0.6) rareza = 'comun'; else if (roll < 0.85) rareza = 'poco_comun'; else if (roll < 0.95) rareza = 'epico'; else rareza = 'legendario';
+            }
+            const afinidadMin = { comun:1, poco_comun:2, epico:3, legendario:4 }[rareza] || 1;
+            const afinidad = afinidadMin + Math.floor(Math.random() * (CONFIG.elements.afinidadMax - afinidadMin + 1));
+            const stats = {};
+            if (tipo === 'ataque') stats.damage = afinidad; else if (tipo === 'defensa') stats.armor = 1; else if (tipo === 'utilidad') stats.speed = 12 * afinidad; else if (tipo === 'orbe') stats.damage = afinidad;
             let projMod = null; if (Math.random() < 0.3) projMod = CONFIG.modules.projMods[Math.floor(Math.random()*CONFIG.modules.projMods.length)];
-            return new Pieza(tipo, runa, stats, afinidad, projMod);
+            return new Pieza(tipo, runa, stats, afinidad, projMod, rareza);
+        }
+    }
+
+    // Servicio de fusión de módulos
+    class CraftingService {
+        constructor(game) { this.game = game; }
+        fusionar(modulos) {
+            if (modulos.length !== 3) return null;
+            const rareza = modulos[0].rareza;
+            if (!modulos.every(m => m.rareza === rareza)) return null; // misma rareza
+            const idx = CONFIG.drops.rarezas.findIndex(r => r.id === rareza);
+            if (idx >= CONFIG.drops.rarezas.length - 1) return null; // no se puede mejorar legendario
+            const nuevaRareza = CONFIG.drops.rarezas[idx+1].id;
+            // Generar nuevo módulo con rareza superior y afinidad mínima garantizada
+            return this.game.dropService.generarModule(null, nuevaRareza);
         }
     }
 
@@ -484,6 +491,16 @@
             if (hasVeneno) { ctx.strokeStyle = '#99cc00'; ctx.lineWidth = 3; ctx.beginPath(); ctx.arc(player.x, player.y, player.radio+6, 0, Math.PI*2); ctx.stroke(); }
             if (hasHielo) { ctx.strokeStyle = '#00ccff'; ctx.lineWidth = 3; ctx.beginPath(); ctx.arc(player.x, player.y, player.radio+8, 0, Math.PI*2); ctx.stroke(); }
             if (player.invincible) { ctx.fillStyle = 'rgba(255,255,255,0.3)'; ctx.beginPath(); ctx.arc(player.x, player.y, player.radio+5, 0, Math.PI*2); ctx.fill(); }
+            // Dibujar escudos
+            if (player.escudos > 0) {
+                ctx.fillStyle = '#ffd700';
+                for (let s = 0; s < player.escudos; s++) {
+                    const angle = (s / player.escudos) * Math.PI * 2 - Math.PI/2;
+                    const sx = player.x + Math.cos(angle) * (player.radio + 10);
+                    const sy = player.y + Math.sin(angle) * (player.radio + 10);
+                    ctx.beginPath(); ctx.arc(sx, sy, 3, 0, Math.PI*2); ctx.fill();
+                }
+            }
             ctx.shadowColor = '#fff'; ctx.shadowBlur = 20; ctx.beginPath(); ctx.arc(player.x, player.y, player.radio, 0, Math.PI*2); ctx.fillStyle = '#00d2ff'; ctx.fill(); ctx.shadowBlur = 0;
             const pos = [{x:0,y:-player.radio-8},{x:0,y:player.radio+8},{x:player.radio+8,y:0},{x:-player.radio-8,y:0}];
             for (let i = 0; i < 4; i++) { const m = player.modulosEquipados[i]; if (!m) continue; ctx.fillStyle = m.color; ctx.beginPath(); ctx.arc(player.x+pos[i].x, player.y+pos[i].y, 6, 0, Math.PI*2); ctx.fill(); ctx.fillStyle = '#fff'; ctx.font = '10px monospace'; ctx.textAlign = 'center'; ctx.fillText(m.runa, player.x+pos[i].x, player.y+pos[i].y+4); }
@@ -516,8 +533,9 @@
             const ctx = this.ctx; const { player, game, canvas } = gameState; const W = canvas.width, H = canvas.height;
             const hpPct = player.hp / player.getMaxHp(); ctx.fillStyle = '#222'; ctx.fillRect(20, 20, 200, 20); ctx.fillStyle = hpPct>0.6?'#4ade80':hpPct>0.3?'#facc15':'#ef4444'; ctx.fillRect(20, 20, 200*hpPct, 20); ctx.strokeStyle = '#fff'; ctx.strokeRect(20, 20, 200, 20);
             ctx.fillStyle = '#fff'; ctx.font = '12px monospace'; ctx.textAlign = 'left'; ctx.fillText(`❤️ ${Math.floor(player.hp)}/${player.getMaxHp()}`, 25, 30);
+            ctx.fillText(`🛡️ ${player.escudos}/${CONFIG.player.maxEscudos}`, 25, 45);
             ctx.fillStyle = '#ffd93d'; ctx.font = '14px monospace'; ctx.textAlign = 'right'; ctx.fillText(`🔫 Nv.${player.weaponLevel}`, W-20, 30);
-            ctx.fillStyle = '#ffd700'; ctx.textAlign = 'left'; ctx.fillText(`✨ Destino: ${player.destinyPoints}`, 20, 55); ctx.fillText(`Nv.${player.nivel} (XP: ${Math.floor(player.xp)}/${player.xpProximoNivel})`, 20, 75);
+            ctx.fillStyle = '#ffd700'; ctx.textAlign = 'left'; ctx.fillText(`✨ Destino: ${player.destinyPoints}`, 20, 60); ctx.fillText(`Nv.${player.nivel} (XP: ${Math.floor(player.xp)}/${player.xpProximoNivel})`, 20, 75);
             const pasivas = player._pasivasActivas; let yOff = 95; if (pasivas) { for (const el of CONFIG.elements.tipos) { if (pasivas[el] && pasivas[el].length > 0) { ctx.fillText(`${el}: ${pasivas[el].map(p=>p.nombre).join(', ')}`, 20, yOff); yOff += 15; } } }
             if (game.nemesisActivo) { ctx.fillStyle = '#8b008b'; ctx.fillText(`👻 Nemesis: ${game.nemesisActivo.nombre}`, W/2, 100); }
             if (game.powerActive) { ctx.fillStyle = '#ff4500'; ctx.fillText('💥 PODER ACTIVO', W/2, 50); }
@@ -561,8 +579,8 @@
 
     // ==================== PLAYER ====================
     class Player {
-        constructor() { this.x = 0; this.y = 0; this.radio = 16; this.permanentUpgrades = { hpBonus:0, speedBonus:0, damageBonus:0, fireRateBonus:0, projectilesBonus:0, armorBonus:0, critBonus:0 }; this.weaponLevel = 1; this.buffs = []; this.cooldown = 0; this.dashing = false; this.dashTimer = 0; this.dashCooldown = 0; this.invincible = false; this.invincibleTimer = 0; this.destinyPoints = 0; this.critChance = CONFIG.player.baseCritChance; this.lifesteal = 0; this.modulosEquipados = [null,null,null,null]; this.inventarioModulos = []; this.orbitales = []; this.hp = 200; this.xp = 0; this.nivel = 1; this.xpProximoNivel = CONFIG.combat.levelBaseXP; this.sistemasDesbloqueados = []; this._pasivasActivas = {}; this._pasivasTimer = 0; }
-        init(x, y, saveData) { this.x = x; this.y = y; this.weaponLevel = 1; this.permanentUpgrades = { hpBonus:0, speedBonus:0, damageBonus:0, fireRateBonus:0, projectilesBonus:0, armorBonus:0, critBonus:0 }; if (saveData) { this.destinyPoints = saveData.destinyPoints || 0; if (saveData.upgrades) Object.assign(this.permanentUpgrades, saveData.upgrades); this.modulosEquipados = (saveData.modulosEquipados || [null,null,null,null]).map(m => m ? Pieza.fromData(m) : null); this.inventarioModulos = (saveData.inventarioModulos || []).map(m => Pieza.fromData(m)).filter(Boolean); } this.hp = this.getMaxHp(); this.critChance = CONFIG.player.baseCritChance + (this.permanentUpgrades.critBonus||0)*0.05; this.cooldown = 0; this.buffs = []; this.dashing = false; this.invincible = false; this.orbitales = []; this.actualizarOrbitalesDesdeModulos(); }
+        constructor() { this.x = 0; this.y = 0; this.radio = 16; this.permanentUpgrades = { hpBonus:0, speedBonus:0, damageBonus:0, fireRateBonus:0, projectilesBonus:0, armorBonus:0, critBonus:0 }; this.weaponLevel = 1; this.buffs = []; this.cooldown = 0; this.dashing = false; this.dashTimer = 0; this.dashCooldown = 0; this.invincible = false; this.invincibleTimer = 0; this.destinyPoints = 0; this.critChance = CONFIG.player.baseCritChance; this.lifesteal = 0; this.modulosEquipados = [null,null,null,null]; this.inventarioModulos = []; this.orbitales = []; this.hp = 200; this.xp = 0; this.nivel = 1; this.xpProximoNivel = CONFIG.combat.levelBaseXP; this.sistemasDesbloqueados = []; this._pasivasActivas = {}; this._pasivasTimer = 0; this.escudos = 0; this.vidaAcumulada = 0; }
+        init(x, y, saveData) { this.x = x; this.y = y; this.weaponLevel = 1; this.permanentUpgrades = { hpBonus:0, speedBonus:0, damageBonus:0, fireRateBonus:0, projectilesBonus:0, armorBonus:0, critBonus:0 }; if (saveData) { this.destinyPoints = saveData.destinyPoints || 0; if (saveData.upgrades) Object.assign(this.permanentUpgrades, saveData.upgrades); this.modulosEquipados = (saveData.modulosEquipados || [null,null,null,null]).map(m => m ? Pieza.fromData(m) : null); this.inventarioModulos = (saveData.inventarioModulos || []).map(m => Pieza.fromData(m)).filter(Boolean); } this.hp = this.getMaxHp(); this.critChance = CONFIG.player.baseCritChance + (this.permanentUpgrades.critBonus||0)*0.05; this.cooldown = 0; this.buffs = []; this.dashing = false; this.invincible = false; this.orbitales = []; this.escudos = 0; this.vidaAcumulada = 0; this.actualizarOrbitalesDesdeModulos(); }
         getMaxHp() { return CONFIG.player.baseHp + this.permanentUpgrades.hpBonus * 5; }
         obtenerAfinidades() { const af = { fuego:0, hielo:0, veneno:0, agua:0, fisico:0 }; for (const m of this.modulosEquipados) if (m) af[m.elemento] = (af[m.elemento]||0) + m.afinidad; return af; }
         actualizarOrbitalesDesdeModulos() { this.orbitales = []; for (const m of this.modulosEquipados) if (m && m.tipo === 'orbe') this.orbitales.push({ pieza:m, angulo:Math.random()*Math.PI*2, cooldown:0 }); }
@@ -570,8 +588,25 @@
         update(input) { this.updateBuffs(); this.cooldown = Math.max(0, this.cooldown - 0.016); this.dashCooldown = Math.max(0, this.dashCooldown - 0.016); if (this.invincibleTimer > 0) { this.invincibleTimer -= 0.016; if (this.invincibleTimer <= 0) this.invincible = false; } if (this.dashing) { this.dashTimer = Math.max(0, this.dashTimer - 0.016); if (this.dashTimer <= 0) { this.dashing = false; this.invincible = false; } } }
         updateBuffs() { for (let i = this.buffs.length-1; i >= 0; i--) { this.buffs[i].duracion = Math.max(0, this.buffs[i].duracion - 0.016); if (this.buffs[i].duracion <= 0) { if (this.buffs[i].tipo === 'roboVida') this.lifesteal = 0; this.buffs.splice(i,1); } } }
         addBuff(tipo, valor, duracion) { const e = this.buffs.find(b => b.tipo === tipo); if (e) e.duracion = Math.max(e.duracion, duracion); else { this.buffs.push({ tipo, valor, duracion }); if (tipo === 'roboVida') this.lifesteal = valor; } }
-        takeDamage(amount) { if (this.invincible) return false; const armor = 0; const final = Math.max(1, amount - (armor||0)); this.hp -= final; if (this.hp < 0) this.hp = 0; this.invincible = true; this.invincibleTimer = CONFIG.player.invulnerabilityAfterHit; if (CONFIG.input.vibrate && navigator.vibrate) { try { navigator.vibrate(20); } catch(e) {} } return true; }
-        heal(amount) { this.hp = Math.min(this.getMaxHp(), this.hp + amount); }
+        takeDamage(amount) {
+            if (this.invincible) return false;
+            // Primero los escudos absorben el golpe completo
+            if (this.escudos > 0) { this.escudos--; this.invincible = true; this.invincibleTimer = CONFIG.player.invulnerabilityAfterHit; return false; }
+            const armor = 0; const final = Math.max(1, amount - (armor||0));
+            this.hp -= final; if (this.hp < 0) this.hp = 0;
+            this.invincible = true; this.invincibleTimer = CONFIG.player.invulnerabilityAfterHit;
+            if (CONFIG.input.vibrate && navigator.vibrate) { try { navigator.vibrate(20); } catch(e) {} }
+            return true;
+        }
+        heal(amount) {
+            this.hp = Math.min(this.getMaxHp(), this.hp + amount);
+            // Acumular vida para escudos
+            this.vidaAcumulada += amount;
+            while (this.vidaAcumulada >= CONFIG.player.vidaPorEscudo && this.escudos < CONFIG.player.maxEscudos) {
+                this.vidaAcumulada -= CONFIG.player.vidaPorEscudo;
+                this.escudos++;
+            }
+        }
         upgradeWeapon() { if (this.weaponLevel < CONFIG.player.maxWeaponLevel) { this.weaponLevel++; return true; } return false; }
         fire(aimAngle, bullets, projectileStats) {
             if (this.cooldown > 0) return; const cnt = projectileStats.projectiles, ta = 0.4*(cnt-1), sa = aimAngle - ta/2;
@@ -622,7 +657,7 @@
         }
         applyStatusEffect(tipo, p) { if(tipo==='quemadura')this.statusEffects.push({tipo:'quemadura',damagePerTick:p.damage,duration:p.duration});if(tipo==='congelacion')this.statusEffects.push({tipo:'congelacion',factor:p.factor,duration:p.duration});if(tipo==='veneno')this.statusEffects.push({tipo:'veneno',damagePerTick:p.damage,duration:p.duration}); }
     }
-      // ==================== GAME ====================
+        // ==================== GAME ====================
     class Game {
         constructor(canvas, inputPort, rendererPort, persistencePort) {
             this.canvas = canvas; this.input = inputPort; this.renderer = rendererPort; this.persistence = persistencePort;
@@ -631,12 +666,13 @@
             this.audio = new AudioService();
             this.difficulty = new DifficultyService(); this.combatService = new CombatService(); this.evolutionService = new EvolutionService();
             this.dropService = new DropService(); this.spriteGenerator = new SpriteGenerator(); this.sinergiaService = new SinergiaService();
+            this.craftingService = new CraftingService(this);
             this.enemigos = []; this.balas = []; this.drops = []; this.estructuras = []; this.zonas = []; this.explosiones = [];
             this.pausado = false; this.gameOver = false; this.kills = 0; this.tiempoSobrevivido = 0;
             this.spawnTimer = CONFIG.combat.spawnInterval; this.cargaUltimate = 0; this.maxCargaUltimate = 100;
             this.ultiUsos = 0; this.criticosRealizados = 0; this.dropsRecogidos = 0; this.jefesDerrotados = 0;
             this.powerBar = 0; this.maxPowerBar = 100; this.powerActive = false; this.powerTimer = 0;
-            this.practiceMode = false; this.oleadaTimer = CONFIG.combat.oleadaInterval;
+            this.practiceMode = false; this.oleadaTimer = CONFIG.combat.oleadaInterval; this.oleadaCount = 0;
             this.ui = { messages: [], particles: [], cameraShake: { x:0, y:0, intensity:0 } };
             this.nemesisActivo = null; this.nemesisTimer = 0; this._pasivasTimer = 0;
             this.jugador = new Player();
@@ -649,14 +685,51 @@
         }
         _dt() { return this._deltaTime; }
         _checkNemesisStart() { if (this.nemesisData && Math.random() < CONFIG.combat.nemesisSpawnChance) { this.nemesisActivo = { ...this.nemesisData }; this.nemesisTimer = 5.0; const overlay = document.getElementById('nemesis-overlay'); overlay.textContent = `👻 Tu Nemesis ${this.nemesisActivo.nombre} acecha...`; overlay.style.display = 'block'; this.audio.playNemesisAppear(); setTimeout(() => { if (overlay) overlay.style.display = 'none'; }, 4000); } }
-        _checkNemesisOnDeath(killer) { const pref = CONFIG.nemesisNames.prefijos[Math.floor(Math.random()*CONFIG.nemesisNames.prefijos.length)]; const suf = CONFIG.nemesisNames.sufijos[Math.floor(Math.random()*CONFIG.nemesisNames.sufijos.length)]; const nemesis = { nombre: `${pref} ${suf}`, nivel: 1, killsDelJugador: 1, modulosRobados: this.jugador.modulosEquipados.filter(Boolean).map(m => ({ tipo: m.tipo, runa: m.runa, elemento: m.elemento, afinidad: m.afinidad, stats: {...m.stats}, projMod: m.projMod })), stats: { hpMax: killer.hpMax, speed: killer.speed, dañoContacto: killer.dañoContacto } }; const save = this.persistence.load(); save.nemesis = nemesis; this.persistence.save(save); this.nemesisData = nemesis; }
+        _checkNemesisOnDeath(killer) { const pref = CONFIG.nemesisNames.prefijos[Math.floor(Math.random()*CONFIG.nemesisNames.prefijos.length)]; const suf = CONFIG.nemesisNames.sufijos[Math.floor(Math.random()*CONFIG.nemesisNames.sufijos.length)]; const nemesis = { nombre: `${pref} ${suf}`, nivel: 1, killsDelJugador: 1, modulosRobados: this.jugador.modulosEquipados.filter(Boolean).map(m => ({ tipo: m.tipo, runa: m.runa, elemento: m.elemento, afinidad: m.afinidad, stats: {...m.stats}, projMod: m.projMod, rareza: m.rareza })), stats: { hpMax: killer.hpMax, speed: killer.speed, dañoContacto: killer.dañoContacto } }; const save = this.persistence.load(); save.nemesis = nemesis; this.persistence.save(save); this.nemesisData = nemesis; }
         spawnNemesis() { if (!this.nemesisActivo) return; const n = this.nemesisActivo; const b = new Enemy(this.canvas.width/2, this.canvas.height/2, 3, n.stats.hpMax*1.5, 18, n.stats.speed, 'arquero'); b.esJefe = true; b.shootInterval = 1.0; b.shootTimer = 1.0; b.bulletDamage = 15; b.maxModulos = n.modulosRobados.length; b.modulosEquipados = n.modulosRobados.map(m => Pieza.fromData(m)); b.rebotaBalas = true; b.color = '#8b008b'; b.sprite = this.spriteGenerator.getSprite('arquero', 'jefe', 'fisico', `nemesis,${this.kills}`, true, true); b.nombre = n.nombre; this.enemigos.push(b); this.nemesisActivo = null; }
         _initSideMenu() { this.menuPanel = document.getElementById('side-menu'); this.tabButtons = this.menuPanel.querySelectorAll('.tab-buttons button'); this.tabContents = { modulos: document.getElementById('tab-modulos'), stats: document.getElementById('tab-stats'), tienda: document.getElementById('tab-tienda'), architect: document.getElementById('tab-architect') }; this.tabButtons.forEach(btn => btn.addEventListener('click', () => this._switchTab(btn.dataset.tab))); document.getElementById('menu-close').addEventListener('click', () => this.toggleMenu()); this._buildArchitectTab(); this._buildTiendaTab(); }
         toggleMenu() { if (this.menuPanel.style.display === 'block') { this.menuPanel.style.display = 'none'; if (!this._opcionesNivel) this.pausado = false; document.getElementById('pause-overlay').style.display = 'none'; } else { this.pausado = true; this._refreshModulosTab(); this._refreshStatsTab(); this._refreshTiendaTab(); this.menuPanel.style.display = 'block'; this._switchTab('modulos'); document.getElementById('pause-overlay').style.display = 'flex'; } }
         _switchTab(id) { this.tabButtons.forEach(b => b.classList.remove('active')); this.menuPanel.querySelector(`[data-tab="${id}"]`).classList.add('active'); Object.keys(this.tabContents).forEach(k => this.tabContents[k].classList.remove('active')); this.tabContents[id].classList.add('active'); if (id === 'modulos') this._refreshModulosTab(); if (id === 'stats') this._refreshStatsTab(); if (id === 'tienda') this._refreshTiendaTab(); }
-        _refreshModulosTab() { let html = '<h4>Slots equipados</h4>'; const nombres = ['Norte','Sur','Este','Oeste']; for (let i = 0; i < 4; i++) { const m = this.jugador.modulosEquipados[i]; html += `<div style="margin:4px 0">${nombres[i]}: `; if (m) { html += `<span style="color:${m.color||'#fff'}">${m.runa||'?'} (${m.elemento||'?'})</span> ${m.descripcion()}`; html += ` <button onclick="window.__game.jugador.quitarModulo(${i});window.__game._refreshModulosTab();">X</button>`; } else { html += `vacío <button onclick="window.__game.asignarModuloASlot(${i})">Asignar</button>`; } html += `</div>`; } html += '<h4>Inventario</h4>'; this.jugador.inventarioModulos.forEach((m, idx) => { html += `<div><span style="color:${m.color||'#fff'}">${m.runa||'?'} (${m.elemento||'?'})</span> ${m.descripcion()} <button onclick="window.__game.jugador.equiparDesdeInventario(${idx});window.__game._refreshModulosTab();">Equipar (auto)</button></div>`; }); this.tabContents.modulos.innerHTML = html; }
-        asignarModuloASlot(slot) { if (this.jugador.inventarioModulos.length === 0) { alert('No hay módulos'); return; } const nombres = ['Norte','Sur','Este','Oeste']; const lista = this.jugador.inventarioModulos.map((m,i) => `${i}: ${m.runa} (${m.elemento}) - ${m.descripcion()}`).join('\n'); const idx = parseInt(prompt(`Selecciona módulo para ${nombres[slot]}:\n${lista}\nNúmero:`)); if (!isNaN(idx) && idx >= 0 && idx < this.jugador.inventarioModulos.length) { const pieza = this.jugador.inventarioModulos.splice(idx,1)[0]; if (this.jugador.modulosEquipados[slot]) this.jugador.inventarioModulos.push(this.jugador.modulosEquipados[slot]); this.jugador.modulosEquipados[slot] = pieza; this.jugador.actualizarOrbitalesDesdeModulos(); this._refreshModulosTab(); } }
-        _refreshStatsTab() { const s = this.proyectilService.getStats(); const af = this.jugador.obtenerAfinidades(); const pasivas = this.jugador._pasivasActivas; let html = '<h4>Estadísticas</h4>'; html += `<p>❤️ Vida: ${Math.floor(this.jugador.hp)}/${this.jugador.getMaxHp()}</p>`; html += `<p>⚔️ Daño: ${s.damage}</p><p>⏱️ Cadencia: ${s.fireRate.toFixed(2)}s</p>`; html += `<p>🔫 Proyectiles: ${s.projectiles}</p><p>🎯 Crítico: ${(this.jugador.critChance*100).toFixed(1)}% (x${CONFIG.player.critMultiplier})</p>`; html += `<p>💨 Velocidad: ${s.speed.toFixed(0)} px/s</p><p>🛡️ Armadura: ${s.armor}</p>`; html += '<h4>Afinidades elementales</h4>'; for (const el in af) html += `<p style="color:${this._colorElemento(el)}">${el}: ${af[el]} / ${CONFIG.elements.afinidadMax}</p>`; html += '<h4>Pasivas activas</h4>'; if (pasivas) { for (const el of CONFIG.elements.tipos) { if (pasivas[el] && pasivas[el].length > 0) { html += `<p style="color:${this._colorElemento(el)}">${el}: ${pasivas[el].map(p=>p.nombre).join(', ')}</p>`; } } } if (!pasivas || Object.values(pasivas).every(a=>a.length===0)) html += '<p>Ninguna (sube afinidades)</p>'; this.tabContents.stats.innerHTML = html; }
+        _refreshModulosTab() {
+            let html = '<h4>Slots equipados</h4>'; const nombres = ['Norte','Sur','Este','Oeste'];
+            for (let i = 0; i < 4; i++) { const m = this.jugador.modulosEquipados[i]; html += `<div style="margin:4px 0">${nombres[i]}: `; if (m) { html += `<span style="color:${m.color||'#fff'}">${m.runa||'?'} (${m.elemento||'?'}) ${'⭐'.repeat(m.estrellas)}</span> ${m.descripcion()}`; html += ` <button onclick="window.__game.jugador.quitarModulo(${i});window.__game._refreshModulosTab();">X</button>`; } else { html += `vacío <button onclick="window.__game.asignarModuloASlot(${i})">Asignar</button>`; } html += `</div>`; }
+            html += '<h4>Inventario</h4>';
+            const porRareza = {};
+            this.jugador.inventarioModulos.forEach((m, idx) => { const r = m.rareza; if (!porRareza[r]) porRareza[r] = []; porRareza[r].push({idx, m}); });
+            for (const rareza of CONFIG.drops.rarezas) {
+                const mods = porRareza[rareza.id] || [];
+                if (mods.length > 0) {
+                    html += `<p style="color:${rareza.color}">${'⭐'.repeat(rareza.estrellas)} ${rareza.id} (${mods.length})</p>`;
+                    mods.forEach(({idx, m}) => {
+                        html += `<div><span style="color:${m.color||'#fff'}">${m.runa||'?'} (${m.elemento||'?'})</span> ${m.descripcion()} <button onclick="window.__game.jugador.equiparDesdeInventario(${idx});window.__game._refreshModulosTab();">Equipar</button></div>`;
+                    });
+                    if (mods.length >= 3 && rareza.id !== 'legendario') {
+                        html += `<button onclick="window.__game.fusionarModulos('${rareza.id}')">🔄 Fusionar 3 → 1 ${'⭐'.repeat(rareza.estrellas+1)}</button> (cuesta ${CONFIG.modules.fusionCost} PD)<br>`;
+                    }
+                }
+            }
+            this.tabContents.modulos.innerHTML = html;
+        }
+        fusionarModulos(rareza) {
+            const mods = this.jugador.inventarioModulos.filter(m => m.rareza === rareza);
+            if (mods.length < 3) return;
+            if (this.jugador.destinyPoints < CONFIG.modules.fusionCost) { alert(`Necesitas ${CONFIG.modules.fusionCost} Puntos de Destino`); return; }
+            let eliminados = 0;
+            for (let i = this.jugador.inventarioModulos.length-1; i >= 0; i--) {
+                if (this.jugador.inventarioModulos[i].rareza === rareza && eliminados < 3) {
+                    this.jugador.inventarioModulos.splice(i,1);
+                    eliminados++;
+                }
+            }
+            this.jugador.destinyPoints -= CONFIG.modules.fusionCost;
+            const nuevo = this.craftingService.fusionar([mods[0], mods[1], mods[2]]);
+            if (nuevo) this.jugador.inventarioModulos.push(nuevo);
+            this.audio.playCraft();
+            this._guardarProgreso();
+            this._refreshModulosTab();
+        }
+        asignarModuloASlot(slot) { if (this.jugador.inventarioModulos.length === 0) { alert('No hay módulos'); return; } const nombres = ['Norte','Sur','Este','Oeste']; const lista = this.jugador.inventarioModulos.map((m,i) => `${i}: ${m.runa} (${m.elemento}) ${'⭐'.repeat(m.estrellas)} - ${m.descripcion()}`).join('\n'); const idx = parseInt(prompt(`Selecciona módulo para ${nombres[slot]}:\n${lista}\nNúmero:`)); if (!isNaN(idx) && idx >= 0 && idx < this.jugador.inventarioModulos.length) { const pieza = this.jugador.inventarioModulos.splice(idx,1)[0]; if (this.jugador.modulosEquipados[slot]) this.jugador.inventarioModulos.push(this.jugador.modulosEquipados[slot]); this.jugador.modulosEquipados[slot] = pieza; this.jugador.actualizarOrbitalesDesdeModulos(); this._refreshModulosTab(); } }
+        _refreshStatsTab() { const s = this.proyectilService.getStats(); const af = this.jugador.obtenerAfinidades(); const pasivas = this.jugador._pasivasActivas; let html = '<h4>Estadísticas</h4>'; html += `<p>❤️ Vida: ${Math.floor(this.jugador.hp)}/${this.jugador.getMaxHp()}</p>`; html += `<p>🛡️ Escudos: ${this.jugador.escudos}/${CONFIG.player.maxEscudos}</p>`; html += `<p>⚔️ Daño: ${s.damage}</p><p>⏱️ Cadencia: ${s.fireRate.toFixed(2)}s</p>`; html += `<p>🔫 Proyectiles: ${s.projectiles}</p><p>🎯 Crítico: ${(this.jugador.critChance*100).toFixed(1)}% (x${CONFIG.player.critMultiplier})</p>`; html += `<p>💨 Velocidad: ${s.speed.toFixed(0)} px/s</p><p>🛡️ Armadura: ${s.armor}</p>`; html += '<h4>Afinidades elementales</h4>'; for (const el in af) html += `<p style="color:${this._colorElemento(el)}">${el}: ${af[el]} / ${CONFIG.elements.afinidadMax}</p>`; html += '<h4>Pasivas activas</h4>'; if (pasivas) { for (const el of CONFIG.elements.tipos) { if (pasivas[el] && pasivas[el].length > 0) { html += `<p style="color:${this._colorElemento(el)}">${el}: ${pasivas[el].map(p=>p.nombre).join(', ')}</p>`; } } } if (!pasivas || Object.values(pasivas).every(a=>a.length===0)) html += '<p>Ninguna (sube afinidades)</p>'; this.tabContents.stats.innerHTML = html; }
         _colorElemento(el) { return { fuego:'#ff6600', hielo:'#00ccff', veneno:'#99cc00', agua:'#3399ff', fisico:'#ccc' }[el] || '#fff'; }
         _buildTiendaTab() {} _refreshTiendaTab() { const pts = this.jugador.destinyPoints; const mejoras = [ { id:'hpBonus', n:'Vida +5', c:10, a:'hpBonus' }, { id:'damageBonus', n:'Daño +2', c:15, a:'damageBonus' }, { id:'speedBonus', n:'Velocidad +18', c:12, a:'speedBonus' }, { id:'fireRateBonus', n:'Cadencia -0.05s', c:20, a:'fireRateBonus' }, { id:'projectilesBonus', n:'Proyectil +1', c:30, a:'projectilesBonus' }, { id:'critBonus', n:'Crítico +5%', c:18, a:'critBonus' } ]; let html = `<p>Puntos de Destino: ${pts}</p>`; mejoras.forEach(m => { const act = this.jugador.permanentUpgrades[m.a]||0; html += `<button ${pts>=m.c?'':'disabled'} onclick="window.__game.comprarMejora('${m.a}',${m.c})">${m.n} (${m.c} PD) [${act}]</button><br>`; }); this.tabContents.tienda.innerHTML = html; }
         comprarMejora(attr, costo) { if (this.jugador.destinyPoints >= costo) { this.jugador.destinyPoints -= costo; this.jugador.permanentUpgrades[attr] = (this.jugador.permanentUpgrades[attr]||0) + 1; if (attr === 'critBonus') this.jugador.critChance = CONFIG.player.baseCritChance + this.jugador.permanentUpgrades.critBonus * 0.05; this._guardarProgreso(); this._refreshTiendaTab(); this._refreshStatsTab(); } }
@@ -664,27 +737,36 @@
         _applyArchitect(id, val) { const map = { aimassist:'input.aimAssist', autofire:'input.autoFire', freeautoaim:'input.freeAutoAim', spawninterval:'combat.spawnInterval', maxenemies:'combat.maxEnemies', specialenemychance:'combat.specialEnemyChance' }; if (map[id]) { const k = map[id].split('.'); let o = CONFIG; for (let i = 0; i < k.length-1; i++) o = o[k[i]]; o[k[k.length-1]] = val; } }
         resize() { const mw = window.innerWidth, mh = window.innerHeight; let w, h; if (this.esMovil) { w = Math.max(mw, mh); h = Math.min(mw, mh); const hint = document.getElementById('rotate-hint'); if (hint) hint.style.display = (mw < mh) ? 'flex' : 'none'; } else { if (mw/mh > this.baseWidth/this.baseHeight) { h = mh; w = (this.baseWidth/this.baseHeight)*h; } else { w = mw; h = (this.baseHeight/this.baseWidth)*w; } } this.canvas.width = w; this.canvas.height = h; this.input.updateCanvasSize(w, h); }
         _bindInput() { document.addEventListener('keydown', e => { if (e.key.toLowerCase() === 'e' && !this.gameOver && !this.pausado) { e.preventDefault(); this.activarUltimate(); } if (e.key === 'Tab' && !this.gameOver) { e.preventDefault(); this.toggleMenu(); } if (e.key.toLowerCase() === 'r' && this.gameOver) this.reiniciarJuego(); }); if (this.esMovil) { document.getElementById('mobile-controls').style.display = 'flex'; document.getElementById('btn-dash').addEventListener('touchstart', e => { e.preventDefault(); this.input.bufferAction('dash'); }); document.getElementById('btn-ultimate').addEventListener('touchstart', e => { e.preventDefault(); this.input.bufferAction('ultimate'); }); document.getElementById('btn-menu').addEventListener('touchstart', e => { e.preventDefault(); this.toggleMenu(); }); if (screen.orientation && screen.orientation.lock) { screen.orientation.lock('landscape').catch(()=>{}); } } }
-        reiniciarJuego() { const save = this.persistence.load(); this.jugador.init(this.canvas.width/2, this.canvas.height/2, save); this.jugador.modulosEquipados = (save.modulosEquipados || [null,null,null,null]).map(m => m ? Pieza.fromData(m) : null); this.jugador.inventarioModulos = (save.inventarioModulos || []).map(m => Pieza.fromData(m)).filter(Boolean); this.enemigos = []; this.balas = []; this.drops = []; this.estructuras = []; this.zonas = []; this.explosiones = []; this.pausado = false; this.gameOver = false; this.kills = 0; this.tiempoSobrevivido = 0; this.cargaUltimate = 0; this.ultiUsos = 0; this.criticosRealizados = 0; this.dropsRecogidos = 0; this.jefesDerrotados = 0; this.spawnTimer = CONFIG.combat.spawnInterval; this.powerBar = 0; this.powerActive = false; this.powerTimer = 0; this.oleadaTimer = CONFIG.combat.oleadaInterval; this.ui.messages = []; this.ui.particles = []; this.difficulty = new DifficultyService(); this.spriteGenerator.cache.clear(); this.nemesisActivo = null; this.nemesisTimer = 0; document.getElementById('pause-overlay').style.display = 'none'; this._checkNemesisStart(); document.getElementById('levelup-panel').style.display = 'none'; }
+        reiniciarJuego() { const save = this.persistence.load(); this.jugador.init(this.canvas.width/2, this.canvas.height/2, save); this.jugador.modulosEquipados = (save.modulosEquipados || [null,null,null,null]).map(m => m ? Pieza.fromData(m) : null); this.jugador.inventarioModulos = (save.inventarioModulos || []).map(m => Pieza.fromData(m)).filter(Boolean); this.enemigos = []; this.balas = []; this.drops = []; this.estructuras = []; this.zonas = []; this.explosiones = []; this.pausado = false; this.gameOver = false; this.kills = 0; this.tiempoSobrevivido = 0; this.cargaUltimate = 0; this.ultiUsos = 0; this.criticosRealizados = 0; this.dropsRecogidos = 0; this.jefesDerrotados = 0; this.oleadaCount = 0; this.spawnTimer = CONFIG.combat.spawnInterval; this.powerBar = 0; this.powerActive = false; this.powerTimer = 0; this.oleadaTimer = CONFIG.combat.oleadaInterval; this.ui.messages = []; this.ui.particles = []; this.difficulty = new DifficultyService(); this.spriteGenerator.cache.clear(); this.nemesisActivo = null; this.nemesisTimer = 0; document.getElementById('pause-overlay').style.display = 'none'; this._checkNemesisStart(); document.getElementById('levelup-panel').style.display = 'none'; }
         activarUltimate() { if (this.cargaUltimate < this.maxCargaUltimate || this.pausado) return; this.cargaUltimate = 0; this.ultiUsos++; this.audio.playUltimate(); const dom = this.proyectilService.getDominantElement(); if (dom === 'fuego') { for (const e of this.enemigos) { if (!e.alive) continue; if (dist(this.jugador.x, this.jugador.y, e.x, e.y) < 150) { e.hp -= 60; e.applyStatusEffect('quemadura', { damage:10, duration:3.0 }); } } this._emitParticles(this.jugador.x, this.jugador.y, '#ff6600', 40); } else if (dom === 'hielo') { for (const e of this.enemigos) { if (!e.alive) continue; if (dist(this.jugador.x, this.jugador.y, e.x, e.y) < 150) { e.applyStatusEffect('congelacion', { factor:0.1, duration:2.0 }); e.hp -= 30; } } this._emitParticles(this.jugador.x, this.jugador.y, '#00ccff', 40); } else if (dom === 'veneno') { this.zonas.push(new ZonaElemental(this.jugador.x, this.jugador.y, 'veneno', 5.0)); this._emitParticles(this.jugador.x, this.jugador.y, '#99cc00', 40); } else if (dom === 'agua') { for (const e of this.enemigos) { if (!e.alive) continue; if (dist(this.jugador.x, this.jugador.y, e.x, e.y) < 150) { e.x += (e.x - this.jugador.x)*0.5; e.y += (e.y - this.jugador.y)*0.5; e.hp -= 20; } } this.jugador.addBuff('armor', 20, 5.0); this._emitParticles(this.jugador.x, this.jugador.y, '#3399ff', 40); } else { const ang = this._getAimAngle(); for (const e of this.enemigos) { if (!e.alive) continue; const d = Math.abs((this.jugador.y-e.y)*Math.cos(ang)-(this.jugador.x-e.x)*Math.sin(ang)); if (d < e.radio+40) { e.hp -= 80; e.applyStatusEffect('quemadura', { damage:5, duration:2.0 }); } } this._emitParticles(this.jugador.x, this.jugador.y, '#ffd700', 30); } this.ui.cameraShake.intensity = 0.4; }
         _getAimAngle() { const aimVec = this.input.getAimVector(); if (aimVec) return aimVec.angle; if (CONFIG.input.freeAutoAim && this.enemigos.length > 0) { let be = null, bd = Infinity; for (const e of this.enemigos) if (e.alive) { const d = dist(this.jugador.x, this.jugador.y, e.x, e.y); if (d < bd) { bd = d; be = e; } } if (be) return Math.atan2(be.y-this.jugador.y, be.x-this.jugador.x); } const move = this.input.getMove(); return (move.dx !== 0 || move.dy !== 0) ? Math.atan2(move.dy, move.dx) : -Math.PI/2; }
-        spawnEnemy() { const lado = Math.floor(Math.random()*4); let x,y; const W = this.canvas.width, H = this.canvas.height, m = 30; switch(lado) { case 0: x=Math.random()*W; y=-m; break; case 1: x=W+m; y=Math.random()*H; break; case 2: x=Math.random()*W; y=H+m; break; case 3: x=-m; y=Math.random()*H; break; } const scaling = 1+(this.kills*CONFIG.combat.scalingPerKill/100); const mult = this.difficulty.getMultipliers(); const hp = CONFIG.combat.enemyBaseHp*scaling*mult.hp; const sz = CONFIG.combat.enemyBaseSize*(1+scaling*0.2); const sp = CONFIG.combat.enemyBaseSpeed*(1+scaling*0.1)*mult.speed; const ni = Math.random()<0.1+scaling*0.05?1:0; let tipo = 'normal'; const tipos = ['normal','barrera','proyectil','kamikaze','constructor','arquero']; if (Math.random()<CONFIG.combat.specialEnemyChance) tipo = tipos[Math.floor(Math.random()*tipos.length)]; const enemy = new Enemy(x,y,ni,hp,sz,sp,tipo); if (enemy.shootInterval > 0) { enemy.shootInterval *= mult.shootInterval; enemy.shootTimer = enemy.shootInterval; } if (ni >= 1) enemy.armor = Math.floor(1 + ni * 0.5); const elemento = ['fuego','hielo','veneno','agua','fisico'][Math.floor(Math.random()*5)]; const rareza = ni >= 2 ? 'jefe' : (ni === 1 ? 'elite' : 'comun'); enemy.sprite = this.spriteGenerator.getSprite(tipo, rareza, elemento, `${x},${y},${this.kills}`, false); this.enemigos.push(enemy); }
+        spawnEnemy() { const lado = Math.floor(Math.random()*4); let x,y; const W = this.canvas.width, H = this.canvas.height, m = 30; switch(lado) { case 0: x=Math.random()*W; y=-m; break; case 1: x=W+m; y=Math.random()*H; break; case 2: x=Math.random()*W; y=H+m; break; case 3: x=-m; y=Math.random()*H; break; } const scaling = 1+(this.kills*CONFIG.combat.scalingPerKill/100); const mult = this.difficulty.getMultipliers(); const hp = CONFIG.combat.enemyBaseHp*scaling*mult.hp; const sz = CONFIG.combat.enemyBaseSize*(1+scaling*0.2); const sp = CONFIG.combat.enemyBaseSpeed*(1+scaling*0.1)*mult.speed; const ni = Math.random()<0.1+scaling*0.05?1:0; let tipo = 'normal'; const tipos = ['normal','barrera','proyectil','kamikaze','constructor','arquero']; if (Math.random()<CONFIG.combat.specialEnemyChance) tipo = tipos[Math.floor(Math.random()*tipos.length)]; const enemy = new Enemy(x,y,ni,hp,sz,sp,tipo); if (enemy.shootInterval > 0) { enemy.shootInterval *= mult.shootInterval; enemy.shootTimer = enemy.shootInterval; } if (ni >= 1) enemy.armor = Math.floor(1 + ni * 0.5 + this.jugador.nivel * 0.1); const elemento = ['fuego','hielo','veneno','agua','fisico'][Math.floor(Math.random()*5)]; const rareza = ni >= 2 ? 'jefe' : (ni === 1 ? 'elite' : 'comun'); enemy.sprite = this.spriteGenerator.getSprite(tipo, rareza, elemento, `${x},${y},${this.kills}`, false); this.enemigos.push(enemy); }
         spawnStructure(x,y) { if (this.estructuras.length < CONFIG.structures.maxOnScreen) this.estructuras.push(new Structure(x,y)); }
         _emitParticles(x,y,color,count=10) { for (let i=0;i<count;i++) { const a=Math.random()*Math.PI*2, s=Math.random()*240+60; this.ui.particles.push({x,y,vx:Math.cos(a)*s,vy:Math.sin(a)*s,life:0.5+Math.random()*0.5,maxLife:1.0,color,size:2+Math.random()*4}); } }
         _addExplosion(x, y, radius) { this.explosiones.push({x, y, radius, alpha:1.0, duration:0.5}); }
         procesarMuerteEnemigo(e) {
             if (e.tipo==='proyectil'&&!e.alive) for(let i=0;i<CONFIG.combat.proyectilCount;i++){const a=Math.random()*Math.PI*2;this.balas.push(new Bullet(e.x,e.y,Math.cos(a)*240,Math.sin(a)*240,8));}
             if (e.tipo==='kamikaze'&&!e.alive){ this.audio.playExplosion(); this._addExplosion(e.x, e.y, CONFIG.combat.kamikazeArea); for(const en of this.enemigos)if(en.alive&&dist(e.x,e.y,en.x,en.y)<CONFIG.combat.kamikazeArea)en.hp-=30; if(dist(e.x,e.y,this.jugador.x,this.jugador.y)<CONFIG.combat.kamikazeArea)this.jugador.takeDamage(15); this._emitParticles(e.x,e.y,'#ff4500',20); this.ui.cameraShake.intensity = Math.max(this.ui.cameraShake.intensity, 0.3); }
-            for (const m of e.modulosEquipados) { if (m) { this.drops.push({ tipo: 'modulo', valor: 0, icono: '🧩', color: m.color, rareza: 'comun', label: 'Módulo', x: e.x + (Math.random()-0.5)*30, y: e.y + (Math.random()-0.5)*30, alive: true, radio: 10, pieza: m }); } }
+            for (const m of e.modulosEquipados) { if (m) { this.drops.push({ tipo: 'modulo', valor: 0, icono: '🧩', color: m.color, rareza: m.rareza, label: 'Módulo', x: e.x + (Math.random()-0.5)*30, y: e.y + (Math.random()-0.5)*30, alive: true, radio: 10, pieza: m }); } }
             const estadosActivos=[]; if(e.hasStatus('quemadura'))estadosActivos.push('fuego'); if(e.hasStatus('congelacion'))estadosActivos.push('hielo'); if(e.hasStatus('veneno'))estadosActivos.push('veneno');
             if(estadosActivos.length>=2){ const clave=`${estadosActivos[0]}+${estadosActivos[1]}`; const reaccion=CONFIG.elements.reacciones[clave]||CONFIG.elements.reacciones[`${estadosActivos[1]}+${estadosActivos[0]}`]; if(reaccion){ if(reaccion.dejaZona)this.zonas.push(new ZonaElemental(e.x,e.y,reaccion.dejaZona,CONFIG.elements.zonaDuracion)); if(reaccion.accion==='choqueTermico'){for(const en of this.enemigos)if(en.alive&&dist(e.x,e.y,en.x,en.y)<reaccion.area)en.hp-=reaccion.daño;} if(reaccion.accion==='nubeInflamable'){this.zonas.push(new ZonaElemental(e.x,e.y,'fuego',120));} if(reaccion.accion==='vapor'){for(const en of this.enemigos)if(en.alive&&dist(e.x,e.y,en.x,en.y)<reaccion.area){en.x+=(en.x-e.x)*0.3;en.y+=(en.y-e.y)*0.3;en.applyStatusEffect('quemadura',{damage:5,duration:1.5});}} } }
             const events = this.evolutionService.processDeath(e);
-            for (const ev of events) { if (ev.type==='spawn') { const hijo = ev.enemy; hijo.sprite = this.spriteGenerator.getSprite(hijo.tipo, 'comun', 'fisico', `${hijo.x},${hijo.y},${this.kills}`, false); this.enemigos.push(hijo); } else if (ev.type==='loot') { if (Math.random()<CONFIG.combat.moduleDropChance) { const pieza = this.dropService.generarModule(e); this.drops.push({ tipo: 'modulo', valor: 0, icono: '🧩', color: pieza.color, rareza: 'comun', label: 'Módulo', x: e.x + (Math.random()-0.5)*30, y: e.y + (Math.random()-0.5)*30, alive: true, radio: 10, pieza: pieza }); } else { const loot = this.dropService.generarLoot(e, this.jugador); if (loot) this.drops.push(loot); } } else if (ev.type==='death') { this.kills++; this.cargaUltimate = Math.min(this.maxCargaUltimate, this.cargaUltimate+CONFIG.combat.ultimateChargePerKill); if (e.esJefe) this.jefesDerrotados++; if (this.nivelService.addXP(CONFIG.combat.xpPerKill)) { this.audio.playLevelUp(); this._mostrarOpcionesNivel(); } } }
+            for (const ev of events) { if (ev.type==='spawn') { const hijo = ev.enemy; hijo.sprite = this.spriteGenerator.getSprite(hijo.tipo, 'comun', 'fisico', `${hijo.x},${hijo.y},${this.kills}`, false); this.enemigos.push(hijo); } else if (ev.type==='loot') { if (Math.random()<CONFIG.combat.moduleDropChance) { const pieza = this.dropService.generarModule(e); this.drops.push({ tipo: 'modulo', valor: 0, icono: '🧩', color: pieza.color, rareza: pieza.rareza, label: 'Módulo', x: e.x + (Math.random()-0.5)*30, y: e.y + (Math.random()-0.5)*30, alive: true, radio: 10, pieza: pieza }); } else { const loot = this.dropService.generarLoot(e, this.jugador); if (loot) this.drops.push(loot); } } else if (ev.type==='death') { this.kills++; this.cargaUltimate = Math.min(this.maxCargaUltimate, this.cargaUltimate+CONFIG.combat.ultimateChargePerKill); if (e.esJefe) this.jefesDerrotados++; if (this.nivelService.addXP(CONFIG.combat.xpPerKill)) { this.audio.playLevelUp(); this._mostrarOpcionesNivel(); } } }
         }
         _mostrarOpcionesNivel() { if (this.menuPanel.style.display === 'block') { this.menuPanel.style.display = 'none'; } const panel = document.getElementById('levelup-panel'), desc = document.getElementById('levelup-desc'), op = document.getElementById('levelup-options'); const ops = this.nivelService.getOptions(); desc.textContent = `Nivel ${this.jugador.nivel}: Elige una mejora.`; op.innerHTML = ops.map((o,i) => `<button onclick="window.__game._elegirMejoraNivel(${i})">${o.texto}</button>`).join(''); panel.style.display = 'block'; document.getElementById('pause-overlay').style.display = 'flex'; this._opcionesNivel = ops; this.pausado = true; }
         _elegirMejoraNivel(i) { if (!this._opcionesNivel || !this._opcionesNivel[i]) return; this._opcionesNivel[i].accion(); document.getElementById('levelup-panel').style.display = 'none'; document.getElementById('pause-overlay').style.display = 'none'; this.pausado = false; this._opcionesNivel = null; this.jugador.critChance = CONFIG.player.baseCritChance + (this.jugador.permanentUpgrades.critBonus||0)*0.05; if (this.menuPanel.style.display === 'block') this._refreshModulosTab(); }
         recogerDrop(d) { this.audio.playDropCollected(); this.dropsRecogidos++; switch(d.tipo) { case 'hp': this.jugador.heal(d.valor); break; case 'proyectiles': this.jugador.upgradeWeapon(); break; case 'cadencia': this.jugador.permanentUpgrades.fireRateBonus+=d.valor; break; case 'daño': this.jugador.permanentUpgrades.damageBonus+=d.valor; break; case 'velocidad': this.jugador.permanentUpgrades.speedBonus+=d.valor; break; case 'precision': this.jugador.critChance+=d.valor; break; case 'modulo': if (d.pieza) this.jugador.inventarioModulos.push(d.pieza); break; } }
-        spawnBoss() { const b = new Enemy(this.canvas.width/2,this.canvas.height/2,3,CONFIG.combat.enemyBaseHp*3,CONFIG.combat.enemyBaseSize*1.6,CONFIG.combat.enemyBaseSpeed*0.7,'normal'); b.esJefe = true; b.shootInterval = 1.3; b.shootTimer = 1.3; b.bulletDamage = 12; b.maxModulos = 3; b.modulosEquipados = new Array(3).fill(null); b.rebotaBalas = true; b.armor = 2; b.patternType = Math.random()<0.5?'abanico':null; b.sprite = this.spriteGenerator.getSprite('normal','jefe','fisico',`boss,${this.kills}`, false); this.enemigos.push(b); }
-        spawnMiniBoss() { const b = new Enemy(this.canvas.width/2+(Math.random()-0.5)*100,this.canvas.height/2+(Math.random()-0.5)*100,2,CONFIG.combat.enemyBaseHp*2,CONFIG.combat.enemyBaseSize*1.4,CONFIG.combat.enemyBaseSpeed*0.8,'arquero'); b.shootInterval = 1.0; b.shootTimer = 1.0; b.bulletDamage = 10; b.maxModulos = 2; b.modulosEquipados = new Array(2).fill(null); b.armor = 1; b.patternType = 'abanico'; b.sprite = this.spriteGenerator.getSprite('arquero','elite','fisico',`miniboss,${this.kills}`, false); this.enemigos.push(b); }
+        spawnBoss() { const b = new Enemy(this.canvas.width/2,this.canvas.height/2,3,CONFIG.combat.enemyBaseHp*3,CONFIG.combat.enemyBaseSize*1.6,CONFIG.combat.enemyBaseSpeed*0.7,'normal'); b.esJefe = true; b.shootInterval = 1.3; b.shootTimer = 1.3; b.bulletDamage = 12; b.maxModulos = 3; b.modulosEquipados = new Array(3).fill(null); b.rebotaBalas = true; b.armor = 2 + Math.floor(this.jugador.nivel * 0.2); b.patternType = Math.random()<0.5?'abanico':null; b.sprite = this.spriteGenerator.getSprite('normal','jefe','fisico',`boss,${this.kills}`, false); this.enemigos.push(b); }
+        spawnMiniBoss() { const b = new Enemy(this.canvas.width/2+(Math.random()-0.5)*100,this.canvas.height/2+(Math.random()-0.5)*100,2,CONFIG.combat.enemyBaseHp*2,CONFIG.combat.enemyBaseSize*1.4,CONFIG.combat.enemyBaseSpeed*0.8,'arquero'); b.shootInterval = 1.0; b.shootTimer = 1.0; b.bulletDamage = 10; b.maxModulos = 2; b.modulosEquipados = new Array(2).fill(null); b.armor = 1 + Math.floor(this.jugador.nivel * 0.1); b.patternType = 'abanico'; b.sprite = this.spriteGenerator.getSprite('arquero','elite','fisico',`miniboss,${this.kills}`, false); this.enemigos.push(b); }
+        spawnJefeRebote() {
+            const b = new Enemy(this.canvas.width/2, this.canvas.height/2, 3, CONFIG.combat.enemyBaseHp*4, CONFIG.combat.enemyBaseSize*1.8, CONFIG.combat.enemyBaseSpeed*0.6, 'arquero');
+            b.esJefe = true; b.shootInterval = 0; b.bulletDamage = 0; b.maxModulos = 4; b.modulosEquipados = new Array(4).fill(null);
+            b.rebotaBalas = true; b.armor = 3 + Math.floor(this.jugador.nivel * 0.3);
+            b.patternType = 'rebote'; b._reboteTimer = 0; b._reboteInterval = 2.0;
+            b.color = '#ff00ff'; b.sprite = this.spriteGenerator.getSprite('arquero', 'jefe', 'fisico', `rebote,${this.kills}`, false, false);
+            b.nombre = 'Jefe de Rebote';
+            this.enemigos.push(b);
+        }
         finalizarPartida() { const s = this.persistence.load(); s.destinyPoints = (s.destinyPoints||0)+2; s.kills = (s.kills||0)+this.kills; s.upgrades = { ...this.jugador.permanentUpgrades }; s.modulosEquipados = this.jugador.modulosEquipados; s.inventarioModulos = this.jugador.inventarioModulos; this.persistence.save(s); }
         _guardarProgreso() { const s = this.persistence.load(); s.destinyPoints = this.jugador.destinyPoints; s.upgrades = { ...this.jugador.permanentUpgrades }; s.modulosEquipados = this.jugador.modulosEquipados; s.inventarioModulos = this.jugador.inventarioModulos; this.persistence.save(s); }
         _loop() { const now = performance.now(); this._deltaTime = Math.min((now - this._lastFrame) / 1000, 0.1); this._lastFrame = now; this._update(); this._draw(); requestAnimationFrame(() => this._loop()); }
@@ -696,14 +778,30 @@
             const move = this.input.getMove(); let speed = this.proyectilService.getStats().speed * dt; if (this.jugador.dashing) speed *= CONFIG.input.dashSpeed;
             this.jugador.x += move.dx * speed; this.jugador.y += move.dy * speed;
             const margen = this.jugador.radio + 10; this.jugador.x = Math.max(margen, Math.min(this.canvas.width - margen, this.jugador.x)); this.jugador.y = Math.max(margen, Math.min(this.canvas.height - margen, this.jugador.y));
-            if (this.jugador.cooldown <= 0 && (CONFIG.input.autoFire || this.input.isFireHeld() || this.input.consumeFireRequest?.())) {
-                const stats = this.proyectilService.getStats();
-                this.jugador.fire(this._getAimAngle(), this.balas, stats);
-                this.audio.playShoot(this.proyectilService.getDominantElement());
-            }
+            if (this.jugador.cooldown <= 0 && (CONFIG.input.autoFire || this.input.isFireHeld() || this.input.consumeFireRequest?.())) { const stats = this.proyectilService.getStats(); this.jugador.fire(this._getAimAngle(), this.balas, stats); this.audio.playShoot(this.proyectilService.getDominantElement()); }
             if (this.input.consumeBuffered('dash', this.jugador.dashCooldown <= 0)) { this.jugador.dashing = true; this.jugador.dashTimer = CONFIG.input.dashDuration; this.jugador.invincible = true; this.jugador.dashCooldown = CONFIG.input.dashCooldown; }
             if (this.input.consumeBuffered('ultimate', this.cargaUltimate >= this.maxCargaUltimate)) { this.activarUltimate(); }
             if (this.powerActive) { this.powerTimer -= dt; if (this.powerTimer <= 0) this.powerActive = false; }
+            // Jefe de rebote: patrón de rebote
+            for (const e of this.enemigos) {
+                if (e.alive && e.patternType === 'rebote') {
+                    e._reboteTimer -= dt;
+                    if (e._reboteTimer <= 0) {
+                        e._reboteTimer = e._reboteInterval;
+                        const pat = CONFIG.combat.patterns.rebotePatron;
+                        const balasJugador = this.balas.filter(b => b.owner === 'player' && b.alive);
+                        if (balasJugador.length > 0) {
+                            const count = Math.min(pat.count, balasJugador.length);
+                            for (let i = 0; i < count; i++) {
+                                const b = balasJugador[i];
+                                b.vx *= -1; b.vy *= -1;
+                                b.owner = 'enemy'; b.reflected = true; b.alive = true;
+                                b.rebotes++;
+                            }
+                        }
+                    }
+                }
+            }
             this.combatService.updateBullets(this.balas, this.enemigos, this.estructuras, this.jugador, this.difficulty, this.powerActive, this);
             this.combatService.updateEnemies(this.enemigos, this.jugador, this.canvas, this);
             for (let i = this.estructuras.length-1; i >= 0; i--) if (!this.estructuras[i].alive) this.estructuras.splice(i,1);
@@ -712,7 +810,17 @@
             for (let i = this.explosiones.length-1; i >= 0; i--) { this.explosiones[i].alpha -= dt * 2; if (this.explosiones[i].alpha <= 0) this.explosiones.splice(i,1); }
             const maxEn = CONFIG.combat.maxEnemies; this.spawnTimer -= dt; const enVivos = this.enemigos.filter(e=>e.alive).length;
             if (this.spawnTimer <= 0 || (CONFIG.combat.spawnAdaptativo && enVivos < 3 && this.spawnTimer > 0.3)) { this.spawnEnemy(); this.spawnTimer = CONFIG.combat.spawnInterval; if (CONFIG.combat.spawnAdaptativo && enVivos < 3) this.spawnTimer = 0.3; }
-            if (CONFIG.combat.oleadasPeriodicas) { this.oleadaTimer -= dt; if (this.oleadaTimer <= 0) { this.oleadaTimer = CONFIG.combat.oleadaInterval; for (let i = 0; i < 5; i++) this.spawnEnemy(); } }
+            if (CONFIG.combat.oleadasPeriodicas) {
+                this.oleadaTimer -= dt;
+                if (this.oleadaTimer <= 0) {
+                    this.oleadaTimer = CONFIG.combat.oleadaInterval;
+                    this.oleadaCount++;
+                    for (let i = 0; i < 5; i++) this.spawnEnemy();
+                    if (this.oleadaCount % CONFIG.combat.oleadaJefeReboteInterval === 0) {
+                        this.spawnJefeRebote();
+                    }
+                }
+            }
             if (this.kills > 0 && this.kills % CONFIG.combat.miniBossInterval === 0 && !this.enemigos.some(e=>e.esJefe&&e.alive && e.nivelEvo<3)) this.spawnMiniBoss();
             if (this.kills > 0 && this.kills % CONFIG.combat.bossInterval === 0 && !this.enemigos.some(e=>e.esJefe&&e.alive)) this.spawnBoss();
             if (this.nemesisActivo) { this.nemesisTimer -= dt; if (this.nemesisTimer <= 0) { this.spawnNemesis(); } }
@@ -761,3 +869,4 @@
     </script>
 </body>
 </html>
+       
