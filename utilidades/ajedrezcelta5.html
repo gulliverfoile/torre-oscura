@@ -39,7 +39,7 @@
         .legend { display: flex; gap: 15px; margin: 5px 0; font-size: 0.85rem; flex-wrap: wrap; justify-content: center; }
         .legend span { display: flex; align-items: center; gap: 5px; }
 
-        #architectToggle {
+        #architectToggle, #newGameBtn {
             background: var(--accent);
             border: none;
             color: #000;
@@ -86,6 +86,7 @@
         <span><span style="color:#ff9f43;">▲</span> Cazador</span>
         <span><span style="color:#f1c40f;">⚡</span> Sabueso</span>
     </div>
+    <button id="newGameBtn">🔄 Nueva Partida</button>
     <button id="architectToggle">⚙️ Arquitecto</button>
     <div id="architectPanel">
         <h4>🛠️ Configuración</h4>
@@ -188,7 +189,6 @@
         }
 
         addForest(row, col, duration) {
-            // No poner bosque sobre piezas
             if (this.get(row, col)) return;
             this.forests.push({row, col, duration});
         }
@@ -203,21 +203,21 @@
             this.forests = [];
             const center = Math.floor(this.rows/2);
             // Rey
-            this.grid[center][center] = { type:'rey', player:CONFIG.players.defensor.id };
+            this.grid[center][center] = { ...CONFIG.pieces.rey };
             // Guardias
-            const guardCount = CONFIG.guardCount || 4;
+            const guardCount = CONFIG.guardCount ?? 4;
             const guardPos = this._genPos(center, guardCount, [[0,1],[0,-1],[1,0],[-1,0]]);
-            guardPos.forEach(([r,c])=> this.grid[r][c] = { type:'guardia', player:CONFIG.players.defensor.id });
+            guardPos.forEach(([r,c])=> this.grid[r][c] = { ...CONFIG.pieces.guardia });
             // Berserkers
-            const bCount = CONFIG.berserkCount || 0;
+            const bCount = CONFIG.berserkCount ?? 0;
             const used = new Set(guardPos.map(p=>`${p[0]},${p[1]}`));
             used.add(`${center},${center}`);
             const bersPos = this._genPos(center, bCount, [[0,1],[0,-1],[1,0],[-1,0],[1,1],[1,-1],[-1,1],[-1,-1]], used);
-            bersPos.forEach(([r,c])=> { this.grid[r][c] = { type:'berserker', player:CONFIG.players.defensor.id }; used.add(`${r},${c}`); });
+            bersPos.forEach(([r,c])=> { this.grid[r][c] = { ...CONFIG.pieces.berserker }; used.add(`${r},${c}`); });
             // Druidas
-            const dCount = CONFIG.druidCount || 0;
+            const dCount = CONFIG.druidCount ?? 0;
             const druidPos = this._genPos(center, dCount, [[1,1],[1,-1],[-1,1],[-1,-1]], used);
-            druidPos.forEach(([r,c])=> this.grid[r][c] = { type:'druida', player:CONFIG.players.defensor.id });
+            druidPos.forEach(([r,c])=> this.grid[r][c] = { ...CONFIG.pieces.druida });
             // Cazadores
             const atkPos = [];
             for (let r=0;r<this.rows;r++)
@@ -228,16 +228,16 @@
             [[mid,0],[mid,this.cols-1],[0,mid],[this.rows-1,mid]].forEach(p=>{
                 if (!atkPos.some(q=>q[0]===p[0]&&q[1]===p[1])) atkPos.push(p);
             });
-            atkPos.forEach(([r,c])=> this.grid[r][c] = { type:'cazador', player:CONFIG.players.atacante.id });
+            atkPos.forEach(([r,c])=> this.grid[r][c] = { ...CONFIG.pieces.cazador });
             // Sabuesos
-            const hCount = CONFIG.houndCount || 0;
+            const hCount = CONFIG.houndCount ?? 0;
             const atkUsed = new Set(atkPos.map(p=>`${p[0]},${p[1]}`));
             const houndPos = [];
             for (let r=0;r<this.rows && houndPos.length<hCount;r++)
                 for (let c=0;c<this.cols && houndPos.length<hCount;c++)
                     if ((r===0||r===this.rows-1||c===0||c===this.cols-1) && !atkUsed.has(`${r},${c}`))
                         houndPos.push([r,c]);
-            houndPos.forEach(([r,c])=> this.grid[r][c] = { type:'sabueso', player:CONFIG.players.atacante.id });
+            houndPos.forEach(([r,c])=> this.grid[r][c] = { ...CONFIG.pieces.sabueso });
         }
 
         _genPos(center, count, dirs, usedSet=new Set()) {
@@ -278,16 +278,13 @@
             if (!piece || piece.player !== playerId) return false;
             if (!board.isEmpty(tr, tc)) return false;
             const dr = Math.abs(tr-fr), dc = Math.abs(tc-fc);
-            // Druida: solo diagonal 1
             if (piece.type === 'druida') {
                 return dr===1 && dc===1;
             }
-            // Otros: ortogonal
             if (!((dr===0 && dc>0) || (dc===0 && dr>0))) return false;
             let maxDist = 1;
             if (playerId === CONFIG.players.atacante.id && CONFIG.asymmetricMove) maxDist = 2;
             if (dr > maxDist || dc > maxDist) return false;
-            // Camino libre (incluyendo bosques)
             if (dr>1 || dc>1) {
                 const stepR = tr>fr ? 1 : (tr<fr ? -1 : 0);
                 const stepC = tc>fc ? 1 : (tc<fc ? -1 : 0);
@@ -313,10 +310,9 @@
                 const beyondRow = movedRow+dr*2, beyondCol = movedCol+dc*2;
                 const adj = board.get(adjRow, adjCol);
                 if (!adj || adj.player === movingPlayerId) continue;
-                // Inmunes a custodia: rey, berserker, druida
                 if (adj.type === 'rey' || adj.type === 'berserker' || adj.type === 'druida') continue;
                 const beyond = board.get(beyondRow, beyondCol);
-                if (beyond && beyond.player === movingPlayerId) {
+                if (beyond && beyond.player === movingPlayerId && !board.isForest(beyondRow, beyondCol)) {
                     captured.push({row:adjRow, col:adjCol, piece:adj});
                     board.set(adjRow, adjCol, null);
                 }
@@ -329,7 +325,6 @@
                     const nr=movedRow+dr, nc=movedCol+dc;
                     const target = board.get(nr, nc);
                     if (target && target.player !== movingPlayerId && target.type !== 'rey') {
-                        // Condición: el enemigo está contra un borde o tiene un aliado detrás
                         const behindRow = nr+dr, behindCol = nc+dc;
                         const behind = board.get(behindRow, behindCol);
                         if (board.isEdge(nr, nc) || (behind && behind.player === movingPlayerId)) {
@@ -350,7 +345,7 @@
             for (const [dr,dc] of dirs) {
                 const nr=row+dr, nc=col+dc;
                 if (nr<0||nr>=board.rows||nc<0||nc>=board.cols) continue;
-                if (board.isForest(nr, nc)) continue; // bosque no cuenta para rodeo
+                if (board.isForest(nr, nc)) continue;
                 required++;
                 const n = board.get(nr, nc);
                 if (n && n.player !== piece.player) enemies++;
@@ -386,6 +381,7 @@
     function _evaluateAttacker(board) {
         const king = RuleEngine.findKing(board);
         if (!king) return 1000;
+        const atkPieces = board.findPieces(CONFIG.players.atacante.id).length;
         const edgeDist = Math.min(king.r, board.rows-1-king.r, king.c, board.cols-1-king.c);
         let mobility=0, control=0;
         const dirs=[[0,1],[0,-1],[1,0],[-1,0]];
@@ -398,13 +394,14 @@
                 if (n && n.player===CONFIG.players.atacante.id) control++;
             }
         }
-        return edgeDist*10 - mobility*5 + control*2;
+        return edgeDist*10 - mobility*5 + control*2 + atkPieces * 15;
     }
 
     function _evaluateDefender(board, origKing) {
         const king = RuleEngine.findKing(board) || origKing;
         if (!king) return -1000;
         if (RuleEngine.checkKingEscape(board)) return 2000;
+        const defPieces = board.findPieces(CONFIG.players.defensor.id).length;
         const edgeDist = Math.min(king.r, board.rows-1-king.r, king.c, board.cols-1-king.c);
         let mobility=0;
         const dirs=[[0,1],[0,-1],[1,0],[-1,0]];
@@ -413,7 +410,7 @@
             if (nr>=0&&nr<board.rows&&nc>=0&&nc<board.cols&&board.isEmpty(nr,nc)) mobility++;
         }
         const nearAtk = board.findPieces(CONFIG.players.atacante.id).filter(a=>Math.abs(a.r-king.r)+Math.abs(a.c-king.c)<=2).length;
-        return -edgeDist*15 + mobility*8 - nearAtk*6;
+        return -edgeDist*15 + mobility*8 - nearAtk*6 + defPieces * 20;
     }
 
     function _shouldExplode(board, row, col) {
@@ -436,7 +433,6 @@
         const pieces=board.findPieces(playerId);
         for (const {r,c,piece} of pieces) {
             if (piece.type==='druida') {
-                // solo diagonales 1
                 const diags = [[1,1],[1,-1],[-1,1],[-1,-1]];
                 for (const [dr,dc] of diags) {
                     const tr=r+dr, tc=c+dc;
@@ -453,11 +449,16 @@
                 }
             }
         }
-        return moves;
+        const uniq = new Map();
+        for (const m of moves) {
+            const key = `${m.fr},${m.fc},${m.tr},${m.tc}`;
+            if (!uniq.has(key)) uniq.set(key, m);
+        }
+        return [...uniq.values()];
     }
 
     // ============================================================
-    // 4. IAS (sin cambios en estructura, solo usan las funciones nuevas)
+    // 4. IAS
     // ============================================================
     class CercoAttackerAI {
         static chooseMove(board, playerId, depth=2) {
@@ -475,7 +476,7 @@
                     if (depth>1) {
                         const defMoves = _getAllMoves(clone, CONFIG.players.defensor.id);
                         let worst=Infinity;
-                        for (const dm of defMoves.slice(0,5)) {
+                        for (const dm of defMoves.slice(0, 8)) {
                             const clone2 = clone.clone();
                             RuleEngine.executeMove(clone2, dm.fr, dm.fc, dm.tr, dm.tc);
                             RuleEngine.applyCustodyCaptures(clone2, dm.tr, dm.tc, CONFIG.players.defensor.id);
@@ -508,7 +509,7 @@
                     if (depth>1) {
                         const atkMoves = _getAllMoves(clone, CONFIG.players.atacante.id);
                         let worst=Infinity;
-                        for (const am of atkMoves.slice(0,5)) {
+                        for (const am of atkMoves.slice(0, 8)) {
                             const clone2 = clone.clone();
                             RuleEngine.executeMove(clone2, am.fr, am.fc, am.tr, am.tc);
                             RuleEngine.applyCustodyCaptures(clone2, am.tr, am.tc, CONFIG.players.atacante.id);
@@ -532,7 +533,6 @@
         static execute(board) {
             const king = RuleEngine.findKing(board);
             if (!king || CONFIG.humanSide !== 'defensor' && CONFIG.humanSide !== 'atacante') return;
-            // El rey mueve automáticamente hacia el borde más cercano (heurística simple)
             const {r,c} = king;
             let bestMove = null;
             let minDist = Infinity;
@@ -578,7 +578,6 @@
                     if (this.board.isForest(r,c)) {
                         ctx.fillStyle = '#2e5a2e';
                         ctx.fillRect(x, y, cellSize, cellSize);
-                        // dibujar árbol simple
                         ctx.fillStyle = '#1a3a1a';
                         ctx.font = `${cellSize*0.6}px sans-serif`;
                         ctx.textAlign='center'; ctx.textBaseline='middle';
@@ -601,21 +600,25 @@
                     if (!piece) continue;
                     const x = offX + c*cellSize + cellSize/2;
                     const y = offY + r*cellSize + cellSize/2;
-                    // círculo fondo
                     ctx.beginPath();
                     ctx.arc(x, y, cellSize*0.4, 0, Math.PI*2);
                     ctx.fillStyle = '#222';
                     ctx.fill();
-                    ctx.strokeStyle = piece.color;
+                    ctx.strokeStyle = piece.color || '#fff';
                     ctx.lineWidth = 2;
                     ctx.stroke();
-                    // símbolo
                     ctx.font = `bold ${cellSize*0.6}px serif`;
                     ctx.textAlign='center'; ctx.textBaseline='middle';
-                    ctx.fillStyle = piece.color;
-                    // Intenta dibujar el símbolo Unicode; si falla, usa letra
-                    const symbol = piece.symbol;
+                    ctx.fillStyle = piece.color || '#fff';
+                    const symbol = piece.symbol || '?';
+                    const fallback = {
+                        '♚': 'R', '●': 'G', '☠': 'B', '✦': 'D', '▲': 'C', '⚡': 'S'
+                    }[symbol] || piece.type[0]?.toUpperCase() || '?';
                     ctx.fillText(symbol, x, y);
+                    if (ctx.measureText(symbol).width === 0) {
+                        ctx.fillStyle = '#fff';
+                        ctx.fillText(fallback, x, y);
+                    }
                 }
             }
         }
@@ -696,9 +699,9 @@
             this._ui();
             this._bind();
             this.architect = new Architect(this);
+            document.getElementById('newGameBtn').onclick = ()=> this.restart();
             if (CONFIG.humanSide==='atacante') setTimeout(()=>this._aiTurn(), 500);
             if (CONFIG.crazyKing && CONFIG.humanSide==='defensor') {
-                // el rey se mueve solo desde el principio
                 setTimeout(()=>this._crazyKingMove(), 600);
             }
         }
@@ -746,7 +749,6 @@
             this.currentPlayer = this.currentPlayer===CONFIG.players.defensor.id ? CONFIG.players.atacante.id : CONFIG.players.defensor.id;
             this.turnCount++;
             this.sel=null;
-            // Bosques
             if (CONFIG.forestFrequency>0 && this.turnCount % CONFIG.forestFrequency === 0) {
                 this._spawnForest();
             }
@@ -754,7 +756,6 @@
             this.renderer.draw();
             this._ui();
 
-            // Rey loco (después del movimiento del defensor)
             if (CONFIG.crazyKing && this.currentPlayer === CONFIG.players.defensor.id && !this.over) {
                 setTimeout(()=>this._crazyKingMove(), 300);
                 return;
@@ -772,18 +773,16 @@
             if (moved) {
                 this.board.updateForests();
                 this.renderer.draw();
-                // Verificar si escapó o fue capturado
                 if (RuleEngine.checkKingEscape(this.board)) { this._end(CONFIG.players.defensor.id); return; }
                 const king = RuleEngine.findKing(this.board);
                 if (king && RuleEngine.isSurrounded(this.board, king.r, king.c)) { this._end(CONFIG.players.atacante.id); return; }
-                this.currentPlayer = CONFIG.players.atacante.id; // tras mover el rey, turno atacante
+                this.currentPlayer = CONFIG.players.atacante.id;
                 this._ui();
                 if (!this.over && this.currentPlayer!==CONFIG.humanSide) setTimeout(()=>this._aiTurn(), 300);
             }
         }
 
         _spawnForest() {
-            // Elige una casilla vacía aleatoria que no sea borde (para no bloquear escape fácilmente)
             const empties = [];
             for (let r=1; r<this.board.rows-1; r++) {
                 for (let c=1; c<this.board.cols-1; c++) {
