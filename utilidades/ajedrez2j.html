@@ -3,12 +3,11 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>Mini Ajedrez · 2 Jugadores / IA</title>
+    <title>Mini Ajedrez · IA Híbrida + Arquitecto</title>
     <style>
         :root {
             --bg: #1a1e2c; --panel: #2a2f3f; --text: #e0e0e0;
-            --accent: #ffd700; --border: #4a5568; --cell-light: #f0d9b5;
-            --cell-dark: #8b5a2b; --highlight: rgba(0,255,0,0.4);
+            --accent: #ffd700; --border: #4a5568;
         }
         * { margin:0; padding:0; box-sizing:border-box; }
         body {
@@ -17,10 +16,11 @@
             font-family: 'Segoe UI', system-ui, sans-serif; color: var(--text);
             padding: 10px;
         }
-        h1 { color: var(--accent); margin: 10px 0; font-size: 1.5rem; }
+        h1 { color: var(--accent); margin: 10px 0; font-size: 1.4rem; }
         .panel {
             background: var(--panel); border-radius: 16px; padding: 20px;
             box-shadow: 0 8px 30px rgba(0,0,0,0.5); width: 100%; max-width: 500px;
+            margin-bottom: 10px;
         }
         #status { text-align: center; font-weight: bold; margin: 10px 0; min-height: 24px; }
         canvas {
@@ -37,10 +37,19 @@
         select { background: #1a202c; color: var(--text); border: 1px solid var(--border); }
         button:hover, select:hover { filter: brightness(1.2); }
         .info { font-size: 0.9rem; color: #aaa; text-align: center; margin-top: 10px; }
+
+        #architectPanel {
+            display: none; margin-top: 10px; padding: 15px;
+            background: #1e2338; border-radius: 12px; border: 1px solid var(--border);
+        }
+        #architectPanel h4 { color: var(--accent); margin: 10px 0 5px; }
+        #architectPanel label { display: block; margin: 5px 0; font-size: 0.85rem; }
+        #architectPanel input[type="range"] { width: 100%; margin: 3px 0 10px; }
+        #architectPanel span { color: var(--accent); font-weight: bold; }
     </style>
 </head>
 <body>
-    <h1>♟️ Mini Ajedrez · 2 Jugadores / IA</h1>
+    <h1>♟️ Mini Ajedrez · IA Híbrida + Arquitecto</h1>
     <div class="panel">
         <div id="status">Turno: Blancas</div>
         <canvas id="boardCanvas" width="400" height="400"></canvas>
@@ -50,33 +59,55 @@
                 <option value="2jugadores">2 Jugadores</option>
             </select>
             <button id="restart-btn">🔄 Nueva partida</button>
+            <button id="architect-toggle">⚙️ Arquitecto</button>
         </div>
-        <div class="info" id="info">Base de datos con 35 posiciones · Heurística de captura</div>
+        <div id="architectPanel">
+            <h4>🧠 Parámetros de la IA</h4>
+            <label>Peso Estrategia: <span id="pesoEstrategiaVal">60</span>%
+                <input type="range" id="pesoEstrategia" min="0" max="100" value="60" step="5">
+            </label>
+            <label>Peso Captura: <span id="pesoCapturaVal">40</span>%
+                <input type="range" id="pesoCaptura" min="0" max="100" value="40" step="5">
+            </label>
+            <label>Profundidad de búsqueda: <span id="profundidadVal">2</span>
+                <input type="range" id="profundidad" min="1" max="3" value="2" step="1">
+            </label>
+            <label>Movimientos evaluados (poda): <span id="podaVal">8</span>
+                <input type="range" id="poda" min="4" max="20" value="8" step="2">
+            </label>
+            <button id="applyArchitectBtn">Aplicar cambios</button>
+        </div>
+        <div class="info" id="info">IA Híbrida · Base de datos + Captura + Estrategia</div>
     </div>
 
     <script>
-    // ==================== CONFIGURACIÓN DEL TABLERO ====================
-    const FILAS = 8;
-    const COLUMNAS = 8;
-    const VACIO = null;
+    // ==================== CONFIGURACIÓN ====================
+    const FILAS = 8, COLUMNAS = 8;
 
-    // Piezas representadas como objetos { tipo, color }
     const PIEZAS = {
-        P: { tipo:'peon', color:'blanco', simbolo:'♙' },
-        N: { tipo:'caballo', color:'blanco', simbolo:'♘' },
-        B: { tipo:'alfil', color:'blanco', simbolo:'♗' },
-        R: { tipo:'torre', color:'blanco', simbolo:'♖' },
-        Q: { tipo:'reina', color:'blanco', simbolo:'♕' },
-        K: { tipo:'rey', color:'blanco', simbolo:'♔' },
-        p: { tipo:'peon', color:'negro', simbolo:'♟' },
-        n: { tipo:'caballo', color:'negro', simbolo:'♞' },
-        b: { tipo:'alfil', color:'negro', simbolo:'♝' },
-        r: { tipo:'torre', color:'negro', simbolo:'♜' },
-        q: { tipo:'reina', color:'negro', simbolo:'♛' },
-        k: { tipo:'rey', color:'negro', simbolo:'♚' },
+        P: { tipo:'peon', color:'blanco', simbolo:'♙', valor:1 },
+        N: { tipo:'caballo', color:'blanco', simbolo:'♘', valor:3 },
+        B: { tipo:'alfil', color:'blanco', simbolo:'♗', valor:3 },
+        R: { tipo:'torre', color:'blanco', simbolo:'♖', valor:5 },
+        Q: { tipo:'reina', color:'blanco', simbolo:'♕', valor:9 },
+        K: { tipo:'rey', color:'blanco', simbolo:'♔', valor:100 },
+        p: { tipo:'peon', color:'negro', simbolo:'♟', valor:1 },
+        n: { tipo:'caballo', color:'negro', simbolo:'♞', valor:3 },
+        b: { tipo:'alfil', color:'negro', simbolo:'♝', valor:3 },
+        r: { tipo:'torre', color:'negro', simbolo:'♜', valor:5 },
+        q: { tipo:'reina', color:'negro', simbolo:'♛', valor:9 },
+        k: { tipo:'rey', color:'negro', simbolo:'♚', valor:100 },
     };
 
-    // ==================== BASE DE DATOS DE POSICIONES (FEN -> jugada) ====================
+    // Parámetros de la IA (modificables desde el Arquitecto)
+    const IA_CONFIG = {
+        pesoEstrategia: 0.6,
+        pesoCaptura: 0.4,
+        profundidad: 2,
+        poda: 8,
+    };
+
+    // ==================== BASE DE DATOS DE POSICIONES ====================
     const POSITION_DB = {
         'rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq e3 0 1': 'e7e5',
         'rnbqkbnr/pp1ppppp/8/2p5/4P3/8/PPPP1PPP/RNBQKBNR w KQkq c6 0 2': 'Ng1f3',
@@ -90,12 +121,9 @@
         'rnbqkb1r/pppppppp/5n2/8/2PP4/8/PP2PPPP/RNBQKBNR w KQkq - 2 3': 'Nb1c3',
         'rnbqkb1r/pppppppp/5n2/8/2PP4/2N5/PP2PPPP/R1BQKBNR b KQkq - 3 3': 'g7g6',
         'k7/8/K7/8/8/8/8/R7 w - - 0 1': 'Ra1a8',
-        'k7/8/K7/8/8/8/R7/8 w - - 0 1': 'Ra2a8',
         '8/8/8/8/8/4k3/8/3QK3 w - - 0 1': 'Qd1d8',
         'r1bqkb1r/pppp1ppp/2n2n2/4p3/2B1P3/3P4/PPP2PPP/RNBQK1NR w KQkq - 2 4': 'Bc1g5',
-        'r1bqk2r/pppp1ppp/2n2n2/4p3/1bB1P3/3P4/PPP2PPP/RNBQK1NR w KQkq - 4 5': 'c2c3',
         '8/8/8/3k4/8/8/8/K2R4 w - - 0 1': 'Rd1d2',
-        '8/8/8/3k4/8/8/3R4/K7 b - - 1 1': 'Ke5d4',
         'rnbqkbnr/pppp1ppp/8/4p3/4P3/5N2/PPPP1PPP/RNBQKB1R b KQkq - 1 2': 'Nb8c6',
         'r1bqkbnr/pppp1ppp/2n5/4p3/4P3/5N2/PPPP1PPP/RNBQKB1R w KQkq - 2 3': 'd2d4',
         'rnbqkbnr/pp1ppppp/2p5/8/4P3/8/PPPP1PPP/RNBQKBNR w KQkq - 0 2': 'd2d4',
@@ -109,7 +137,6 @@
         'rnbqkbnr/pppppppp/8/8/4P3/8/PPPPBPPP/RNBQK1NR b KQkq - 1 1': 'd7d5',
         'rnbqkbnr/pppp1ppp/8/4p3/5P2/8/PPPPP1PP/RNBQKBNR w KQkq - 0 2': 'f4xe5',
         '8/8/8/4k3/8/4K3/4P3/8 w - - 0 1': 'e2e4',
-        '8/8/8/4k3/4P3/4K3/8/8 b - - 0 1': 'Ke5d5',
         'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1': 'e2e4',
     };
 
@@ -142,10 +169,7 @@
             return this.tablero[fila][col];
         }
 
-        colorPieza(pieza) {
-            if (!pieza) return null;
-            return pieza === pieza.toUpperCase() ? 'blanco' : 'negro';
-        }
+        colorPieza(pieza) { return pieza ? (pieza === pieza.toUpperCase() ? 'blanco' : 'negro') : null; }
 
         toFEN() {
             let fen = '';
@@ -153,11 +177,8 @@
                 let vacias = 0;
                 for (let c = 0; c < COLUMNAS; c++) {
                     const p = this.tablero[f][c];
-                    if (p === null) { vacias++; }
-                    else {
-                        if (vacias > 0) { fen += vacias; vacias = 0; }
-                        fen += p;
-                    }
+                    if (p === null) vacias++;
+                    else { if (vacias > 0) { fen += vacias; vacias = 0; } fen += p; }
                 }
                 if (vacias > 0) fen += vacias;
                 if (f < FILAS - 1) fen += '/';
@@ -170,376 +191,400 @@
             if (this.enroque.negro.largo) enr += 'q';
             if (enr === '') enr = '-';
             fen += ' ' + enr;
-            if (this.alPaso) {
-                const col = String.fromCharCode(97 + this.alPaso.col);
-                const fila = 8 - this.alPaso.fila;
-                fen += ' ' + col + fila;
-            } else {
-                fen += ' -';
-            }
+            if (this.alPaso) fen += ' ' + String.fromCharCode(97+this.alPaso.col) + (8-this.alPaso.fila);
+            else fen += ' -';
             fen += ' 0 ' + Math.floor(this.movimientos/2);
             return fen;
         }
 
         generarMovimientosLegales() {
             const movimientos = [];
-            for (let f = 0; f < FILAS; f++) {
-                for (let c = 0; c < COLUMNAS; c++) {
-                    const pieza = this.tablero[f][c];
-                    if (pieza && this.colorPieza(pieza) === this.turno) {
-                        const tipo = PIEZAS[pieza].tipo;
-                        const color = this.turno;
-                        if (tipo === 'peon') this._movPeon(f, c, color, movimientos);
-                        else if (tipo === 'caballo') this._movCaballo(f, c, color, movimientos);
-                        else if (tipo === 'alfil') this._movAlfil(f, c, color, movimientos);
-                        else if (tipo === 'torre') this._movTorre(f, c, color, movimientos);
-                        else if (tipo === 'reina') this._movReina(f, c, color, movimientos);
-                        else if (tipo === 'rey') this._movRey(f, c, color, movimientos);
-                    }
-                }
-            }
+            for (let f = 0; f < FILAS; f++)
+                for (let c = 0; c < COLUMNAS; c++)
+                    if (this.tablero[f][c] && this.colorPieza(this.tablero[f][c]) === this.turno)
+                        this._generarMovs(f, c, movimientos);
             return movimientos.filter(m => !this._dejaEnJaque(m));
         }
 
+        _generarMovs(f, c, movs) {
+            const tipo = PIEZAS[this.tablero[f][c]].tipo, color = this.turno;
+            if (tipo === 'peon') this._movPeon(f, c, color, movs);
+            else if (tipo === 'caballo') this._movCaballo(f, c, color, movs);
+            else if (tipo === 'alfil') this._movAlfil(f, c, color, movs);
+            else if (tipo === 'torre') this._movTorre(f, c, color, movs);
+            else if (tipo === 'reina') this._movReina(f, c, color, movs);
+            else if (tipo === 'rey') this._movRey(f, c, color, movs);
+        }
+
         _movPeon(f, c, color, movs) {
-            const dir = color === 'blanco' ? -1 : 1;
-            const inicio = color === 'blanco' ? 6 : 1;
+            const dir = color === 'blanco' ? -1 : 1, inicio = color === 'blanco' ? 6 : 1;
             if (this.get(f+dir, c) === null) {
-                this._agregarMov(f, c, f+dir, c, movs);
-                if (f === inicio && this.get(f+2*dir, c) === null) {
-                    this._agregarMov(f, c, f+2*dir, c, movs);
-                }
+                this._addMov(f, c, f+dir, c, movs);
+                if (f === inicio && this.get(f+2*dir, c) === null) this._addMov(f, c, f+2*dir, c, movs);
             }
             for (const dc of [-1, 1]) {
                 const nc = c + dc;
                 if (nc >= 0 && nc < COLUMNAS) {
-                    const objetivo = this.get(f+dir, nc);
-                    if (objetivo && this.colorPieza(objetivo) !== color) {
-                        this._agregarMov(f, c, f+dir, nc, movs);
-                    }
-                    if (this.alPaso && this.alPaso.fila === f+dir && this.alPaso.col === nc) {
-                        this._agregarMov(f, c, f+dir, nc, movs, { alPaso: true });
-                    }
+                    const obj = this.get(f+dir, nc);
+                    if (obj && this.colorPieza(obj) !== color) this._addMov(f, c, f+dir, nc, movs);
+                    if (this.alPaso && this.alPaso.fila === f+dir && this.alPaso.col === nc) this._addMov(f, c, f+dir, nc, movs, { alPaso: true });
                 }
             }
-            if (f + dir === 0 || f + dir === 7) {
+            if (f+dir === 0 || f+dir === 7) {
                 const ultimos = movs.filter(m => m.filaDest === f+dir && m.colDest === c);
                 for (const m of ultimos) {
-                    for (const prom of ['Q','R','B','N']) {
-                        const promoMov = { ...m, promocion: color === 'blanco' ? prom.toUpperCase() : prom.toLowerCase() };
-                        movs.push(promoMov);
-                    }
-                    const idx = movs.indexOf(m);
-                    if (idx >= 0) movs.splice(idx, 1);
+                    for (const prom of ['Q','R','B','N']) movs.push({ ...m, promocion: color==='blanco' ? prom.toUpperCase() : prom.toLowerCase() });
+                    movs.splice(movs.indexOf(m), 1);
                 }
             }
         }
-
-        _movCaballo(f, c, color, movs) {
-            const saltos = [[-2,-1],[-2,1],[-1,-2],[-1,2],[1,-2],[1,2],[2,-1],[2,1]];
-            for (const [df,dc] of saltos) {
-                const nf = f + df, nc = c + dc;
-                const obj = this.get(nf, nc);
-                if (obj === null || this.colorPieza(obj) !== color) this._agregarMov(f, c, nf, nc, movs);
-            }
-        }
-
-        _movAlfil(f, c, color, movs) {
-            for (const [df,dc] of [[1,1],[1,-1],[-1,1],[-1,-1]]) {
-                for (let i = 1; i < 8; i++) {
-                    const nf = f + df*i, nc = c + dc*i;
-                    const obj = this.get(nf, nc);
-                    if (obj === null) this._agregarMov(f, c, nf, nc, movs);
-                    else { if (this.colorPieza(obj) !== color) this._agregarMov(f, c, nf, nc, movs); break; }
-                }
-            }
-        }
-
-        _movTorre(f, c, color, movs) {
-            for (const [df,dc] of [[1,0],[-1,0],[0,1],[0,-1]]) {
-                for (let i = 1; i < 8; i++) {
-                    const nf = f + df*i, nc = c + dc*i;
-                    const obj = this.get(nf, nc);
-                    if (obj === null) this._agregarMov(f, c, nf, nc, movs);
-                    else { if (this.colorPieza(obj) !== color) this._agregarMov(f, c, nf, nc, movs); break; }
-                }
-            }
-        }
-
-        _movReina(f, c, color, movs) { this._movTorre(f, c, color, movs); this._movAlfil(f, c, color, movs); }
-
+        _movCaballo(f, c, color, movs) { for (const [df,dc] of [[-2,-1],[-2,1],[-1,-2],[-1,2],[1,-2],[1,2],[2,-1],[2,1]]) this._saltarA(f+df, c+dc, f, c, color, movs); }
+        _movAlfil(f, c, color, movs) { for (const [df,dc] of [[1,1],[1,-1],[-1,1],[-1,-1]]) this._deslizar(f, c, df, dc, color, movs); }
+        _movTorre(f, c, color, movs) { for (const [df,dc] of [[1,0],[-1,0],[0,1],[0,-1]]) this._deslizar(f, c, df, dc, color, movs); }
+        _movReina(f, c, color, movs) { this._movTorre(f,c,color,movs); this._movAlfil(f,c,color,movs); }
         _movRey(f, c, color, movs) {
-            for (const [df,dc] of [[1,0],[-1,0],[0,1],[0,-1],[1,1],[1,-1],[-1,1],[-1,-1]]) {
-                const nf = f+df, nc = c+dc;
-                const obj = this.get(nf, nc);
-                if (obj === null || this.colorPieza(obj) !== color) this._agregarMov(f, c, nf, nc, movs);
-            }
-            if (color === 'blanco' && f === 0 && c === 4) {
-                if (this.enroque.blanco.corto && this.get(0,5)===null && this.get(0,6)===null && !this._casillaAtacada(0,4) && !this._casillaAtacada(0,5) && !this._casillaAtacada(0,6))
-                    this._agregarMov(f, c, 0, 6, movs, { enroque: 'corto' });
-                if (this.enroque.blanco.largo && this.get(0,3)===null && this.get(0,2)===null && this.get(0,1)===null && !this._casillaAtacada(0,4) && !this._casillaAtacada(0,3) && !this._casillaAtacada(0,2))
-                    this._agregarMov(f, c, 0, 2, movs, { enroque: 'largo' });
-            } else if (color === 'negro' && f === 7 && c === 4) {
-                if (this.enroque.negro.corto && this.get(7,5)===null && this.get(7,6)===null && !this._casillaAtacada(7,4) && !this._casillaAtacada(7,5) && !this._casillaAtacada(7,6))
-                    this._agregarMov(f, c, 7, 6, movs, { enroque: 'corto' });
-                if (this.enroque.negro.largo && this.get(7,3)===null && this.get(7,2)===null && this.get(7,1)===null && !this._casillaAtacada(7,4) && !this._casillaAtacada(7,3) && !this._casillaAtacada(7,2))
-                    this._agregarMov(f, c, 7, 2, movs, { enroque: 'largo' });
+            for (const [df,dc] of [[1,0],[-1,0],[0,1],[0,-1],[1,1],[1,-1],[-1,1],[-1,-1]]) this._saltarA(f+df, c+dc, f, c, color, movs);
+            const op = color==='blanco'?'negro':'blanco';
+            if (color==='blanco' && f===0 && c===4) {
+                if (this.enroque.blanco.corto && this.get(0,5)===null && this.get(0,6)===null && !this._atacada(0,4,op) && !this._atacada(0,5,op) && !this._atacada(0,6,op)) this._addMov(f,c,0,6,movs,{enroque:'corto'});
+                if (this.enroque.blanco.largo && this.get(0,3)===null && this.get(0,2)===null && this.get(0,1)===null && !this._atacada(0,4,op) && !this._atacada(0,3,op) && !this._atacada(0,2,op)) this._addMov(f,c,0,2,movs,{enroque:'largo'});
+            } else if (color==='negro' && f===7 && c===4) {
+                if (this.enroque.negro.corto && this.get(7,5)===null && this.get(7,6)===null && !this._atacada(7,4,op) && !this._atacada(7,5,op) && !this._atacada(7,6,op)) this._addMov(f,c,7,6,movs,{enroque:'corto'});
+                if (this.enroque.negro.largo && this.get(7,3)===null && this.get(7,2)===null && this.get(7,1)===null && !this._atacada(7,4,op) && !this._atacada(7,3,op) && !this._atacada(7,2,op)) this._addMov(f,c,7,2,movs,{enroque:'largo'});
             }
         }
 
-        _agregarMov(f, c, nf, nc, movs, extras = {}) {
-            if (nf >= 0 && nf < FILAS && nc >= 0 && nc < COLUMNAS)
-                movs.push({ filaOrig: f, colOrig: c, filaDest: nf, colDest: nc, ...extras });
-        }
+        _saltarA(nf, nc, f, c, color, movs) { if (nf>=0&&nf<8&&nc>=0&&nc<8) { const obj=this.get(nf,nc); if (!obj||this.colorPieza(obj)!==color) this._addMov(f,c,nf,nc,movs); } }
+        _deslizar(f, c, df, dc, color, movs) { for (let i=1;i<8;i++) { const nf=f+df*i, nc=c+dc*i, obj=this.get(nf,nc); if (obj===null) this._addMov(f,c,nf,nc,movs); else { if (this.colorPieza(obj)!==color) this._addMov(f,c,nf,nc,movs); break; } } }
+        _addMov(f, c, nf, nc, movs, extras={}) { if (nf>=0&&nf<8&&nc>=0&&nc<8) movs.push({filaOrig:f, colOrig:c, filaDest:nf, colDest:nc, ...extras}); }
 
         _dejaEnJaque(mov) {
-            const copia = this._clonarEstado();
-            this._ejecutarMovimiento(mov);
-            const enJaque = this._estaEnJaque(this.turno);
-            this._restaurarEstado(copia);
-            return enJaque;
+            const copia = this._clonar();
+            this._ejecutar(mov);
+            const color = this.turno === 'blanco' ? 'negro' : 'blanco';
+            const jaque = this._estaEnJaque(color);
+            this._restaurar(copia);
+            return jaque;
         }
 
-        _ejecutarMovimiento(mov) {
-            const pieza = this.tablero[mov.filaOrig][mov.colOrig];
-            this.tablero[mov.filaDest][mov.colDest] = pieza;
+        _ejecutar(mov) {
+            const p = this.tablero[mov.filaOrig][mov.colOrig];
+            this.tablero[mov.filaDest][mov.colDest] = p;
             this.tablero[mov.filaOrig][mov.colOrig] = null;
             if (mov.alPaso && this.alPaso) this.tablero[this.alPaso.fila][this.alPaso.col] = null;
-            if (mov.enroque === 'corto') {
-                if (this.turno === 'blanco') { this.tablero[0][5] = this.tablero[0][7]; this.tablero[0][7] = null; }
-                else { this.tablero[7][5] = this.tablero[7][7]; this.tablero[7][7] = null; }
-            } else if (mov.enroque === 'largo') {
-                if (this.turno === 'blanco') { this.tablero[0][3] = this.tablero[0][0]; this.tablero[0][0] = null; }
-                else { this.tablero[7][3] = this.tablero[7][0]; this.tablero[7][0] = null; }
+            if (mov.enroque==='corto') {
+                if (this.turno==='blanco') { this.tablero[0][5]=this.tablero[0][7]; this.tablero[0][7]=null; }
+                else { this.tablero[7][5]=this.tablero[7][7]; this.tablero[7][7]=null; }
+            } else if (mov.enroque==='largo') {
+                if (this.turno==='blanco') { this.tablero[0][3]=this.tablero[0][0]; this.tablero[0][0]=null; }
+                else { this.tablero[7][3]=this.tablero[7][0]; this.tablero[7][0]=null; }
             }
-            this._actualizarEstado(mov);
+            this._actualizar(mov);
         }
 
-        _actualizarEstado(mov) {
-            const pieza = this.tablero[mov.filaDest][mov.colDest];
-            if (pieza && PIEZAS[pieza].tipo === 'rey') this.reyes[this.turno] = { fila: mov.filaDest, col: mov.colDest };
-            if (pieza && PIEZAS[pieza].tipo === 'rey') { this.enroque[this.turno].corto = false; this.enroque[this.turno].largo = false; }
-            if (pieza && PIEZAS[pieza].tipo === 'torre') {
-                if (mov.filaOrig === 0 && mov.colOrig === 0) this.enroque.blanco.largo = false;
-                if (mov.filaOrig === 0 && mov.colOrig === 7) this.enroque.blanco.corto = false;
-                if (mov.filaOrig === 7 && mov.colOrig === 0) this.enroque.negro.largo = false;
-                if (mov.filaOrig === 7 && mov.colOrig === 7) this.enroque.negro.corto = false;
+        _actualizar(mov) {
+            const p = this.tablero[mov.filaDest][mov.colDest];
+            if (p && PIEZAS[p].tipo==='rey') this.reyes[this.turno] = {fila:mov.filaDest, col:mov.colDest};
+            if (p && PIEZAS[p].tipo==='rey') this.enroque[this.turno] = {corto:false, largo:false};
+            if (p && PIEZAS[p].tipo==='torre') {
+                if (mov.filaOrig===0 && mov.colOrig===0) this.enroque.blanco.largo=false;
+                if (mov.filaOrig===0 && mov.colOrig===7) this.enroque.blanco.corto=false;
+                if (mov.filaOrig===7 && mov.colOrig===0) this.enroque.negro.largo=false;
+                if (mov.filaOrig===7 && mov.colOrig===7) this.enroque.negro.corto=false;
             }
             this.alPaso = null;
-            if (PIEZAS[pieza].tipo === 'peon' && Math.abs(mov.filaDest - mov.filaOrig) === 2) this.alPaso = { fila: (mov.filaOrig + mov.filaDest)/2, col: mov.colOrig };
+            if (PIEZAS[p]?.tipo==='peon' && Math.abs(mov.filaDest-mov.filaOrig)===2) this.alPaso = {fila:(mov.filaOrig+mov.filaDest)/2, col:mov.colOrig};
             if (mov.promocion) this.tablero[mov.filaDest][mov.colDest] = mov.promocion;
             this.turno = this.turno === 'blanco' ? 'negro' : 'blanco';
             this.movimientos++;
         }
 
-        _estaEnJaque(color) {
-            const rey = this.reyes[color];
-            return this._casillaAtacada(rey.fila, rey.col, color === 'blanco' ? 'negro' : 'blanco');
-        }
+        _estaEnJaque(color) { return this._atacada(this.reyes[color].fila, this.reyes[color].col, color==='blanco'?'negro':'blanco'); }
 
-        _casillaAtacada(fila, col, porColor) {
-            for (let f = 0; f < FILAS; f++) {
-                for (let c = 0; c < COLUMNAS; c++) {
-                    const p = this.tablero[f][c];
-                    if (p && this.colorPieza(p) === porColor) {
-                        const movs = [];
-                        const tipo = PIEZAS[p].tipo;
-                        if (tipo === 'peon') this._movPeonCaptura(f, c, porColor, movs);
-                        else if (tipo === 'caballo') this._movCaballo(f, c, porColor, movs);
-                        else if (tipo === 'alfil') this._movAlfil(f, c, porColor, movs);
-                        else if (tipo === 'torre') this._movTorre(f, c, porColor, movs);
-                        else if (tipo === 'reina') this._movReina(f, c, porColor, movs);
-                        else if (tipo === 'rey') this._movRey(f, c, porColor, movs);
-                        if (movs.some(m => m.filaDest === fila && m.colDest === col)) return true;
-                    }
-                }
+        _atacada(fila, col, porColor) {
+            for (let f=0;f<8;f++) for (let c=0;c<8;c++) if (this.tablero[f][c] && this.colorPieza(this.tablero[f][c])===porColor) {
+                const movs=[]; this._generarMovs(f,c,movs);
+                if (movs.some(m=>m.filaDest===fila&&m.colDest===col)) return true;
             }
             return false;
         }
 
-        _movPeonCaptura(f, c, color, movs) {
-            const dir = color === 'blanco' ? -1 : 1;
-            for (const dc of [-1, 1]) { const nc = c + dc; if (nc >= 0 && nc < COLUMNAS) this._agregarMov(f, c, f+dir, nc, movs); }
-        }
+        _clonar() { return { tablero:this.tablero.map(f=>[...f]), turno:this.turno, enroque:JSON.parse(JSON.stringify(this.enroque)), alPaso:this.alPaso?{...this.alPaso}:null, movimientos:this.movimientos, reyes:JSON.parse(JSON.stringify(this.reyes)) }; }
+        _restaurar(e) { Object.assign(this, e); }
 
-        _clonarEstado() {
-            return {
-                tablero: this.tablero.map(fila => [...fila]), turno: this.turno,
-                enroque: JSON.parse(JSON.stringify(this.enroque)),
-                alPaso: this.alPaso ? { ...this.alPaso } : null,
-                movimientos: this.movimientos, reyes: JSON.parse(JSON.stringify(this.reyes)),
-            };
-        }
-
-        _restaurarEstado(estado) {
-            this.tablero = estado.tablero; this.turno = estado.turno;
-            this.enroque = estado.enroque; this.alPaso = estado.alPaso;
-            this.movimientos = estado.movimientos; this.reyes = estado.reyes;
-        }
-
-        ejecutarMovimiento(mov) { this._ejecutarMovimiento(mov); }
+        ejecutarMovimiento(mov) { this._ejecutar(mov); }
 
         consultarBaseDatos() {
             const fen = this.toFEN();
-            if (POSITION_DB[fen]) return this._parseAlgebraico(POSITION_DB[fen]);
-            const fenParcial = fen.split(' ').slice(0,2).join(' ');
-            for (const [key, jugadaStr] of Object.entries(POSITION_DB))
-                if (key.startsWith(fenParcial)) return this._parseAlgebraico(jugadaStr);
+            if (POSITION_DB[fen]) return this._parseAlg(POSITION_DB[fen]);
+            const parcial = fen.split(' ').slice(0,2).join(' ');
+            for (const [k, v] of Object.entries(POSITION_DB)) if (k.startsWith(parcial)) return this._parseAlg(v);
             return null;
         }
 
-        _parseAlgebraico(str) {
-            if (str.length === 4 && str[0] >= 'a' && str[0] <= 'h')
-                return { filaOrig: 8-parseInt(str[1]), colOrig: str.charCodeAt(0)-97, filaDest: 8-parseInt(str[3]), colDest: str.charCodeAt(2)-97 };
-            if (str.length === 5 && str[0] >= 'A' && str[0] <= 'Z')
-                return { filaOrig: 8-parseInt(str[2]), colOrig: str.charCodeAt(1)-97, filaDest: 8-parseInt(str[4]), colDest: str.charCodeAt(3)-97 };
+        _parseAlg(str) {
+            if (str.length===4 && str[0]>='a' && str[0]<='h') return {filaOrig:8-parseInt(str[1]), colOrig:str.charCodeAt(0)-97, filaDest:8-parseInt(str[3]), colDest:str.charCodeAt(2)-97};
+            if (str.length===5 && str[0]>='A' && str[0]<='Z') return {filaOrig:8-parseInt(str[2]), colOrig:str.charCodeAt(1)-97, filaDest:8-parseInt(str[4]), colDest:str.charCodeAt(3)-97};
             return null;
+        }
+
+        // Evalúa el material desde la perspectiva del color dado
+        evaluarMaterial(color) {
+            let total = 0;
+            for (let f=0;f<8;f++) for (let c=0;c<8;c++) {
+                const p = this.tablero[f][c];
+                if (!p) continue;
+                const val = PIEZAS[p]?.valor || 0;
+                total += (this.colorPieza(p) === color ? val : -val);
+            }
+            return total;
+        }
+
+        // Evalúa movilidad (número de movimientos legales) para un color
+        evaluarMovilidad(color) {
+            const turnoAnterior = this.turno;
+            this.turno = color;
+            const movs = this.generarMovimientosLegales().length;
+            this.turno = turnoAnterior;
+            return movs;
+        }
+
+        // Evalúa control del centro (casillas d4,d5,e4,e5)
+        evaluarCentro(color) {
+            const centro = [[3,3],[3,4],[4,3],[4,4]];
+            let control = 0;
+            for (const [f,c] of centro) {
+                const p = this.tablero[f][c];
+                if (p && this.colorPieza(p) === color) control += 1;
+                // También contar piezas que atacan el centro
+                for (let ff=0;ff<8;ff++) for (let cc=0;cc<8;cc++) {
+                    const atacante = this.tablero[ff][cc];
+                    if (atacante && this.colorPieza(atacante) === color) {
+                        const movs=[];
+                        this._generarMovs(ff,cc,movs);
+                        if (movs.some(m=>m.filaDest===f&&m.colDest===c)) control += 0.5;
+                    }
+                }
+            }
+            return control;
+        }
+
+        // Evalúa seguridad del rey (casillas de escape y amenazas)
+        evaluarSeguridadRey(color) {
+            const rey = this.reyes[color];
+            const oponente = color === 'blanco' ? 'negro' : 'blanco';
+            // Casillas alrededor del rey que están vacías o protegidas
+            let escape = 0;
+            for (const [df,dc] of [[1,0],[-1,0],[0,1],[0,-1],[1,1],[1,-1],[-1,1],[-1,-1]]) {
+                const nf = rey.fila + df, nc = rey.col + dc;
+                if (nf>=0 && nf<8 && nc>=0 && nc<8) {
+                    const p = this.tablero[nf][nc];
+                    if (!p || this.colorPieza(p) === color) {
+                        if (!this._atacada(nf, nc, oponente)) escape++;
+                    }
+                }
+            }
+            // Penalizar si el rey está en jaque
+            const enJaque = this._estaEnJaque(color) ? -5 : 0;
+            return escape + enJaque;
+        }
+
+        // Evaluación estratégica completa para un color
+        evaluarEstrategica(color) {
+            const material = this.evaluarMaterial(color) * 10;
+            const movilidad = this.evaluarMovilidad(color) * 0.5;
+            const centro = this.evaluarCentro(color) * 3;
+            const seguridad = this.evaluarSeguridadRey(color) * 4;
+            return material + movilidad + centro + seguridad;
+        }
+    }
+
+    // ==================== IA HÍBRIDA ====================
+    class IAHybrida {
+        constructor(config) { this.config = config; }
+
+        elegirMovimiento(engine) {
+            // 1. Si está en base de datos, usar esa jugada
+            const movDB = engine.consultarBaseDatos();
+            if (movDB) return movDB;
+
+            // 2. Generar todos los movimientos legales
+            const legales = engine.generarMovimientosLegales();
+            if (legales.length === 0) return null;
+
+            // 3. Evaluar cada movimiento con los dos criterios
+            const evaluados = legales.map(mov => {
+                const copia = engine._clonar();
+                engine._ejecutar(mov);
+
+                // Puntuación de captura (material ganado/perdido)
+                const puntCaptura = engine.evaluarMaterial(engine.turno === 'blanco' ? 'negro' : 'blanco');
+
+                // Puntuación estratégica (mini árbol)
+                const puntEstrategica = this._evaluarEstrategica(engine, this.config.profundidad);
+
+                engine._restaurar(copia);
+
+                // Combinar según pesos
+                const puntFinal = puntCaptura * this.config.pesoCaptura + puntEstrategica * this.config.pesoEstrategia;
+                return { mov, puntFinal, puntCaptura, puntEstrategica };
+            });
+
+            // 4. Ordenar por puntuación final y elegir el mejor
+            evaluados.sort((a, b) => b.puntFinal - a.puntFinal);
+            return evaluados[0].mov;
+        }
+
+        _evaluarEstrategica(engine, profundidad) {
+            if (profundidad <= 0) return engine.evaluarEstrategica(engine.turno === 'blanco' ? 'negro' : 'blanco');
+
+            const colorActual = engine.turno;
+            const oponente = colorActual === 'blanco' ? 'negro' : 'blanco';
+
+            // Generar movimientos del oponente
+            const movsOponente = engine.generarMovimientosLegales();
+            if (movsOponente.length === 0) {
+                // Si no hay movimientos, es jaque mate o ahogado
+                return engine._estaEnJaque(colorActual) ? -1000 : 0;
+            }
+
+            // Podar: evaluar solo los N mejores según material inmediato
+            const evaluados = movsOponente.map(m => {
+                const copia = engine._clonar();
+                engine._ejecutar(m);
+                const mat = engine.evaluarMaterial(colorActual); // desde nuestra perspectiva
+                engine._restaurar(copia);
+                return { mov: m, punt: mat };
+            });
+            evaluados.sort((a, b) => a.punt - b.punt); // el oponente quiere minimizar nuestro material
+            const poda = Math.min(this.config.poda, evaluados.length);
+
+            let peorPuntuacion = Infinity;
+            for (let i = 0; i < poda; i++) {
+                const copia = engine._clonar();
+                engine._ejecutar(evaluados[i].mov);
+
+                let punt;
+                if (profundidad > 1) {
+                    // Recursión: ahora evaluamos nuestra respuesta
+                    punt = this._evaluarEstrategica(engine, profundidad - 1);
+                } else {
+                    punt = engine.evaluarEstrategica(colorActual);
+                }
+
+                engine._restaurar(copia);
+                peorPuntuacion = Math.min(peorPuntuacion, punt);
+            }
+
+            return peorPuntuacion;
         }
     }
 
     // ==================== RENDERER ====================
     class ChessRenderer {
-        constructor(canvas, engine) {
-            this.canvas = canvas; this.ctx = canvas.getContext('2d'); this.engine = engine;
-            this.seleccionada = null; this.cellSize = 50;
-        }
+        constructor(canvas, engine) { this.canvas=canvas; this.ctx=canvas.getContext('2d'); this.engine=engine; this.seleccionada=null; }
         render() {
-            const ctx = this.ctx; const size = this.canvas.width;
-            this.cellSize = Math.floor(size / 8);
-            ctx.clearRect(0, 0, size, size);
-            for (let f = 0; f < 8; f++)
-                for (let c = 0; c < 8; c++)
-                    ctx.fillStyle = (f + c) % 2 === 0 ? '#f0d9b5' : '#8b5a2b', ctx.fillRect(c*this.cellSize, f*this.cellSize, this.cellSize, this.cellSize);
-            if (this.seleccionada) {
-                ctx.strokeStyle = '#0f0'; ctx.lineWidth = 3;
-                ctx.strokeRect(this.seleccionada.col*this.cellSize, this.seleccionada.fila*this.cellSize, this.cellSize, this.cellSize);
-            }
-            for (let f = 0; f < 8; f++) {
-                for (let c = 0; c < 8; c++) {
-                    const pieza = this.engine.tablero[f][c];
-                    if (!pieza) continue;
-                    const simbolo = PIEZAS[pieza]?.simbolo || '?';
-                    ctx.font = `bold ${this.cellSize*0.7}px serif`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-                    ctx.fillStyle = PIEZAS[pieza].color === 'blanco' ? '#fff' : '#000';
-                    ctx.fillText(simbolo, c*this.cellSize+this.cellSize/2, f*this.cellSize+this.cellSize/2);
-                }
+            const ctx=this.ctx, size=this.canvas.width, cs=Math.floor(size/8);
+            ctx.clearRect(0,0,size,size);
+            for (let f=0;f<8;f++) for (let c=0;c<8;c++) ctx.fillStyle=(f+c)%2===0?'#f0d9b5':'#8b5a2b', ctx.fillRect(c*cs,f*cs,cs,cs);
+            if (this.seleccionada) { ctx.strokeStyle='#0f0'; ctx.lineWidth=3; ctx.strokeRect(this.seleccionada.col*cs,this.seleccionada.fila*cs,cs,cs); }
+            for (let f=0;f<8;f++) for (let c=0;c<8;c++) {
+                const p=this.engine.tablero[f][c]; if(!p)continue;
+                ctx.font=`bold ${cs*0.7}px serif`; ctx.textAlign='center'; ctx.textBaseline='middle';
+                ctx.fillStyle=PIEZAS[p].color==='blanco'?'#fff':'#000';
+                ctx.fillText(PIEZAS[p].simbolo,c*cs+cs/2,f*cs+cs/2);
             }
         }
-        obtenerCelda(canvasX, canvasY) {
-            const col = Math.floor(canvasX / this.cellSize), fila = Math.floor(canvasY / this.cellSize);
-            return (fila >= 0 && fila < 8 && col >= 0 && col < 8) ? { fila, col } : null;
-        }
+        obtenerCelda(cx,cy) { const cs=Math.floor(this.canvas.width/8), col=Math.floor(cx/cs), fila=Math.floor(cy/cs); return (fila>=0&&fila<8&&col>=0&&col<8)?{fila,col}:null; }
     }
 
-    // ==================== CONTROLADOR PRINCIPAL ====================
+    // ==================== CONTROLADOR ====================
     class ChessGame {
         constructor(canvas, statusEl, infoEl, modeSelect) {
-            this.canvas = canvas; this.statusEl = statusEl; this.infoEl = infoEl;
-            this.modeSelect = modeSelect;
-            this.engine = new ChessEngine();
-            this.renderer = new ChessRenderer(canvas, this.engine);
-            this.modo = modeSelect.value; // 'ia' o '2jugadores'
-            this.jugadorColor = 'blanco';
-            this.iaColor = 'negro';
-            this.seleccionada = null;
-            this.terminado = false;
-            this.renderer.render();
-            this._actualizarUI();
+            this.canvas=canvas; this.statusEl=statusEl; this.infoEl=infoEl; this.modeSelect=modeSelect;
+            this.engine=new ChessEngine(); this.renderer=new ChessRenderer(canvas,this.engine);
+            this.ia = new IAHybrida(IA_CONFIG);
+            this.modo=modeSelect.value; this.seleccionada=null; this.terminado=false;
+            this.renderer.render(); this._ui();
         }
 
-        setMode(modo) {
-            this.modo = modo;
-            this.reiniciar();
-        }
+        setMode(modo) { this.modo=modo; this.reiniciar(); }
 
-        click(canvasX, canvasY) {
-            if (this.terminado) return;
-            // En modo IA, solo permite clic en el turno del jugador
-            if (this.modo === 'ia' && this.engine.turno !== this.jugadorColor) return;
-            // En modo 2 jugadores, siempre se permite clic (alterna turnos automáticamente)
-            const celda = this.renderer.obtenerCelda(canvasX, canvasY);
-            if (!celda) return;
-            const { fila, col } = celda;
-            const pieza = this.engine.get(fila, col);
-
+        click(cx, cy) {
+            if (this.terminado || (this.modo==='ia' && this.engine.turno!=='blanco')) return;
+            const celda=this.renderer.obtenerCelda(cx,cy); if(!celda)return;
+            const {fila,col}=celda, pieza=this.engine.get(fila,col);
             if (this.seleccionada) {
-                const movLegal = this.engine.generarMovimientosLegales().find(m =>
-                    m.filaOrig === this.seleccionada.fila && m.colOrig === this.seleccionada.col &&
-                    m.filaDest === fila && m.colDest === col
-                );
-                if (movLegal) {
-                    this.engine.ejecutarMovimiento(movLegal);
-                    this.seleccionada = null;
-                    this.renderer.seleccionada = null;
-                    this.renderer.render();
-                    this._actualizarUI();
-                    // Solo en modo IA se activa el turno automático
-                    if (!this.terminado && this.modo === 'ia' && this.engine.turno === this.iaColor) {
-                        setTimeout(() => this._turnoIA(), 500);
-                    }
+                const mov=this.engine.generarMovimientosLegales().find(m=>m.filaOrig===this.seleccionada.fila&&m.colOrig===this.seleccionada.col&&m.filaDest===fila&&m.colDest===col);
+                if (mov) {
+                    this.engine.ejecutarMovimiento(mov); this.seleccionada=null; this.renderer.seleccionada=null;
+                    this.renderer.render(); this._ui();
+                    if (!this.terminado && this.modo==='ia') setTimeout(()=>this._turnoIA(),500);
                 } else {
-                    if (pieza && this.engine.colorPieza(pieza) === this.engine.turno) {
-                        this.seleccionada = { fila, col };
-                        this.renderer.seleccionada = this.seleccionada;
-                    } else {
-                        this.seleccionada = null;
-                        this.renderer.seleccionada = null;
-                    }
-                    this.renderer.render();
+                    this.seleccionada = (pieza && this.engine.colorPieza(pieza)===this.engine.turno) ? {fila,col} : null;
+                    this.renderer.seleccionada=this.seleccionada; this.renderer.render();
                 }
-            } else {
-                if (pieza && this.engine.colorPieza(pieza) === this.engine.turno) {
-                    this.seleccionada = { fila, col };
-                    this.renderer.seleccionada = this.seleccionada;
-                    this.renderer.render();
-                }
+            } else if (pieza && this.engine.colorPieza(pieza)===this.engine.turno) {
+                this.seleccionada={fila,col}; this.renderer.seleccionada=this.seleccionada; this.renderer.render();
             }
         }
 
         _turnoIA() {
-            if (this.terminado || this.modo !== 'ia') return;
-            let mov = this.engine.consultarBaseDatos();
-            if (!mov) {
-                const legales = this.engine.generarMovimientosLegales();
-                if (legales.length === 0) { this._finJuego(); return; }
-                const capturas = legales.filter(m => this.engine.get(m.filaDest, m.colDest) !== null);
-                mov = capturas.length > 0 ? capturas[Math.floor(Math.random() * capturas.length)] : legales[Math.floor(Math.random() * legales.length)];
-            }
-            this.engine.ejecutarMovimiento(mov);
-            this.renderer.render();
-            this._actualizarUI();
+            if (this.terminado || this.modo!=='ia') return;
+            const mov = this.ia.elegirMovimiento(this.engine);
+            if (!mov) { this._fin(); return; }
+            this.engine.ejecutarMovimiento(mov); this.renderer.render(); this._ui();
         }
 
-        _actualizarUI() {
-            if (this.engine.generarMovimientosLegales().length === 0) {
-                this._finJuego();
-            } else if (this.engine._estaEnJaque(this.engine.turno)) {
-                this.statusEl.textContent = `Jaque! Turno: ${this.engine.turno === 'blanco' ? 'Blancas' : 'Negras'}`;
-            } else {
-                this.statusEl.textContent = `Turno: ${this.engine.turno === 'blanco' ? 'Blancas' : 'Negras'}${this.modo === 'ia' && this.engine.turno === this.iaColor ? ' (IA)' : ''}`;
-            }
+        _ui() {
+            if (this.engine.generarMovimientosLegales().length===0) this._fin();
+            else if (this.engine._estaEnJaque(this.engine.turno)) this.statusEl.textContent=`Jaque! Turno: ${this.engine.turno==='blanco'?'Blancas':'Negras'}`;
+            else this.statusEl.textContent=`Turno: ${this.engine.turno==='blanco'?'Blancas':'Negras'}${this.modo==='ia'&&this.engine.turno==='negro'?' (IA)':''}`;
         }
 
-        _finJuego() {
-            this.terminado = true;
-            if (this.engine._estaEnJaque(this.engine.turno)) {
-                const ganador = this.engine.turno === 'blanco' ? 'Negras' : 'Blancas';
-                this.statusEl.textContent = `🏆 Jaque mate! Ganan ${ganador}`;
-            } else {
-                this.statusEl.textContent = '🤝 Tablas (ahogado)';
-            }
-            this.infoEl.textContent = 'Partida terminada. Pulsa Nueva partida.';
+        _fin() {
+            this.terminado=true;
+            if (this.engine._estaEnJaque(this.engine.turno)) this.statusEl.textContent=`🏆 Jaque mate! Ganan ${this.engine.turno==='blanco'?'Negras':'Blancas'}`;
+            else this.statusEl.textContent='🤝 Tablas (ahogado)';
+            this.infoEl.textContent='Partida terminada. Pulsa Nueva partida.';
         }
 
         reiniciar() {
-            this.engine = new ChessEngine();
-            this.renderer = new ChessRenderer(this.canvas, this.engine);
-            this.seleccionada = null;
-            this.terminado = false;
-            this.renderer.render();
-            this._actualizarUI();
-            this.infoEl.textContent = this.modo === 'ia' ? 'Base de datos con 35 posiciones · Heurística de captura' : 'Modo 2 jugadores · Pasarse el móvil';
+            this.engine=new ChessEngine(); this.renderer=new ChessRenderer(this.canvas,this.engine);
+            this.seleccionada=null; this.terminado=false; this.ia=new IAHybrida(IA_CONFIG);
+            this.renderer.render(); this._ui();
+            this.infoEl.textContent='IA Híbrida · Base de datos + Captura + Estrategia';
         }
+    }
+
+    // ==================== ARQUITECTO ====================
+    function initArchitect() {
+        const panel = document.getElementById('architectPanel');
+        document.getElementById('architect-toggle').addEventListener('click', () => {
+            panel.style.display = panel.style.display === 'none' ? 'block' : 'none';
+        });
+
+        const sliders = [
+            { id: 'pesoEstrategia', valId: 'pesoEstrategiaVal', configKey: 'pesoEstrategia', factor: 0.01 },
+            { id: 'pesoCaptura', valId: 'pesoCapturaVal', configKey: 'pesoCaptura', factor: 0.01 },
+            { id: 'profundidad', valId: 'profundidadVal', configKey: 'profundidad', factor: 1 },
+            { id: 'poda', valId: 'podaVal', configKey: 'poda', factor: 1 },
+        ];
+
+        sliders.forEach(s => {
+            const el = document.getElementById(s.id);
+            el.addEventListener('input', () => {
+                document.getElementById(s.valId).textContent = Math.round(el.value * s.factor);
+            });
+        });
+
+        document.getElementById('applyArchitectBtn').addEventListener('click', () => {
+            IA_CONFIG.pesoEstrategia = parseInt(document.getElementById('pesoEstrategia').value) / 100;
+            IA_CONFIG.pesoCaptura = parseInt(document.getElementById('pesoCaptura').value) / 100;
+            IA_CONFIG.profundidad = parseInt(document.getElementById('profundidad').value);
+            IA_CONFIG.poda = parseInt(document.getElementById('poda').value);
+            if (window.game) window.game.reiniciar();
+        });
     }
 
     // ==================== INICIALIZACIÓN ====================
@@ -549,18 +594,19 @@
         const infoEl = document.getElementById('info');
         const modeSelect = document.getElementById('mode-select');
         const game = new ChessGame(canvas, statusEl, infoEl, modeSelect);
+        window.game = game;
 
-        canvas.addEventListener('click', (e) => {
+        canvas.addEventListener('click', e => {
             const rect = canvas.getBoundingClientRect();
-            const scaleX = canvas.width / rect.width;
-            const scaleY = canvas.height / rect.height;
-            const canvasX = (e.clientX - rect.left) * scaleX;
-            const canvasY = (e.clientY - rect.top) * scaleY;
-            game.click(canvasX, canvasY);
+            const cx = (e.clientX - rect.left) * (canvas.width / rect.width);
+            const cy = (e.clientY - rect.top) * (canvas.height / rect.height);
+            game.click(cx, cy);
         });
 
         document.getElementById('restart-btn').addEventListener('click', () => game.reiniciar());
-        modeSelect.addEventListener('change', (e) => game.setMode(e.target.value));
+        modeSelect.addEventListener('change', e => game.setMode(e.target.value));
+
+        initArchitect();
     });
     </script>
 </body>
