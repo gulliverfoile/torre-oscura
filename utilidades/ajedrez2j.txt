@@ -1,0 +1,38 @@
+README · Mini Ajedrez (Base de Datos + 2 Jugadores)
+¿Qué es?
+Un pequeño juego de ajedrez completo, con todas las reglas (movimientos, captura al paso, enroque, promoción), diseñado para funcionar en navegador en un único archivo HTML.
+Incluye dos modos de juego:
+
+Jugador contra IA: la IA consulta una base de datos de posiciones precalculadas (35 posiciones de apertura, tácticas y finales) y, si no encuentra coincidencia, usa una heurística simple (prioriza capturas).
+
+Dos jugadores humanos: perfecto para echar partidas con un amigo en el móvil pasándose el dispositivo.
+
+¿Cómo funciona?
+Motor de reglas completo (ChessEngine): genera todos los movimientos legales, valida jaque, jaque mate, rey ahogado, enroque, captura al paso y promoción.
+
+Base de datos de posiciones (POSITION_DB): un diccionario que asocia una cadena similar a FEN (piezas + turno) con una jugada recomendada. La IA consulta esta base de datos primero.
+
+Heurística de captura: si no hay coincidencia en la base de datos, la IA elige aleatoriamente entre las capturas disponibles, o cualquier movimiento legal si no puede capturar.
+
+Interfaz gráfica: canvas que dibuja el tablero y las piezas con símbolos Unicode; soporta clic/tap para seleccionar y mover.
+
+¿Para qué sirve?
+Como minijuego dentro de un proyecto más grande (torre RPG, juegos de mesa…).
+
+Para aprender o practicar ajedrez contra una IA sencilla.
+
+Para jugar partidas rápidas entre dos personas en el mismo dispositivo.
+
+Como base para experimentos con IA de ajedrez basada en ejemplos.
+
+Cómo usar
+Abre el archivo .html en cualquier navegador moderno (PC, móvil, tablet).
+
+Selecciona el modo: Jugador vs IA o 2 Jugadores.
+
+Toca/clic en una pieza propia (se resalta en verde) y luego en la casilla destino.
+
+La IA responde automáticamente en el modo correspondiente.
+
+Para reiniciar la partida, pulsa 🔄 Nueva partida.
+
