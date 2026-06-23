@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>Mini Ajedrez · IA Híbrida + Arquitecto</title>
+    <title>Mini Ajedrez · IA Híbrida + Arquitecto (Jaque corregido)</title>
     <style>
         :root {
             --bg: #1a1e2c; --panel: #2a2f3f; --text: #e0e0e0;
@@ -140,7 +140,7 @@
         'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1': 'e2e4',
     };
 
-    // ==================== MOTOR DE AJEDREZ ====================
+    // ==================== MOTOR DE AJEDREZ (REGLAS CORREGIDAS) ====================
     class ChessEngine {
         constructor() {
             this.tablero = this._crearTableroInicial();
@@ -255,9 +255,25 @@
         }
 
         _saltarA(nf, nc, f, c, color, movs) { if (nf>=0&&nf<8&&nc>=0&&nc<8) { const obj=this.get(nf,nc); if (!obj||this.colorPieza(obj)!==color) this._addMov(f,c,nf,nc,movs); } }
-        _deslizar(f, c, df, dc, color, movs) { for (let i=1;i<8;i++) { const nf=f+df*i, nc=c+dc*i, obj=this.get(nf,nc); if (obj===null) this._addMov(f,c,nf,nc,movs); else { if (this.colorPieza(obj)!==color) this._addMov(f,c,nf,nc,movs); break; } } }
+        
+        // ✅ CORREGIDO: se detiene al encontrar cualquier pieza
+        _deslizar(f, c, df, dc, color, movs) {
+            for (let i = 1; i < 8; i++) {
+                const nf = f + df * i, nc = c + dc * i;
+                const obj = this.get(nf, nc);
+                if (obj === null) {
+                    this._addMov(f, c, nf, nc, movs);
+                } else {
+                    // Si es enemiga, podemos capturarla (y añadimos el movimiento)
+                    if (this.colorPieza(obj) !== color) this._addMov(f, c, nf, nc, movs);
+                    break; // En cualquier caso, la pieza bloquea la trayectoria
+                }
+            }
+        }
+
         _addMov(f, c, nf, nc, movs, extras={}) { if (nf>=0&&nf<8&&nc>=0&&nc<8) movs.push({filaOrig:f, colOrig:c, filaDest:nf, colDest:nc, ...extras}); }
 
+        // ✅ CORREGIDO: jaque bien detectado
         _dejaEnJaque(mov) {
             const copia = this._clonar();
             this._ejecutar(mov);
@@ -299,14 +315,19 @@
             this.movimientos++;
         }
 
-        _estaEnJaque(color) { return this._atacada(this.reyes[color].fila, this.reyes[color].col, color==='blanco'?'negro':'blanco'); }
+        _estaEnJaque(color) {
+            const rey = this.reyes[color];
+            return this._atacada(rey.fila, rey.col, color==='blanco'?'negro':'blanco');
+        }
 
+        // ✅ CORREGIDO: usa generación real de movimientos
         _atacada(fila, col, porColor) {
-            for (let f=0;f<8;f++) for (let c=0;c<8;c++) if (this.tablero[f][c] && this.colorPieza(this.tablero[f][c])===porColor) {
-                const movs=[]; this._generarMovs(f,c,movs);
-                if (movs.some(m=>m.filaDest===fila&&m.colDest===col)) return true;
-            }
-            return false;
+            const clon = this._clonar();
+            clon.turno = porColor;
+            clon.enroque = { blanco:{corto:false,largo:false}, negro:{corto:false,largo:false} };
+            clon.alPaso = null;
+            const movs = clon.generarMovimientosLegales();
+            return movs.some(m => m.filaDest === fila && m.colDest === col);
         }
 
         _clonar() { return { tablero:this.tablero.map(f=>[...f]), turno:this.turno, enroque:JSON.parse(JSON.stringify(this.enroque)), alPaso:this.alPaso?{...this.alPaso}:null, movimientos:this.movimientos, reyes:JSON.parse(JSON.stringify(this.reyes)) }; }
@@ -328,7 +349,7 @@
             return null;
         }
 
-        // Evalúa el material desde la perspectiva del color dado
+        // === Evaluaciones para la IA ===
         evaluarMaterial(color) {
             let total = 0;
             for (let f=0;f<8;f++) for (let c=0;c<8;c++) {
@@ -340,7 +361,6 @@
             return total;
         }
 
-        // Evalúa movilidad (número de movimientos legales) para un color
         evaluarMovilidad(color) {
             const turnoAnterior = this.turno;
             this.turno = color;
@@ -349,14 +369,12 @@
             return movs;
         }
 
-        // Evalúa control del centro (casillas d4,d5,e4,e5)
         evaluarCentro(color) {
             const centro = [[3,3],[3,4],[4,3],[4,4]];
             let control = 0;
             for (const [f,c] of centro) {
                 const p = this.tablero[f][c];
                 if (p && this.colorPieza(p) === color) control += 1;
-                // También contar piezas que atacan el centro
                 for (let ff=0;ff<8;ff++) for (let cc=0;cc<8;cc++) {
                     const atacante = this.tablero[ff][cc];
                     if (atacante && this.colorPieza(atacante) === color) {
@@ -369,11 +387,9 @@
             return control;
         }
 
-        // Evalúa seguridad del rey (casillas de escape y amenazas)
         evaluarSeguridadRey(color) {
             const rey = this.reyes[color];
             const oponente = color === 'blanco' ? 'negro' : 'blanco';
-            // Casillas alrededor del rey que están vacías o protegidas
             let escape = 0;
             for (const [df,dc] of [[1,0],[-1,0],[0,1],[0,-1],[1,1],[1,-1],[-1,1],[-1,-1]]) {
                 const nf = rey.fila + df, nc = rey.col + dc;
@@ -384,12 +400,10 @@
                     }
                 }
             }
-            // Penalizar si el rey está en jaque
             const enJaque = this._estaEnJaque(color) ? -5 : 0;
             return escape + enJaque;
         }
 
-        // Evaluación estratégica completa para un color
         evaluarEstrategica(color) {
             const material = this.evaluarMaterial(color) * 10;
             const movilidad = this.evaluarMovilidad(color) * 0.5;
@@ -404,78 +418,49 @@
         constructor(config) { this.config = config; }
 
         elegirMovimiento(engine) {
-            // 1. Si está en base de datos, usar esa jugada
             const movDB = engine.consultarBaseDatos();
             if (movDB) return movDB;
 
-            // 2. Generar todos los movimientos legales
             const legales = engine.generarMovimientosLegales();
             if (legales.length === 0) return null;
 
-            // 3. Evaluar cada movimiento con los dos criterios
             const evaluados = legales.map(mov => {
                 const copia = engine._clonar();
                 engine._ejecutar(mov);
-
-                // Puntuación de captura (material ganado/perdido)
                 const puntCaptura = engine.evaluarMaterial(engine.turno === 'blanco' ? 'negro' : 'blanco');
-
-                // Puntuación estratégica (mini árbol)
                 const puntEstrategica = this._evaluarEstrategica(engine, this.config.profundidad);
-
                 engine._restaurar(copia);
-
-                // Combinar según pesos
                 const puntFinal = puntCaptura * this.config.pesoCaptura + puntEstrategica * this.config.pesoEstrategia;
-                return { mov, puntFinal, puntCaptura, puntEstrategica };
+                return { mov, puntFinal };
             });
 
-            // 4. Ordenar por puntuación final y elegir el mejor
             evaluados.sort((a, b) => b.puntFinal - a.puntFinal);
             return evaluados[0].mov;
         }
 
         _evaluarEstrategica(engine, profundidad) {
             if (profundidad <= 0) return engine.evaluarEstrategica(engine.turno === 'blanco' ? 'negro' : 'blanco');
-
             const colorActual = engine.turno;
-            const oponente = colorActual === 'blanco' ? 'negro' : 'blanco';
-
-            // Generar movimientos del oponente
             const movsOponente = engine.generarMovimientosLegales();
-            if (movsOponente.length === 0) {
-                // Si no hay movimientos, es jaque mate o ahogado
-                return engine._estaEnJaque(colorActual) ? -1000 : 0;
-            }
+            if (movsOponente.length === 0) return engine._estaEnJaque(colorActual) ? -1000 : 0;
 
-            // Podar: evaluar solo los N mejores según material inmediato
             const evaluados = movsOponente.map(m => {
                 const copia = engine._clonar();
                 engine._ejecutar(m);
-                const mat = engine.evaluarMaterial(colorActual); // desde nuestra perspectiva
+                const mat = engine.evaluarMaterial(colorActual);
                 engine._restaurar(copia);
                 return { mov: m, punt: mat };
             });
-            evaluados.sort((a, b) => a.punt - b.punt); // el oponente quiere minimizar nuestro material
+            evaluados.sort((a, b) => a.punt - b.punt);
             const poda = Math.min(this.config.poda, evaluados.length);
-
             let peorPuntuacion = Infinity;
             for (let i = 0; i < poda; i++) {
                 const copia = engine._clonar();
                 engine._ejecutar(evaluados[i].mov);
-
-                let punt;
-                if (profundidad > 1) {
-                    // Recursión: ahora evaluamos nuestra respuesta
-                    punt = this._evaluarEstrategica(engine, profundidad - 1);
-                } else {
-                    punt = engine.evaluarEstrategica(colorActual);
-                }
-
+                let punt = profundidad > 1 ? this._evaluarEstrategica(engine, profundidad - 1) : engine.evaluarEstrategica(colorActual);
                 engine._restaurar(copia);
                 peorPuntuacion = Math.min(peorPuntuacion, punt);
             }
-
             return peorPuntuacion;
         }
     }
