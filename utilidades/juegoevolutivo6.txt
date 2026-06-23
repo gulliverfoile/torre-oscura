@@ -1,10 +1,8 @@
-
-📜 README – Gacha Evolutivo: Edición "Metralleta Parlante"
+README – Gacha Evolutivo (Prototipo Hexagonal)
 🎮 ¿Qué es esto?
-Un bullet heaven caótico donde el jugador no esquiva balas: las fabrica.
-Literalmente. Con los módulos adecuados, te conviertes en una ametralladora de proyectiles elementales que arrasan con todo.
-Los enemigos intentan seguir tu ritmo: evolucionan, te roban los módulos, se equipan con ellos y, si te matan, se convierten en tu Némesis personal y te persiguen en la siguiente partida.
-Todo construido en un solo archivo HTML, con arquitectura hexagonal y en un tiempo récord de desarrollo iterativo.
+Un bullet heaven caótico donde el jugador no solo dispara: construye una ametralladora de proyectiles elementales.
+Los enemigos evolucionan, te roban los módulos, se equipan con ellos y, si te matan, se convierten en tu Némesis y te persiguen en la siguiente partida.
+Todo ello en un solo archivo HTML, con sonido procedural, una arquitectura hexagonal y muchísimas mecánicas entrelazadas.
 
 🕹️ Controles
 Acción	Teclado (PC)	Móvil (táctil)
@@ -16,112 +14,90 @@ Disparo automático	Activado por defecto	Activado por defecto
 Arma definitiva	E	Botón ⚡ (abajo derecha)
 Menú lateral	Tab	Botón 📋 (abajo derecha)
 Reiniciar (tras muerte)	R	Tocar la pantalla (fuera de botones)
-⚠️ Nota importante sobre móvil:
-La experiencia óptima es en horizontal (landscape). Se recomienda girar el dispositivo para jugar.
+⚠️ Móvil: coloca el dispositivo en horizontal para una mejor experiencia.
 
 🧩 Mecánicas principales
-1. Sistema de Módulos Elementales
-Los enemigos (o el Arquitecto) sueltan piezas con una runa (F fuego, W hielo, E veneno, A agua, R físico) y un tipo (ataque, defensa, utilidad, orbe).
+🔮 Módulos y runas
+Los enemigos sueltan piezas con una runa (F fuego, W hielo, E veneno, A agua, R físico) y un tipo (ataque, defensa, utilidad, orbe).
 
-Se equipan en 4 ranuras (Norte, Sur, Este, Oeste) desde el menú lateral (Tab o 📋).
+Se equipan en 4 ranuras (Norte, Sur, Este, Oeste) desde el menú lateral.
 
-Cada módulo otorga efectos cualitativos (quemadura, ralentización, veneno, empuje) que escalan con su afinidad (1‑5).
+Cada módulo otorga efectos elementales (quemadura, ralentización, veneno, empuje) que escalan con su afinidad (1‑5 estrellas).
 
-Sinergias: dos runas iguales en ranuras opuestas (N‑S, E‑O) activan bonificaciones (ej. FF añade daño de fuego).
+Algunos módulos llevan propiedades de proyectil especiales: perforación, rebote, explosivo, teledirigido, mina.
 
-Aviso: Un módulo físico con afinidad alta puede convertir tu arma en una metralleta de balas elementales. Disfruta del caos.
+Sinergias: dos runas iguales en ranuras opuestas activan bonificaciones.
 
-2. Reacciones Elementales
-Si un enemigo muere con dos estados elementales (ej. quemadura + veneno), se desencadena una reacción especial (choque térmico, nube inflamable, vapor, putrefacción…).
+🔥 Elementos y reacciones
+Si un enemigo muere con dos estados elementales (ej. quemadura + veneno), se produce una reacción (choque térmico, nube inflamable, vapor…) que deja zonas en el suelo.
 
-Las reacciones dejan zonas en el suelo (fuego, hielo, veneno, agua) que afectan a enemigos y al jugador.
+Las zonas (fuego, hielo, veneno, agua) afectan tanto a enemigos como al jugador. Permanecen un tiempo y son peligrosas.
 
-3. Enemigos Dinámicos
-Evolución: al morir, un dado (1‑6) decide si el enemigo se divide en dos, evoluciona a una versión más grande, o simplemente muere. Sí, ese bichito que acabas de matar puede convertirse en un jefe gigante.
+🛡️ Escudos
+Cada 100 puntos de vida recogidos (❤️) te otorgan 1 punto de escudo (máx. 5).
 
-Tipos especiales: Barrera (absorbe disparos), Proyectil (lanza balas al morir), Kamikaze (explota en área), Constructor (levanta paredes destructibles), Arquero (dispara al jugador).
+Un escudo absorbe un golpe completo (incluso si te mataría de un solo impacto).
 
-Enemigos que se equipan: algunos enemigos pueden recoger módulos del suelo y usarlos contra ti. Te roban tus propias mejoras.
+Los escudos aparecen como puntos dorados alrededor de tu personaje.
 
-Rebote de balas enemigo: ciertos enemigos (prob. 15 %, jefes siempre) devuelven las balas del jugador como proyectiles enemigos. Cuidado con disparar a lo loco.
+🔄 Fusión de módulos
+En la pestaña de Módulos, puedes fusionar 3 módulos de la misma rareza para obtener uno de rareza superior.
 
-4. Subida de Nivel con Aprendizaje Gradual
-Ganas XP al matar enemigos.
+Cuesta Puntos de Destino (PD). Los módulos resultantes tienen afinidad mínima garantizada.
 
-Los niveles 2, 3 y 5 enseñan respectivamente los sistemas de stats, proyectil y módulos.
+Así limpias el inventario y consigues piezas más poderosas.
 
-A partir de ahí, las opciones se mezclan aleatoriamente.
+👻 Némesis
+El enemigo que te mata se convierte en tu Némesis y se guarda entre partidas.
 
-El juego se pausa mientras eliges.
+En la siguiente run, hay un 15 % de probabilidad de que aparezca como un jefe especial (aura púrpura) con tus propios módulos robados.
 
-5. Barra de Poder Destructivo
-Se carga al infligir daño. Al llenarse, tus disparos atraviesan enemigos y hacen mucho más daño durante unos segundos.
+Si lo derrotas, recuperas los módulos. Si te vuelve a matar, se hace más fuerte.
 
-6. El Némesis (Sistema de Rivalidad Persistente)
-El enemigo que te mata se convierte en tu Némesis y se guarda en localStorage.
+⚖️ Dificultad adaptativa
+El juego se vuelve más difícil según tu nivel, tu ritmo de muertes (DPS) y tu vida actual.
 
-En la siguiente partida, hay un 15 % de probabilidad de que aparezca como un mini‑jefe especial (aura púrpura, nombre propio, tus módulos robados).
+Los enemigos ganan armadura, velocidad y vida. Aparecen minijefes y jefes de oleada con patrones de ataque especiales.
 
-Si lo derrotas, recuperas tus módulos. Si te vuelve a matar, se vuelve más fuerte.
+🌀 Jefe de oleada de rebote
+Cada 5 oleadas aparece un jefe púrpura que no dispara, pero convierte tus propias balas en proyectiles enemigos y los lanza en patrones circulares.
 
-Ahora tus derrotas tienen consecuencias. Véngate.
+Es la máxima expresión de "tu propio poder se vuelve contra ti".
 
-7. Arquitecto (Debug)
-Panel de configuración en vivo accesible desde el menú lateral.
+🎯 Cómo empezar (consejos rápidos)
+Muévete y dispara automáticamente. No necesitas pulsar nada; solo dirige al personaje.
 
-Ajusta sensibilidad, asistencia de apuntado, spawn de enemigos, modo práctica (inmortal), forzar módulos, forzar Némesis, etc.
+Recoge módulos (🧩) y equípalos en las ranuras (menú Tab). Las runas de fuego (F) o hielo (W) son buenas para empezar.
 
-8. Persistencia
-Guarda automáticamente Puntos de Destino, mejoras permanentes y el Némesis al morir.
+Cada 100 ❤️ de curación consigues un escudo que te salva de un golpe mortal.
 
-Los módulos equipados se conservan entre partidas (hasta que reseteas el progreso).
+No te quedes quieto en las zonas de colores (fuego, veneno…). Queman.
 
-9. Arquitectura Hexagonal
-Dominio: Player, Enemy, Bullet, Pieza, servicios (CombatService, EvolutionService, DropService, NivelService, SinergiaService, ProyectilService, DifficultyService).
+Abre el menú lateral (Tab) para ver tus estadísticas, afiliaciones elementales y pasivas activas.
 
-Puertos: InputPort, RendererPort, PersistencePort.
+Usa el Arquitecto (pestaña 🔧) para activar "Modo práctica" y probar cosas sin presión.
 
-Adaptadores: WebInputAdapter (ratón + teclado), MobileInputAdapter (táctil), CanvasRenderer (2D), LocalStorageRepo (persistencia).
+Cada 3 módulos iguales puedes fusionarlos por uno mejor (cuesta Puntos de Destino).
 
-🐛 Estado actual y "features" conocidos
-#	Comportamiento	¿Es un bug o una feature?
-1	Te conviertes en una metralleta con módulos físicos.	Feature. El equilibrio vendrá después.
-2	El hielo puede ralentizar (y a veces congelar) a cualquiera, incluidos jefes.	Feature con necesidad de balance.
-3	Los enemigos te roban módulos y se vuelven más fuertes.	Feature intencionada.
-4	Si mueres, tu asesino se convierte en tu Némesis y vuelve en la siguiente partida.	Feature intencionada.
-5	Las estructuras (cubos) a veces muestran una barra de vida invertida al recibir daño excesivo.	Bug conocido (visual).
-6	El dash con swipe en móvil puede activarse sin querer al esquivar rápido.	Bug/Ajuste de sensibilidad.
-7	El juego es extremadamente rápido en móviles con tasas de refresco altas (120 Hz) si no se usa delta‑time.	Solucionado en la última versión con delta‑time universal.
-8	Los drops de módulos pueden ser recogidos por enemigos antes que por el jugador.	Feature. Los enemigos también quieren mejorar.
-9	La pantalla de Game Over no muestra estadísticas detalladas.	Pendiente de implementar.
-🧪 Cómo probar
-Guarda el código en un archivo .html.
+⚠️ ¡Cuidado con los rebotes!
+Algunos enemigos (probabilidad del 15 %) y todos los jefes tienen la propiedad rebotaBalas.
 
-Ábrelo en un navegador moderno (Chrome, Edge, Firefox).
+Cuando una de tus balas les golpea, rebota y se vuelve enemiga (color rosa/magenta, más grande).
 
-En PC, usa ratón y teclado. En móvil, pon el dispositivo en horizontal.
+Tus propias balas reflejadas pueden matarte en segundos, especialmente si tienes mucho daño.
 
-Pulsa Tab (o botón 📋) para abrir el menú lateral.
+Estrategias:
 
-En la pestaña Arquitecto, activa Modo práctica para explorar sin presión.
+Dispara en ráfagas controladas si ves enemigos con un punto rosa en su sprite (son los que rebotan).
 
-Equipa un módulo físico con afinidad alta y contempla el caos.
+Usa el dash (💨) para esquivar las balas reflejadas.
 
-🚧 Próximos pasos (cuando se retome)
-Balancear el escalado de poder: evitar que el jugador se convierta en una ametralladora imparable demasiado pronto.
+Prioriza matar rápido a los enemigos que rebotan.
 
-Añadir más comportamientos de proyectil (rebote, perforación, minas, drones).
+Los módulos de mina o explosivo no te afectan directamente, pero las balas reflejadas sí.
 
-Mejorar la interfaz de módulos (sustituir los prompts por una UI gráfica).
+🧪 Estado del proyecto
+Este es un prototipo avanzado creado de forma iterativa como experimento de diseño y arquitectura.
+Tiene más sistemas que muchos juegos comerciales, pero carece de tutorial completo, gráficos pulidos y balance fino.
 
-Añadir sonido y música (ya hay vibración para los impactos).
-
-Implementar la mochila‑cuadrícula (Tetris) para la colocación de módulos.
-
-Añadir más reacciones elementales y enemigos con resistencias.
-
-🎯 Conclusión
-Este prototipo es un generador de caos y diversión.
-No está equilibrado, no es justo y probablemente te matará de formas absurdas. Pero cuando encuentras la build perfecta y te conviertes en una metralleta de fuego que arrasa hordas de enemigos, es increíblemente satisfactorio.
-
-Disfruta del caos. El equilibrio ya llegará
+Próximos pasos planeados: sistema de puntuación y records, causa de muerte en pantalla, tutorial integrado y mejora de la interfaz de módulos.
