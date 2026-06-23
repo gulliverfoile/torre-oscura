@@ -2,40 +2,36 @@
 <html lang="es">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Minijuegos + Sprites + Cordura (v2 corregida)</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <title>Minijuegos + Cordura (v3 corregida)</title>
   <style>
     :root {
       --bg: #1a1e2c; --panel: #2a2f3f; --text: #e0e0e0;
-      --accent: #ff6600; --border: #4a5568;
+      --accent: #ff6600; --border: #4a5568; --danger: #e74c3c;
     }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
     body {
-      margin: 0; min-height: 100vh; background: var(--bg);
-      display: flex; flex-direction: column; align-items: center;
-      font-family: 'Segoe UI', system-ui, sans-serif; color: var(--text);
+      background: var(--bg); min-height: 100vh; display: flex;
+      flex-direction: column; align-items: center; font-family: 'Segoe UI', system-ui, sans-serif;
+      color: var(--text); padding: 10px;
     }
-    h1 { color: var(--accent); margin: 15px 0 5px; }
+    h1 { color: var(--accent); margin: 10px 0; font-size: 1.5rem; }
     .panel {
       background: var(--panel); border-radius: 16px; padding: 20px;
-      box-shadow: 0 8px 30px rgba(0,0,0,0.5); width: 90%; max-width: 600px;
+      box-shadow: 0 8px 30px rgba(0,0,0,0.5); width: 100%; max-width: 600px;
     }
     .controls {
       display: flex; flex-wrap: wrap; gap: 10px; align-items: center;
       margin-bottom: 15px; justify-content: center;
     }
-    select, button, input {
+    select, button {
       background: #1a202c; border: 1px solid var(--border);
       border-radius: 8px; color: var(--text); padding: 8px 16px;
       font-family: inherit; font-size: 14px; cursor: pointer;
     }
     button { background: var(--accent); color: #000; font-weight: bold; border: none; }
+    button.danger { background: var(--danger); }
     button:hover { filter: brightness(1.2); }
-    canvas {
-      display: block; margin: 0 auto; border-radius: 12px;
-      background: #000; image-rendering: pixelated;
-      box-shadow: inset 0 0 10px #00000055, 0 0 0 2px var(--border);
-    }
-    #status { text-align: center; margin: 10px 0; font-weight: bold; min-height: 24px; }
     #cordura-bar {
       width: 100%; height: 20px; background: #333; border-radius: 10px;
       margin: 10px 0; overflow: hidden;
@@ -44,13 +40,25 @@
       height: 100%; background: linear-gradient(90deg, #e74c3c, #2ecc71);
       transition: width 0.5s;
     }
-    .info { font-size: 0.9rem; color: #aaa; text-align: center; margin-top: 10px; }
-    .simon-dot { width: 60px; height: 60px; border-radius: 50%; display: inline-block; margin: 10px; cursor: pointer; opacity: 0.6; transition: opacity 0.2s; }
+    #game-area {
+      display: flex; flex-direction: column; align-items: center; gap: 10px;
+    }
+    canvas {
+      display: block; border-radius: 12px; background: #000;
+      image-rendering: pixelated; box-shadow: inset 0 0 10px #00000055, 0 0 0 2px var(--border);
+    }
+    #status { text-align: center; font-weight: bold; min-height: 24px; margin: 10px 0; }
+    #simon-panel { display: none; text-align: center; }
+    .simon-dot {
+      width: 60px; height: 60px; border-radius: 50%; display: inline-block;
+      margin: 10px; cursor: pointer; opacity: 0.6; transition: opacity 0.2s;
+    }
     .simon-dot.active { opacity: 1; }
+    .info { font-size: 0.9rem; color: #aaa; text-align: center; margin-top: 10px; }
   </style>
 </head>
 <body>
-  <h1>🧩 Minijuegos + Sprites + Cordura (v2)</h1>
+  <h1>🧩 Minijuegos + Cordura (v3)</h1>
   <div class="panel">
     <div class="controls">
       <select id="game-select">
@@ -59,16 +67,16 @@
         <option value="prueba">Prueba de la Mente</option>
         <option value="simon">Simon Dice</option>
       </select>
-      <button id="restart-btn">🔄 Reiniciar</button>
+      <button id="new-game-btn">🔄 Nueva Partida</button>
       <button id="cordura-up">+ Cordura</button>
-      <button id="cordura-down">- Cordura</button>
+      <button id="cordura-down" class="danger">- Cordura</button>
     </div>
-    <div id="cordura-bar">
-      <div id="cordura-fill" style="width: 100%;"></div>
-    </div>
+    <div id="cordura-bar"><div id="cordura-fill" style="width:100%;"></div></div>
     <div id="status">Turno: Jugador</div>
-    <canvas id="boardCanvas" width="400" height="400"></canvas>
-    <div id="simon-panel" style="display:none; text-align:center;"></div>
+    <div id="game-area">
+      <canvas id="boardCanvas" width="400" height="400"></canvas>
+      <div id="simon-panel"></div>
+    </div>
     <div class="info" id="info">Cordura: 100 | Modo: Pixel Art</div>
   </div>
 
@@ -103,13 +111,10 @@ class SpriteGenerator {
     if (def.matriz) {
       const matriz = def.matriz;
       const colores = def.colores || {};
-      const rows = matriz.length;
-      const cols = matriz[0].length;
-      const cellW = size / cols;
-      const cellH = size / rows;
+      const rows = matriz.length, cols = matriz[0].length;
+      const cellW = size / cols, cellH = size / rows;
       ctx.font = `bold ${cellH*0.9}px monospace`;
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
       for (let y=0; y<rows; y++) {
         for (let x=0; x<cols; x++) {
           const ch = matriz[y][x];
@@ -134,14 +139,9 @@ class SpriteGenerator {
           ctx.fillStyle = sombra; ctx.fill();
           ctx.restore();
         }
-
-        ctx.save();
-        this._drawShape(ctx, capa);
+        ctx.save(); this._drawShape(ctx, capa);
         ctx.fillStyle = color; ctx.fill();
-
-        if (brillo) {
-          ctx.fillStyle = brillo; ctx.globalAlpha = 0.4; ctx.fill();
-        }
+        if (brillo) { ctx.fillStyle = brillo; ctx.globalAlpha = 0.4; ctx.fill(); }
         ctx.restore();
       }
       return canvas;
@@ -167,16 +167,14 @@ const GAMES = {
     nombre: "Damas",
     modo: "movimiento",
     tablero: { filas: 8, columnas: 8 },
-    jugadores: [
-      { id: "jugador", nombre: "Blancas" },
-      { id: "ia", nombre: "Negras", ia: true }
-    ],
+    jugadores: [ { id:"jugador", nombre:"Blancas" }, { id:"ia", nombre:"Negras", ia:true } ],
     reglas: {
+      tipo: "damas",
       condiciones_victoria: [{ tipo: "sin_piezas", jugador_ganador: "turno_contrario" }]
     },
     piezas: [
-      { id: "peon_blanco", jugador: "jugador", sprite: { pixel: { capas: [{ tipo:"elipse", x:24, y:24, rx:18, ry:18, color:"piel", sombra:"piel_sombra", brillo:"brillo" }] }, ascii: { matriz: [" O ","/|\\","/ \\"], colores: { "O":"tela", "/":"tela", "\\":"tela", "|":"tela" } } }, posiciones_iniciales: [[5,0],[5,2],[5,4],[5,6],[6,1],[6,3],[6,5],[6,7],[7,0],[7,2],[7,4],[7,6]] },
-      { id: "peon_negro", jugador: "ia", sprite: { pixel: { capas: [{ tipo:"elipse", x:24, y:24, rx:18, ry:18, color:"armadura", sombra:"armadura_sombra", brillo:"metal_brillo" }] }, ascii: { matriz: [" • ","/ \\","/ \\"], colores: { "•":"metal", "/":"armadura", "\\":"armadura" } } }, posiciones_iniciales: [[0,1],[0,3],[0,5],[0,7],[1,0],[1,2],[1,4],[1,6],[2,1],[2,3],[2,5],[2,7]] }
+      { id:"peon_blanco", jugador:"jugador", sprite:{ pixel:{ capas:[{ tipo:"elipse", x:24, y:24, rx:18, ry:18, color:"piel", sombra:"piel_sombra", brillo:"brillo" }] }, ascii:{ matriz:[" O ","/|\\","/ \\"], colores:{"O":"tela","/":"tela","\\":"tela","|":"tela"} } }, posiciones_iniciales:[[5,0],[5,2],[5,4],[5,6],[6,1],[6,3],[6,5],[6,7],[7,0],[7,2],[7,4],[7,6]] },
+      { id:"peon_negro", jugador:"ia", sprite:{ pixel:{ capas:[{ tipo:"elipse", x:24, y:24, rx:18, ry:18, color:"armadura", sombra:"armadura_sombra", brillo:"metal_brillo" }] }, ascii:{ matriz:[" • ","/ \\","/ \\"], colores:{"•":"metal","/":"armadura","\\":"armadura"} } }, posiciones_iniciales:[[0,1],[0,3],[0,5],[0,7],[1,0],[1,2],[1,4],[1,6],[2,1],[2,3],[2,5],[2,7]] }
     ],
     paleta: "default"
   },
@@ -184,16 +182,14 @@ const GAMES = {
     nombre: "Tres en Raya",
     modo: "colocacion",
     tablero: { filas: 3, columnas: 3 },
-    jugadores: [
-      { id: "jugador", nombre: "X" },
-      { id: "ia", nombre: "O", ia: true }
-    ],
+    jugadores: [ { id:"jugador", nombre:"X" }, { id:"ia", nombre:"O", ia:true } ],
     reglas: {
+      tipo: "tresenraya",
       condiciones_victoria: [{ tipo: "linea", longitud: 3 }]
     },
     piezas: [
-      { id: "ficha_x", jugador: "jugador", sprite: { pixel: { capas: [{ tipo:"rect", x:8, y:4, w:32, h:40, color:"tela", sombra:"tela_sombra" }, { tipo:"rect", x:16, y:8, w:16, h:32, color:"piel" }] }, ascii: { matriz: ["\\/","/\\"], colores: { "\\":"detalle", "/":"detalle" } } }, posiciones_iniciales: [] },
-      { id: "ficha_o", jugador: "ia", sprite: { pixel: { capas: [{ tipo:"elipse", x:24, y:24, rx:18, ry:18, color:"armadura", sombra:"armadura_sombra", brillo:"metal_brillo" }] }, ascii: { matriz: ["()","()"], colores: { "(":"metal", ")":"metal" } } }, posiciones_iniciales: [] }
+      { id:"ficha_x", jugador:"jugador", sprite:{ pixel:{ capas:[{ tipo:"rect", x:8, y:4, w:32, h:40, color:"tela", sombra:"tela_sombra" },{ tipo:"rect", x:16, y:8, w:16, h:32, color:"piel" }] }, ascii:{ matriz:["\\/","/\\"], colores:{"\\":"detalle","/":"detalle"} } }, posiciones_iniciales:[] },
+      { id:"ficha_o", jugador:"ia", sprite:{ pixel:{ capas:[{ tipo:"elipse", x:24, y:24, rx:18, ry:18, color:"armadura", sombra:"armadura_sombra", brillo:"metal_brillo" }] }, ascii:{ matriz:["()","()"], colores:{"(":"metal",")":"metal"} } }, posiciones_iniciales:[] }
     ],
     paleta: "fuego"
   },
@@ -201,16 +197,14 @@ const GAMES = {
     nombre: "Prueba de la Mente",
     modo: "movimiento",
     tablero: { filas: 4, columnas: 4 },
-    jugadores: [
-      { id: "jugador", nombre: "Cuerdo" },
-      { id: "ia", nombre: "Entropía", ia: true }
-    ],
+    jugadores: [ { id:"jugador", nombre:"Cuerdo" }, { id:"ia", nombre:"Entropía", ia:true } ],
     reglas: {
+      tipo: "prueba",
       condiciones_victoria: [{ tipo: "sin_piezas", jugador_ganador: "turno_contrario" }]
     },
     piezas: [
-      { id: "ficha_cordura", jugador: "jugador", sprite: { pixel: { capas: [{ tipo:"elipse", x:24, y:24, rx:18, ry:18, color:"piel", sombra:"piel_sombra", brillo:"brillo" }] }, ascii: { matriz: ["☺"], colores: { "☺":"tela" } } }, posiciones_iniciales: [[3,0],[3,1],[3,2],[3,3]] },
-      { id: "ficha_corrupcion", jugador: "ia", sprite: { pixel: { capas: [{ tipo:"poligono", puntos: [[24,8],[12,40],[36,40]], color:"armadura", sombra:"armadura_sombra", brillo:"metal_brillo" }] }, ascii: { matriz: ["☠"], colores: { "☠":"detalle" } } }, posiciones_iniciales: [[0,0],[0,1],[0,2],[0,3]] }
+      { id:"ficha_cordura", jugador:"jugador", sprite:{ pixel:{ capas:[{ tipo:"elipse", x:24, y:24, rx:18, ry:18, color:"piel", sombra:"piel_sombra", brillo:"brillo" }] }, ascii:{ matriz:["☺"], colores:{"☺":"tela"} } }, posiciones_iniciales:[[3,0],[3,1],[3,2],[3,3]] },
+      { id:"ficha_corrupcion", jugador:"ia", sprite:{ pixel:{ capas:[{ tipo:"poligono", puntos:[[24,8],[12,40],[36,40]], color:"armadura", sombra:"armadura_sombra", brillo:"metal_brillo" }] }, ascii:{ matriz:["☠"], colores:{"☠":"detalle"} } }, posiciones_iniciales:[[0,0],[0,1],[0,2],[0,3]] }
     ],
     paleta: "default"
   },
@@ -218,11 +212,8 @@ const GAMES = {
     nombre: "Simon Dice",
     modo: "simon",
     tablero: { filas: 1, columnas: 4 },
-    jugadores: [
-      { id: "jugador", nombre: "Tú" },
-      { id: "ia", nombre: "Máquina" }
-    ],
-    reglas: {},
+    jugadores: [ { id:"jugador", nombre:"Tú" }, { id:"ia", nombre:"Máquina" } ],
+    reglas: { tipo: "simon" },
     piezas: [],
     paleta: "fuego"
   }
@@ -239,12 +230,12 @@ class GameEngine {
     this.modo = config.modo || "movimiento";
     this.secuenciaSimon = [];
     this.indiceSimon = 0;
+    this.escuchandoSimon = false;
 
-    // Colocar piezas iniciales si las hay
     for (const pieza of config.piezas) {
       if (pieza.posiciones_iniciales) {
         for (const [r,c] of pieza.posiciones_iniciales) {
-          this.tablero[r][c] = { id: pieza.id, jugador: pieza.jugador, sprite: pieza.sprite };
+          this.tablero[r][c] = { id: pieza.id, jugador: pieza.jugador, sprite: pieza.sprite, tipo: pieza.id.includes('peon') ? 'peon' : 'normal' };
         }
       }
     }
@@ -252,25 +243,95 @@ class GameEngine {
 
   getPieza(r, c) { return (r>=0 && r<this.tablero.length && c>=0 && c<this.tablero[0].length) ? this.tablero[r][c] : null; }
 
-  // Movimiento de una pieza existente
+  // Movimiento de una pieza (devuelve true si fue legal y se ejecutó)
   mover(fromR, fromC, toR, toC) {
     const pieza = this.tablero[fromR][fromC];
     if (!pieza || pieza.jugador !== this.turno) return false;
     if (this.tablero[toR][toC] !== null) return false;
+
+    // Reglas de damas: captura obligatoria si hay salto
+    if (this.config.reglas.tipo === 'damas') {
+      const saltos = this._calcularSaltos(fromR, fromC);
+      if (saltos.length > 0) {
+        const esSalto = saltos.some(s => s.r === toR && s.c === toC);
+        if (!esSalto) return false;
+        this.tablero[toR][toC] = pieza;
+        this.tablero[fromR][fromC] = null;
+        const midR = (fromR + toR) / 2, midC = (fromC + toC) / 2;
+        this.tablero[midR][midC] = null; // capturar pieza saltada
+        // Coronación
+        if ((pieza.jugador === 'jugador' && toR === 0) || (pieza.jugador === 'ia' && toR === this.tablero.length-1)) {
+          pieza.tipo = 'dama';
+        }
+        // Verificar saltos múltiples desde la nueva posición
+        const nuevosSaltos = this._calcularSaltos(toR, toC);
+        if (nuevosSaltos.length === 0) {
+          this.cambiarTurno();
+          this.verificarVictoria();
+        }
+        return true;
+      }
+    }
+
+    // Movimiento normal (solo si no hay capturas pendientes en damas)
+    if (this.config.reglas.tipo === 'damas') {
+      const todasPiezas = this._getPiezasJugador(this.turno);
+      for (const p of todasPiezas) {
+        if (this._calcularSaltos(p.r, p.c).length > 0) return false; // hay captura obligatoria
+      }
+    }
+
     this.tablero[toR][toC] = pieza;
     this.tablero[fromR][fromC] = null;
+
+    // Coronación en damas
+    if (this.config.reglas.tipo === 'damas') {
+      if ((pieza.jugador === 'jugador' && toR === 0) || (pieza.jugador === 'ia' && toR === this.tablero.length-1)) {
+        pieza.tipo = 'dama';
+      }
+    }
+
     this.cambiarTurno();
     this.verificarVictoria();
     return true;
   }
 
-  // Colocar una ficha nueva (para juegos de colocación)
+  _calcularSaltos(r, c) {
+    const pieza = this.tablero[r][c];
+    if (!pieza) return [];
+    const saltos = [];
+    const direcciones = (pieza.tipo === 'dama') ? [[1,1],[1,-1],[-1,1],[-1,-1]] :
+      (pieza.jugador === 'jugador' ? [[-1,-1],[-1,1]] : [[1,-1],[1,1]]);
+    for (const [dr,dc] of direcciones) {
+      const midR = r+dr, midC = c+dc;
+      const toR = r+dr*2, toC = c+dc*2;
+      if (toR>=0 && toR<this.tablero.length && toC>=0 && toC<this.tablero[0].length) {
+        const midPieza = this.tablero[midR][midC];
+        if (midPieza && midPieza.jugador !== pieza.jugador && !this.tablero[toR][toC]) {
+          saltos.push({r:toR, c:toC});
+        }
+      }
+    }
+    return saltos;
+  }
+
+  _getPiezasJugador(jugadorId) {
+    const piezas = [];
+    for (let r=0; r<this.tablero.length; r++) {
+      for (let c=0; c<this.tablero[0].length; c++) {
+        if (this.tablero[r][c]?.jugador === jugadorId) piezas.push({r,c,pieza:this.tablero[r][c]});
+      }
+    }
+    return piezas;
+  }
+
+  // Colocar ficha (juegos de colocación)
   colocar(row, col) {
     if (this.modo !== "colocacion") return false;
     if (this.tablero[row][col] !== null) return false;
     const piezaDef = this.config.piezas.find(p => p.jugador === this.turno);
     if (!piezaDef) return false;
-    this.tablero[row][col] = { id: piezaDef.id, jugador: this.turno, sprite: piezaDef.sprite };
+    this.tablero[row][col] = { id: piezaDef.id, jugador: this.turno, sprite: piezaDef.sprite, tipo: 'normal' };
     this.cambiarTurno();
     this.verificarVictoria();
     return true;
@@ -287,55 +348,44 @@ class GameEngine {
       if (cond.tipo === "sin_piezas") {
         for (const jugador of this.config.jugadores) {
           let count = 0;
-          for (let r=0; r<this.tablero.length; r++) {
-            for (let c=0; c<this.tablero[0].length; c++) {
+          for (let r=0; r<this.tablero.length; r++)
+            for (let c=0; c<this.tablero[0].length; c++)
               if (this.tablero[r][c]?.jugador === jugador.id) count++;
-            }
-          }
           if (count === 0) {
             const ganador = this.config.jugadores.find(p => p.id !== jugador.id);
             this.terminado = true;
-            document.getElementById('status').textContent = `🏆 ¡${ganador.nombre} gana!`;
-            return;
+            return ganador;
           }
         }
       } else if (cond.tipo === "linea") {
         const ganador = this.comprobarLinea(cond.longitud);
-        if (ganador) {
-          this.terminado = true;
-          document.getElementById('status').textContent = `🏆 ¡${ganador.nombre} gana!`;
-          return;
-        }
+        if (ganador) { this.terminado = true; return ganador; }
       }
     }
+    return null;
   }
 
   comprobarLinea(longitud) {
-    const rows = this.tablero.length;
-    const cols = this.tablero[0].length;
+    const rows = this.tablero.length, cols = this.tablero[0].length;
     for (let r=0; r<rows; r++) {
       for (let c=0; c<cols; c++) {
         const pieza = this.tablero[r][c];
         if (!pieza) continue;
-        // Horizontal
         if (c <= cols - longitud) {
           let igual = true;
           for (let i=1; i<longitud; i++) if (!this.tablero[r][c+i] || this.tablero[r][c+i].jugador !== pieza.jugador) { igual = false; break; }
           if (igual) return this.config.jugadores.find(p => p.id === pieza.jugador);
         }
-        // Vertical
         if (r <= rows - longitud) {
           let igual = true;
           for (let i=1; i<longitud; i++) if (!this.tablero[r+i][c] || this.tablero[r+i][c].jugador !== pieza.jugador) { igual = false; break; }
           if (igual) return this.config.jugadores.find(p => p.id === pieza.jugador);
         }
-        // Diagonal principal
         if (r <= rows - longitud && c <= cols - longitud) {
           let igual = true;
           for (let i=1; i<longitud; i++) if (!this.tablero[r+i][c+i] || this.tablero[r+i][c+i].jugador !== pieza.jugador) { igual = false; break; }
           if (igual) return this.config.jugadores.find(p => p.id === pieza.jugador);
         }
-        // Diagonal secundaria
         if (r <= rows - longitud && c >= longitud - 1) {
           let igual = true;
           for (let i=1; i<longitud; i++) if (!this.tablero[r+i][c-i] || this.tablero[r+i][c-i].jugador !== pieza.jugador) { igual = false; break; }
@@ -346,29 +396,25 @@ class GameEngine {
     return null;
   }
 
-  // IA: movimiento o colocación según el modo
+  // IA: minimax para tres en raya, aleatorio para otros
   ejecutarIA() {
-    if (this.modo === "colocacion") {
+    if (this.terminado) return;
+    if (this.config.reglas.tipo === 'tresenraya') {
+      this._iaTresEnRaya();
+    } else if (this.modo === 'colocacion') {
       const vacias = [];
-      for (let r=0; r<this.tablero.length; r++) {
-        for (let c=0; c<this.tablero[0].length; c++) {
+      for (let r=0; r<this.tablero.length; r++)
+        for (let c=0; c<this.tablero[0].length; c++)
           if (!this.tablero[r][c]) vacias.push({r,c});
-        }
-      }
       if (vacias.length > 0) {
         const {r,c} = vacias[Math.floor(Math.random() * vacias.length)];
         this.colocar(r, c);
       }
-    } else if (this.modo === "movimiento") {
-      const piezas = [];
-      for (let r=0; r<this.tablero.length; r++) {
-        for (let c=0; c<this.tablero[0].length; c++) {
-          if (this.tablero[r][c]?.jugador === this.turno) piezas.push({r,c});
-        }
-      }
+    } else if (this.modo === 'movimiento') {
+      const piezas = this._getPiezasJugador(this.turno);
       if (piezas.length === 0) return;
       const origen = piezas[Math.floor(Math.random() * piezas.length)];
-      const vecinos = [[0,1],[0,-1],[1,0],[-1,0],[1,1],[1,-1],[-1,1],[-1,-1]];
+      const vecinos = [[0,1],[0,-1],[1,0],[-1,0]];
       for (const [dr,dc] of vecinos.sort(()=>Math.random()-0.5)) {
         const tr = origen.r + dr, tc = origen.c + dc;
         if (tr>=0 && tr<this.tablero.length && tc>=0 && tc<this.tablero[0].length && !this.tablero[tr][tc]) {
@@ -377,6 +423,117 @@ class GameEngine {
         }
       }
     }
+  }
+
+  _iaTresEnRaya() {
+    // Minimax simple
+    const iaJugador = this.turno;
+    const rival = this.config.jugadores.find(p => p.id !== iaJugador).id;
+    let mejorPuntaje = -Infinity;
+    let mejorMov = null;
+    for (let r=0; r<3; r++) {
+      for (let c=0; c<3; c++) {
+        if (!this.tablero[r][c]) {
+          this.tablero[r][c] = { id: 'ficha_o', jugador: iaJugador, sprite: this.config.piezas.find(p=>p.jugador===iaJugador).sprite, tipo:'normal' };
+          const puntaje = this._minimax(0, false, rival, iaJugador);
+          this.tablero[r][c] = null;
+          if (puntaje > mejorPuntaje) {
+            mejorPuntaje = puntaje;
+            mejorMov = {r,c};
+          }
+        }
+      }
+    }
+    if (mejorMov) {
+      this.colocar(mejorMov.r, mejorMov.c);
+    }
+  }
+
+  _minimax(profundidad, esMaximizador, jugador, iaJugador) {
+    const ganador = this.verificarVictoria();
+    if (ganador) return ganador.id === iaJugador ? 10 - profundidad : profundidad - 10;
+    if (this._tableroLleno()) return 0;
+
+    if (esMaximizador) {
+      let mejor = -Infinity;
+      for (let r=0; r<3; r++) {
+        for (let c=0; c<3; c++) {
+          if (!this.tablero[r][c]) {
+            this.tablero[r][c] = { id:'ficha_o', jugador:iaJugador, sprite:null, tipo:'normal' };
+            mejor = Math.max(mejor, this._minimax(profundidad+1, false, jugador, iaJugador));
+            this.tablero[r][c] = null;
+          }
+        }
+      }
+      return mejor;
+    } else {
+      let peor = Infinity;
+      const rival = this.config.jugadores.find(p => p.id !== iaJugador).id;
+      for (let r=0; r<3; r++) {
+        for (let c=0; c<3; c++) {
+          if (!this.tablero[r][c]) {
+            this.tablero[r][c] = { id:'ficha_x', jugador:rival, sprite:null, tipo:'normal' };
+            peor = Math.min(peor, this._minimax(profundidad+1, true, jugador, iaJugador));
+            this.tablero[r][c] = null;
+          }
+        }
+      }
+      return peor;
+    }
+  }
+
+  _tableroLleno() {
+    for (let r=0; r<this.tablero.length; r++)
+      for (let c=0; c<this.tablero[0].length; c++)
+        if (!this.tablero[r][c]) return false;
+    return true;
+  }
+
+  // Simon
+  iniciarSimon() {
+    this.secuenciaSimon = [Math.floor(Math.random() * 4)];
+    this.indiceSimon = 0;
+    this.escuchandoSimon = false;
+    this._mostrarSecuenciaSimon();
+  }
+
+  _mostrarSecuenciaSimon() {
+    this.escuchandoSimon = false;
+    let i = 0;
+    const interval = setInterval(() => {
+      if (i >= this.secuenciaSimon.length) {
+        clearInterval(interval);
+        this.escuchandoSimon = true;
+        this.indiceSimon = 0;
+        return;
+      }
+      const idx = this.secuenciaSimon[i];
+      this._emitirSimon('mostrar', idx);
+      setTimeout(() => this._emitirSimon('ocultar', idx), 400);
+      i++;
+    }, 800);
+  }
+
+  _emitirSimon(accion, idx) {
+    if (this.onSimonEvent) this.onSimonEvent(accion, idx);
+  }
+
+  clickSimon(idx) {
+    if (!this.escuchandoSimon || this.terminado) return;
+    if (idx === this.secuenciaSimon[this.indiceSimon]) {
+      this.indiceSimon++;
+      if (this.indiceSimon === this.secuenciaSimon.length) {
+        this.escuchandoSimon = false;
+        this.secuenciaSimon.push(Math.floor(Math.random() * 4));
+        setTimeout(() => this._mostrarSecuenciaSimon(), 1000);
+        return true; // correcto
+      }
+    } else {
+      this.escuchandoSimon = false;
+      this.terminado = true;
+      return false; // fallo
+    }
+    return null;
   }
 }
 
@@ -388,45 +545,56 @@ class BoardRenderer {
     this.engine = engine;
     this.corduraManager = corduraManager;
     this.seleccionada = null;
+    this.ajustarCanvas();
+  }
+
+  ajustarCanvas() {
+    const { filas, columnas } = this.engine.config.tablero;
+    const size = Math.min(400, window.innerWidth - 40);
+    this.canvas.width = size;
+    this.canvas.height = size;
+    this.cellSize = Math.floor(size / Math.max(filas, columnas));
+    this.offX = (size - this.cellSize * columnas) / 2;
+    this.offY = (size - this.cellSize * filas) / 2;
   }
 
   render() {
+    if (this.engine.modo === 'simon') return;
+    this.ajustarCanvas();
     const { tablero } = this.engine;
-    const rows = tablero.length;
-    const cols = tablero[0].length;
-    const size = this.canvas.width;
-    const cellSize = Math.floor(size / Math.max(rows, cols));
-    const offX = (size - cellSize * cols) / 2;
-    const offY = (size - cellSize * rows) / 2;
-
-    this.ctx.clearRect(0,0,size,size);
-    for (let r=0; r<rows; r++) {
-      for (let c=0; c<cols; c++) {
-        const x = offX + c * cellSize;
-        const y = offY + r * cellSize;
-        this.ctx.fillStyle = (r+c) % 2 === 0 ? '#f0d9b5' : '#8b5a2b';
-        this.ctx.fillRect(x, y, cellSize, cellSize);
+    const { filas, columnas } = this.engine.config.tablero;
+    const ctx = this.ctx;
+    ctx.clearRect(0,0,this.canvas.width, this.canvas.height);
+    for (let r=0; r<filas; r++) {
+      for (let c=0; c<columnas; c++) {
+        const x = this.offX + c * this.cellSize, y = this.offY + r * this.cellSize;
+        ctx.fillStyle = (r+c)%2===0 ? '#f0d9b5' : '#8b5a2b';
+        ctx.fillRect(x, y, this.cellSize, this.cellSize);
       }
     }
-
     if (this.seleccionada) {
-      const {r, c} = this.seleccionada;
-      this.ctx.strokeStyle = '#0f0';
-      this.ctx.lineWidth = 3;
-      this.ctx.strokeRect(offX + c * cellSize, offY + r * cellSize, cellSize, cellSize);
+      const {r,c} = this.seleccionada;
+      ctx.strokeStyle = '#0f0'; ctx.lineWidth = 3;
+      ctx.strokeRect(this.offX + c*this.cellSize, this.offY + r*this.cellSize, this.cellSize, this.cellSize);
     }
-
     const modo = this.corduraManager.getModo();
     const paleta = this.engine.config.paleta || 'default';
-    for (let r=0; r<rows; r++) {
-      for (let c=0; c<cols; c++) {
+    for (let r=0; r<filas; r++) {
+      for (let c=0; c<columnas; c++) {
         const pieza = tablero[r][c];
         if (!pieza) continue;
         const spriteDef = pieza.sprite[modo] || pieza.sprite.pixel;
-        const spriteCanvas = SpriteGenerator.render(spriteDef, paleta, cellSize);
-        this.ctx.drawImage(spriteCanvas, offX + c * cellSize, offY + r * cellSize, cellSize, cellSize);
+        const spriteCanvas = SpriteGenerator.render(spriteDef, paleta, this.cellSize);
+        ctx.drawImage(spriteCanvas, this.offX + c*this.cellSize, this.offY + r*this.cellSize, this.cellSize, this.cellSize);
       }
     }
+  }
+
+  obtenerCelda(canvasX, canvasY) {
+    const col = Math.floor((canvasX - this.offX) / this.cellSize);
+    const row = Math.floor((canvasY - this.offY) / this.cellSize);
+    if (row>=0 && row<this.engine.config.tablero.filas && col>=0 && col<this.engine.config.tablero.columnas) return {row, col};
+    return null;
   }
 }
 
@@ -439,80 +607,134 @@ class CorduraManager {
   getModo() { return this.cordura >= this.umbralASCII ? 'pixel' : 'ascii'; }
   cambiar(delta) {
     this.cordura = Math.max(0, Math.min(100, this.cordura + delta));
-    document.getElementById('cordura-fill').style.width = this.cordura + '%';
-    document.getElementById('info').textContent = `Cordura: ${this.cordura} | Modo: ${this.getModo() === 'pixel' ? 'Pixel Art' : 'ASCII'}`;
   }
 }
 
-// ===================== 7. INICIALIZACIÓN =====================
+// ===================== 7. INTERFAZ DE USUARIO CENTRALIZADA =====================
+class UI {
+  constructor() {
+    this.statusEl = document.getElementById('status');
+    this.corduraFill = document.getElementById('cordura-fill');
+    this.infoEl = document.getElementById('info');
+    this.canvas = document.getElementById('boardCanvas');
+    this.simonPanel = document.getElementById('simon-panel');
+    this.gameSelect = document.getElementById('game-select');
+  }
+
+  actualizarEstado(engine, corduraManager) {
+    if (engine.modo === 'simon') {
+      if (engine.terminado) this.statusEl.textContent = 'Fallaste. Fin del juego.';
+      else this.statusEl.textContent = 'Simon Dice – Repite la secuencia';
+    } else if (engine.terminado) {
+      const ganador = engine.verificarVictoria();
+      this.statusEl.textContent = ganador ? `🏆 ¡${ganador.nombre} gana!` : 'Juego terminado';
+    } else {
+      const jugador = engine.config.jugadores.find(p => p.id === engine.turno);
+      this.statusEl.textContent = `Turno: ${jugador.nombre}`;
+    }
+    this.corduraFill.style.width = corduraManager.cordura + '%';
+    this.infoEl.textContent = `Cordura: ${corduraManager.cordura} | Modo: ${corduraManager.getModo() === 'pixel' ? 'Pixel Art' : 'ASCII'}`;
+  }
+
+  mostrarSimon(mostrar) {
+    this.canvas.style.display = mostrar ? 'none' : 'block';
+    this.simonPanel.style.display = mostrar ? 'block' : 'none';
+  }
+
+  construirSimonPanel(engine) {
+    const colores = ['#e74c3c','#2ecc71','#3498db','#f1c40f'];
+    this.simonPanel.innerHTML = '<h3>Simon Dice</h3><div id="simon-dots"></div>';
+    const dotsDiv = document.getElementById('simon-dots');
+    colores.forEach((color, i) => {
+      const dot = document.createElement('div');
+      dot.className = 'simon-dot';
+      dot.style.backgroundColor = color;
+      dot.dataset.index = i;
+      dot.addEventListener('click', () => {
+        dot.classList.add('active');
+        setTimeout(() => dot.classList.remove('active'), 200);
+        const resultado = engine.clickSimon(i);
+        if (resultado === true) this.actualizarEstado(engine, engine.corduraManager);
+        else if (resultado === false) {
+          this.actualizarEstado(engine, engine.corduraManager);
+        }
+      });
+      dotsDiv.appendChild(dot);
+    });
+    engine.onSimonEvent = (accion, idx) => {
+      if (accion === 'mostrar') dotsDiv.children[idx].classList.add('active');
+      else dotsDiv.children[idx].classList.remove('active');
+    };
+  }
+}
+
+// ===================== 8. INICIALIZACIÓN =====================
 window.addEventListener('load', () => {
   const canvas = document.getElementById('boardCanvas');
-  const simonPanel = document.getElementById('simon-panel');
+  const ui = new UI();
   const cordura = new CorduraManager();
   let engine = new GameEngine(GAMES.damas, cordura);
   let renderer = new BoardRenderer(canvas, engine, cordura);
 
   function cargarJuego(gameId) {
     const config = GAMES[gameId];
-    if (config.modo === "simon") {
-      canvas.style.display = "none";
-      simonPanel.style.display = "block";
-      iniciarSimon();
+    engine = new GameEngine(config, cordura);
+    renderer = new BoardRenderer(canvas, engine, cordura);
+    if (config.modo === 'simon') {
+      ui.mostrarSimon(true);
+      ui.construirSimonPanel(engine);
+      engine.iniciarSimon();
     } else {
-      canvas.style.display = "block";
-      simonPanel.style.display = "none";
-      engine = new GameEngine(config, cordura);
-      renderer = new BoardRenderer(canvas, engine, cordura);
+      ui.mostrarSimon(false);
+      renderer.seleccionada = null;
       renderer.render();
-      document.getElementById('status').textContent = `Turno: ${engine.config.jugadores[0].nombre}`;
     }
+    ui.actualizarEstado(engine, cordura);
   }
 
-  // Click en tablero (juegos normales)
+  // Click en canvas
   canvas.addEventListener('click', (e) => {
-    if (engine.terminado || engine.modo === "simon") return;
+    if (engine.terminado || engine.modo === 'simon') return;
     const rect = canvas.getBoundingClientRect();
     const scaleX = canvas.width / rect.width;
     const scaleY = canvas.height / rect.height;
     const canvasX = (e.clientX - rect.left) * scaleX;
     const canvasY = (e.clientY - rect.top) * scaleY;
-
-    const cols = engine.config.tablero.columnas;
-    const rows = engine.config.tablero.filas;
-    const size = canvas.width;
-    const cellSize = Math.floor(size / Math.max(rows, cols));
-    const offX = (size - cellSize * cols) / 2;
-    const offY = (size - cellSize * rows) / 2;
-
-    const col = Math.floor((canvasX - offX) / cellSize);
-    const row = Math.floor((canvasY - offY) / cellSize);
-    if (row<0 || row>=rows || col<0 || col>=cols) return;
-
+    const celda = renderer.obtenerCelda(canvasX, canvasY);
+    if (!celda) return;
+    const {row, col} = celda;
     const pieza = engine.getPieza(row, col);
 
-    if (engine.modo === "colocacion") {
+    if (engine.modo === 'colocacion') {
       if (!pieza && engine.colocar(row, col)) {
+        renderer.seleccionada = null;
         renderer.render();
-        if (!engine.terminado) setTimeout(() => {
-          engine.ejecutarIA();
-          renderer.render();
-          document.getElementById('status').textContent = engine.terminado ? '' : `Turno: ${engine.config.jugadores.find(p=>p.id===engine.turno)?.nombre}`;
-        }, 500);
+        ui.actualizarEstado(engine, cordura);
+        if (!engine.terminado) {
+          setTimeout(() => {
+            engine.ejecutarIA();
+            renderer.render();
+            ui.actualizarEstado(engine, cordura);
+          }, 500);
+        }
       }
-    } else if (engine.modo === "movimiento") {
+    } else if (engine.modo === 'movimiento') {
       if (renderer.seleccionada) {
         if (engine.mover(renderer.seleccionada.r, renderer.seleccionada.c, row, col)) {
           renderer.seleccionada = null;
           renderer.render();
-          setTimeout(() => {
-            if (!engine.terminado && engine.config.jugadores.find(p=>p.id===engine.turno)?.ia) {
+          ui.actualizarEstado(engine, cordura);
+          if (!engine.terminado && engine.config.jugadores.find(p=>p.id===engine.turno)?.ia) {
+            setTimeout(() => {
               engine.ejecutarIA();
               renderer.render();
-            }
-            document.getElementById('status').textContent = engine.terminado ? '' : `Turno: ${engine.config.jugadores.find(p=>p.id===engine.turno)?.nombre}`;
-          }, 500);
+              ui.actualizarEstado(engine, cordura);
+            }, 500);
+          }
         } else {
-          renderer.seleccionada = null;
+          // Movimiento ilegal, mantener selección o cambiar
+          if (pieza && pieza.jugador === engine.turno) renderer.seleccionada = {r:row, c:col};
+          else renderer.seleccionada = null;
           renderer.render();
         }
       } else if (pieza && pieza.jugador === engine.turno) {
@@ -522,81 +744,20 @@ window.addEventListener('load', () => {
     }
   });
 
-  // Simon Dice
-  function iniciarSimon() {
-    const colores = ['#e74c3c','#2ecc71','#3498db','#f1c40f'];
-    const panel = simonPanel;
-    panel.innerHTML = '<h3>Simon Dice</h3><div id="simon-dots"></div>';
-    const dotsDiv = document.getElementById('simon-dots');
-    colores.forEach((c, i) => {
-      const dot = document.createElement('div');
-      dot.className = 'simon-dot';
-      dot.style.backgroundColor = c;
-      dot.dataset.index = i;
-      dotsDiv.appendChild(dot);
-    });
-
-    let secuencia = [];
-    let jugadorIdx = 0;
-    let escuchando = false;
-
-    function nuevaRonda() {
-      secuencia.push(Math.floor(Math.random() * 4));
-      mostrarSecuencia();
-    }
-
-    async function mostrarSecuencia() {
-      escuchando = false;
-      for (const idx of secuencia) {
-        await new Promise(r => setTimeout(r, 800));
-        dotsDiv.children[idx].classList.add('active');
-        await new Promise(r => setTimeout(r, 400));
-        dotsDiv.children[idx].classList.remove('active');
-      }
-      escuchando = true;
-      jugadorIdx = 0;
-    }
-
-    dotsDiv.addEventListener('click', (e) => {
-      if (!escuchando) return;
-      const dot = e.target;
-      if (!dot.classList.contains('simon-dot')) return;
-      const idx = parseInt(dot.dataset.index);
-      dot.classList.add('active');
-      setTimeout(() => dot.classList.remove('active'), 200);
-      if (idx === secuencia[jugadorIdx]) {
-        jugadorIdx++;
-        if (jugadorIdx === secuencia.length) {
-          escuchando = false;
-          document.getElementById('status').textContent = '¡Correcto! Preparando siguiente...';
-          setTimeout(nuevaRonda, 1000);
-        }
-      } else {
-        escuchando = false;
-        document.getElementById('status').textContent = 'Fallaste. Fin del juego.';
-      }
-    });
-
-    nuevaRonda();
-  }
-
   // Botones
-  document.getElementById('restart-btn').addEventListener('click', () => {
-    cargarJuego(document.getElementById('game-select').value);
-  });
-  document.getElementById('game-select').addEventListener('change', (e) => {
-    cargarJuego(e.target.value);
-  });
+  document.getElementById('new-game-btn').addEventListener('click', () => cargarJuego(ui.gameSelect.value));
+  document.getElementById('game-select').addEventListener('change', (e) => cargarJuego(e.target.value));
   document.getElementById('cordura-up').addEventListener('click', () => {
     cordura.cambiar(20);
-    if (engine.modo !== "simon") renderer.render();
+    if (engine.modo !== 'simon') renderer.render();
+    ui.actualizarEstado(engine, cordura);
   });
   document.getElementById('cordura-down').addEventListener('click', () => {
     cordura.cambiar(-20);
-    if (engine.modo !== "simon") renderer.render();
+    if (engine.modo !== 'simon') renderer.render();
+    ui.actualizarEstado(engine, cordura);
   });
 
-  // Inicial
   cargarJuego('damas');
   cordura.cambiar(0);
 });
