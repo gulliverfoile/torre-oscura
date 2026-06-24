@@ -1,103 +1,181 @@
-README – Gacha Evolutivo (Prototipo Hexagonal)
-🎮 ¿Qué es esto?
-Un bullet heaven caótico donde el jugador no solo dispara: construye una ametralladora de proyectiles elementales.
-Los enemigos evolucionan, te roban los módulos, se equipan con ellos y, si te matan, se convierten en tu Némesis y te persiguen en la siguiente partida.
-Todo ello en un solo archivo HTML, con sonido procedural, una arquitectura hexagonal y muchísimas mecánicas entrelazadas.
+🟡 PAC-MAN REVENGE – Hexagonal Edition
+¡Pac‑Man ha vuelto para vengarse de los fantasmas!
+Equipa módulos elementales, desata pasivas devastadoras y sobrevive a oleadas de enemigos en este bullet‑heaven con alma de arcade.
 
-🕹️ Controles
-Acción	Teclado (PC)	Móvil (táctil)
-Moverse	W A S D / Flechas	Joystick virtual (zona izquierda)
-Dash	Doble toque en zona izquierda / Swipe rápido	Botón 💨 (abajo derecha)
-Apuntar	Ratón (clic sostenido)	Zona táctil derecha (arrastrar)
-Disparar	Clic izq. / Espacio / ShiftDerecho	Zona táctil derecha (toque)
-Disparo automático	Activado por defecto	Activado por defecto
-Arma definitiva	E	Botón ⚡ (abajo derecha)
-Menú lateral	Tab	Botón 📋 (abajo derecha)
-Reiniciar (tras muerte)	R	Tocar la pantalla (fuera de botones)
-⚠️ Móvil: coloca el dispositivo en horizontal para una mejor experiencia.
+🎮 ¿Qué es PAC-MAN REVENGE?
+Un juego de acción y supervivencia donde controlas a Pac‑Man en una arena infinita.
+Elimina enemigos, recoge mejoras, equipa módulos con runas elementales y combina poderes para volverte imparable.
+Cada partida es diferente gracias a la generación procedural de módulos, los patrones de ataque enemigos y el sistema de afinidades.
 
-🧩 Mecánicas principales
-🔮 Módulos y runas
-Los enemigos sueltan piezas con una runa (F fuego, W hielo, E veneno, A agua, R físico) y un tipo (ataque, defensa, utilidad, orbe).
+🕹️ Cómo jugar
+Controles
+Acción	PC (teclado/ratón)	Móvil
+Moverse	W A S D o flechas	Toca y arrastra en cualquier parte de la pantalla (joystick flotante)
+Apuntar / disparar	Mantén pulsado el ratón (o Espacio)	El disparo es automático mientras arrastras
+Dash (💨)	Shift derecho o Espacio (buffer)	Botón 💨 o swipe rápido en la pantalla
+Ultimate (⚡)	Tecla E	Botón ⚡
+Menú lateral	Tab	Botón 📋
+En móvil, la pantalla completa se convierte en zona de movimiento. ¡No necesitas apuntar manualmente!
 
-Se equipan en 4 ranuras (Norte, Sur, Este, Oeste) desde el menú lateral.
+Objetivo
+Sobrevive el mayor tiempo posible.
 
-Cada módulo otorga efectos elementales (quemadura, ralentización, veneno, empuje) que escalan con su afinidad (1‑5 estrellas).
+Mata enemigos para conseguir puntos, experiencia y drops.
 
-Algunos módulos llevan propiedades de proyectil especiales: perforación, rebote, explosivo, teledirigido, mina.
+Sube de nivel y elige mejoras permanentes (vida, daño, velocidad…).
 
-Sinergias: dos runas iguales en ranuras opuestas activan bonificaciones.
+Equipa módulos para personalizar tus disparos y obtener pasivas elementales.
 
-🔥 Elementos y reacciones
-Si un enemigo muere con dos estados elementales (ej. quemadura + veneno), se produce una reacción (choque térmico, nube inflamable, vapor…) que deja zonas en el suelo.
+Derrota jefes cada 50 muertes y minijefes cada 25.
 
-Las zonas (fuego, hielo, veneno, agua) afectan tanto a enemigos como al jugador. Permanecen un tiempo y son peligrosas.
+Consigue Puntos de Destino (✨) para comprar mejoras persistentes entre partidas.
+
+✨ Características principales
+🔷 Sistema de módulos único
+Recoge módulos con diferentes propiedades:
+
+Runa elemental (Fuego, Hielo, Veneno, Agua, Físico) → define el elemento de tus balas.
+
+Tipo (Ataque, Defensa, Utilidad, Orbe) → afecta a las estadísticas y al comportamiento.
+
+Rareza (Común, Poco común, Épico, Legendario) → determina la potencia y la probabilidad de que se active el modificador de proyectil.
+
+Modificador de proyectil (Perforación, Rebote, Explosivo, Teledirigido, Mina).
+
+Los módulos legendarios son especiales:
+
+El modificador siempre se activa (100% de probabilidad).
+
+Pueden tener dos elementos a la vez, duplicando la afinidad.
+
+Otorgan bonificadores extra de daño, velocidad y proyectiles.
+
+Los proyectiles legendarios son más grandes y brillantes.
+
+🔥 Afinidades y pasivas
+Al equipar módulos, acumulas afinidad con cada elemento. Al alcanzar ciertos umbrales desbloqueas pasivas:
+
+Fuego: +daño de quemadura, zonas de fuego más duraderas, curación por quemaduras.
+
+Hielo: +probabilidad de congelar, congelación prolongada, +50% de daño a congelados.
+
+Veneno: +daño de veneno, zonas de veneno más grandes, envenenados contagian a otros.
+
+Agua: +empuje, el empuje hace daño, +1 proyectil cada 10s.
 
 🛡️ Escudos
-Cada 100 puntos de vida recogidos (❤️) te otorgan 1 punto de escudo (máx. 5).
+Por exceso de curación: cada 100 puntos de vida recogidos, obtienes un escudo (máx. 5).
 
-Un escudo absorbe un golpe completo (incluso si te mataría de un solo impacto).
+Por muertes: cada 15 enemigos eliminados sin recibir daño, ganas otro escudo.
 
-Los escudos aparecen como puntos dorados alrededor de tu personaje.
+Los escudos absorben un golpe y te dan invulnerabilidad momentánea.
 
-🔄 Fusión de módulos
-En la pestaña de Módulos, puedes fusionar 3 módulos de la misma rareza para obtener uno de rareza superior.
+🟡 Pastilla de poder (Power Pellet)
+Aparece periódicamente (cada 2-3 minutos) o al derrotar jefes.
 
-Cuesta Puntos de Destino (PD). Los módulos resultantes tienen afinidad mínima garantizada.
+Al recogerla: 4 segundos de invulnerabilidad, velocidad x1.5, triple daño y aura amarilla.
 
-Así limpias el inventario y consigues piezas más poderosas.
+¡Igual que en el Pac‑Man clásico, pero con esteroides!
+
+💨 Dash reflectante
+El dash te vuelve invulnerable y refleja todos los proyectiles enemigos cercanos.
+
+Además, empuja a los enemigos y los ralentiza durante 0.5s.
+
+Se activa con el botón 💨 o con un swipe rápido en móvil.
+
+⚡ Habilidad definitiva
+Carga energía al matar enemigos.
+
+Cuando la barra se llena, libera un ataque especial según tu elemento dominante:
+
+Fuego: quema todo en un área.
+
+Hielo: congela y daña en área.
+
+Veneno: crea una zona venenosa duradera.
+
+Agua: empuja enemigos y te da armadura temporal.
+
+Físico: corte en línea de gran daño.
+
+🏆 Sistema de puntuación y combo
+Cada enemigo da puntos según su tipo y nivel de evolución.
+
+Combo: mata sin recibir daño para aumentar un multiplicador de puntuación (hasta x3.0). ¡El combo se reinicia si te golpean!
 
 👻 Némesis
-El enemigo que te mata se convierte en tu Némesis y se guarda entre partidas.
+Si mueres con módulos equipados, un enemigo especial (Némesis) puede aparecer en partidas futuras.
 
-En la siguiente run, hay un 15 % de probabilidad de que aparezca como un jefe especial (aura púrpura) con tus propios módulos robados.
+Es un jefe que lleva tus propios módulos robados y tiene mucha vida.
 
-Si lo derrotas, recuperas los módulos. Si te vuelve a matar, se hace más fuerte.
+Derrotarlo te devuelve los módulos.
 
-⚖️ Dificultad adaptativa
-El juego se vuelve más difícil según tu nivel, tu ritmo de muertes (DPS) y tu vida actual.
+🔧 Progresión permanente
+Al morir, ganas Puntos de Destino (✨) según tu puntuación y jefes derrotados.
 
-Los enemigos ganan armadura, velocidad y vida. Aparecen minijefes y jefes de oleada con patrones de ataque especiales.
+En la pestaña Tienda del menú lateral, puedes gastarlos en mejoras que se mantienen para siempre: vida, daño, velocidad, cadencia, proyectiles y crítico.
 
-🌀 Jefe de oleada de rebote
-Cada 5 oleadas aparece un jefe púrpura que no dispara, pero convierte tus propias balas en proyectiles enemigos y los lanza en patrones circulares.
+🧪 Fusión de módulos
+En la pestaña Módulos, si tienes al menos 3 módulos de la misma rareza, puedes fusionarlos para crear uno de rareza superior (cuesta Puntos de Destino).
 
-Es la máxima expresión de "tu propio poder se vuelve contra ti".
+¡Convierte comunes en legendarios!
 
-🎯 Cómo empezar (consejos rápidos)
-Muévete y dispara automáticamente. No necesitas pulsar nada; solo dirige al personaje.
+🧱 Enemigos variados
+Normales: persiguen y chocan.
 
-Recoge módulos (🧩) y equípalos en las ranuras (menú Tab). Las runas de fuego (F) o hielo (W) son buenas para empezar.
+Barrera: absorben daño con un escudo.
 
-Cada 100 ❤️ de curación consigues un escudo que te salva de un golpe mortal.
+Proyectil: disparan patrones (abanico, espiral, minas).
 
-No te quedes quieto en las zonas de colores (fuego, veneno…). Queman.
+Kamikaze: explotan al morir o al acercarse.
 
-Abre el menú lateral (Tab) para ver tus estadísticas, afiliaciones elementales y pasivas activas.
+Constructor: crean estructuras sólidas que bloquean el movimiento.
 
-Usa el Arquitecto (pestaña 🔧) para activar "Modo práctica" y probar cosas sin presión.
+Arquero: disparan proyectiles a distancia.
 
-Cada 3 módulos iguales puedes fusionarlos por uno mejor (cuesta Puntos de Destino).
+Jefes cada 50 kills y minijefes cada 25.
 
-⚠️ ¡Cuidado con los rebotes!
-Algunos enemigos (probabilidad del 15 %) y todos los jefes tienen la propiedad rebotaBalas.
+📊 Estadísticas adaptativas
+La dificultad se ajusta dinámicamente: si rindes mucho, los enemigos se vuelven más rápidos y duros; si estás malherido, se vuelven más lentos.
 
-Cuando una de tus balas les golpea, rebota y se vuelve enemiga (color rosa/magenta, más grande).
+🌍 Arquitectura preparada para escalar
+Aunque no lo notes, el juego está construido siguiendo principios de arquitectura hexagonal: el núcleo (dominio) está separado de la interfaz y la entrada. Esto permite añadir nuevos modos, plataformas o características sin romper lo existente.
 
-Tus propias balas reflejadas pueden matarte en segundos, especialmente si tienes mucho daño.
+📲 Cómo jugar (resumen rápido)
+Abre el archivo .html en un navegador moderno (Chrome, Edge, Firefox).
 
-Estrategias:
+Si estás en móvil, gira la pantalla para modo horizontal.
 
-Dispara en ráfagas controladas si ves enemigos con un punto rosa en su sprite (son los que rebotan).
+Toca la pantalla para activar el audio (necesario por las políticas del navegador).
 
-Usa el dash (💨) para esquivar las balas reflejadas.
+¡Muévete, dispara, recoge módulos y sobrevive!
 
-Prioriza matar rápido a los enemigos que rebotan.
+🛠️ Tecnologías utilizadas
+HTML5 Canvas para el renderizado.
 
-Los módulos de mina o explosivo no te afectan directamente, pero las balas reflejadas sí.
+Web Audio API para efectos de sonido (generados sintéticamente, sin archivos externos).
 
-🧪 Estado del proyecto
-Este es un prototipo avanzado creado de forma iterativa como experimento de diseño y arquitectura.
-Tiene más sistemas que muchos juegos comerciales, pero carece de tutorial completo, gráficos pulidos y balance fino.
+JavaScript (ES6+) con clases, módulos y diseño orientado a puertos y adaptadores.
 
-Próximos pasos planeados: sistema de puntuación y records, causa de muerte en pantalla, tutorial integrado y mejora de la interfaz de módulos.
+Persistencia en LocalStorage para guardar progreso.
+
+💡 Consejos
+Equipa pronto un módulo de orbe para tener un arma adicional que te proteja.
+
+Si ves una pastilla de poder, no dudes en ir a por ella aunque esté rodeada de enemigos; la invulnerabilidad te salvará.
+
+Combina elementos para activar reacciones (fuego + veneno = nube inflamable, etc.).
+
+Usa el dash no solo para esquivar, sino para devolver balas a los arqueros.
+
+No descuides la armadura: cuando tus propios rebotes hacen mucho daño, una buena armadura evita que te mates sin querer.
+
+En la pestaña Arquitecto (solo versión escritorio) puedes ajustar parámetros en tiempo real para experimentar.
+
+🧑‍💻 Desarrollo y créditos
+Creado con ilusión por un desarrollador independiente con ayuda de IA.
+¡Gracias por jugar! Si encuentras errores o tienes sugerencias, no dudes en compartirlas.
+
+Versión actual: 2.0 – Hexagonal Edition
+Fecha: 2026-06-24
