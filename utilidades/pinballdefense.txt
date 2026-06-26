@@ -1,0 +1,128 @@
+# 🛡️ Pinball Defense – Tower Defense + Pinball
+
+**Pinball Defense** es un prototipo de juego que fusiona dos géneros: **tower defense** (defensa por torres) y **pinball** (física de bola). El jugador construye defensas en un tablero con física realista para proteger su núcleo de oleadas de enemigos que rebotan.
+
+---
+
+## 🎯 ¿Qué es?
+
+Es un juego de estrategia por oleadas donde los enemigos son **bolas con propiedades especiales** que caen desde compuertas superiores y rebotan en el escenario. Tu objetivo es evitar que lleguen al núcleo (parte inferior de la pantalla) colocando estratégicamente bumpers, muros, agujeros y torretas.
+
+Cada oleada muestra una **lista de los enemigos que aparecerán**, permitiéndote adaptar tus defensas antes de iniciar la acción. Al completar una oleada, recibes recompensas y puedes comprar **mejoras permanentes** que se conservan entre partidas.
+
+---
+
+## 🎮 Cómo se juega
+
+### Fase de construcción
+1. Observa la **lista de enemigos** en el panel izquierdo.
+2. Selecciona un tipo de defensa en los botones:
+   - **Bumper** (5 PD): rebota enemigos con fuerza.
+   - **Muro** (8 PD): bloquea y redirige enemigos. Puede ser destruido por enemigos pesados.
+   - **Agujero** (15 PD): elimina instantáneamente al enemigo que cae en él.
+   - **Torreta** (20 PD): dispara automáticamente al enemigo más cercano.
+3. Haz **clic** en el tablero para colocar la defensa seleccionada.
+4. Haz **clic derecho** sobre una defensa para eliminarla (reembolso del 50%).
+5. Pulsa **"Iniciar Oleada"** cuando estés listo.
+
+### Fase de oleada
+- Los enemigos caen por las **compuertas amarillas** (algunas pueden estar inactivas, varía por partida).
+- Rebotan en bumpers, muros y paredes siguiendo la física de Matter.js.
+- Las torretas disparan automáticamente.
+- Si un enemigo toca la **zona roja del fondo** (núcleo), te resta vida.
+- Al morir, los enemigos sueltan **drops** (PD o módulos) que se recolectan automáticamente al finalizar la oleada.
+
+### Fase de recompensas
+- Al eliminar todos los enemigos de la oleada, aparece una **pantalla de resumen** con:
+  - PD recogidos.
+  - Módulos obtenidos.
+  - Bonus por oleada completada.
+  - Enemigos eliminados.
+- Puedes elegir **"Siguiente Oleada"** (más difícil, más enemigos) o **"Tienda de Mejoras"**.
+
+### Tienda de mejoras permanentes
+Gasta tus PD en mejoras que se conservan entre partidas:
+- ⚔️ **+Daño Torreta** (10 PD)
+- ⏱️ **+Cadencia Torreta** (15 PD)
+- 🛡️ **+Armadura Núcleo** (20 PD)
+- 💰 **+PD Iniciales** (25 PD)
+- 🎁 **+Probabilidad Drop** (15 PD)
+
+### Game Over
+Cuando la vida del núcleo llega a 0, la partida termina. Los PD acumulados se guardan en un "banco" y estarán disponibles en la siguiente partida (simulando progresión entre runs).
+
+---
+
+## ⚙️ Cómo funciona técnicamente
+
+### Motor de física
+- Usa **Matter.js** para simular gravedad, colisiones y rebotes realistas.
+- Las paredes, bumpers, muros y agujeros son cuerpos físicos.
+- Los enemigos son cuerpos dinámicos que caen por gravedad y rebotan según su elasticidad.
+
+### Sistema de oleadas
+- Cada oleada genera una lista de enemigos basada en la dificultad (número de oleada).
+- Los enemigos tienen tipos con habilidades especiales:
+  - 🔵 **Básica**: sin habilidad.
+  - 🔴 **Rápida**: pequeña y veloz, difícil de alcanzar.
+  - 🟢 **Pesada**: lenta pero resistente, rompe muros.
+  - 🟡 **Rebotona**: muy elástica, gana velocidad con cada rebote.
+  - 🟣 **Explosiva**: explota al morir (por implementar).
+  - ⚪ **Blindada**: tiene un escudo que absorbe el primer disparo.
+  - 🔥 **Fuego**: deja un rastro de fuego que daña.
+  - ❄️ **Hielo**: ralentiza torretas que le disparan.
+  - 💀 **Núcleo Rodante** (jefe): enorme, genera enemigos básicos a su alrededor.
+
+### Defensas
+| Tipo | Coste | Función |
+|------|-------|---------|
+| Bumper | 5 PD | Rebota enemigos con alta elasticidad |
+| Muro | 8 PD | Bloquea el paso. Puede ser destruido por enemigos pesados |
+| Agujero | 15 PD | Elimina enemigos instantáneamente al contacto |
+| Torreta | 20 PD | Dispara automáticamente al enemigo más cercano |
+
+### Progresión
+- **Mejoras permanentes**: compradas con PD, persisten entre partidas (localStorage).
+- **Banco de PD**: los PD acumulados al morir se guardan para la siguiente run.
+- **Dificultad creciente**: cada oleada aumenta el número de enemigos y desbloquea nuevos tipos.
+
+### Arquitectura
+El código está organizado de forma modular dentro de un solo archivo HTML:
+- **`PinballDefenseGame`**: orquestador principal (inicializa el mundo, gestiona oleadas, input, renderizado).
+- **`ENEMY_TYPES`**: configuración de tipos de enemigos (datos, no lógica).
+- **Motor de física**: Matter.js maneja colisiones y movimiento.
+- **UI**: panel HTML + canvas para el juego.
+
+---
+
+## 🚀 Cómo ejecutarlo
+
+1. Guarda el código en un archivo `pinball_defense.html`.
+2. Abre una terminal en la carpeta y ejecuta un servidor local:
+   ```bash
+   npx serve .
+   # o
+   python -m http.server 8000
+Abre http://localhost:8000/pinball_defense.html (o el puerto correspondiente).
+
+¡A jugar!
+
+🧩 Próximos pasos (ideas para expandir)
+Sistema de módulos equipables para torretas (fuego, hielo, veneno, etc.).
+
+Flippers controlables durante la oleada para golpear enemigos manualmente.
+
+Rampas que aceleran o redirigen enemigos.
+
+Más patrones de oleada (espiral, pinza, doble borde).
+
+Jefes con mecánicas únicas (atraviesan muros, curan a otros enemigos).
+
+Sistema de fusión de módulos (como en PAC-MAN REVENGE).
+
+Persistencia completa de mejoras, módulos y progreso.
+
+📜 Créditos
+Desarrollado como prototipo educativo para demostrar la fusión de géneros tower defense + pinball usando Matter.js y Canvas API. Inspirado en conversaciones sobre arquitectura hexagonal, diseño de juegos y sistemas de reglas.
+
+¡Diviértete defendiendo tu núcleo!
