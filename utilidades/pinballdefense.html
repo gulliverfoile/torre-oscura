@@ -2,63 +2,76 @@
 <html lang="es">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-  <title>Pinball Defense - Tower Defense + Pinball</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <title>Pinball Defense – Hexagonal</title>
   <style>
-    * { margin: 0; padding: 0; box-sizing: border-box; }
-    body { background: #0a0a1a; display: flex; justify-content: center; align-items: center; height: 100vh; font-family: monospace; overflow: hidden; }
-    canvas { border: 2px solid #4a4a6a; border-radius: 8px; background: #1a1a2e; }
+    * { margin:0; padding:0; box-sizing:border-box; }
+    html, body { width:100%; height:100%; overflow:hidden; background:#000; touch-action:pan-x pan-y; }
+    body { display:flex; justify-content:center; align-items:center; }
+    canvas { display:block; position:absolute; background:#1a1a2e; border:2px solid #4a4a6a; border-radius:8px; }
     #ui-panel {
-      position: fixed; top: 10px; left: 10px; color: #fff; z-index: 10;
-      background: rgba(0,0,0,0.8); padding: 10px; border-radius: 8px; font-size: 14px;
-      border: 1px solid #444; max-width: 320px;
+      position:fixed; top:10px; left:10px; color:#fff; z-index:10;
+      background:rgba(0,0,0,0.85); padding:10px; border-radius:8px; font-size:13px;
+      border:1px solid #444; max-width:300px; font-family:monospace;
+      pointer-events:auto; user-select:none;
     }
-    #ui-panel h3 { color: #ffd93d; margin: 0 0 8px; }
+    #ui-panel h3 { color:#ffd93d; margin:0 0 6px; }
     #ui-panel button {
-      background: #4ecdc4; color: #000; border: none; padding: 6px 14px;
-      margin: 3px; cursor: pointer; font-weight: bold; border-radius: 4px; font-family: monospace;
+      background:#4ecdc4; color:#000; border:none; padding:5px 10px;
+      margin:2px; cursor:pointer; font-weight:bold; border-radius:4px; font-family:monospace;
     }
-    #ui-panel button:disabled { opacity: 0.4; cursor: default; }
-    #ui-panel button.build-btn { background: #ffd93d; }
-    #ui-panel button.build-btn.selected { background: #fff; box-shadow: 0 0 10px #ffd93d; }
-    #enemy-list { margin: 8px 0; font-size: 13px; }
-    #enemy-list span { margin-right: 8px; }
+    #ui-panel button:disabled { opacity:0.4; cursor:default; }
+    #ui-panel button.build-btn { background:#ffd93d; }
+    #ui-panel button.build-btn.selected { background:#fff; box-shadow:0 0 10px #ffd93d; }
+    #enemy-list { margin:6px 0; font-size:11px; line-height:1.4; }
+    #enemy-list span { margin-right:6px; }
     #log-panel {
-      position: fixed; bottom: 10px; left: 10px; right: 10px;
-      background: rgba(0,0,0,0.85); color: #0f0; font-size: 12px; padding: 6px;
-      border-radius: 6px; border: 1px solid #333; max-height: 80px; overflow-y: auto;
-      pointer-events: none; z-index: 10;
+      position:fixed; bottom:10px; left:10px; right:10px;
+      background:rgba(0,0,0,0.85); color:#0f0; font-size:11px; padding:6px;
+      border-radius:6px; border:1px solid #333; max-height:70px; overflow-y:auto;
+      pointer-events:none; z-index:10; font-family:monospace;
     }
     #reward-panel {
-      position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
-      background: rgba(10,10,30,0.96); color: #fff; padding: 20px; border-radius: 12px;
-      border: 2px solid #ffd93d; z-index: 100; display: none; text-align: center;
-      min-width: 320px;
+      position:fixed; top:50%; left:50%; transform:translate(-50%,-50%);
+      background:rgba(10,10,30,0.96); color:#fff; padding:18px; border-radius:12px;
+      border:2px solid #ffd93d; z-index:100; display:none; text-align:center;
+      min-width:300px; font-family:monospace;
     }
-    #reward-panel h2 { color: #ffd700; }
-    #reward-panel button { margin: 8px; padding: 8px 18px; }
-    .stat-row { display: flex; justify-content: space-between; margin: 4px 0; }
-    .stat-row span:last-child { color: #ffd93d; font-weight: bold; }
+    #reward-panel h2 { color:#ffd700; margin-bottom:10px; }
+    #reward-panel button { margin:6px; padding:6px 14px; }
+    .stat-row { display:flex; justify-content:space-between; margin:3px 0; }
+    .stat-row span:last-child { color:#ffd93d; font-weight:bold; }
+    #mobile-controls {
+      position:fixed; bottom:20px; right:20px; display:none; gap:10px; z-index:20;
+    }
+    .mobile-btn {
+      width:44px; height:44px; border-radius:50%; background:rgba(255,255,255,0.2);
+      border:2px solid #fff; font-size:18px; display:flex; align-items:center;
+      justify-content:center; color:#fff; cursor:pointer; user-select:none;
+      -webkit-tap-highlight-color:transparent; transition:0.15s;
+    }
+    .mobile-btn:active { background:rgba(255,255,255,0.5); transform:scale(0.9); }
+    #btn-ultimate { background:rgba(255,215,0,0.3); border-color:#ffd700; }
   </style>
 </head>
 <body>
-  <canvas id="gameCanvas" width="800" height="900"></canvas>
+  <canvas id="gameCanvas"></canvas>
   <div id="ui-panel">
     <h3>🛡️ Pinball Defense</h3>
-    <div>❤️ Vida núcleo: <span id="core-hp">100</span></div>
+    <div>❤️ Núcleo: <span id="core-hp">100</span></div>
     <div>💎 PD: <span id="destiny-points">50</span></div>
     <div>🌊 Oleada: <span id="wave-num">1</span> | ⏱️ <span id="wave-timer">Prep</span></div>
     <div id="enemy-list"></div>
     <button id="btn-start-wave">⚡ Iniciar Oleada</button>
     <button id="btn-reset">🔄 Reiniciar</button>
-    <div style="margin-top:8px;">
+    <div style="margin-top:6px;">
       <button class="build-btn" data-type="bumper">🟡 Bumper (5 PD)</button>
       <button class="build-btn" data-type="wall">🧱 Muro (8 PD)</button>
       <button class="build-btn" data-type="hole">🕳️ Agujero (15 PD)</button>
       <button class="build-btn" data-type="turret">🔫 Torreta (20 PD)</button>
     </div>
-    <div style="margin-top:6px; font-size:11px; color:#aaa;">
-      Click en el tablero para colocar | Click derecho para eliminar
+    <div style="margin-top:4px; font-size:10px; color:#aaa;">
+      Click coloca | Click derecho elimina
     </div>
   </div>
   <div id="log-panel"></div>
@@ -66,7 +79,12 @@
     <h2>🏆 Oleada Completada</h2>
     <div id="reward-content"></div>
     <button id="btn-next-wave">▶️ Siguiente Oleada</button>
-    <button id="btn-go-shop">🏪 Tienda de Mejoras</button>
+    <button id="btn-go-shop">🏪 Tienda</button>
+  </div>
+  <div id="mobile-controls">
+    <div class="mobile-btn" id="btn-dash">💨</div>
+    <div class="mobile-btn" id="btn-ultimate">⚡</div>
+    <div class="mobile-btn" id="btn-menu">📋</div>
   </div>
 
   <script type="importmap">
@@ -88,55 +106,360 @@
       if (logEl.children.length > 30) logEl.removeChild(logEl.firstChild);
     }
 
-    // ==================== DEFINICIÓN DE ENEMIGOS ====================
-    const ENEMY_TYPES = {
-      basic:   { name:'Básica', icon:'🔵', speed:2.5, hp:30, damage:1, color:'#4a9eff', radius:12, ability:null },
-      fast:    { name:'Rápida', icon:'🔴', speed:4.5, hp:15, damage:1, color:'#ff4444', radius:9, ability:'esquiva' },
-      heavy:   { name:'Pesada', icon:'🟢', speed:1.5, hp:80, damage:2, color:'#44cc44', radius:18, ability:'rompe_muros' },
-      bouncy:  { name:'Rebotona', icon:'🟡', speed:2.8, hp:35, damage:1, color:'#ffcc00', radius:11, ability:'rebote_fuerte' },
-      explosive:{ name:'Explosiva', icon:'🟣', speed:2.5, hp:25, damage:2, color:'#cc44cc', radius:12, ability:'explota_al_morir' },
-      shielded:{ name:'Blindada', icon:'⚪', speed:2.2, hp:50, damage:1, color:'#cccccc', radius:14, ability:'escudo' },
-      fire:    { name:'Fuego', icon:'🔥', speed:3.2, hp:20, damage:1, color:'#ff6600', radius:11, ability:'rastro_fuego' },
-      ice:     { name:'Hielo', icon:'❄️', speed:1.8, hp:40, damage:1, color:'#88ccff', radius:13, ability:'ralentiza_torretas' },
-      boss_roller:{ name:'Núcleo Rodante', icon:'💀', speed:1.0, hp:250, damage:3, color:'#ff8800', radius:24, ability:'genera_basicas' },
+    // ==================== CONFIGURACIÓN CENTRAL (PUERTO DE DATOS) ====================
+    const CONFIG = {
+      world: { width: 900, height: 600, gravity: 0.6 },
+      core: { startHP: 100, armorPerUpgrade: 2 },
+      points: { startPD: 50, waveBonus: 10, killPDMin: 1, killPDMax: 3 },
+      defenses: {
+        bumper: { cost:5, radius:18, restitution:1.2, color:'#ffd93d' },
+        wall: { cost:8, w:20, h:50, hp:100, restitution:0.3, color:'#8b7355' },
+        hole: { cost:15, radius:22, color:'#111' },
+        turret: { cost:20, size:16, fireInterval:0.8, damage:8, range:200, color:'#4ecdc4' }
+      },
+      enemyTypes: {
+        basic:   { name:'Básica', icon:'🔵', speed:2.5, hp:30, damage:1, color:'#4a9eff', radius:12 },
+        fast:    { name:'Rápida', icon:'🔴', speed:4.5, hp:15, damage:1, color:'#ff4444', radius:9, ability:'esquiva' },
+        heavy:   { name:'Pesada', icon:'🟢', speed:1.5, hp:80, damage:2, color:'#44cc44', radius:18, ability:'rompe_muros' },
+        bouncy:  { name:'Rebotona', icon:'🟡', speed:2.8, hp:35, damage:1, color:'#ffcc00', radius:11, ability:'rebote_fuerte' },
+        explosive:{ name:'Explosiva', icon:'🟣', speed:2.5, hp:25, damage:2, color:'#cc44cc', radius:12, ability:'explota_al_morir' },
+        shielded:{ name:'Blindada', icon:'⚪', speed:2.2, hp:50, damage:1, color:'#cccccc', radius:14, ability:'escudo' },
+        fire:    { name:'Fuego', icon:'🔥', speed:3.2, hp:20, damage:1, color:'#ff6600', radius:11, ability:'rastro_fuego' },
+        ice:     { name:'Hielo', icon:'❄️', speed:1.8, hp:40, damage:1, color:'#88ccff', radius:13, ability:'ralentiza_torretas' }
+      },
+      bossArchetypes: [
+        { name:'Coloso', hpMult:5, sizeMult:2.2, speedMult:0.5, tipo:'normal', pattern:'abanico', shootInterval:1.2, slots:4, hitsRequired:80, esPixelado:false },
+        { name:'Pixelado', hpMult:3.5, sizeMult:1.8, speedMult:0.7, tipo:'arquero', pattern:'espiral', shootInterval:0.9, slots:3, hitsRequired:60, esPixelado:true },
+        { name:'Trío', isWave:true, count:3, base:{ tipo:'arquero', hpMult:2, sizeMult:1.3, speedMult:0.8, shootInterval:1.5, slots:2 } }
+      ],
+      waves: {
+        baseEnemies: 6,
+        perWave: 3,
+        spawnInterval: 0.8,
+        bossInterval: 5,      // cada 5 oleadas
+        miniBossInterval: 3,  // cada 3 oleadas
+        dropProtection: 1.5   // segundos que un drop es inmune a enemigos
+      },
+      upgrades: {
+        turretDamage: { cost:10, label:'+Daño Torreta' },
+        turretFireRate: { cost:15, label:'+Cadencia Torreta' },
+        coreArmor: { cost:20, label:'+Armadura Núcleo' },
+        extraStartingPD: { cost:25, label:'+PD Iniciales' },
+        bonusDropChance: { cost:15, label:'+Probabilidad Drop' }
+      }
     };
 
-    // ==================== CLASE DEL JUEGO (ORQUESTADOR) ====================
-    class PinballDefenseGame {
+    // ==================== PUERTOS (INTERFACES) ====================
+    class IPhysics {
+      init() { throw new Error('abstract'); }
+      update(dt) { throw new Error('abstract'); }
+      addBody(body) { throw new Error('abstract'); }
+      removeBody(body) { throw new Error('abstract'); }
+      getBodies() { throw new Error('abstract'); }
+    }
+
+    class IRenderer {
+      draw(state) { throw new Error('abstract'); }
+    }
+
+    class IInput {
+      getMove() { return { dx:0, dy:0 }; }
+      getAim() { return null; }
+      isAction(action) { return false; }
+      update() {}
+      onResize(w, h) {}
+    }
+
+    class IPersistence {
+      load() { return {}; }
+      save(data) {}
+    }
+
+    // ==================== ADAPTADOR DE FÍSICA (Matter.js) ====================
+    class MatterPhysics extends IPhysics {
+      constructor(width, height) {
+        super();
+        this.engine = Matter.Engine.create({ gravity: { x:0, y:CONFIG.world.gravity, scale:0.001 } });
+        this.world = this.engine.world;
+        this.width = width;
+        this.height = height;
+        this._setupBoundaries();
+      }
+
+      _setupBoundaries() {
+        const w = this.width, h = this.height;
+        const opts = { isStatic:true, friction:0.3, restitution:0.4, label:'boundary' };
+        const walls = [
+          Matter.Bodies.rectangle(w/2, -5, w, 10, opts),
+          Matter.Bodies.rectangle(w/2, h+5, w, 10, { ...opts, label:'floor' }),
+          Matter.Bodies.rectangle(-5, h/2, 10, h, opts),
+          Matter.Bodies.rectangle(w+5, h/2, 10, h, opts)
+        ];
+        walls.forEach(w => Matter.Composite.add(this.world, w));
+      }
+
+      update(dt) { Matter.Engine.update(this.engine, dt * 1000); }
+      addBody(body) { Matter.Composite.add(this.world, body); }
+      removeBody(body) { Matter.Composite.remove(this.world, body); }
+      getBodies() { return Matter.Composite.allBodies(this.world); }
+    }
+
+    // ==================== ADAPTADOR DE INPUT (Unificado) ====================
+    class UnifiedInput extends IInput {
+      constructor(canvas) {
+        super();
+        this.canvas = canvas;
+        this._move = { dx:0, dy:0 };
+        this._aim = null;
+        this._actions = {};
+        this._isMobile = /Mobi|Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+        this._touch = null;
+        this._inertiaX = 0;
+        this._inertiaY = 0;
+        this._setupListeners();
+      }
+
+      _setupListeners() {
+        if (this._isMobile) {
+          const opts = { passive:false };
+          this.canvas.addEventListener('touchstart', e => this._onTouch(e), opts);
+          this.canvas.addEventListener('touchmove', e => this._onTouch(e), opts);
+          this.canvas.addEventListener('touchend', e => this._onTouch(e), opts);
+          this.canvas.addEventListener('touchcancel', e => this._onTouch(e), opts);
+          document.addEventListener('gesturestart', e => e.preventDefault());
+          document.addEventListener('gesturechange', e => e.preventDefault());
+        } else {
+          this._keys = {};
+          document.addEventListener('keydown', e => {
+            this._keys[e.key.toLowerCase()] = true;
+            if ([' ', 'space', 'arrowup', 'arrowdown', 'arrowleft', 'arrowright'].includes(e.key.toLowerCase())) e.preventDefault();
+          });
+          document.addEventListener('keyup', e => { this._keys[e.key.toLowerCase()] = false; });
+          this.canvas.addEventListener('mousemove', e => this._onMouseMove(e));
+          this.canvas.addEventListener('mousedown', e => { this._actions['fire'] = true; this._onMouseMove(e); });
+          this.canvas.addEventListener('mouseup', () => this._actions['fire'] = false);
+          this.canvas.addEventListener('contextmenu', e => e.preventDefault());
+        }
+      }
+
+      _onTouch(e) {
+        e.preventDefault();
+        const rect = this.canvas.getBoundingClientRect();
+        const scaleX = CONFIG.world.width / rect.width;
+        const scaleY = CONFIG.world.height / rect.height;
+        for (const touch of e.changedTouches) {
+          const x = (touch.clientX - rect.left) * scaleX;
+          const y = (touch.clientY - rect.top) * scaleY;
+          if (e.type === 'touchstart') {
+            if (!this._touch) {
+              this._touch = { id:touch.identifier, startX:x, startY:y, currentX:x, currentY:y, time:performance.now() };
+            }
+          } else if (e.type === 'touchmove') {
+            if (this._touch && touch.identifier === this._touch.id) {
+              this._touch.currentX = x;
+              this._touch.currentY = y;
+            }
+          } else if (e.type === 'touchend' || e.type === 'touchcancel') {
+            if (this._touch && touch.identifier === this._touch.id) {
+              const dx = this._touch.currentX - this._touch.startX;
+              const dy = this._touch.currentY - this._touch.startY;
+              if (Math.hypot(dx, dy) > 40 && (performance.now() - this._touch.time) < 150) {
+                this._actions['dash'] = true;
+              }
+              this._touch = null;
+            }
+          }
+        }
+      }
+
+      _onMouseMove(e) {
+        const rect = this.canvas.getBoundingClientRect();
+        const scaleX = CONFIG.world.width / rect.width;
+        const scaleY = CONFIG.world.height / rect.height;
+        this._aim = {
+          x: (e.clientX - rect.left) * scaleX,
+          y: (e.clientY - rect.top) * scaleY
+        };
+      }
+
+      update() {
+        if (this._isMobile) {
+          if (this._touch) {
+            const dx = this._touch.currentX - this._touch.startX;
+            const dy = this._touch.currentY - this._touch.startY;
+            const dist = Math.hypot(dx, dy);
+            if (dist > 10) {
+              const factor = Math.min(1, (dist - 10) / 80);
+              const angle = Math.atan2(dy, dx);
+              this._inertiaX = Math.cos(angle) * factor;
+              this._inertiaY = Math.sin(angle) * factor;
+            } else {
+              this._inertiaX = 0;
+              this._inertiaY = 0;
+            }
+          } else {
+            this._inertiaX *= 0.9;
+            this._inertiaY *= 0.9;
+            if (Math.abs(this._inertiaX) < 0.01) this._inertiaX = 0;
+            if (Math.abs(this._inertiaY) < 0.01) this._inertiaY = 0;
+          }
+          this._move.dx = this._inertiaX;
+          this._move.dy = this._inertiaY;
+        } else {
+          let dx = 0, dy = 0;
+          const k = this._keys || {};
+          if (k['w'] || k['arrowup']) dy -= 1;
+          if (k['s'] || k['arrowdown']) dy += 1;
+          if (k['a'] || k['arrowleft']) dx -= 1;
+          if (k['d'] || k['arrowright']) dx += 1;
+          const len = Math.hypot(dx, dy);
+          if (len > 1) { dx /= len; dy /= len; }
+          this._move.dx = dx;
+          this._move.dy = dy;
+        }
+      }
+
+      getMove() { return this._move; }
+      getAim() { return this._aim; }
+      isAction(action) {
+        if (this._actions[action]) {
+          this._actions[action] = false;
+          return true;
+        }
+        return false;
+      }
+
+      onResize(w, h) { /* ya se maneja en los handlers */ }
+    }
+
+    // ==================== ADAPTADOR DE PERSISTENCIA ====================
+    class LocalPersistence extends IPersistence {
+      constructor(key = 'pinball_defense_save') { super(); this.key = key; }
+      load() { try { return JSON.parse(localStorage.getItem(this.key)) || {}; } catch { return {}; } }
+      save(data) { try { localStorage.setItem(this.key, JSON.stringify(data)); } catch {} }
+    }
+
+    // ==================== DOMINIO: Defensa, Enemigo, Drop ====================
+    class Defense {
+      constructor(type, x, y, physics, config) {
+        this.type = type;
+        this.x = x;
+        this.y = y;
+        this.config = config;
+        this.hp = type === 'wall' ? config.hp : 999;
+        this.maxHp = this.hp;
+        this.fireTimer = 0;
+        this.body = null;
+        this._createBody(physics);
+      }
+
+      _createBody(physics) {
+        const cfg = this.config;
+        if (this.type === 'bumper') {
+          this.body = Matter.Bodies.circle(this.x, this.y, cfg.radius, {
+            isStatic:true, restitution:cfg.restitution, friction:0.1, label:'bumper'
+          });
+        } else if (this.type === 'wall') {
+          this.body = Matter.Bodies.rectangle(this.x, this.y, cfg.w, cfg.h, {
+            isStatic:true, restitution:cfg.restitution, friction:0.5, label:'wall'
+          });
+        } else if (this.type === 'hole') {
+          this.body = Matter.Bodies.circle(this.x, this.y, cfg.radius, {
+            isStatic:true, isSensor:true, label:'hole'
+          });
+        } else if (this.type === 'turret') {
+          this.body = Matter.Bodies.rectangle(this.x, this.y, cfg.size, cfg.size, {
+            isStatic:true, isSensor:true, label:'turret'
+          });
+        }
+        physics.addBody(this.body);
+      }
+
+      takeDamage(dmg) {
+        if (this.type !== 'wall') return;
+        this.hp -= dmg;
+        if (this.hp <= 0) this.hp = 0;
+      }
+
+      isAlive() { return this.hp > 0; }
+    }
+
+    class Enemy {
+      constructor(type, x, y, info, waveLevel, physics) {
+        this.type = type;
+        this.info = info;
+        this.hp = info.hp + waveLevel * 5;
+        this.maxHp = this.hp;
+        this.damage = info.damage;
+        this.ability = info.ability || null;
+        this.shieldActive = (info.ability === 'escudo');
+        this.fireTrailTimer = 0;
+        this.body = Matter.Bodies.circle(x, y, info.radius, {
+          restitution: type === 'bouncy' ? 1.5 : 0.5,
+          friction: 0.05,
+          density: type === 'heavy' ? 0.03 : 0.01,
+          label: 'enemy'
+        });
+        physics.addBody(this.body);
+      }
+
+      update(dt) {
+        if (this.ability === 'rastro_fuego') {
+          this.fireTrailTimer += dt;
+        }
+      }
+
+      remove(physics) {
+        physics.removeBody(this.body);
+      }
+    }
+
+    class Drop {
+      constructor(x, y, type, value, protectedTime = 0) {
+        this.x = x;
+        this.y = y;
+        this.type = type; // 'pd', 'module'
+        this.value = value;
+        this.collected = false;
+        this.timer = 10; // tiempo de vida total
+        this.protectedUntil = performance.now() / 1000 + protectedTime;
+      }
+
+      isProtected() { return performance.now() / 1000 < this.protectedUntil; }
+    }
+
+    // ==================== ORQUESTADOR DEL JUEGO ====================
+    class PinballDefense {
       constructor(canvas) {
         this.canvas = canvas;
         this.ctx = canvas.getContext('2d');
-        this.width = canvas.width;
-        this.height = canvas.height;
+        this.physics = new MatterPhysics(CONFIG.world.width, CONFIG.world.height);
+        this.input = new UnifiedInput(canvas);
+        this.persistence = new LocalPersistence();
+        this._loadState();
 
-        // Motor de física
-        this.engine = Matter.Engine.create({ gravity: { x:0, y:0.6, scale:0.001 } });
-        this.world = this.engine.world;
+        // Listas de objetos
+        this.defenses = [];
+        this.enemies = [];
+        this.drops = [];
+        this.zones = [];
 
-        // Estado del juego
-        this.destinyPoints = 50;
-        this.coreHP = 100;
-        this.maxCoreHP = 100;
+        // Oleadas y jefes
         this.wave = 1;
         this.waveActive = false;
         this.waveComplete = false;
         this.gameOver = false;
+        this.waveEnemyList = [];
+        this.spawnIndex = 0;
+        this.spawnTimer = 0;
         this.totalKills = 0;
         this.waveKills = 0;
-        this.waveEnemiesTotal = 0;
 
-        // Listas de objetos
-        this.defenses = [];       // { type, body, hp, ... }
-        this.enemies = [];        // { type, body, hp, ... }
-        this.drops = [];          // { x, y, type, value, collected }
-        this.zones = [];          // zonas elementales temporales
-
-        // Fase de construcción
+        // Construcción
         this.selectedBuildType = null;
-        this.waveEnemyList = [];
 
         // Mejoras permanentes
-        this.permanentUpgrades = {
+        this.upgrades = {
           turretDamage: 0,
           turretFireRate: 0,
           coreArmor: 0,
@@ -144,87 +467,40 @@
           bonusDropChance: 0
         };
 
-        // Configurar mundo físico
-        this._setupWorld();
-        // Eventos de colisión
-        Matter.Events.on(this.engine, 'collisionStart', (e) => this._onCollision(e));
-        // Input
-        this._setupInput();
-        // UI
-        this._setupUI();
-        // Generar primera oleada
-        this._generateWaveEnemyList();
-        this._updateUI();
-        // Bucle
-        this.lastTime = performance.now();
-        requestAnimationFrame((t) => this._loop(t));
-
-        log('🟢 Pinball Defense iniciado. Coloca defensas y prepárate.');
-      }
-
-      // ==================== CONFIGURACIÓN DEL MUNDO ====================
-      _setupWorld() {
-        const w = this.width, h = this.height;
-        const wallOpts = { isStatic: true, friction: 0.3, restitution: 0.4, label: 'boundary' };
-        // Paredes del tablero
-        const walls = [
-          Matter.Bodies.rectangle(w/2, -5, w, 10, wallOpts),                // techo
-          Matter.Bodies.rectangle(w/2, h+5, w, 10, { ...wallOpts, label:'floor' }), // suelo (núcleo)
-          Matter.Bodies.rectangle(-5, h/2, 10, h, wallOpts),                // izquierda
-          Matter.Bodies.rectangle(w+5, h/2, 10, h, wallOpts),               // derecha
-        ];
-        walls.forEach(wall => Matter.Composite.add(this.world, wall));
-
-        // Compuertas de salida (sensores invisibles arriba)
+        // Compuertas
         this.gates = [
-          { x: w*0.25, y: 30, width: 60, active: true },
-          { x: w*0.5, y: 30, width: 60, active: true },
-          { x: w*0.75, y: 30, width: 60, active: true },
+          { x: CONFIG.world.width * 0.25, y: 30, width: 60, active: true },
+          { x: CONFIG.world.width * 0.5, y: 30, width: 60, active: true },
+          { x: CONFIG.world.width * 0.75, y: 30, width: 60, active: true }
         ];
-        // Aleatoriamente desactivar alguna compuerta
-        if (Math.random() < 0.4) this.gates[Math.floor(Math.random()*3)].active = false;
+
+        // Registrar eventos de colisión
+        Matter.Events.on(this.physics.engine, 'collisionStart', (e) => this._onCollision(e));
+
+        // Configurar UI
+        this._setupUI();
+        this._resizeCanvas();
+        this._generateWave();
+        this._updateUI();
+        this._loop();
+        log('🟢 Pinball Defense iniciado. Coloca defensas.');
       }
 
-      // ==================== INPUT ====================
-      _setupInput() {
-        this.canvas.addEventListener('click', (e) => this._handleClick(e));
-        this.canvas.addEventListener('contextmenu', (e) => { e.preventDefault(); this._handleRightClick(e); });
+      // ==================== CARGA / GUARDADO ====================
+      _loadState() {
+        const saved = this.persistence.load();
+        this.bankPD = saved.bankPD || 0;
+        this.destinyPoints = CONFIG.points.startPD + this.bankPD + (this.upgrades.extraStartingPD || 0) * 10;
+        this.coreHP = CONFIG.core.startHP;
+        this.maxCoreHP = CONFIG.core.startHP;
+        if (saved.upgrades) Object.assign(this.upgrades, saved.upgrades);
       }
 
-      _handleClick(e) {
-        if (this.waveActive || this.gameOver) return;
-        const rect = this.canvas.getBoundingClientRect();
-        const x = (e.clientX - rect.left) * (this.width / rect.width);
-        const y = (e.clientY - rect.top) * (this.height / rect.height);
-
-        if (y < 80) return; // No colocar en zona de compuertas
-        if (y > this.height - 100) return; // No colocar en zona del núcleo
-
-        if (this.selectedBuildType) {
-          const cost = this._getBuildCost(this.selectedBuildType);
-          if (this.destinyPoints >= cost) {
-            this._placeDefense(this.selectedBuildType, x, y);
-            this.destinyPoints -= cost;
-            this._updateUI();
-          } else {
-            log('❌ Puntos insuficientes');
-          }
-        }
-      }
-
-      _handleRightClick(e) {
-        if (this.waveActive || this.gameOver) return;
-        const rect = this.canvas.getBoundingClientRect();
-        const x = (e.clientX - rect.left) * (this.width / rect.width);
-        const y = (e.clientY - rect.top) * (this.height / rect.height);
-
-        for (let i = this.defenses.length-1; i >= 0; i--) {
-          const def = this.defenses[i];
-          if (dist(x, y, def.body.position.x, def.body.position.y) < 25) {
-            this._removeDefense(i);
-            break;
-          }
-        }
+      _saveState() {
+        this.persistence.save({
+          bankPD: this.bankPD,
+          upgrades: this.upgrades
+        });
       }
 
       // ==================== UI ====================
@@ -248,6 +524,19 @@
             }
           });
         });
+
+        this.canvas.addEventListener('click', e => this._handleCanvasClick(e));
+        this.canvas.addEventListener('contextmenu', e => {
+          e.preventDefault();
+          this._handleRightClick(e);
+        });
+
+        if (this.input._isMobile) {
+          document.getElementById('mobile-controls').style.display = 'flex';
+          document.getElementById('btn-dash').addEventListener('touchstart', e => { e.preventDefault(); this.input._actions['dash'] = true; });
+          document.getElementById('btn-ultimate').addEventListener('touchstart', e => { e.preventDefault(); /* futura habilidad */ });
+          document.getElementById('btn-menu').addEventListener('touchstart', e => { e.preventDefault(); /* futura habilidad */ });
+        }
       }
 
       _updateUI() {
@@ -256,236 +545,260 @@
         document.getElementById('wave-num').textContent = this.wave;
         document.getElementById('wave-timer').textContent = this.waveActive ? '⚔️ En curso' : '🛠️ Preparación';
 
-        // Lista de enemigos de la oleada
         const listEl = document.getElementById('enemy-list');
-        let listHTML = '<strong>Próximos enemigos:</strong><br>';
         const counts = {};
-        this.waveEnemyList.forEach(e => counts[e.type] = (counts[e.type]||0)+1);
+        this.waveEnemyList.forEach(e => counts[e.type] = (counts[e.type] || 0) + 1);
+        let html = '<strong>Próximos:</strong><br>';
         for (const [type, count] of Object.entries(counts)) {
-          const info = ENEMY_TYPES[type];
-          listHTML += `${info.icon} ${info.name} x${count}<br>`;
+          const info = CONFIG.enemyTypes[type];
+          html += `${info.icon} ${info.name} x${count}<br>`;
         }
-        listEl.innerHTML = listHTML;
+        if (this.wave % CONFIG.waves.bossInterval === 0) html += '💀 JEFE<br>';
+        else if (this.wave % CONFIG.waves.miniBossInterval === 0) html += '👾 Minijefe<br>';
+        listEl.innerHTML = html;
 
         document.getElementById('btn-start-wave').disabled = this.waveActive || this.gameOver;
       }
 
-      // ==================== COLOCACIÓN DE DEFENSAS ====================
-      _getBuildCost(type) {
-        return { bumper:5, wall:8, hole:15, turret:20 }[type] || 5;
+      // ==================== REDIMENSIONAMIENTO ====================
+      _resizeCanvas() {
+        const vw = window.visualViewport ? window.visualViewport.width : window.innerWidth;
+        const vh = window.visualViewport ? window.visualViewport.height : window.innerHeight;
+        const aspect = CONFIG.world.width / CONFIG.world.height; // 1.5
+        let w, h;
+
+        if (this.input._isMobile) {
+          // Forzar landscape si es necesario
+          if (vw > vh) {
+            w = vw; h = vh;
+          } else {
+            w = vh; h = vw;
+          }
+          // Ajustar a aspect ratio
+          if (w / h > aspect) {
+            w = h * aspect;
+          } else {
+            h = w / aspect;
+          }
+        } else {
+          if (vw / vh > aspect) {
+            h = vh;
+            w = h * aspect;
+          } else {
+            w = vw;
+            h = w / aspect;
+          }
+        }
+
+        // Tamaño lógico fijo (el mundo siempre es 900x600)
+        this.canvas.width = CONFIG.world.width;
+        this.canvas.height = CONFIG.world.height;
+
+        // Tamaño CSS escalado
+        this.canvas.style.width = w + 'px';
+        this.canvas.style.height = h + 'px';
+
+        // Centrar
+        this.canvas.style.position = 'absolute';
+        this.canvas.style.left = ((vw - w) / 2) + 'px';
+        this.canvas.style.top = ((vh - h) / 2) + 'px';
+
+        this.input.onResize(CONFIG.world.width, CONFIG.world.height);
+      }
+
+      // ==================== INPUT DE CONSTRUCCIÓN ====================
+      _getCanvasCoords(clientX, clientY) {
+        const rect = this.canvas.getBoundingClientRect();
+        const scaleX = CONFIG.world.width / rect.width;
+        const scaleY = CONFIG.world.height / rect.height;
+        return {
+          x: (clientX - rect.left) * scaleX,
+          y: (clientY - rect.top) * scaleY
+        };
+      }
+
+      _handleCanvasClick(e) {
+        if (this.waveActive || this.gameOver) return;
+        const { x, y } = this._getCanvasCoords(e.clientX, e.clientY);
+        if (y < 80 || y > CONFIG.world.height - 100) return;
+
+        if (this.selectedBuildType) {
+          const cost = CONFIG.defenses[this.selectedBuildType].cost;
+          if (this.destinyPoints >= cost) {
+            this._placeDefense(this.selectedBuildType, x, y);
+            this.destinyPoints -= cost;
+            this._updateUI();
+          } else {
+            log('❌ Puntos insuficientes');
+          }
+        }
+      }
+
+      _handleRightClick(e) {
+        if (this.waveActive || this.gameOver) return;
+        const { x, y } = this._getCanvasCoords(e.clientX, e.clientY);
+        for (let i = this.defenses.length - 1; i >= 0; i--) {
+          const def = this.defenses[i];
+          const dx = def.body.position.x - x;
+          const dy = def.body.position.y - y;
+          if (Math.hypot(dx, dy) < 25) {
+            this._removeDefense(i);
+            break;
+          }
+        }
       }
 
       _placeDefense(type, x, y) {
-        let body;
-        const restitutionMap = { bumper:1.2, wall:0.3, hole:0.1, turret:0.2 };
-        const restitution = restitutionMap[type] || 0.4;
-
-        if (type === 'bumper') {
-          body = Matter.Bodies.circle(x, y, 18, {
-            isStatic: true, restitution, friction:0.1, label:'bumper'
-          });
-        } else if (type === 'wall') {
-          body = Matter.Bodies.rectangle(x, y, 20, 50, {
-            isStatic: true, restitution, friction:0.5, label:'wall'
-          });
-        } else if (type === 'hole') {
-          body = Matter.Bodies.circle(x, y, 22, {
-            isStatic: true, isSensor: true, label:'hole'
-          });
-        } else if (type === 'turret') {
-          body = Matter.Bodies.rectangle(x, y, 16, 16, {
-            isStatic: true, isSensor: true, label:'turret'
-          });
+        const cfg = CONFIG.defenses[type];
+        const def = new Defense(type, x, y, this.physics, cfg);
+        if (type === 'turret') {
+          def.fireInterval = cfg.fireInterval - this.upgrades.turretFireRate * 0.1;
+          def.damage = cfg.damage + this.upgrades.turretDamage * 2;
         }
-
-        Matter.Composite.add(this.world, body);
-        this.defenses.push({
-          type, body,
-          hp: type === 'wall' ? 100 : 999,
-          fireTimer: 0,
-          fireInterval: 0.8 - this.permanentUpgrades.turretFireRate * 0.1,
-          damage: 8 + this.permanentUpgrades.turretDamage * 2,
-        });
-        log(`✅ ${type} colocado en (${Math.round(x)},${Math.round(y)})`);
+        this.defenses.push(def);
+        log(`✅ ${type} colocado`);
       }
 
       _removeDefense(index) {
         const def = this.defenses[index];
-        Matter.Composite.remove(this.world, def.body);
-        this.defenses.splice(index, 1);
-        const refund = Math.floor(this._getBuildCost(def.type) * 0.5);
+        this.physics.removeBody(def.body);
+        const refund = Math.floor(CONFIG.defenses[def.type].cost * 0.5);
         this.destinyPoints += refund;
-        log(`🗑️ ${def.type} eliminado. Reembolso: ${refund} PD`);
+        this.defenses.splice(index, 1);
+        log(`🗑️ ${def.type} eliminado (+${refund} PD)`);
         this._updateUI();
       }
 
-      // ==================== GENERACIÓN DE OLEADA ====================
-      _generateWaveEnemyList() {
+      // ==================== GENERACIÓN DE OLEADAS ====================
+      _generateWave() {
         this.waveEnemyList = [];
-        const baseCount = 6 + this.wave * 3;
+        const total = CONFIG.waves.baseEnemies + this.wave * CONFIG.waves.perWave;
         const types = ['basic', 'basic', 'basic', 'fast', 'heavy', 'bouncy'];
         if (this.wave >= 2) types.push('explosive', 'shielded');
         if (this.wave >= 3) types.push('fire', 'ice');
-        if (this.wave >= 4 && Math.random() < 0.3) types.push('boss_roller');
 
-        for (let i = 0; i < baseCount; i++) {
-          const type = types[Math.floor(Math.random() * types.length)];
-          this.waveEnemyList.push({ type, spawned: false });
+        for (let i = 0; i < total; i++) {
+          this.waveEnemyList.push({
+            type: types[Math.floor(Math.random() * types.length)],
+            spawned: false
+          });
         }
-        this.waveEnemiesTotal = this.waveEnemyList.length;
-        this.waveKills = 0;
-        // Activar/desactivar compuertas aleatoriamente
+
+        // Compuertas aleatorias
         this.gates.forEach(g => g.active = Math.random() < 0.8);
+
+        // Jefes
+        if (this.wave % CONFIG.waves.bossInterval === 0) {
+          this.waveEnemyList.push({ type:'boss', spawned:false });
+        } else if (this.wave % CONFIG.waves.miniBossInterval === 0) {
+          this.waveEnemyList.push({ type:'miniboss', spawned:false });
+        }
+
+        this.spawnIndex = 0;
+        this.waveKills = 0;
       }
 
       startWave() {
         if (this.waveActive || this.gameOver) return;
         this.waveActive = true;
         this.waveComplete = false;
-        this._spawnTimer = 0;
-        this._spawnInterval = 0.8;
-        this._spawnIndex = 0;
+        this.spawnTimer = 0;
         log(`🌊 Oleada ${this.wave} iniciada!`);
         this._updateUI();
       }
 
       _spawnEnemy() {
-        if (this._spawnIndex >= this.waveEnemyList.length) return;
-        const entry = this.waveEnemyList[this._spawnIndex];
-        const info = ENEMY_TYPES[entry.type];
-        // Elegir compuerta activa aleatoria
-        const activeGates = this.gates.filter(g => g.active);
-        if (activeGates.length === 0) return;
-        const gate = activeGates[Math.floor(Math.random() * activeGates.length)];
-        const x = gate.x + (Math.random() - 0.5) * gate.width;
-        const y = gate.y;
+        if (this.spawnIndex >= this.waveEnemyList.length) return;
+        const entry = this.waveEnemyList[this.spawnIndex];
 
-        const body = Matter.Bodies.circle(x, y, info.radius, {
-          restitution: entry.type === 'bouncy' ? 1.5 : 0.5,
-          friction: 0.05,
-          density: entry.type === 'heavy' ? 0.03 : 0.01,
-          label: 'enemy'
-        });
-        Matter.Composite.add(this.world, body);
-        this.enemies.push({
-          type: entry.type,
-          body,
-          hp: info.hp + this.wave * 5,
-          maxHp: info.hp + this.wave * 5,
-          damage: info.damage,
-          ability: info.ability,
-          shieldActive: entry.type === 'shielded',
-          fireTrailTimer: 0,
-        });
+        if (entry.type === 'boss') {
+          this._spawnBoss();
+        } else if (entry.type === 'miniboss') {
+          this._spawnMiniBoss();
+        } else {
+          const info = CONFIG.enemyTypes[entry.type];
+          const activeGates = this.gates.filter(g => g.active);
+          if (activeGates.length === 0) return;
+          const gate = activeGates[Math.floor(Math.random() * activeGates.length)];
+          const x = gate.x + (Math.random() - 0.5) * gate.width;
+          const y = gate.y;
+          const enemy = new Enemy(entry.type, x, y, info, this.wave, this.physics);
+          this.enemies.push(enemy);
+        }
+
         entry.spawned = true;
-        this._spawnIndex++;
+        this.spawnIndex++;
       }
 
-      // ==================== BUCLE PRINCIPAL ====================
-      _loop(timestamp) {
-        const dt = Math.min(100, timestamp - this.lastTime) / 1000;
-        this.lastTime = timestamp;
+      // ==================== JEFES VARIADOS ====================
+      _spawnBoss() {
+        const archetypes = CONFIG.bossArchetypes.filter(a => !a.isWave);
+        const arch = archetypes[Math.floor(Math.random() * archetypes.length)];
 
-        if (!this.gameOver) {
-          Matter.Engine.update(this.engine, dt * 1000);
-
-          if (this.waveActive && !this.waveComplete) {
-            this._spawnTimer += dt;
-            if (this._spawnTimer >= this._spawnInterval && this._spawnIndex < this.waveEnemyList.length) {
-              this._spawnEnemy();
-              this._spawnTimer = 0;
-            }
-            this._updateEnemies(dt);
-            this._updateTurrets(dt);
-            this._updateZones(dt);
-            this._checkWaveComplete();
+        if (arch.isWave) {
+          // Oleada de élites
+          const { count, base } = arch;
+          for (let i = 0; i < count; i++) {
+            const angle = (i / count) * Math.PI * 2;
+            const x = CONFIG.world.width / 2 + Math.cos(angle) * 80;
+            const y = CONFIG.world.height / 2 + Math.sin(angle) * 80;
+            const info = CONFIG.enemyTypes[base.tipo];
+            const enemy = new Enemy(base.tipo, x, y, {
+              ...info,
+              hp: info.hp * base.hpMult,
+              radius: info.radius * base.sizeMult,
+              speed: info.speed * base.speedMult
+            }, this.wave, this.physics);
+            enemy.maxModulos = base.slots;
+            enemy.modulosEquipados = new Array(base.slots).fill(null);
+            enemy.shootInterval = base.shootInterval;
+            enemy.shootTimer = base.shootInterval;
+            enemy.hitsRequired = 30;
+            enemy.isElite = true;
+            this.enemies.push(enemy);
           }
-
-          this._updateDrops(dt);
-        }
-
-        this._render();
-        requestAnimationFrame((t) => this._loop(t));
-      }
-
-      _updateEnemies(dt) {
-        for (let i = this.enemies.length-1; i >= 0; i--) {
-          const enemy = this.enemies[i];
-          const body = enemy.body;
-
-          // Rastro de fuego
-          if (enemy.ability === 'rastro_fuego') {
-            enemy.fireTrailTimer += dt;
-            if (enemy.fireTrailTimer > 0.3) {
-              enemy.fireTrailTimer = 0;
-              this.zones.push({ x:body.position.x, y:body.position.y, type:'fire', timer:2.0, radius:18 });
-            }
-          }
-
-          // Comprobar si llegó al suelo (núcleo)
-          if (body.position.y > this.height - 30) {
-            this.coreHP -= enemy.damage - this.permanentUpgrades.coreArmor;
-            this._removeEnemy(i);
-            if (this.coreHP <= 0) {
-              this.coreHP = 0;
-              this._gameOver();
-            }
-            continue;
-          }
-
-          // Comprobar zonas
-          for (const zone of this.zones) {
-            if (dist(body.position.x, body.position.y, zone.x, zone.y) < zone.radius + 10) {
-              if (zone.type === 'fire') enemy.hp -= 5 * dt;
-              if (zone.type === 'ice') {
-                Matter.Body.setVelocity(body, {
-                  x: body.velocity.x * 0.5,
-                  y: body.velocity.y * 0.5
-                });
-              }
-            }
-          }
+          log('👾 ¡Trío de élites coordinadas!');
+        } else {
+          const info = CONFIG.enemyTypes[arch.tipo];
+          const x = CONFIG.world.width / 2;
+          const y = CONFIG.world.height / 2;
+          const enemy = new Enemy(arch.tipo, x, y, {
+            ...info,
+            hp: info.hp * arch.hpMult,
+            radius: info.radius * arch.sizeMult,
+            speed: info.speed * arch.speedMult
+          }, this.wave, this.physics);
+          enemy.esJefe = true;
+          enemy.shootInterval = arch.shootInterval;
+          enemy.shootTimer = arch.shootInterval;
+          enemy.patternType = arch.pattern;
+          enemy.maxModulos = arch.slots;
+          enemy.modulosEquipados = new Array(arch.slots).fill(null);
+          enemy.hitsRequired = arch.hitsRequired;
+          enemy.esPixelado = arch.esPixelado;
+          this.enemies.push(enemy);
+          log(`💀 ¡Jefe ${arch.name} aparece!`);
         }
       }
 
-      _updateTurrets(dt) {
-        for (const def of this.defenses) {
-          if (def.type !== 'turret') continue;
-          def.fireTimer += dt;
-          if (def.fireTimer < def.fireInterval) continue;
-
-          // Buscar enemigo más cercano
-          let target = null, minDist = 200;
-          for (const enemy of this.enemies) {
-            const d = dist(def.body.position.x, def.body.position.y, enemy.body.position.x, enemy.body.position.y);
-            if (d < minDist) { minDist = d; target = enemy; }
-          }
-
-          if (target) {
-            def.fireTimer = 0;
-            target.hp -= def.damage;
-            // Efecto visual: línea de disparo
-            this._addShotEffect(def.body.position, target.body.position);
-            if (target.hp <= 0) {
-              this._onEnemyKilled(target, this.enemies.indexOf(target));
-            }
-          }
-        }
-      }
-
-      _updateZones(dt) {
-        for (let i = this.zones.length-1; i >= 0; i--) {
-          this.zones[i].timer -= dt;
-          if (this.zones[i].timer <= 0) this.zones.splice(i, 1);
-        }
-      }
-
-      _updateDrops(dt) {
-        for (const drop of this.drops) {
-          drop.timer -= dt;
-          if (drop.collected) continue;
-        }
-        this.drops = this.drops.filter(d => d.timer > 0 || !d.collected);
+      _spawnMiniBoss() {
+        const x = CONFIG.world.width / 2 + (Math.random() - 0.5) * 120;
+        const y = CONFIG.world.height / 2 + (Math.random() - 0.5) * 120;
+        const info = CONFIG.enemyTypes.arquero || CONFIG.enemyTypes.basic;
+        const enemy = new Enemy('arquero', x, y, {
+          ...info,
+          hp: info.hp * 2.5,
+          radius: info.radius * 1.5,
+          speed: info.speed * 0.8
+        }, this.wave, this.physics);
+        enemy.shootInterval = 1.0;
+        enemy.shootTimer = 1.0;
+        enemy.maxModulos = 2;
+        enemy.modulosEquipados = new Array(2).fill(null);
+        enemy.hitsRequired = 40;
+        enemy.isElite = true;
+        this.enemies.push(enemy);
+        log('👾 ¡Minijefe aparece!');
       }
 
       // ==================== COLISIONES ====================
@@ -500,15 +813,13 @@
             if (!enemy) return;
 
             if (defenseBody.label === 'hole') {
-              // Agujero: elimina enemigo instantáneamente
               enemy.hp = 0;
-              this._onEnemyKilled(enemy, this.enemies.indexOf(enemy));
+              this._killEnemy(enemy);
             } else if (defenseBody.label === 'wall' && enemy.ability === 'rompe_muros') {
-              // Pesada rompe muro
               const def = this.defenses.find(d => d.body === defenseBody);
               if (def) {
-                def.hp -= 30;
-                if (def.hp <= 0) {
+                def.takeDamage(30);
+                if (!def.isAlive()) {
                   const idx = this.defenses.indexOf(def);
                   if (idx !== -1) this._removeDefense(idx);
                 }
@@ -516,63 +827,139 @@
             }
           }
 
-          // Enemigo toca el suelo
-          if (enemyBody && bodyA.label === 'floor' || enemyBody && bodyB.label === 'floor') {
+          // Enemigo toca el suelo (núcleo)
+          if (enemyBody && (bodyA.label === 'floor' || bodyB.label === 'floor')) {
             const enemy = this.enemies.find(e => e.body === enemyBody);
             if (enemy) {
-              this.coreHP -= enemy.damage - this.permanentUpgrades.coreArmor;
-              this._removeEnemy(this.enemies.indexOf(enemy));
-              if (this.coreHP <= 0) this._gameOver();
+              this.coreHP -= enemy.damage - this.upgrades.coreArmor * CONFIG.core.armorPerUpgrade;
+              this._removeEnemy(enemy);
+              if (this.coreHP <= 0) {
+                this.coreHP = 0;
+                this._gameOver();
+              }
             }
           }
         });
       }
 
       // ==================== GESTIÓN DE ENEMIGOS ====================
-      _onEnemyKilled(enemy, index) {
-        // Drops RNG
-        const dropChance = 0.5 + this.permanentUpgrades.bonusDropChance;
+      _killEnemy(enemy) {
+        // Drops con protección y dispersión
+        const dropChance = 0.5 + this.upgrades.bonusDropChance * 0.1;
         if (Math.random() < dropChance) {
-          const dropType = Math.random() < 0.3 ? 'module' : 'pd';
-          const value = dropType === 'pd' ? Math.floor(rand(2, 8 + this.wave)) : null;
-          this.drops.push({
-            x: enemy.body.position.x,
-            y: enemy.body.position.y,
-            type: dropType,
-            value,
-            collected: false,
-            timer: 5.0
-          });
+          const angle = Math.random() * Math.PI * 2;
+          const distance = 50 + Math.random() * 40; // dispersión
+          const dx = enemy.body.position.x + Math.cos(angle) * distance;
+          const dy = enemy.body.position.y + Math.sin(angle) * distance;
+          const type = Math.random() < 0.3 ? 'module' : 'pd';
+          const value = type === 'pd' ? Math.floor(rand(CONFIG.points.killPDMin, CONFIG.points.killPDMax + this.wave)) : null;
+          this.drops.push(new Drop(dx, dy, type, value, CONFIG.waves.dropProtection));
         }
 
-        this._removeEnemy(index);
+        this._removeEnemy(enemy);
         this.waveKills++;
         this.totalKills++;
-        this.destinyPoints += Math.floor(rand(1, 3));
+        this.destinyPoints += Math.floor(rand(CONFIG.points.killPDMin, CONFIG.points.killPDMax));
         this._updateUI();
       }
 
-      _removeEnemy(index) {
-        if (index < 0 || index >= this.enemies.length) return;
-        const enemy = this.enemies[index];
-        Matter.Composite.remove(this.world, enemy.body);
-        this.enemies.splice(index, 1);
-      }
-
-      _checkWaveComplete() {
-        if (this._spawnIndex >= this.waveEnemyList.length && this.enemies.length === 0) {
-          this.waveComplete = true;
-          this.waveActive = false;
-          this._showRewardScreen();
+      _removeEnemy(enemy) {
+        const idx = this.enemies.indexOf(enemy);
+        if (idx !== -1) {
+          enemy.remove(this.physics);
+          this.enemies.splice(idx, 1);
         }
       }
 
-      // ==================== RECOMPENSAS Y PROGRESIÓN ====================
-      _showRewardScreen() {
+      // ==================== ACTUALIZACIÓN POR FRAME ====================
+      _update(dt) {
+        if (this.gameOver) return;
+
+        this.input.update();
+        this.physics.update(dt);
+
+        // Spawn de enemigos
+        if (this.waveActive && !this.waveComplete) {
+          this.spawnTimer += dt;
+          if (this.spawnTimer >= CONFIG.waves.spawnInterval && this.spawnIndex < this.waveEnemyList.length) {
+            this._spawnEnemy();
+            this.spawnTimer = 0;
+          }
+        }
+
+        // Actualizar enemigos
+        for (let i = this.enemies.length - 1; i >= 0; i--) {
+          const enemy = this.enemies[i];
+          enemy.update(dt);
+
+          // Rastro de fuego
+          if (enemy.fireTrailTimer > 0.3 && enemy.ability === 'rastro_fuego') {
+            enemy.fireTrailTimer = 0;
+            this.zones.push({
+              x: enemy.body.position.x,
+              y: enemy.body.position.y,
+              type: 'fire',
+              timer: 2.0,
+              radius: 18
+            });
+          }
+
+          // Disparo de enemigos (patrones)
+          if (enemy.shootTimer !== undefined) {
+            enemy.shootTimer -= dt;
+            if (enemy.shootTimer <= 0 && enemy.shootInterval > 0) {
+              enemy.shootTimer = enemy.shootInterval;
+              // Simplificado: no implementamos disparos enemigos en este prototipo
+            }
+          }
+        }
+
+        // Torretas
+        for (const def of this.defenses) {
+          if (def.type !== 'turret') continue;
+          def.fireTimer += dt;
+          if (def.fireTimer < def.fireInterval) continue;
+
+          let target = null, minDist = CONFIG.defenses.turret.range;
+          for (const enemy of this.enemies) {
+            const d = dist(def.body.position.x, def.body.position.y, enemy.body.position.x, enemy.body.position.y);
+            if (d < minDist) { minDist = d; target = enemy; }
+          }
+
+          if (target) {
+            def.fireTimer = 0;
+            target.hp -= def.damage;
+            if (target.hp <= 0) {
+              this._killEnemy(target);
+            }
+          }
+        }
+
+        // Zonas elementales
+        for (let i = this.zones.length - 1; i >= 0; i--) {
+          this.zones[i].timer -= dt;
+          if (this.zones[i].timer <= 0) this.zones.splice(i, 1);
+        }
+
+        // Drops (los enemigos no recogen durante protección)
+        for (const drop of this.drops) {
+          if (drop.isProtected()) continue;
+          // Aquí se podría añadir lógica de recogida por enemigos, pero por ahora no
+        }
+
+        // Comprobar fin de oleada
+        if (this.waveActive && this.spawnIndex >= this.waveEnemyList.length && this.enemies.length === 0) {
+          this.waveComplete = true;
+          this.waveActive = false;
+          this._showReward();
+        }
+      }
+
+      // ==================== RECOMPENSAS ====================
+      _showReward() {
         const panel = document.getElementById('reward-panel');
         const content = document.getElementById('reward-content');
 
-        // Recolectar drops automáticamente
         let collectedPD = 0;
         let collectedModules = 0;
         for (const drop of this.drops) {
@@ -585,19 +972,21 @@
         this.drops = [];
         this.destinyPoints += collectedPD;
 
-        const waveBonus = this.wave * 10;
+        const waveBonus = CONFIG.points.waveBonus * this.wave;
         this.destinyPoints += waveBonus;
 
         content.innerHTML = `
           <div class="stat-row"><span>💎 PD recogidos:</span><span>+${collectedPD}</span></div>
-          <div class="stat-row"><span>🧩 Módulos recogidos:</span><span>${collectedModules}</span></div>
-          <div class="stat-row"><span>🌟 Bonus de oleada:</span><span>+${waveBonus} PD</span></div>
-          <div class="stat-row"><span>💀 Enemigos eliminados:</span><span>${this.waveKills}/${this.waveEnemiesTotal}</span></div>
-          <div class="stat-row"><span>❤️ Vida del núcleo:</span><span>${Math.max(0,this.coreHP)}/${this.maxCoreHP}</span></div>
+          <div class="stat-row"><span>🧩 Módulos:</span><span>${collectedModules}</span></div>
+          <div class="stat-row"><span>🌟 Bonus oleada:</span><span>+${waveBonus}</span></div>
+          <div class="stat-row"><span>💀 Bajas:</span><span>${this.waveKills}/${this.waveEnemyList.length}</span></div>
+          <div class="stat-row"><span>❤️ Núcleo:</span><span>${Math.max(0,this.coreHP)}/${this.maxCoreHP}</span></div>
           <div class="stat-row"><span>💰 Total PD:</span><span>${this.destinyPoints}</span></div>
         `;
         panel.style.display = 'block';
-        log('🏆 Oleada completada. Revisa tus recompensas.');
+        document.getElementById('btn-next-wave').style.display = 'inline-block';
+        document.getElementById('btn-go-shop').style.display = 'inline-block';
+        log('🏆 Oleada completada.');
       }
 
       nextWave() {
@@ -605,29 +994,21 @@
         this.wave++;
         this.waveActive = false;
         this.waveComplete = false;
-        this._generateWaveEnemyList();
+        this._generateWave();
         this._updateUI();
         log(`🌊 Preparando oleada ${this.wave}...`);
       }
 
       _openShop() {
-        document.getElementById('reward-panel').style.display = 'none';
-        // Tienda simple inline
-        const shopHTML = `
-          <h3>🏪 Tienda de Mejoras Permanentes</h3>
-          <div style="font-size:13px; text-align:left;">
-            <button onclick="window.__game.buyUpgrade('turretDamage')">⚔️ +Daño Torreta (10 PD)</button><br>
-            <button onclick="window.__game.buyUpgrade('turretFireRate')">⏱️ +Cadencia Torreta (15 PD)</button><br>
-            <button onclick="window.__game.buyUpgrade('coreArmor')">🛡️ +Armadura Núcleo (20 PD)</button><br>
-            <button onclick="window.__game.buyUpgrade('extraStartingPD')">💰 +PD Iniciales (25 PD)</button><br>
-            <button onclick="window.__game.buyUpgrade('bonusDropChance')">🎁 +Probabilidad Drop (15 PD)</button><br>
-          </div>
-          <button onclick="window.__game.closeShop()">🔙 Volver</button>
-        `;
-        document.getElementById('reward-content').innerHTML = shopHTML;
-        document.getElementById('reward-panel').style.display = 'block';
         document.getElementById('btn-next-wave').style.display = 'none';
         document.getElementById('btn-go-shop').style.display = 'none';
+        const content = document.getElementById('reward-content');
+        let html = '<h3>🏪 Tienda</h3>';
+        for (const [key, cfg] of Object.entries(CONFIG.upgrades)) {
+          html += `<button onclick="window.__game.buyUpgrade('${key}')">${cfg.label} (${cfg.cost} PD) [${this.upgrades[key] || 0}]</button><br>`;
+        }
+        html += '<button onclick="window.__game.closeShop()">🔙 Volver</button>';
+        content.innerHTML = html;
       }
 
       closeShop() {
@@ -637,13 +1018,14 @@
         this._updateUI();
       }
 
-      buyUpgrade(upgrade) {
-        const costs = { turretDamage:10, turretFireRate:15, coreArmor:20, extraStartingPD:25, bonusDropChance:15 };
-        if (this.destinyPoints >= costs[upgrade]) {
-          this.destinyPoints -= costs[upgrade];
-          this.permanentUpgrades[upgrade] = (this.permanentUpgrades[upgrade]||0) + 1;
-          log(`✅ Mejora adquirida: ${upgrade}`);
-          this._openShop(); // Refrescar
+      buyUpgrade(key) {
+        const cfg = CONFIG.upgrades[key];
+        if (this.destinyPoints >= cfg.cost) {
+          this.destinyPoints -= cfg.cost;
+          this.upgrades[key] = (this.upgrades[key] || 0) + 1;
+          this._saveState();
+          log(`✅ ${cfg.label} comprado`);
+          this._openShop();
         } else {
           log('❌ PD insuficientes');
         }
@@ -653,30 +1035,20 @@
       _gameOver() {
         this.gameOver = true;
         this.waveActive = false;
-        const totalPD = this.destinyPoints;
-        log(`💀 GAME OVER. Oleada ${this.wave}. Total PD acumulados: ${totalPD}`);
-        // Guardar PD para próxima partida (simulado con localStorage)
-        const saved = JSON.parse(localStorage.getItem('pinballDefense_save') || '{}');
-        saved.bankPD = (saved.bankPD || 0) + totalPD;
-        localStorage.setItem('pinballDefense_save', JSON.stringify(saved));
+        this.bankPD += this.destinyPoints;
+        this._saveState();
+        log(`💀 GAME OVER. Oleada ${this.wave}. Banco: ${this.bankPD} PD`);
         this._updateUI();
       }
 
       resetGame() {
-        // Cargar PD guardados
-        const saved = JSON.parse(localStorage.getItem('pinballDefense_save') || '{}');
-        const bankPD = saved.bankPD || 0;
-
-        // Limpiar mundo
-        this.defenses.forEach(d => Matter.Composite.remove(this.world, d.body));
-        this.enemies.forEach(e => Matter.Composite.remove(this.world, e.body));
+        this.defenses.forEach(d => this.physics.removeBody(d.body));
+        this.enemies.forEach(e => e.remove(this.physics));
         this.defenses = [];
         this.enemies = [];
         this.drops = [];
         this.zones = [];
-
         this.coreHP = this.maxCoreHP;
-        this.destinyPoints = 50 + bankPD + this.permanentUpgrades.extraStartingPD * 10;
         this.wave = 1;
         this.waveActive = false;
         this.waveComplete = false;
@@ -686,24 +1058,17 @@
         this.selectedBuildType = null;
         document.querySelectorAll('.build-btn').forEach(b => b.classList.remove('selected'));
         document.getElementById('reward-panel').style.display = 'none';
-
-        this._generateWaveEnemyList();
+        this._loadState();
+        this._generateWave();
         this._updateUI();
-        log('🔄 Juego reiniciado. Mejoras permanentes conservadas.');
+        log('🔄 Juego reiniciado.');
       }
 
       // ==================== RENDERIZADO ====================
-      _addShotEffect(from, to) {
-        // Simple: guardamos para dibujar una línea esta frame
-        if (!this._shotEffects) this._shotEffects = [];
-        this._shotEffects.push({ from, to, timer: 0.1 });
-      }
-
-      _render() {
+      _draw() {
         const ctx = this.ctx;
-        const w = this.width, h = this.height;
+        const w = CONFIG.world.width, h = CONFIG.world.height;
 
-        // Fondo
         ctx.fillStyle = '#1a1a2e';
         ctx.fillRect(0, 0, w, h);
 
@@ -713,7 +1078,7 @@
         for (let x = 0; x < w; x += 50) { ctx.beginPath(); ctx.moveTo(x,0); ctx.lineTo(x,h); ctx.stroke(); }
         for (let y = 0; y < h; y += 50) { ctx.beginPath(); ctx.moveTo(0,y); ctx.lineTo(w,y); ctx.stroke(); }
 
-        // Zona del núcleo (rojo abajo)
+        // Núcleo
         ctx.fillStyle = 'rgba(255,0,0,0.3)';
         ctx.fillRect(0, h-60, w, 60);
         ctx.fillStyle = '#ff4444';
@@ -723,63 +1088,44 @@
 
         // Compuertas
         this.gates.forEach(gate => {
-          if (gate.active) {
-            ctx.fillStyle = '#ffd93d';
-            ctx.fillRect(gate.x - gate.width/2, gate.y-10, gate.width, 20);
-            ctx.strokeStyle = '#fff';
-            ctx.strokeRect(gate.x - gate.width/2, gate.y-10, gate.width, 20);
-          } else {
-            ctx.fillStyle = '#444';
-            ctx.fillRect(gate.x - gate.width/2, gate.y-10, gate.width, 20);
-          }
+          ctx.fillStyle = gate.active ? '#ffd93d' : '#444';
+          ctx.fillRect(gate.x - gate.width/2, gate.y-10, gate.width, 20);
+          ctx.strokeStyle = '#fff';
+          ctx.strokeRect(gate.x - gate.width/2, gate.y-10, gate.width, 20);
         });
 
         // Defensas
         this.defenses.forEach(def => {
           const pos = def.body.position;
           if (def.type === 'bumper') {
-            ctx.beginPath();
-            ctx.arc(pos.x, pos.y, 18, 0, Math.PI*2);
-            ctx.fillStyle = '#ffd93d';
-            ctx.fill();
-            ctx.strokeStyle = '#fff';
-            ctx.lineWidth = 2;
-            ctx.stroke();
-            ctx.fillStyle = '#000';
-            ctx.font = '10px monospace';
-            ctx.textAlign = 'center';
-            ctx.fillText('B', pos.x, pos.y+4);
+            ctx.beginPath(); ctx.arc(pos.x, pos.y, CONFIG.defenses.bumper.radius, 0, Math.PI*2);
+            ctx.fillStyle = CONFIG.defenses.bumper.color; ctx.fill();
+            ctx.strokeStyle = '#fff'; ctx.lineWidth = 2; ctx.stroke();
+            ctx.fillStyle = '#000'; ctx.font = '10px monospace'; ctx.textAlign = 'center'; ctx.fillText('B', pos.x, pos.y+4);
           } else if (def.type === 'wall') {
-            ctx.fillStyle = '#8b7355';
-            ctx.fillRect(pos.x-10, pos.y-25, 20, 50);
-            ctx.strokeStyle = '#fff';
-            ctx.strokeRect(pos.x-10, pos.y-25, 20, 50);
+            const cfg = CONFIG.defenses.wall;
+            ctx.fillStyle = cfg.color;
+            ctx.fillRect(pos.x - cfg.w/2, pos.y - cfg.h/2, cfg.w, cfg.h);
+            ctx.strokeStyle = '#fff'; ctx.strokeRect(pos.x - cfg.w/2, pos.y - cfg.h/2, cfg.w, cfg.h);
+            const hpPct = def.hp / def.maxHp;
+            ctx.fillStyle = '#222'; ctx.fillRect(pos.x - cfg.w/2, pos.y - cfg.h/2 - 6, cfg.w, 3);
+            ctx.fillStyle = hpPct > 0.5 ? '#4ade80' : '#ef4444'; ctx.fillRect(pos.x - cfg.w/2, pos.y - cfg.h/2 - 6, cfg.w * hpPct, 3);
           } else if (def.type === 'hole') {
-            ctx.beginPath();
-            ctx.arc(pos.x, pos.y, 22, 0, Math.PI*2);
-            ctx.fillStyle = '#111';
-            ctx.fill();
-            ctx.strokeStyle = '#ff4444';
-            ctx.lineWidth = 3;
-            ctx.setLineDash([4,4]);
-            ctx.stroke();
-            ctx.setLineDash([]);
+            ctx.beginPath(); ctx.arc(pos.x, pos.y, CONFIG.defenses.hole.radius, 0, Math.PI*2);
+            ctx.fillStyle = CONFIG.defenses.hole.color; ctx.fill();
+            ctx.strokeStyle = '#ff4444'; ctx.lineWidth = 3; ctx.setLineDash([4,4]); ctx.stroke(); ctx.setLineDash([]);
           } else if (def.type === 'turret') {
-            ctx.fillStyle = '#4ecdc4';
-            ctx.fillRect(pos.x-8, pos.y-8, 16, 16);
-            ctx.strokeStyle = '#fff';
-            ctx.strokeRect(pos.x-8, pos.y-8, 16, 16);
-            ctx.fillStyle = '#000';
-            ctx.font = '10px monospace';
-            ctx.textAlign = 'center';
-            ctx.fillText('T', pos.x, pos.y+4);
+            const cfg = CONFIG.defenses.turret;
+            ctx.fillStyle = cfg.color;
+            ctx.fillRect(pos.x - cfg.size/2, pos.y - cfg.size/2, cfg.size, cfg.size);
+            ctx.strokeStyle = '#fff'; ctx.strokeRect(pos.x - cfg.size/2, pos.y - cfg.size/2, cfg.size, cfg.size);
+            ctx.fillStyle = '#000'; ctx.font = '10px monospace'; ctx.textAlign = 'center'; ctx.fillText('T', pos.x, pos.y+4);
           }
         });
 
-        // Zonas elementales
+        // Zonas
         this.zones.forEach(zone => {
-          ctx.beginPath();
-          ctx.arc(zone.x, zone.y, zone.radius, 0, Math.PI*2);
+          ctx.beginPath(); ctx.arc(zone.x, zone.y, zone.radius, 0, Math.PI*2);
           ctx.fillStyle = zone.type === 'fire' ? 'rgba(255,100,0,0.4)' : 'rgba(0,180,255,0.4)';
           ctx.fill();
         });
@@ -787,90 +1133,82 @@
         // Drops
         this.drops.forEach(drop => {
           if (drop.collected) return;
-          ctx.beginPath();
-          ctx.arc(drop.x, drop.y, 8, 0, Math.PI*2);
+          ctx.beginPath(); ctx.arc(drop.x, drop.y, 8, 0, Math.PI*2);
           ctx.fillStyle = drop.type === 'pd' ? '#ffd700' : '#ff00ff';
           ctx.fill();
-          ctx.fillStyle = '#fff';
-          ctx.font = '10px monospace';
-          ctx.textAlign = 'center';
+          ctx.fillStyle = '#fff'; ctx.font = '10px monospace'; ctx.textAlign = 'center';
           ctx.fillText(drop.type === 'pd' ? 'PD' : 'M', drop.x, drop.y+4);
+          if (drop.isProtected()) {
+            ctx.beginPath(); ctx.arc(drop.x, drop.y, 12, 0, Math.PI*2);
+            ctx.strokeStyle = 'rgba(255,255,255,0.5)'; ctx.lineWidth = 2;
+            ctx.setLineDash([3,3]); ctx.stroke(); ctx.setLineDash([]);
+          }
         });
 
         // Enemigos
         this.enemies.forEach(enemy => {
           const pos = enemy.body.position;
-          const info = ENEMY_TYPES[enemy.type];
-          ctx.beginPath();
-          ctx.arc(pos.x, pos.y, info.radius, 0, Math.PI*2);
-          ctx.fillStyle = info.color;
-          ctx.fill();
-          ctx.strokeStyle = '#fff';
-          ctx.lineWidth = 2;
-          ctx.stroke();
+          const info = enemy.info || CONFIG.enemyTypes[enemy.type];
+          const radius = info.radius;
+          ctx.beginPath(); ctx.arc(pos.x, pos.y, radius, 0, Math.PI*2);
+          ctx.fillStyle = info.color; ctx.fill();
+          ctx.strokeStyle = '#fff'; ctx.lineWidth = 2; ctx.stroke();
 
-          // Barra de vida
           const hpPct = enemy.hp / enemy.maxHp;
-          ctx.fillStyle = '#222';
-          ctx.fillRect(pos.x-12, pos.y-info.radius-8, 24, 4);
-          ctx.fillStyle = hpPct > 0.5 ? '#4ade80' : '#ef4444';
-          ctx.fillRect(pos.x-12, pos.y-info.radius-8, 24*hpPct, 4);
+          ctx.fillStyle = '#222'; ctx.fillRect(pos.x - 12, pos.y - radius - 8, 24, 4);
+          ctx.fillStyle = hpPct > 0.5 ? '#4ade80' : '#ef4444'; ctx.fillRect(pos.x - 12, pos.y - radius - 8, 24 * hpPct, 4);
 
-          // Escudo
           if (enemy.shieldActive) {
-            ctx.beginPath();
-            ctx.arc(pos.x, pos.y, info.radius+4, 0, Math.PI*2);
-            ctx.strokeStyle = '#fff';
-            ctx.lineWidth = 2;
-            ctx.setLineDash([3,3]);
-            ctx.stroke();
-            ctx.setLineDash([]);
+            ctx.beginPath(); ctx.arc(pos.x, pos.y, radius + 4, 0, Math.PI*2);
+            ctx.strokeStyle = '#fff'; ctx.lineWidth = 2; ctx.setLineDash([3,3]); ctx.stroke(); ctx.setLineDash([]);
           }
 
-          ctx.fillStyle = '#fff';
-          ctx.font = '14px monospace';
-          ctx.textAlign = 'center';
-          ctx.fillText(info.icon, pos.x, pos.y+5);
+          if (enemy.esPixelado) {
+            ctx.imageSmoothingEnabled = false;
+          }
+          ctx.fillStyle = '#fff'; ctx.font = '14px monospace'; ctx.textAlign = 'center';
+          ctx.fillText(info.icon || '?', pos.x, pos.y + 5);
+          ctx.imageSmoothingEnabled = true;
         });
 
-        // Efectos de disparo
-        if (this._shotEffects) {
-          this._shotEffects = this._shotEffects.filter(s => {
-            ctx.beginPath();
-            ctx.moveTo(s.from.x, s.from.y);
-            ctx.lineTo(s.to.x, s.to.y);
-            ctx.strokeStyle = 'rgba(255,255,0,0.5)';
-            ctx.lineWidth = 2;
-            ctx.stroke();
-            s.timer -= 0.016;
-            return s.timer > 0;
-          });
-        }
-
-        // Mensaje de game over
+        // Mensajes
         if (this.gameOver) {
-          ctx.fillStyle = 'rgba(0,0,0,0.7)';
-          ctx.fillRect(0, 0, w, h);
-          ctx.fillStyle = '#ff4757';
-          ctx.font = 'bold 48px monospace';
-          ctx.textAlign = 'center';
+          ctx.fillStyle = 'rgba(0,0,0,0.7)'; ctx.fillRect(0, 0, w, h);
+          ctx.fillStyle = '#ff4757'; ctx.font = 'bold 48px monospace'; ctx.textAlign = 'center';
           ctx.fillText('💀 GAME OVER', w/2, h/2);
+        } else if (!this.waveActive) {
+          ctx.fillStyle = 'rgba(255,255,255,0.8)'; ctx.font = '18px monospace'; ctx.textAlign = 'center';
+          ctx.fillText('🛠️ Fase de construcción', w/2, h/2);
         }
+      }
 
-        // Texto de fase
-        if (!this.waveActive && !this.gameOver) {
-          ctx.fillStyle = 'rgba(255,255,255,0.8)';
-          ctx.font = '18px monospace';
-          ctx.textAlign = 'center';
-          ctx.fillText('🛠️ Fase de construcción - Coloca defensas y pulsa Iniciar Oleada', w/2, h/2);
-        }
+      // ==================== BUCLE PRINCIPAL ====================
+      _loop() {
+        const now = performance.now();
+        const dt = Math.min(100, now - (this._lastTime || now)) / 1000;
+        this._lastTime = now;
+
+        this._update(dt);
+        this._draw();
+
+        requestAnimationFrame(() => this._loop());
       }
     }
 
-    // ==================== INICIALIZACIÓN ====================
-    const canvas = document.getElementById('gameCanvas');
-    const game = new PinballDefenseGame(canvas);
-    window.__game = game; // Exponer para los botones de la tienda
+    // ==================== INICIO ====================
+    window.addEventListener('load', () => {
+      const canvas = document.getElementById('gameCanvas');
+      const game = new PinballDefense(canvas);
+      window.__game = game;
+
+      // Redimensionar al cambiar viewport
+      const resizeHandler = () => game._resizeCanvas();
+      window.addEventListener('resize', resizeHandler);
+      if (window.visualViewport) {
+        window.visualViewport.addEventListener('resize', resizeHandler);
+        window.visualViewport.addEventListener('scroll', resizeHandler);
+      }
+    });
   </script>
 </body>
 </html>
