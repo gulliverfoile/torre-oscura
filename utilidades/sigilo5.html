@@ -1,0 +1,1088 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>Ninja Sigilo – Arquitecto v3</title>
+    <style>
+        * { margin:0; padding:0; box-sizing:border-box; }
+        html, body { width:100%; height:100%; overflow:hidden; background:#000; touch-action:none; }
+        body { display:flex; justify-content:center; align-items:center; }
+        canvas { display:block; position:absolute; top:0; left:0; }
+
+        #side-menu {
+            position:fixed; top:0; right:0; width:min(380px, 90vw); height:100vh;
+            background:rgba(10,10,25,0.96); border-left:2px solid #ffd700; color:#fff;
+            z-index:10000; display:none; font-family:monospace; font-size:clamp(11px, 2vw, 13px);
+            backdrop-filter:blur(8px); overflow-y:auto; padding:0;
+        }
+        #side-menu .tab-buttons { display:flex; flex-wrap:wrap; background:#111; border-bottom:1px solid #444; }
+        #side-menu .tab-buttons button {
+            flex:1; min-width:60px; background:transparent; border:none; color:#aaa;
+            padding:10px 5px; cursor:pointer; font-weight:bold; font-size:inherit; transition:0.2s;
+        }
+        #side-menu .tab-buttons button.active { color:#ffd700; border-bottom:2px solid #ffd700; background:#222; }
+        #side-menu .tab-content { padding:15px; }
+        #side-menu .tab-content > div { display:none; }
+        #side-menu .tab-content > div.active { display:block; }
+
+        button {
+            background:#ffd700; color:#000; border:none; padding:6px 10px; margin:4px 2px;
+            cursor:pointer; font-weight:bold; border-radius:4px; touch-action:manipulation;
+        }
+        button:disabled { opacity:0.4; cursor:default; }
+        input, select {
+            width:100%; margin:2px 0 8px; background:#222; color:#0f0; border:1px solid #0f0;
+            padding:4px; border-radius:3px; font-family:monospace;
+        }
+        label { display:block; margin:6px 0 2px; color:#ccc; }
+    </style>
+</head>
+<body>
+    <canvas id="game"></canvas>
+
+    <div id="side-menu">
+        <div class="tab-buttons">
+            <button data-tab="architect">🔧 Arquitecto</button>
+            <button data-tab="modules">🧩 Módulos</button>
+        </div>
+        <div class="tab-content">
+            <div id="tab-architect" class="active"></div>
+            <div id="tab-modules"></div>
+        </div>
+        <div style="text-align:center; padding:10px;">
+            <button id="menu-close">Cerrar menú [Tab]</button>
+        </div>
+    </div>
+
+<script>
+'use strict';
+
+// ==================== CONFIGURACIÓN GLOBAL (MODIFICABLE) ====================
+const CFG = {
+    // Mapa
+    tileSize: 32,
+    mapWidth: 30,
+    mapHeight: 60,
+    // Jugador
+    playerSpeed: 160,
+    playerRadius: 12,
+    maxHp: 5,
+    invincibilityTime: 1.5,
+    sigiloBase: 20,
+    sigiloMax: 95,
+    shadowBonus: 40,
+    wallProximityBonus: 25,
+    wallProximityRange: 1.5, // tiles
+    // Dash (gancho)
+    dashSpeed: 500,
+    dashDuration: 0.15,
+    dashCooldown: 1.2,
+    // Ataques
+    meleeRange: 40,
+    meleeDamage: 1,
+    meleeBackstabMult: 3,
+    meleeCooldown: 0.5,
+    projectileSpeed: 400,
+    projectileDamage: 1,
+    projectileCooldown: 0.6,
+    projectileLifetime: 1.2,
+    // Enemigos
+    enemyVisionRange: 160,
+    enemyVisionAngle: Math.PI / 3,
+    enemyPatrolSpeed: 45,
+    enemyChaseSpeed: 90,
+    enemyRespawnDelay: 8,
+    alertReinforceTime: 7,    // segundos para pedir refuerzos
+    alertReinforceCount: 3,   // número de enemigos que llaman
+    // FPS
+    fpsDuration: 15,
+    fpsEnemySpawnInterval: 1.0,
+    fpsBulletDamage: 1,
+    // Sonido
+    stepBaseInterval: 0.3,    // intervalo más corto
+    stepVolumeBase: 0.04,     // volumen más alto
+    stepFreqBase: 120,
+    // Persistencia
+    storageKey: 'ninja_sigilo_v2'
+};
+
+// ==================== EVENT BUS ====================
+class EventBus {
+    constructor() { this._listeners = {}; }
+    on(event, callback) { (this._listeners[event] = this._listeners[event] || []).push(callback); }
+    off(event, callback) { if(this._listeners[event]) this._listeners[event] = this._listeners[event].filter(cb => cb !== callback); }
+    emit(event, data) { (this._listeners[event] || []).forEach(cb => cb(data)); }
+}
+
+// ==================== AUDIO SERVICE ====================
+class AudioService {
+    constructor() {
+        this.ctx = null;
+        this.initialized = false;
+        this.alertOsc = null;
+    }
+    init() {
+        if (this.initialized) return;
+        try {
+            this.ctx = new (window.AudioContext || window.webkitAudioContext)();
+            this.initialized = true;
+        } catch (e) { console.warn('Audio no disponible'); }
+    }
+    _tone(freq, type, duration, volume = 0.1) {
+        if (!this.ctx || this.ctx.state === 'closed') return;
+        if (this.ctx.state === 'suspended') this.ctx.resume();
+        const now = this.ctx.currentTime;
+        const osc = this.ctx.createOscillator(); osc.type = type;
+        osc.frequency.setValueAtTime(freq, now);
+        const gain = this.ctx.createGain();
+        gain.gain.setValueAtTime(0, now);
+        gain.gain.linearRampToValueAtTime(volume, now + 0.01);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + duration);
+        osc.connect(gain); gain.connect(this.ctx.destination);
+        osc.start(now); osc.stop(now + duration);
+    }
+    playStep(sigilo) {
+        const vol = CFG.stepVolumeBase + (1 - sigilo / 100) * 0.08;
+        const freq = CFG.stepFreqBase + (sigilo / 100) * 180;
+        this._tone(freq, 'sine', 0.06, vol);
+    }
+    playMelee() { this._tone(200, 'square', 0.1, 0.15); }
+    playShoot() { this._tone(800, 'square', 0.05, 0.08); }
+    playDash() { this._tone(300, 'sawtooth', 0.15, 0.2); }
+    playAlertStart() {
+        this._tone(880, 'sawtooth', 0.3, 0.2);
+        this.startAlertHum();
+    }
+    startAlertHum() {
+        if (!this.ctx || this.alertOsc) return;
+        const osc = this.ctx.createOscillator();
+        osc.type = 'square';
+        osc.frequency.setValueAtTime(220, this.ctx.currentTime);
+        const gain = this.ctx.createGain();
+        gain.gain.setValueAtTime(0.03, this.ctx.currentTime);
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
+        osc.start();
+        this.alertOsc = { osc, gain };
+    }
+    stopAlertHum() {
+        if (this.alertOsc) {
+            this.alertOsc.gain.gain.setValueAtTime(0, this.ctx.currentTime);
+            this.alertOsc.osc.stop(this.ctx.currentTime + 0.1);
+            this.alertOsc = null;
+        }
+    }
+}
+
+// ==================== INPUT HANDLER ====================
+class InputHandler {
+    constructor(canvas) {
+        this.canvas = canvas;
+        this.keys = {};
+        this.mouse = { x: 0, y: 0, down: false };
+        this._bind();
+    }
+    _bind() {
+        document.addEventListener('keydown', e => {
+            this.keys[e.key.toLowerCase()] = true;
+            if (['w','a','s','d','arrowup','arrowdown','arrowleft','arrowright',' ','shift','e','j','k','t','tab'].includes(e.key.toLowerCase())) {
+                e.preventDefault();
+            }
+        });
+        document.addEventListener('keyup', e => { this.keys[e.key.toLowerCase()] = false; });
+        this.canvas.addEventListener('mousemove', e => {
+            const rect = this.canvas.getBoundingClientRect();
+            this.mouse.x = e.clientX - rect.left;
+            this.mouse.y = e.clientY - rect.top;
+        });
+        this.canvas.addEventListener('mousedown', e => { this.mouse.down = true; });
+        this.canvas.addEventListener('mouseup', e => { this.mouse.down = false; });
+    }
+    get moveLeft()  { return this.keys['a'] || this.keys['arrowleft']; }
+    get moveRight() { return this.keys['d'] || this.keys['arrowright']; }
+    get moveUp()    { return this.keys['w'] || this.keys['arrowup']; }
+    get moveDown()  { return this.keys['s'] || this.keys['arrowdown']; }
+    get meleePressed() { return this.keys['j']; }
+    get shootPressed() { return this.keys['k'] || this.mouse.down; }
+    get dashPressed()  { return this.keys['e']; }
+    get fpsToggle()    { return this.keys['t']; }
+    get tabPressed()   { return this.keys['tab']; }
+    get aimAngle() {
+        const dx = this.mouse.x - this.canvas.width / 2;
+        const dy = this.mouse.y - this.canvas.height / 2;
+        return Math.atan2(dy, dx);
+    }
+    consumeKey(key) {
+        if (this.keys[key]) { this.keys[key] = false; return true; }
+        return false;
+    }
+}
+
+// ==================== MAPA ====================
+class GameMap {
+    constructor() {
+        this.tiles = [];
+        this.enemySpawns = [];
+        this._generate();
+    }
+    _generate() {
+        const w = CFG.mapWidth, h = CFG.mapHeight;
+        this.tiles = Array(h).fill().map(() => Array(w).fill(0));
+        // Bordes
+        for (let r = 0; r < h; r++) { this.tiles[r][0] = 1; this.tiles[r][w - 1] = 1; }
+        for (let c = 0; c < w; c++) { this.tiles[0][c] = 1; this.tiles[h - 1][c] = 1; }
+        // Edificios y sombras
+        for (let r = 5; r < h - 5; r += 8) {
+            for (let c = 2; c < w - 2; c += 6) {
+                const ancho = 2 + Math.floor(Math.random() * 3);
+                const alto = 2 + Math.floor(Math.random() * 3);
+                if (r + alto >= h - 1 || c + ancho >= w - 1) continue;
+                for (let dr = 0; dr < alto; dr++) {
+                    for (let dc = 0; dc < ancho; dc++) {
+                        this.tiles[r + dr][c + dc] = 1; // pared
+                    }
+                }
+                // Sombras laterales
+                if (c - 1 > 0) this.tiles[r][c - 1] = 2;
+                if (c + ancho < w - 1) this.tiles[r][c + ancho] = 2;
+            }
+        }
+        // Superficies de gancho (tile 3) en tejados
+        for (let r = 10; r < h - 5; r += 20) {
+            for (let c = 5; c < w - 5; c += 10) {
+                if (this.tiles[r][c] === 1) this.tiles[r][c] = 3;
+            }
+        }
+        // Asegurar zona segura en la parte inferior central
+        const safeCol = Math.floor(w / 2);
+        for (let dr = -2; dr <= 2; dr++) {
+            for (let dc = -3; dc <= 3; dc++) {
+                const rr = h - 3 + dr;
+                const cc = safeCol + dc;
+                if (rr >= 0 && rr < h && cc >= 0 && cc < w) {
+                    this.tiles[rr][cc] = 0;
+                }
+            }
+        }
+        // Spawnpoints enemigos (esquinas de edificios, mirando hacia fuera)
+        this.enemySpawns = [];
+        for (let r = 4; r < h - 4; r++) {
+            for (let c = 4; c < w - 4; c++) {
+                if (this.tiles[r][c] === 0) {
+                    // Buscar pared adyacente
+                    let bestWallDir = null;
+                    for (let dr = -1; dr <= 1; dr++) {
+                        for (let dc = -1; dc <= 1; dc++) {
+                            if (dr === 0 && dc === 0) continue;
+                            if (this.tiles[r + dr] && this.tiles[r + dr][c + dc] === 1) {
+                                bestWallDir = Math.atan2(dr, dc); // dirección hacia la pared
+                            }
+                        }
+                    }
+                    if (bestWallDir !== null && Math.random() < 0.12) { // no demasiados enemigos
+                        this.enemySpawns.push({
+                            x: c * CFG.tileSize + CFG.tileSize / 2,
+                            y: r * CFG.tileSize + CFG.tileSize / 2,
+                            facingAngle: bestWallDir + Math.PI // mirar hacia fuera de la pared
+                        });
+                    }
+                }
+            }
+        }
+        // Si no se generó ninguno, poner algunos manuales
+        if (this.enemySpawns.length === 0) {
+            for (let i = 0; i < 10; i++) {
+                const rx = 10 + Math.floor(Math.random() * (w - 20));
+                const ry = 10 + Math.floor(Math.random() * (h - 20));
+                if (this.tiles[ry][rx] === 0) {
+                    this.enemySpawns.push({
+                        x: rx * CFG.tileSize + CFG.tileSize / 2,
+                        y: ry * CFG.tileSize + CFG.tileSize / 2,
+                        facingAngle: Math.random() * Math.PI * 2
+                    });
+                }
+            }
+        }
+    }
+    isSolid(tx, ty) {
+        if (ty < 0 || ty >= this.tiles.length || tx < 0 || tx >= this.tiles[0].length) return true;
+        return this.tiles[ty][tx] === 1;
+    }
+    isGrapple(tx, ty) {
+        return this.tiles[ty] && this.tiles[ty][tx] === 3;
+    }
+    isShadow(tx, ty) {
+        return this.tiles[ty] && this.tiles[ty][tx] === 2;
+    }
+}
+
+// ==================== JUGADOR ====================
+class Player {
+    constructor(x, y) {
+        this.x = x;
+        this.y = y;
+        this.vx = 0;
+        this.vy = 0;
+        this.radius = CFG.playerRadius;
+        this.hp = CFG.maxHp;
+        this.invincible = 0;
+        this.sigiloAdicional = 0;
+        this.modulos = []; // { stat, valor }
+        this.dashActive = false;
+        this.dashTimer = 0;
+        this.dashCooldown = 0;
+        this.meleeCooldown = 0;
+        this.shootCooldown = 0;
+        this.facingAngle = -Math.PI / 2;
+        this.meleeEffects = []; // {x, y, timer}
+    }
+    get sigiloTotal() {
+        let bonus = 0;
+        for (const m of this.modulos) if (m.stat === 'sigilo') bonus += m.valor;
+        return Math.min(CFG.sigiloBase + bonus + this.sigiloAdicional, CFG.sigiloMax);
+    }
+    update(dt, input, map) {
+        // Cooldowns
+        this.invincible = Math.max(0, this.invincible - dt);
+        this.meleeCooldown = Math.max(0, this.meleeCooldown - dt);
+        this.shootCooldown = Math.max(0, this.shootCooldown - dt);
+        this.dashCooldown = Math.max(0, this.dashCooldown - dt);
+
+        if (!this.dashActive) {
+            let dx = 0, dy = 0;
+            if (input.moveLeft) dx -= 1;
+            if (input.moveRight) dx += 1;
+            if (input.moveUp) dy -= 1;
+            if (input.moveDown) dy += 1;
+            const len = Math.hypot(dx, dy);
+            if (len > 0) { dx /= len; dy /= len; }
+            this.vx = dx * CFG.playerSpeed;
+            this.vy = dy * CFG.playerSpeed;
+        }
+
+        if (input.dashPressed && this.dashCooldown <= 0 && !this.dashActive) {
+            const angle = input.aimAngle;
+            this.vx = Math.cos(angle) * CFG.dashSpeed;
+            this.vy = Math.sin(angle) * CFG.dashSpeed;
+            this.dashActive = true;
+            this.dashTimer = CFG.dashDuration;
+            this.dashCooldown = CFG.dashCooldown;
+            AudioService.instance.playDash();
+        }
+        if (this.dashActive) {
+            this.dashTimer -= dt;
+            if (this.dashTimer <= 0) {
+                this.dashActive = false;
+                this.vx = 0;
+                this.vy = 0;
+            }
+        }
+
+        this.x += this.vx * dt;
+        if (this._collides(map)) { this.x -= this.vx * dt; }
+        this.y += this.vy * dt;
+        if (this._collides(map)) { this.y -= this.vy * dt; }
+
+        this.sigiloAdicional = 0;
+        const tx = Math.floor(this.x / CFG.tileSize);
+        const ty = Math.floor(this.y / CFG.tileSize);
+        if (map.isShadow(tx, ty)) this.sigiloAdicional += CFG.shadowBonus;
+        let nearWall = false;
+        for (let dr = -1; dr <= 1; dr++) {
+            for (let dc = -1; dc <= 1; dc++) {
+                if (dr === 0 && dc === 0) continue;
+                const nx = tx + dc, ny = ty + dr;
+                if (map.isSolid(nx, ny)) {
+                    const dx = (nx + 0.5) * CFG.tileSize - this.x;
+                    const dy = (ny + 0.5) * CFG.tileSize - this.y;
+                    if (Math.hypot(dx, dy) < CFG.wallProximityRange * CFG.tileSize) {
+                        nearWall = true;
+                    }
+                }
+            }
+        }
+        if (nearWall) this.sigiloAdicional += CFG.wallProximityBonus;
+
+        if (this.vx !== 0 || this.vy !== 0) this.facingAngle = Math.atan2(this.vy, this.vx);
+
+        this.meleeEffects = this.meleeEffects.filter(e => (e.timer -= dt) > 0);
+    }
+    _collides(map) {
+        const left = this.x - this.radius, right = this.x + this.radius;
+        const top = this.y - this.radius, bottom = this.y + this.radius;
+        const tl = map.isSolid(Math.floor(left / CFG.tileSize), Math.floor(top / CFG.tileSize));
+        const tr = map.isSolid(Math.floor(right / CFG.tileSize), Math.floor(top / CFG.tileSize));
+        const bl = map.isSolid(Math.floor(left / CFG.tileSize), Math.floor(bottom / CFG.tileSize));
+        const br = map.isSolid(Math.floor(right / CFG.tileSize), Math.floor(bottom / CFG.tileSize));
+        return tl || tr || bl || br;
+    }
+    takeDamage(amt) {
+        if (this.invincible > 0) return false;
+        this.hp -= amt;
+        this.invincible = CFG.invincibilityTime;
+        return this.hp <= 0;
+    }
+    addModule(mod) { this.modulos.push(mod); }
+    addMeleeEffect() {
+        const ex = this.x + Math.cos(this.facingAngle) * (this.radius + 10);
+        const ey = this.y + Math.sin(this.facingAngle) * (this.radius + 10);
+        this.meleeEffects.push({ x: ex, y: ey, timer: 0.2 });
+    }
+}
+
+// ==================== PROYECTIL ====================
+class Projectile {
+    constructor(x, y, vx, vy, damage) {
+        this.x = x; this.y = y;
+        this.vx = vx; this.vy = vy;
+        this.damage = damage;
+        this.alive = true;
+        this.life = CFG.projectileLifetime;
+        this.radius = 4;
+    }
+    update(dt, map) {
+        this.x += this.vx * dt;
+        this.y += this.vy * dt;
+        this.life -= dt;
+        const tx = Math.floor(this.x / CFG.tileSize), ty = Math.floor(this.y / CFG.tileSize);
+        if (this.life <= 0 || map.isSolid(tx, ty)) this.alive = false;
+    }
+}
+
+// ==================== ENEMIGO ====================
+class Enemy {
+    constructor(x, y, spawnPoint, facingAngle) {
+        this.spawn = spawnPoint || { x, y };
+        this.x = x; this.y = y;
+        this.radius = 14;
+        this.hp = 3;
+        this.maxHp = 3;
+        this.state = 'patrulla';
+        this.stateTimer = 0;
+        this.alertTimer = 0;
+        this.patrolTarget = { x, y };
+        this.speed = CFG.enemyPatrolSpeed;
+        this.alive = true;
+        this.respawnTimer = 0;
+        this.facingAngle = facingAngle !== undefined ? facingAngle : Math.random() * Math.PI * 2;
+        this._wallNear = null;
+    }
+    update(dt, player, map, allEnemies) {
+        if (!this.alive) {
+            this.respawnTimer -= dt;
+            if (this.respawnTimer <= 0) {
+                this.x = this.spawn.x;
+                this.y = this.spawn.y;
+                this.hp = this.maxHp;
+                this.alive = true;
+                this.state = 'patrulla';
+                this.stateTimer = 0;
+                this.alertTimer = 0;
+                this._wallNear = null;
+            }
+            return;
+        }
+
+        if (this.state === 'patrulla') {
+            this._patrol(dt, map);
+        } else if (this.state === 'alerta') {
+            this._moveToward(player.x, player.y, dt, map);
+            this.stateTimer -= dt;
+            if (this.stateTimer <= 0) {
+                this.state = 'sospecha';
+                this.stateTimer = 3.0;
+                AudioService.instance.stopAlertHum();
+            }
+        } else if (this.state === 'sospecha') {
+            this.stateTimer -= dt;
+            if (this.stateTimer <= 0) {
+                this.state = 'patrulla';
+            }
+        }
+
+        this._checkVision(dt, player, allEnemies);
+    }
+    _patrol(dt, map) {
+        // Buscar pared más cercana si no la tiene
+        if (!this._wallNear) {
+            const tx = Math.floor(this.x / CFG.tileSize);
+            const ty = Math.floor(this.y / CFG.tileSize);
+            let bestDist = Infinity, bestAngle = 0;
+            for (let dr = -2; dr <= 2; dr++) {
+                for (let dc = -2; dc <= 2; dc++) {
+                    if (dr === 0 && dc === 0) continue;
+                    const nx = tx + dc, ny = ty + dr;
+                    if (map.isSolid(nx, ny)) {
+                        const wx = (nx + 0.5) * CFG.tileSize;
+                        const wy = (ny + 0.5) * CFG.tileSize;
+                        const d = Math.hypot(wx - this.x, wy - this.y);
+                        if (d < bestDist) {
+                            bestDist = d;
+                            bestAngle = Math.atan2(wy - this.y, wx - this.x);
+                        }
+                    }
+                }
+            }
+            if (bestDist < Infinity) {
+                this._wallNear = { angle: bestAngle, dist: bestDist };
+            }
+        }
+        if (this._wallNear) {
+            // Moverse perpendicular a la pared (bordeando)
+            const perpAngle = this._wallNear.angle + Math.PI / 2;
+            const nx = this.x + Math.cos(perpAngle) * CFG.enemyPatrolSpeed * dt;
+            const ny = this.y + Math.sin(perpAngle) * CFG.enemyPatrolSpeed * dt;
+            const col = Math.floor(nx / CFG.tileSize);
+            const row = Math.floor(ny / CFG.tileSize);
+            if (!map.isSolid(col, row)) {
+                this.x = nx;
+                this.y = ny;
+            } else {
+                // Cambiar dirección
+                this._wallNear.angle += Math.PI;
+                // Recalcular perpendicular
+                const newPerp = this._wallNear.angle + Math.PI / 2;
+                const nx2 = this.x + Math.cos(newPerp) * CFG.enemyPatrolSpeed * dt;
+                const ny2 = this.y + Math.sin(newPerp) * CFG.enemyPatrolSpeed * dt;
+                if (!map.isSolid(Math.floor(nx2 / CFG.tileSize), Math.floor(ny2 / CFG.tileSize))) {
+                    this.x = nx2;
+                    this.y = ny2;
+                }
+            }
+            this.facingAngle = this._wallNear.angle + Math.PI; // mirar hacia fuera
+        } else {
+            // Patrulla aleatoria
+            const dx = this.patrolTarget.x - this.x, dy = this.patrolTarget.y - this.y;
+            const dist = Math.hypot(dx, dy);
+            if (dist < 10) {
+                this.patrolTarget = {
+                    x: (2 + Math.random() * (CFG.mapWidth - 4)) * CFG.tileSize,
+                    y: (2 + Math.random() * (CFG.mapHeight - 4)) * CFG.tileSize
+                };
+            }
+            this._moveToward(this.patrolTarget.x, this.patrolTarget.y, dt, map);
+        }
+    }
+    _moveToward(tx, ty, dt, map) {
+        const dx = tx - this.x, dy = ty - this.y;
+        const dist = Math.hypot(dx, dy);
+        if (dist < 2) return;
+        const nx = this.x + (dx / dist) * this.speed * dt;
+        const ny = this.y + (dy / dist) * this.speed * dt;
+        if (!map.isSolid(Math.floor(nx / CFG.tileSize), Math.floor(ny / CFG.tileSize))) {
+            this.x = nx;
+            this.y = ny;
+        }
+        this.facingAngle = Math.atan2(dy, dx);
+    }
+    _checkVision(dt, player, allEnemies) {
+        if (!this.alive) return;
+        const dx = player.x - this.x, dy = player.y - this.y;
+        const dist = Math.hypot(dx, dy);
+        if (dist > CFG.enemyVisionRange) {
+            // No visto: si estaba alerta, decrementar contador
+            if (this.state === 'alerta') {
+                this.alertTimer -= dt;
+                if (this.alertTimer <= 0) {
+                    this.state = 'sospecha';
+                    this.stateTimer = 3.0;
+                    AudioService.instance.stopAlertHum();
+                }
+            }
+            return;
+        }
+        const angleToPlayer = Math.atan2(dy, dx);
+        let diff = angleToPlayer - this.facingAngle;
+        while (diff > Math.PI) diff -= 2 * Math.PI;
+        while (diff < -Math.PI) diff += 2 * Math.PI;
+        if (Math.abs(diff) > CFG.enemyVisionAngle / 2) {
+            if (this.state === 'alerta') {
+                this.alertTimer -= dt;
+                if (this.alertTimer <= 0) {
+                    this.state = 'sospecha';
+                    this.stateTimer = 3.0;
+                    AudioService.instance.stopAlertHum();
+                }
+            }
+            return;
+        }
+
+        // Dentro del cono
+        const sigilo = player.sigiloTotal;
+        const prob = 1.0 - sigilo / 100;
+        if (Math.random() < prob) {
+            if (this.state !== 'alerta') {
+                this.state = 'alerta';
+                this.stateTimer = 2.5;
+                this.alertTimer = CFG.alertReinforceTime;
+                this.speed = CFG.enemyChaseSpeed;
+                AudioService.instance.playAlertStart();
+            } else {
+                // Reiniciar contador mientras ve
+                this.alertTimer = CFG.alertReinforceTime;
+            }
+            this.alertTimer -= dt;
+            if (this.alertTimer <= 0) {
+                this._callReinforcements(allEnemies);
+                this.alertTimer = CFG.alertReinforceTime;
+            }
+        } else {
+            if (this.state === 'alerta') {
+                this.alertTimer -= dt;
+                if (this.alertTimer <= 0) {
+                    this.state = 'sospecha';
+                    this.stateTimer = 3.0;
+                    AudioService.instance.stopAlertHum();
+                }
+            } else if (this.state === 'patrulla' && Math.random() < 0.3) {
+                this.state = 'sospecha';
+                this.stateTimer = 2.0;
+            }
+        }
+    }
+    _callReinforcements(allEnemies) {
+        let called = 0;
+        for (const other of allEnemies) {
+            if (other === this || !other.alive || other.state === 'alerta') continue;
+            const d = Math.hypot(other.x - this.x, other.y - this.y);
+            if (d < 300) {
+                other.state = 'alerta';
+                other.stateTimer = 3.0;
+                other.alertTimer = CFG.alertReinforceTime;
+                other.speed = CFG.enemyChaseSpeed;
+                called++;
+                if (called >= CFG.alertReinforceCount) break;
+            }
+        }
+    }
+    takeDamage(dmg) {
+        this.hp -= dmg;
+        if (this.hp <= 0) {
+            this.alive = false;
+            this.respawnTimer = CFG.enemyRespawnDelay;
+        }
+    }
+}
+
+// ==================== MODO FPS ====================
+class FPSMode {
+    constructor() {
+        this.active = false;
+        this.timeLeft = CFG.fpsDuration;
+        this.enemies = [];
+        this.spawnTimer = 0;
+        this.crosshair = { x: 400, y: 300 };
+        this.playerHealth = 100;
+    }
+    start(canvas) {
+        this.active = true;
+        this.timeLeft = CFG.fpsDuration;
+        this.enemies = [];
+        this.spawnTimer = 0;
+        this.crosshair = { x: canvas.width / 2, y: canvas.height / 2 };
+        this.playerHealth = 100;
+    }
+    update(dt, input) {
+        if (!this.active) return;
+        this.timeLeft -= dt;
+        if (this.timeLeft <= 0) { this.active = false; return; }
+
+        if (input.mouse) {
+            this.crosshair.x = input.mouse.x;
+            this.crosshair.y = input.mouse.y;
+        }
+
+        this.spawnTimer -= dt;
+        if (this.spawnTimer <= 0) {
+            this.spawnTimer = CFG.fpsEnemySpawnInterval;
+            this.enemies.push({
+                x: 200 + Math.random() * 400,
+                y: 100 + Math.random() * 300,
+                z: 500 + Math.random() * 300,
+                alive: true,
+                health: 1
+            });
+        }
+
+        for (const e of this.enemies) {
+            if (!e.alive) continue;
+            e.z -= 60 * dt;
+            if (e.z < 10) e.z = 10;
+        }
+
+        if (input.shootPressed) {
+            this._shoot();
+        }
+    }
+    _shoot() {
+        AudioService.instance.playShoot();
+        for (const e of this.enemies) {
+            if (!e.alive) continue;
+            const scale = 1 - e.z / 2000;
+            const w = 50 * scale, h = 70 * scale;
+            const sx = e.x * scale + 200, sy = e.y * scale + 100;
+            if (this.crosshair.x > sx - w / 2 && this.crosshair.x < sx + w / 2 &&
+                this.crosshair.y > sy - h / 2 && this.crosshair.y < sy + h / 2) {
+                e.health--;
+                if (e.health <= 0) e.alive = false;
+            }
+        }
+    }
+    draw(ctx) {
+        if (!this.active) return;
+        ctx.fillStyle = 'rgba(0,0,0,0.8)';
+        ctx.fillRect(0, 0, ctx.canvas.width, ctx.canvas.height);
+        for (const e of this.enemies) {
+            if (!e.alive) continue;
+            const scale = 1 - e.z / 2000;
+            ctx.fillStyle = '#f44';
+            ctx.fillRect(e.x * scale + 200 - 25 * scale, e.y * scale + 100 - 35 * scale, 50 * scale, 70 * scale);
+        }
+        ctx.strokeStyle = '#0f0';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.arc(this.crosshair.x, this.crosshair.y, 12, 0, 2 * Math.PI);
+        ctx.stroke();
+        ctx.fillStyle = '#fff';
+        ctx.font = '18px monospace';
+        ctx.fillText(`Tiempo: ${this.timeLeft.toFixed(1)}`, 20, 30);
+    }
+}
+
+// ==================== GAME PRINCIPAL ====================
+class Game {
+    constructor(canvas) {
+        this.canvas = canvas;
+        this.ctx = canvas.getContext('2d');
+        this.width = canvas.width = 960;
+        this.height = canvas.height = 640;
+
+        this.eventBus = new EventBus();
+        this.audio = new AudioService();
+        AudioService.instance = this.audio;
+        this.input = new InputHandler(canvas);
+        this.map = new GameMap();
+
+        const startX = (CFG.mapWidth / 2) * CFG.tileSize;
+        const startY = (CFG.mapHeight - 2) * CFG.tileSize;
+        this.player = new Player(startX, startY);
+
+        this.enemies = [];
+        for (const sp of this.map.enemySpawns) {
+            this.enemies.push(new Enemy(sp.x, sp.y, sp, sp.facingAngle));
+        }
+
+        this.projectiles = [];
+        this.cameraY = this.player.y - this.height / 2;
+        this.fpsMode = new FPSMode();
+        this.currentMode = 'game';
+        this.paused = false;
+
+        this.stepTimer = 0;
+        this.lastTime = performance.now();
+
+        this.menuPanel = document.getElementById('side-menu');
+        this.tabButtons = document.querySelectorAll('#side-menu .tab-buttons button');
+        this.tabContents = {
+            architect: document.getElementById('tab-architect'),
+            modules: document.getElementById('tab-modules')
+        };
+        this._initSideMenu();
+
+        this._loop = this._loop.bind(this);
+        const resumeAudio = () => { this.audio.init(); };
+        document.addEventListener('click', resumeAudio, { once: true });
+        document.addEventListener('keydown', resumeAudio, { once: true });
+        requestAnimationFrame(this._loop);
+    }
+
+    _initSideMenu() {
+        this.tabButtons.forEach(btn => {
+            btn.addEventListener('click', () => this._switchTab(btn.dataset.tab));
+        });
+        document.getElementById('menu-close').addEventListener('click', () => this.toggleMenu());
+        this._buildArchitectTab();
+    }
+
+    toggleMenu() {
+        if (this.menuPanel.style.display === 'block') {
+            this.menuPanel.style.display = 'none';
+            this.paused = false;
+        } else {
+            this.paused = true;
+            this._refreshModulesTab();
+            this._switchTab('architect');
+            this.menuPanel.style.display = 'block';
+        }
+    }
+
+    _switchTab(id) {
+        this.tabButtons.forEach(b => b.classList.remove('active'));
+        document.querySelector(`[data-tab="${id}"]`).classList.add('active');
+        Object.values(this.tabContents).forEach(d => d.classList.remove('active'));
+        this.tabContents[id].classList.add('active');
+        if (id === 'modules') this._refreshModulesTab();
+    }
+
+    _buildArchitectTab() {
+        let html = '<h4>Jugador</h4>';
+        html += this._slider('Velocidad', 'playerSpeed', 80, 300, CFG.playerSpeed);
+        html += this._slider('Radio', 'playerRadius', 8, 20, CFG.playerRadius);
+        html += this._slider('Sigilo Base', 'sigiloBase', 0, 100, CFG.sigiloBase);
+        html += this._slider('Bonus Sombra', 'shadowBonus', 0, 100, CFG.shadowBonus);
+        html += this._slider('Bonus Pared', 'wallProximityBonus', 0, 100, CFG.wallProximityBonus);
+        html += this._slider('Rango Prox. Pared', 'wallProximityRange', 1, 3, CFG.wallProximityRange);
+        html += '<h4>Dash</h4>';
+        html += this._slider('Velocidad Dash', 'dashSpeed', 200, 800, CFG.dashSpeed);
+        html += this._slider('Duración Dash', 'dashDuration', 0.05, 0.4, CFG.dashDuration);
+        html += this._slider('Cooldown Dash', 'dashCooldown', 0.2, 3, CFG.dashCooldown);
+        html += '<h4>Ataques</h4>';
+        html += this._slider('Rango Melee', 'meleeRange', 20, 80, CFG.meleeRange);
+        html += this._slider('Daño Melee', 'meleeDamage', 1, 5, CFG.meleeDamage);
+        html += this._slider('Multi. Espalda', 'meleeBackstabMult', 2, 6, CFG.meleeBackstabMult);
+        html += this._slider('Cooldown Melee', 'meleeCooldown', 0.2, 2, CFG.meleeCooldown);
+        html += this._slider('Velocidad Proyectil', 'projectileSpeed', 200, 600, CFG.projectileSpeed);
+        html += this._slider('Daño Proyectil', 'projectileDamage', 1, 5, CFG.projectileDamage);
+        html += this._slider('Cooldown Proyectil', 'projectileCooldown', 0.2, 2, CFG.projectileCooldown);
+        html += '<h4>Enemigos</h4>';
+        html += this._slider('Rango Visión', 'enemyVisionRange', 80, 300, CFG.enemyVisionRange);
+        html += this._slider('Ángulo Visión (rad)', 'enemyVisionAngle', 0.2, Math.PI, CFG.enemyVisionAngle);
+        html += this._slider('Velocidad Patrulla', 'enemyPatrolSpeed', 20, 100, CFG.enemyPatrolSpeed);
+        html += this._slider('Velocidad Alerta', 'enemyChaseSpeed', 40, 150, CFG.enemyChaseSpeed);
+        html += this._slider('Respawn (s)', 'enemyRespawnDelay', 2, 20, CFG.enemyRespawnDelay);
+        html += this._slider('Tiempo Refuerzos', 'alertReinforceTime', 2, 15, CFG.alertReinforceTime);
+        html += this._slider('Nº Refuerzos', 'alertReinforceCount', 1, 6, CFG.alertReinforceCount);
+        html += '<h4>FPS</h4>';
+        html += this._slider('Duración FPS', 'fpsDuration', 5, 30, CFG.fpsDuration);
+        html += this._slider('Intervalo Spawn FPS', 'fpsEnemySpawnInterval', 0.5, 3, CFG.fpsEnemySpawnInterval);
+        html += '<h4>Sonido</h4>';
+        html += this._slider('Intervalo Pasos', 'stepBaseInterval', 0.1, 2, CFG.stepBaseInterval);
+        this.tabContents.architect.innerHTML = html;
+    }
+
+    _slider(label, key, min, max, value) {
+        return `<label>${label}: ${value}</label>
+                <input type="range" min="${min}" max="${max}" step="${(max-min)/100}" value="${value}"
+                oninput="CFG.${key}=parseFloat(this.value); this.previousElementSibling.textContent='${label}: '+parseFloat(this.value).toFixed(2);">`;
+    }
+
+    _refreshModulesTab() {
+        let html = '<h4>Módulos equipados</h4>';
+        if (this.player.modulos.length === 0) html += '<p>Ninguno</p>';
+        else {
+            html += '<ul>';
+            this.player.modulos.forEach((m, i) => {
+                html += `<li>${m.stat} +${m.valor} <button onclick="window.__game.player.modulos.splice(${i},1); window.__game._refreshModulesTab();">X</button></li>`;
+            });
+            html += '</ul>';
+        }
+        html += '<button onclick="window.__game.player.addModule({stat:\'sigilo\', valor:10}); window.__game._refreshModulesTab();">Añadir Sigilo +10</button>';
+        this.tabContents.modules.innerHTML = html;
+    }
+
+    _loop(now) {
+        const dt = Math.min((now - this.lastTime) / 1000, 0.1);
+        this.lastTime = now;
+
+        if (this.input.tabPressed && !this._tabWasPressed) {
+            this.toggleMenu();
+        }
+        this._tabWasPressed = this.input.tabPressed;
+
+        if (this.paused) {
+            requestAnimationFrame(this._loop);
+            return;
+        }
+
+        if (this.input.consumeKey('t')) {
+            if (this.currentMode === 'game') {
+                this.currentMode = 'fps';
+                this.fpsMode.start(this.canvas);
+                this.audio.stopAlertHum();
+            } else {
+                this.currentMode = 'game';
+                this.fpsMode.active = false;
+            }
+        }
+
+        if (this.currentMode === 'fps') {
+            this.fpsMode.update(dt, this.input);
+        } else {
+            this._updateGame(dt);
+        }
+
+        this._draw();
+        requestAnimationFrame(this._loop);
+    }
+
+    _updateGame(dt) {
+        this.player.update(dt, this.input, this.map);
+
+        if (this.input.meleePressed && this.player.meleeCooldown <= 0) {
+            this.player.meleeCooldown = CFG.meleeCooldown;
+            this._meleeAttack();
+        }
+
+        if (this.input.shootPressed && this.player.shootCooldown <= 0) {
+            this.player.shootCooldown = CFG.projectileCooldown;
+            this._shootProjectile();
+        }
+
+        for (const e of this.enemies) {
+            e.update(dt, this.player, this.map, this.enemies);
+        }
+
+        for (let i = this.projectiles.length - 1; i >= 0; i--) {
+            const p = this.projectiles[i];
+            p.update(dt, this.map);
+            if (!p.alive) { this.projectiles.splice(i, 1); continue; }
+            for (const e of this.enemies) {
+                if (!e.alive) continue;
+                if (Math.hypot(p.x - e.x, p.y - e.y) < e.radius + p.radius) {
+                    e.takeDamage(p.damage);
+                    p.alive = false;
+                    break;
+                }
+            }
+            if (!p.alive) this.projectiles.splice(i, 1);
+        }
+
+        if ((this.player.vx !== 0 || this.player.vy !== 0) && !this.player.dashActive) {
+            this.stepTimer += dt;
+            const interval = CFG.stepBaseInterval / (1 - this.player.sigiloTotal / 100);
+            if (this.stepTimer >= interval) {
+                this.audio.playStep(this.player.sigiloTotal);
+                this.stepTimer = 0;
+            }
+        } else {
+            this.stepTimer = 0;
+        }
+
+        const targetCamY = this.player.y - this.height / 2;
+        this.cameraY += (targetCamY - this.cameraY) * 0.1;
+        const maxCamY = CFG.mapHeight * CFG.tileSize - this.height;
+        this.cameraY = Math.max(0, Math.min(maxCamY, this.cameraY));
+    }
+
+    _meleeAttack() {
+        this.audio.playMelee();
+        this.player.addMeleeEffect();
+        const angle = this.player.facingAngle;
+        const ax = this.player.x + Math.cos(angle) * CFG.meleeRange;
+        const ay = this.player.y + Math.sin(angle) * CFG.meleeRange;
+        for (const e of this.enemies) {
+            if (!e.alive) continue;
+            if (Math.hypot(e.x - ax, e.y - ay) < e.radius + 15) {
+                let dmg = CFG.meleeDamage;
+                const angleToEnemy = Math.atan2(e.y - this.player.y, e.x - this.player.x);
+                let diff = angleToEnemy - e.facingAngle;
+                while (diff > Math.PI) diff -= 2 * Math.PI;
+                while (diff < -Math.PI) diff += 2 * Math.PI;
+                if (Math.abs(diff) < Math.PI / 4) {
+                    dmg *= CFG.meleeBackstabMult;
+                }
+                e.takeDamage(dmg);
+            }
+        }
+    }
+
+    _shootProjectile() {
+        this.audio.playShoot();
+        const angle = this.input.aimAngle;
+        const vx = Math.cos(angle) * CFG.projectileSpeed;
+        const vy = Math.sin(angle) * CFG.projectileSpeed;
+        const px = this.player.x + Math.cos(angle) * (this.player.radius + 6);
+        const py = this.player.y + Math.sin(angle) * (this.player.radius + 6);
+        this.projectiles.push(new Projectile(px, py, vx, vy, CFG.projectileDamage));
+    }
+
+    _draw() {
+        this.ctx.clearRect(0, 0, this.width, this.height);
+        if (this.currentMode === 'fps') {
+            this.fpsMode.draw(this.ctx);
+            return;
+        }
+
+        this.ctx.save();
+        this.ctx.translate(0, -this.cameraY);
+        const ts = CFG.tileSize;
+
+        // Tiles
+        for (let r = 0; r < this.map.tiles.length; r++) {
+            for (let c = 0; c < this.map.tiles[0].length; c++) {
+                const t = this.map.tiles[r][c];
+                const x = c * ts, y = r * ts;
+                if (t === 1) { this.ctx.fillStyle = '#555'; this.ctx.fillRect(x, y, ts, ts); }
+                else if (t === 2) { this.ctx.fillStyle = 'rgba(0,0,80,0.4)'; this.ctx.fillRect(x, y, ts, ts); }
+                else if (t === 3) { this.ctx.fillStyle = '#a0522d'; this.ctx.fillRect(x, y, ts, ts); }
+            }
+        }
+
+        // Enemigos
+        for (const e of this.enemies) {
+            if (!e.alive) continue;
+            this.ctx.fillStyle = e.state === 'alerta' ? '#f44' : (e.state === 'sospecha' ? '#ff0' : '#f80');
+            this.ctx.beginPath();
+            this.ctx.arc(e.x, e.y, e.radius, 0, 2 * Math.PI);
+            this.ctx.fill();
+            // Cono visual
+            this.ctx.save();
+            this.ctx.translate(e.x, e.y);
+            this.ctx.rotate(e.facingAngle);
+            this.ctx.fillStyle = `rgba(255,100,0,0.2)`;
+            this.ctx.beginPath();
+            this.ctx.moveTo(0, 0);
+            this.ctx.arc(0, 0, CFG.enemyVisionRange, -CFG.enemyVisionAngle / 2, CFG.enemyVisionAngle / 2);
+            this.ctx.closePath();
+            this.ctx.fill();
+            this.ctx.restore();
+        }
+
+        // Proyectiles
+        for (const p of this.projectiles) {
+            this.ctx.fillStyle = '#0ff';
+            this.ctx.beginPath();
+            this.ctx.arc(p.x, p.y, p.radius, 0, 2 * Math.PI);
+            this.ctx.fill();
+        }
+
+        // Efectos melee
+        for (const effect of this.player.meleeEffects) {
+            this.ctx.fillStyle = `rgba(255, 255, 100, ${effect.timer * 5})`;
+            this.ctx.beginPath();
+            this.ctx.arc(effect.x, effect.y, 10, 0, 2 * Math.PI);
+            this.ctx.fill();
+        }
+
+        // Jugador
+        this.ctx.fillStyle = this.player.dashActive ? '#0ff' : '#0f0';
+        this.ctx.beginPath();
+        this.ctx.arc(this.player.x, this.player.y, this.player.radius, 0, 2 * Math.PI);
+        this.ctx.fill();
+        this.ctx.beginPath();
+        this.ctx.moveTo(this.player.x, this.player.y);
+        this.ctx.lineTo(this.player.x + Math.cos(this.player.facingAngle) * 20, this.player.y + Math.sin(this.player.facingAngle) * 20);
+        this.ctx.strokeStyle = '#fff';
+        this.ctx.stroke();
+
+        this.ctx.restore();
+
+        // UI fija
+        this.ctx.fillStyle = '#fff';
+        this.ctx.font = '14px monospace';
+        this.ctx.fillText(`Sigilo: ${this.player.sigiloTotal}%`, 10, 20);
+        this.ctx.fillText(`HP: ${this.player.hp}/${CFG.maxHp}`, 10, 40);
+        this.ctx.fillText(`Dash: ${this.player.dashCooldown > 0 ? 'RECARGA' : 'LISTO'}`, 10, 60);
+        this.ctx.fillText(`Modo FPS: T`, 10, 80);
+    }
+}
+
+// ==================== INICIO ====================
+window.onload = () => {
+    const canvas = document.getElementById('game');
+    window.__game = new Game(canvas);
+};
+</script>
+</body>
+</html>
