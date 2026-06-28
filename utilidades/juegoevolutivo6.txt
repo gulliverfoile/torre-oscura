@@ -1,8 +1,8 @@
-🟡 PAC-MAN REVENGE – Hexagonal Edition
-¡Pac‑Man ha vuelto para vengarse de los fantasmas!
+🟡 toy acid revenge – Hexagonal Edition
+toy acid ha vuelto para vengarse de los fantasmas!
 Equipa módulos elementales, desata pasivas devastadoras y sobrevive a oleadas de enemigos en este bullet‑heaven con alma de arcade.
 
-🎮 ¿Qué es PAC-MAN REVENGE?
+🎮 ¿Qué es toi acid?
 Un juego de acción y supervivencia donde controlas a Pac‑Man en una arena infinita.
 Elimina enemigos, recoge mejoras, equipa módulos con runas elementales y combina poderes para volverte imparable.
 Cada partida es diferente gracias a la generación procedural de módulos, los patrones de ataque enemigos y el sistema de afinidades.
@@ -75,7 +75,6 @@ Aparece periódicamente (cada 2-3 minutos) o al derrotar jefes.
 
 Al recogerla: 4 segundos de invulnerabilidad, velocidad x1.5, triple daño y aura amarilla.
 
-¡Igual que en el Pac‑Man clásico, pero con esteroides!
 
 💨 Dash reflectante
 El dash te vuelve invulnerable y refleja todos los proyectiles enemigos cercanos.
