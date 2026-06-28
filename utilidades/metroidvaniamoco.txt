@@ -1,0 +1,139 @@
+README – Prototipo de Metroidvania con Arquitectura Hexagonal
+
+¿Qué es esto?
+Un prototipo funcional de videojuego del género metroidvania (plataformas, exploración, progresión por habilidades) construido con JavaScript vanilla sobre un lienzo Canvas.
+Está diseñado como una demo técnica para probar mecánicas de movimiento, combate elemental, persistencia de salas y un completo panel de depuración en tiempo real (Arquitecto).
+
+Todo el código sigue una arquitectura hexagonal (puertos y adaptadores) orientada a eventos, lo que permite cambiar cualquier parte (entrada, renderizado, persistencia) sin tocar el núcleo del juego.
+
+¿Cómo funciona?
+El juego se organiza en capas:
+
+Puertos (interfaces): Definen lo que necesita el dominio (InputPort, RendererPort, PersistencePort).
+
+Adaptadores: Implementan los puertos con tecnologías concretas:
+
+WebInputAdapter → teclado + ratón.
+
+CanvasRenderer → dibujo 2D en canvas.
+
+LocalStorageRepo → guardado en el navegador.
+
+Entidades de dominio: Player, Enemy, Bullet, RoomState, MapGraph contienen la lógica pura del juego.
+
+Servicios de dominio: PhysicsService gestiona colisiones, recogida de objetos y drops.
+
+Bus de eventos (EventBus): Desacopla componentes. Los cambios importantes (recoger objeto, matar enemigo, morir) se comunican mediante eventos.
+
+Orquestador (Game): Conecta todo, maneja el bucle principal, las transiciones de sala y la cámara.
+
+El mundo se compone de salas interconectadas (matrices de tiles). El jugador viaja entre ellas a través de puertas que pueden requerir ciertas habilidades.
+Cada sala guarda su estado (enemigos muertos, objetos recogidos, puertas abiertas) en localStorage, por lo que al volver todo sigue como lo dejaste.
+
+Controles (teclado + ratón)
+Acción	Tecla / Botón
+Movimiento	W, A, S, D / Flechas
+Salto	Barra espaciadora
+Dash (carrera rápida)	Shift (izquierdo)
+Gancho	E
+Ataque cuerpo a cuerpo	J
+Disparo (proyectil)	K
+Interacción (puertas)	F
+Menú Arquitecto	Tab
+Apuntado (gancho)	Mover el ratón
+En el perfil slime, el dash se convierte en un salto direccional que sigue la posición del ratón (o la dirección del jugador si el ratón no se mueve).
+
+Mecánicas incluidas
+Perfiles de movimiento
+Seleccionables desde el menú Arquitecto. Cambian cómo se controla al personaje:
+
+normal – Movimiento clásico: velocidad instantánea, dash horizontal.
+
+jumpOnly – Solo puedes moverte en el aire (en el suelo estás quieto).
+
+slippery – Movimiento con inercia (aceleración/deceleración).
+
+dashMaster – Dash sin enfriamiento (puedes encadenarlos).
+
+slime – El personaje se vuelve un “moco” viscoso:
+
+Al chocar contra una pared, se pega a ella.
+
+Gravedad reducida mientras está pegado.
+
+El dash se vuelve direccional (hacia el ratón) y daña enemigos al contacto.
+
+Cambia de color (verde) y muestra un indicador visual al estar adherido.
+
+Habilidades desbloqueables
+Se obtienen recogiendo objetos en el mapa o activándolas desde el Arquitecto:
+
+Doble salto – Segundo salto en el aire. Se recarga al tocar suelo.
+
+Dash – Impulso horizontal (o direccional en slime). Tiene niveles (1-3) que aumentan su velocidad y reducen su cooldown.
+
+Gancho – Proyectil que se lanza hacia el ratón. Se engancha a superficies especiales (marcadas con G1, G2, G3) y arrastra al jugador. También tiene niveles (1-3) que amplían los tipos de superficie agarrable y el alcance.
+
+Módulos elementales
+Pequeños objetos (fuego, hielo) que se equipan automáticamente al primer slot.
+Definen el elemento de tus ataques cuerpo a cuerpo y disparos:
+
+Fuego – Daño extra + efecto de quemadura en enemigos.
+
+Hielo – Ralentiza al enemigo (efecto de congelación).
+
+Los enemigos derrotados pueden soltar módulos aleatorios.
+
+Salas y cámara
+Salas de prueba incluidas:
+
+0,0 (pequeña, cámara estática), 1,0 (grande, cámara con scroll), 0,1 (pequeña, secreta).
+
+La cámara se adapta al tamaño de la sala: si la sala cabe en la pantalla, se queda quieta; si es más grande, sigue al jugador con límites suaves.
+
+Las puertas requieren pulsar F para entrar, evitando transiciones accidentales.
+
+Persistencia
+El progreso del jugador (habilidades, módulos, perfil de movimiento) se guarda automáticamente.
+
+Cada sala recuerda enemigos muertos, objetos recogidos y puertas abiertas incluso después de salir y volver.
+
+Panel de Arquitecto (debug)
+Ábrelo con Tab. Tiene dos pestañas:
+
+🔧 Arquitecto
+Ajusta en tiempo real: gravedad, fuerza de salto, velocidad de movimiento.
+Activa/desactiva habilidades (doble salto, dash, gancho).
+Cambia perfiles de movimiento.
+Selecciona niveles de dash y gancho.
+Añade/quita módulos de prueba.
+Botón de curar.
+
+🧩 Módulos
+Muestra los módulos equipados y permite eliminarlos.
+
+Cómo ejecutarlo
+Guarda el archivo HTML (por ejemplo, metroidvania.html).
+
+(Opcional) Coloca un archivo rooms.json con más salas en la misma carpeta. Si no existe, se cargan tres salas de ejemplo automáticamente.
+
+Levanta un servidor local (recomendado para evitar restricciones de localStorage):
+
+bash
+python -m http.server 8000
+Abre en el navegador http://localhost:8000/metroidvania.html.
+
+Pulsa Tab para configurar las habilidades a tu gusto y empieza a explorar.
+
+Próximos pasos (en desarrollo)
+Sistema de afinidades y reacciones elementales (fuego+agua, etc.).
+
+Jefes modulares con patrones de ataque.
+
+Generación procedural de salas con validador de caminos.
+
+Más módulos y armas (espadas, arcos, magias).
+
+Cámara especial para combates contra jefes.
+
+Prototipo creado como base de experimentación para un metroidvania modular, hexagonal y orientado a eventos.
