@@ -1,0 +1,47 @@
+📁 README 1 – Ninja Sigilo (Juego Principal)
+¿Qué es?
+Un juego de infiltración ninja con vista cenital y desplazamiento vertical. Controlas a un ninja que debe moverse por un mapa generado con edificios, sombras y patrullas enemigas. El objetivo es sobrevivir y explorar usando el sigilo, el dash y los ataques.
+
+Controles (teclado + ratón)
+
+Movimiento: WASD o flechas.
+
+Apuntar: mueve el ratón (la dirección del ninja sigue al cursor).
+
+Dash / gancho: E (se lanza hacia donde apunta el ratón).
+
+Ataque cuerpo a cuerpo: J.
+
+Disparar proyectil: K o clic izquierdo.
+
+Modo FPS (torreta): T (cambia al minijuego de disparos).
+
+Menú de arquitecto: Tab.
+
+Mecánicas principales
+
+Sigilo dinámico
+El porcentaje de sigilo (hasta 95%) depende de:
+Proximidad a paredes (+25% si estás a ≤1.5 tiles).
+Estar sobre una sombra (+40%).
+Módulos equipados (ej. capucha de sigilo +10%).
+Cuanto más sigilo, menos probable es que los enemigos te detecten, y tus pasos suenan más bajos.
+
+Enemigos y patrullas
+Los enemigos patrullan pegados a las paredes, mirando hacia afuera. Tienen tres estados: patrulla (azul), sospecha (amarillo) y alerta (rojo). Si te ven, entran en alerta y te persiguen. Tras 7 segundos sin verte, piden refuerzos (hasta 3 enemigos cercanos). Al morir, reaparecen en su punto de origen tras un tiempo configurable.
+
+Ataques
+Cuerpo a cuerpo: daño normal; si atacas por la espalda (el enemigo no te mira), haces el triple de daño. Deja un destello visual.
+Proyectil: dispara un kunai hacia el cursor. Atraviesa enemigos, desaparece al chocar con paredes.
+
+Dash / gancho
+Te lanzas en línea recta hacia el cursor. Atraviesas todo (excepto bordes) y durante el dash eres invisible para los enemigos. Tiene un breve enfriamiento.
+
+Modo FPS
+Al pulsar T entras en una galería de tiro (el minijuego independiente). El mundo 2D se congela hasta que termines.
+
+Panel de arquitecto
+Con Tab abres un menú donde puedes modificar en tiempo real casi todos los parámetros: velocidad, sigilo, dash, daño, visión enemiga, tiempo de refuerzos, etc. También puedes añadir/quitar módulos de sigilo.
+
+Módulos
+Puedes equipar módulos que mejoran el sigilo. En el futuro se ampliarán a otros tipos (combate, movilidad, utilidad).
