@@ -1,0 +1,62 @@
+📁 README 2 – FPS Ninja (Galería de tiro)
+¿Qué es?
+Un minijuego de disparos en primera persona con estilo “falso 3D”. Aparece al pulsar T en el juego principal o al ejecutarlo por separado. Tienes que sobrevivir 15 segundos (configurable) eliminando enemigos que se acercan a la pantalla. Consigue la máxima puntuación.
+
+Controles
+
+Apuntar: mueve el ratón o arrastra el dedo (móvil).
+
+Disparar: clic izquierdo, mantener pulsado, o tocar la pantalla.
+
+Menú de arquitecto: Tab.
+
+Mecánicas principales
+
+Vidas y escudos
+Empiezas con 3 vidas. Si un enemigo llega a la pantalla, pierdes una vida (o un escudo si tienes). Puedes conseguir escudos extra con power‑ups.
+
+Enemigos variados
+Dron ligero: pequeño, rápido, zigzaguea.
+Meteorito: más grande, requiere 2 disparos, gira.
+Nave pesada: lenta, 3 disparos, a veces contraataca.
+Errático: cambia de dirección constantemente.
+Kamikaze: muy rápido, se dirige al centro.
+Cada tipo da puntos distintos y aparece según el nivel de amenaza.
+
+Progresión por muertes
+Cada enemigo eliminado aumenta el contador de kills. Al alcanzar ciertos umbrales (5, 12, 25…) sube el nivel de amenaza. A mayor nivel:
+
+Aparecen enemigos más duros.
+
+El spawn se acelera.
+
+Los enemigos pueden disparar proyectiles (puntos morados que debes esquivar o destruir).
+
+Power‑ups
+Al matar enemigos, a veces sueltan iconos brillantes que debes disparar para recoger:
+🌀 Shurikén de sombra: daña a todos los enemigos en pantalla.
+🛡️ Capa de humo: otorga un escudo adicional (máximo 2).
+❤️ Poción: recupera una vida (máximo 3).
+⚡ Rayo: doble daño durante 5 segundos.
+🧊 Kunai de hielo: ralentiza a los enemigos 4 segundos.
+Desaparecen tras 3 segundos si no los recoges.
+
+Feedback visual y sonoro
+
+Explosiones con partículas al matar.
+
+Temblor de pantalla al recibir daño o matar.
+
+Sonido láser al disparar, explosiones, power‑ups.
+
+Bordes rojos parpadeantes cuando tienes 1 vida.
+
+Vibración (si el dispositivo lo soporta).
+
+Panel de arquitecto
+Abre con Tab para ajustar duración, vidas, velocidad enemiga, probabilidad de power‑ups, intensidad del temblor, etc.
+
+Estrategia
+Prioriza los enemigos que se acercan más rápido (kamikazes) y los que están a punto de disparar (naves pesadas). Recoge power‑ups aunque estén en zonas peligrosas. Administra los escudos para los momentos finales.
+
+Ambos juegos comparten el mismo motor de audio y el sistema de eventos, por lo que podrás integrarlos fácilmente. Si necesitas modificar el equilibrio, usa los paneles de arquitecto. ¡A disfrutar del caos ninja!
