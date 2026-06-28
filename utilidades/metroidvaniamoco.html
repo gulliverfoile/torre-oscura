@@ -1,0 +1,1105 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>Metroidvania - Perfil Slime (Moco)</title>
+    <style>
+        * { margin:0; padding:0; box-sizing:border-box; }
+        html, body { width:100%; height:100%; overflow:hidden; background:#000; touch-action:none; }
+        body { display:flex; justify-content:center; align-items:center; }
+        canvas { display:block; position:absolute; top:0; left:0; }
+
+        #side-menu {
+            position:fixed; top:0; right:0; width:min(380px, 90vw); height:100vh;
+            background:rgba(10,10,25,0.96); border-left:2px solid #ffd700; color:#fff;
+            z-index:10000; display:none; font-family:monospace; font-size:clamp(11px, 2vw, 13px);
+            backdrop-filter:blur(8px); overflow-y:auto; padding:0;
+        }
+        #side-menu .tab-buttons { display:flex; flex-wrap:wrap; background:#111; border-bottom:1px solid #444; }
+        #side-menu .tab-buttons button {
+            flex:1; min-width:60px; background:transparent; border:none; color:#aaa;
+            padding:10px 5px; cursor:pointer; font-weight:bold; font-size:inherit; transition:0.2s;
+        }
+        #side-menu .tab-buttons button.active { color:#ffd700; border-bottom:2px solid #ffd700; background:#222; }
+        #side-menu .tab-content { padding:15px; }
+        #side-menu .tab-content > div { display:none; }
+        #side-menu .tab-content > div.active { display:block; }
+
+        button {
+            background:#ffd700; color:#000; border:none; padding:6px 10px; margin:4px 2px;
+            cursor:pointer; font-weight:bold; border-radius:4px; touch-action:manipulation;
+        }
+        button:disabled { opacity:0.4; cursor:default; }
+        select {
+            width:100%; margin:2px 0 8px; background:#222; color:#0f0; border:1px solid #0f0;
+            padding:4px; border-radius:3px; font-family:monospace;
+        }
+        label { display:block; margin:6px 0 2px; color:#ccc; }
+    </style>
+</head>
+<body>
+    <canvas id="game"></canvas>
+
+    <div id="side-menu">
+        <div class="tab-buttons">
+            <button data-tab="architect">🔧 Arquitecto</button>
+            <button data-tab="modules">🧩 Módulos</button>
+        </div>
+        <div class="tab-content">
+            <div id="tab-architect" class="active"></div>
+            <div id="tab-modules"></div>
+        </div>
+        <div style="text-align:center; padding:10px;">
+            <button id="menu-close">Cerrar menú [Tab]</button>
+        </div>
+    </div>
+
+<script>
+'use strict';
+
+// ==================== CONFIGURACIÓN GLOBAL ====================
+const CONFIG = {
+    gravity: 800,
+    jumpForce: 320,
+    doubleJumpForce: 280,
+    moveSpeed: 200,
+    dashBaseSpeed: 400,
+    dashLevelMultiplier: 1.4,
+    dashCooldown: 0.8,
+    dashDuration: 0.15,
+    hookSpeed: 600,
+    hookBaseCooldown: 2.0,
+    hookBaseRange: 180,
+    maxHookAirUses: 2,
+    meleeRange: 30,
+    meleeCooldown: 0.4,
+    projectileSpeed: 350,
+    projectileCooldown: 0.6,
+    projectileDamage: 2,
+    projectileLifetime: 1.5,
+    playerRadius: 10,
+    maxHp: 5,
+    invulnerabilityTime: 1.5,
+    tileSize: 32,
+    enemyDefaultHp: 3,
+    enemyDefaultDamage: 1,
+    enemyDefaultSpeed: 60,
+    startRoomId: '0,0',
+    elements: ['fuego', 'hielo'],
+    dropChance: 0.6,
+    modules: {
+        fuego: { name: 'Fuego', element: 'fuego', color: '#f60' },
+        hielo: { name: 'Hielo', element: 'hielo', color: '#6cf' }
+    },
+    // Perfiles de movimiento (incluye slime)
+    movementProfiles: ['normal', 'jumpOnly', 'slippery', 'dashMaster', 'slime'],
+    grappleTileBasic: 3,
+    grappleTileAdvanced: 4,
+    grappleTileMaster: 5,
+    // Parámetros específicos del perfil slime
+    slimeGravity: 400,         // gravedad reducida al pegarse
+    slimeWallSlideSpeed: 30,   // velocidad de deslizamiento vertical en pared
+};
+
+// ==================== PUERTOS (INTERFACES) ====================
+class InputPort {
+    getMove() { return { left: false, right: false, up: false, down: false }; }
+    isJumpPressed() { return false; }
+    isDashPressed() { return false; }
+    isMeleePressed() { return false; }
+    isProjectilePressed() { return false; }
+    isInteractPressed() { return false; }
+    isHookPressed() { return false; }
+    getAimAngle() { return 0; }
+    update() {}
+}
+
+class RendererPort {
+    clear() {}
+    drawRoom(roomState, player, camera) {}
+    drawUI(player, gameState) {}
+}
+
+class PersistencePort {
+    load() { return {}; }
+    save(data) {}
+    loadRoomState(roomId) { return null; }
+    saveRoomState(roomId, state) {}
+}
+
+// ==================== ADAPTADORES ====================
+class WebInputAdapter extends InputPort {
+    constructor(canvas) {
+        super();
+        this.canvas = canvas;
+        this.keys = {};
+        this.mouse = { x: 0, y: 0, down: false, lastMoveTime: 0 };
+        this._bindEvents();
+    }
+
+    _bindEvents() {
+        document.addEventListener('keydown', e => {
+            this.keys[e.key.toLowerCase()] = true;
+            if ([' ', 'arrowup', 'arrowdown', 'arrowleft', 'arrowright', 'f', 'j', 'k', 'e', 'shift'].includes(e.key.toLowerCase()))
+                e.preventDefault();
+        });
+        document.addEventListener('keyup', e => {
+            this.keys[e.key.toLowerCase()] = false;
+        });
+        this.canvas.addEventListener('mousemove', e => {
+            const rect = this.canvas.getBoundingClientRect();
+            this.mouse.x = (e.clientX - rect.left) * (this.canvas.width / rect.width);
+            this.mouse.y = (e.clientY - rect.top) * (this.canvas.height / rect.height);
+            this.mouse.lastMoveTime = performance.now();
+        });
+        this.canvas.addEventListener('mousedown', e => { this.mouse.down = true; });
+        this.canvas.addEventListener('mouseup', () => { this.mouse.down = false; });
+    }
+
+    getMove() {
+        return {
+            left:  this.keys['a'] || this.keys['arrowleft'],
+            right: this.keys['d'] || this.keys['arrowright'],
+            up:    this.keys['w'] || this.keys['arrowup'],
+            down:  this.keys['s'] || this.keys['arrowdown'],
+        };
+    }
+    isJumpPressed()      { return this.keys[' '] || this.keys['space']; }
+    isDashPressed()      { return this.keys['shift']; }
+    isMeleePressed()     { return this.keys['j']; }
+    isProjectilePressed(){ return this.keys['k']; }
+    isInteractPressed()  { return this.keys['f']; }
+    isHookPressed()      { return this.keys['e']; }
+    getAimAngle() {
+        const dx = this.mouse.x - this.canvas.width / 2;
+        const dy = this.mouse.y - this.canvas.height / 2;
+        return Math.atan2(dy, dx);
+    }
+    update() {}
+}
+
+class CanvasRenderer extends RendererPort {
+    constructor(canvas) {
+        super();
+        this.canvas = canvas;
+        this.ctx = canvas.getContext('2d');
+    }
+    clear() { this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height); }
+
+    drawRoom(roomState, player, camera) {
+        const ctx = this.ctx;
+        const { x: cx, y: cy } = camera;
+        const ts = CONFIG.tileSize;
+        // Tiles
+        for (let row = 0; row < roomState.tiles.length; row++) {
+            for (let col = 0; col < roomState.tiles[row].length; col++) {
+                const tile = roomState.tiles[row][col];
+                const x = col * ts - cx, y = row * ts - cy;
+                if (tile === 1) {
+                    ctx.fillStyle = '#444'; ctx.fillRect(x, y, ts, ts);
+                    ctx.strokeStyle = '#222'; ctx.strokeRect(x, y, ts, ts);
+                } else if (tile === 2) {
+                    const door = roomState.doors.find(d => d.col === col && d.row === row);
+                    ctx.fillStyle = door && door.estado === 'abierta' ? '#0f0' : '#f00';
+                    ctx.fillRect(x, y, ts, ts);
+                    ctx.fillStyle = '#fff'; ctx.font = '10px monospace'; ctx.fillText('F', x+4, y+14);
+                } else if (tile === CONFIG.grappleTileBasic) {
+                    ctx.fillStyle = '#a0522d'; ctx.fillRect(x, y, ts, ts);
+                    ctx.fillStyle = '#fff'; ctx.font = '10px monospace'; ctx.fillText('G1', x+2, y+14);
+                } else if (tile === CONFIG.grappleTileAdvanced) {
+                    ctx.fillStyle = '#8b4513'; ctx.fillRect(x, y, ts, ts);
+                    ctx.fillStyle = '#fff'; ctx.font = '10px monospace'; ctx.fillText('G2', x+2, y+14);
+                } else if (tile === CONFIG.grappleTileMaster) {
+                    ctx.fillStyle = '#654321'; ctx.fillRect(x, y, ts, ts);
+                    ctx.fillStyle = '#fff'; ctx.font = '10px monospace'; ctx.fillText('G3', x+2, y+14);
+                }
+            }
+        }
+        // Enemigos
+        for (const enemy of roomState.enemies) {
+            if (!enemy.alive) continue;
+            ctx.save();
+            ctx.fillStyle = enemy.color || '#f00';
+            ctx.beginPath(); ctx.arc(enemy.x - cx, enemy.y - cy, enemy.radius, 0, Math.PI*2); ctx.fill();
+            if (enemy.status === 'quemadura') {
+                ctx.fillStyle = '#ff6600';
+                ctx.beginPath(); ctx.arc(enemy.x - cx, enemy.y - cy, enemy.radius+3, 0, Math.PI*2); ctx.fill();
+            } else if (enemy.status === 'congelacion') {
+                ctx.strokeStyle = '#00ccff'; ctx.lineWidth = 2;
+                ctx.beginPath(); ctx.arc(enemy.x - cx, enemy.y - cy, enemy.radius+2, 0, Math.PI*2); ctx.stroke();
+            }
+            const hpPct = enemy.hp / enemy.maxHp;
+            ctx.fillStyle = '#000'; ctx.fillRect(enemy.x - cx - 10, enemy.y - cy - enemy.radius - 6, 20, 3);
+            ctx.fillStyle = hpPct > 0.5 ? '#0f0' : '#f00';
+            ctx.fillRect(enemy.x - cx - 10, enemy.y - cy - enemy.radius - 6, 20*hpPct, 3);
+            ctx.restore();
+        }
+        // Drops
+        if (roomState.drops) {
+            for (const drop of roomState.drops) {
+                if (!drop.alive) continue;
+                ctx.fillStyle = drop.color; ctx.fillRect(drop.x - cx - 6, drop.y - cy - 6, 12, 12);
+            }
+        }
+        // Objetos fijos
+        for (const obj of roomState.objects) {
+            if (obj.collected) continue;
+            ctx.fillStyle = obj.color; ctx.fillRect(obj.x - cx - 8, obj.y - cy - 8, 16, 16);
+        }
+        // Proyectiles
+        if (roomState.playerProjectiles) {
+            for (const p of roomState.playerProjectiles) {
+                if (!p.alive) continue;
+                ctx.fillStyle = p.color || '#ff0';
+                ctx.beginPath(); ctx.arc(p.x - cx, p.y - cy, p.radius, 0, Math.PI*2); ctx.fill();
+            }
+        }
+        // Gancho
+        if (player.hookActive) {
+            ctx.beginPath(); ctx.strokeStyle = '#888';
+            ctx.moveTo(player.x - cx, player.y - cy);
+            ctx.lineTo(player.hookTip.x - cx, player.hookTip.y - cy);
+            ctx.stroke();
+            ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(player.hookTip.x - cx, player.hookTip.y - cy, 4, 0, Math.PI*2); ctx.fill();
+        }
+        // Jugador
+        ctx.save();
+        ctx.fillStyle = player.invincible ? 'rgba(255,255,0,0.5)' : '#ff0';
+        if (player.movementProfile === 'slime') {
+            ctx.fillStyle = player.invincible ? 'rgba(100,255,100,0.5)' : '#8f8';
+        }
+        ctx.beginPath(); ctx.arc(player.x - cx, player.y - cy, player.radius, 0, Math.PI*2); ctx.fill();
+        if (player.isSlimeWallStuck) {
+            ctx.strokeStyle = '#fff';
+            ctx.lineWidth = 2;
+            ctx.beginPath(); ctx.arc(player.x - cx, player.y - cy, player.radius+2, 0, Math.PI*2); ctx.stroke();
+        }
+        if (player.modules.length > 0) {
+            const mod = player.modules[0];
+            ctx.fillStyle = mod.color; ctx.beginPath(); ctx.arc(player.x - cx + 15, player.y - cy - 15, 5, 0, Math.PI*2); ctx.fill();
+        }
+        ctx.restore();
+    }
+
+    drawUI(player, gameState) {
+        const ctx = this.ctx;
+        ctx.fillStyle = '#fff'; ctx.font = '12px monospace'; ctx.textAlign = 'left';
+        ctx.fillText(`HP: ${'♥'.repeat(player.hp)}`, 20, 20);
+        ctx.fillText(`Sala: ${gameState.currentRoomId}`, 20, 40);
+        const abilities = [];
+        if (player._doubleJumpUnlocked) abilities.push('Doble salto');
+        if (player.abilities.dash) abilities.push(`Dash Nv${player.dashLevel}`);
+        if (player.abilities.hook) abilities.push(`Gancho Nv${player.grappleLevel}`);
+        ctx.fillText(`Habilidades: ${abilities.join(', ') || 'ninguna'}`, 20, 60);
+        if (player.modules.length > 0) {
+            ctx.fillText(`Módulo: ${player.modules[0].name} (${player.modules[0].element})`, 20, 80);
+        }
+        ctx.fillText(`Perfil: ${player.movementProfile}`, 20, 100);
+        if (player.movementProfile === 'slime') {
+            ctx.fillText(`Estado: ${player.isSlimeWallStuck ? 'Pegado' : 'Libre'}`, 20, 120);
+        }
+    }
+}
+
+class LocalStorageRepo extends PersistencePort {
+    constructor() { super(); this.key = 'metro_v11'; }
+    load() { try { return JSON.parse(localStorage.getItem(this.key)) || {}; } catch(e) { return {}; } }
+    save(data) { try { localStorage.setItem(this.key, JSON.stringify(data)); } catch(e) {} }
+    loadRoomState(roomId) {
+        const data = this.load();
+        if (data.rooms && data.rooms[roomId]) {
+            const saved = data.rooms[roomId];
+            saved.enemies = saved.enemies.map(e => {
+                const enemy = new Enemy(e.x, e.y, e.type, e);
+                enemy.hp = e.hp; enemy.alive = e.alive; enemy.status = e.status;
+                return enemy;
+            });
+            saved.playerProjectiles = [];
+            saved.drops = (saved.drops || []).map(d => ({ ...d }));
+            return saved;
+        }
+        return null;
+    }
+    saveRoomState(roomId, roomState) {
+        const data = this.load();
+        if (!data.rooms) data.rooms = {};
+        data.rooms[roomId] = {
+            id: roomState.id, tiles: roomState.tiles, doors: roomState.doors,
+            objects: roomState.objects.map(o => ({ ...o })),
+            enemies: roomState.enemies.map(e => ({
+                x: e.x, y: e.y, hp: e.hp, maxHp: e.maxHp, alive: e.alive,
+                type: e.type, radius: e.radius, damage: e.damage, speed: e.speed,
+                color: e.color, reflectProjectiles: e.reflectProjectiles, status: e.status
+            })),
+            drops: (roomState.drops || []).map(d => ({ ...d })),
+            visited: true
+        };
+        this.save(data);
+    }
+}
+
+// ==================== BUS DE EVENTOS ====================
+class EventBus {
+    constructor() { this.listeners = {}; }
+    on(event, cb) { (this.listeners[event] = this.listeners[event] || []).push(cb); }
+    emit(event, data) { (this.listeners[event] || []).forEach(cb => cb(data)); }
+}
+
+// ==================== ENTIDADES ====================
+class Player {
+    constructor() {
+        this.x = 100; this.y = 100;
+        this.vx = 0; this.vy = 0;
+        this.radius = CONFIG.playerRadius;
+        this.hp = CONFIG.maxHp; this.maxHp = CONFIG.maxHp;
+        this.abilities = { doubleJump: false, dash: false, hook: false };
+        this._doubleJumpUnlocked = false;
+        this.dashLevel = 1;
+        this.grappleLevel = 1;
+        this.invincible = false; this.invincibleTimer = 0;
+        this.dashCooldown = 0;
+        this.hookActive = false; this.hookTip = { x:0, y:0 }; this.hookCooldown = 0;
+        this.hookAirUses = 0;
+        this.meleeCooldown = 0;
+        this.projectileCooldown = 0;
+        this.grounded = false;
+        this._wasGrounded = false;
+        this.facingRight = true;
+        this.modules = [];
+        this.movementProfile = 'normal';
+        // Variables para perfil slime
+        this.isSlimeWallStuck = false;
+        this.slimeWallDir = 0;
+    }
+
+    setMovementProfile(profile) {
+        if (CONFIG.movementProfiles.includes(profile)) this.movementProfile = profile;
+    }
+
+    takeDamage(amount) {
+        if (this.invincible) return false;
+        this.hp -= amount;
+        if (this.hp <= 0) { this.hp = 0; return true; }
+        this.invincible = true;
+        this.invincibleTimer = CONFIG.invulnerabilityTime;
+        return false;
+    }
+
+    update(dt, input, roomState) {
+        if (!roomState) return;
+        const move = input.getMove();
+        const isSlime = this.movementProfile === 'slime';
+
+        // --- Movimiento horizontal según perfil ---
+        if (this.movementProfile === 'normal') {
+            this.vx = 0;
+            if (move.left)  this.vx = -CONFIG.moveSpeed;
+            if (move.right) this.vx =  CONFIG.moveSpeed;
+        } else if (this.movementProfile === 'jumpOnly') {
+            if (!this.grounded) {
+                this.vx = 0;
+                if (move.left)  this.vx = -CONFIG.moveSpeed;
+                if (move.right) this.vx =  CONFIG.moveSpeed;
+            } else {
+                this.vx = 0;
+            }
+        } else if (this.movementProfile === 'slippery') {
+            let targetVx = 0;
+            if (move.left)  targetVx = -CONFIG.moveSpeed;
+            if (move.right) targetVx =  CONFIG.moveSpeed;
+            const accel = 8.0;
+            this.vx += (targetVx - this.vx) * Math.min(1, accel * dt);
+        } else if (this.movementProfile === 'dashMaster') {
+            this.vx = 0;
+            if (move.left)  this.vx = -CONFIG.moveSpeed;
+            if (move.right) this.vx =  CONFIG.moveSpeed;
+        } else if (isSlime) {
+            if (!this.isSlimeWallStuck) {
+                this.vx = 0;
+                if (move.left)  this.vx = -CONFIG.moveSpeed;
+                if (move.right) this.vx =  CONFIG.moveSpeed;
+            } else {
+                this.vx = 0; // pegado a la pared, sin movimiento horizontal
+            }
+        }
+
+        // --- Dash ---
+        if (input.isDashPressed() && this.abilities.dash && this.dashCooldown <= 0) {
+            let dashDirX = this.facingRight ? 1 : -1;
+            let dashDirY = 0;
+            if (isSlime) {
+                const aimAngle = input.getAimAngle();
+                dashDirX = Math.cos(aimAngle);
+                dashDirY = Math.sin(aimAngle);
+            }
+            const dashSpeed = CONFIG.dashBaseSpeed * (1 + (this.dashLevel - 1) * (CONFIG.dashLevelMultiplier - 1));
+            this.vx = dashDirX * dashSpeed;
+            this.vy = dashDirY * dashSpeed;
+            this.dashCooldown = (this.movementProfile === 'dashMaster') ? 0 : CONFIG.dashCooldown / this.dashLevel;
+            if (isSlime) {
+                this._slimeDashAttack(roomState);
+            }
+        }
+
+        // --- Salto / Doble salto ---
+        const jumpPressed = input.isJumpPressed();
+        if (jumpPressed && this.grounded) {
+            this.vy = -CONFIG.jumpForce;
+            this.grounded = false;
+            this.isSlimeWallStuck = false;
+        } else if (jumpPressed && this._doubleJumpUnlocked && this.abilities.doubleJump && !this.grounded && !this.isSlimeWallStuck) {
+            this.vy = -CONFIG.doubleJumpForce;
+            this.abilities.doubleJump = false;
+        }
+
+        // --- Gravedad ---
+        const currentGravity = (isSlime && this.isSlimeWallStuck) ? CONFIG.slimeGravity : CONFIG.gravity;
+        this.vy += currentGravity * dt;
+
+        // --- Aplicar movimiento y colisiones ---
+        this._applyMovement(dt, roomState);
+
+        // --- Cooldowns ---
+        this.dashCooldown = Math.max(0, this.dashCooldown - dt);
+        this.hookCooldown = Math.max(0, this.hookCooldown - dt);
+        this.meleeCooldown = Math.max(0, this.meleeCooldown - dt);
+        this.projectileCooldown = Math.max(0, this.projectileCooldown - dt);
+        this.invincibleTimer = Math.max(0, this.invincibleTimer - dt);
+        if (this.invincibleTimer <= 0) this.invincible = false;
+
+        // --- Recarga de doble salto ---
+        if (this.grounded && !this._wasGrounded && this._doubleJumpUnlocked) {
+            this.abilities.doubleJump = true;
+        }
+        this._wasGrounded = this.grounded;
+
+        if (this.grounded) {
+            this.hookAirUses = 0;
+        }
+
+        // --- Ataque cuerpo a cuerpo ---
+        if (input.isMeleePressed() && this.meleeCooldown <= 0) {
+            this.meleeCooldown = CONFIG.meleeCooldown;
+            this._meleeAttack(roomState);
+        }
+
+        // --- Disparo ---
+        if (input.isProjectilePressed() && this.projectileCooldown <= 0) {
+            this.projectileCooldown = CONFIG.projectileCooldown;
+            this._fireProjectile(roomState);
+        }
+
+        // --- Gancho ---
+        if (input.isHookPressed() && this.abilities.hook && this.hookCooldown <= 0 && !this.hookActive) {
+            if (this.grounded || this.hookAirUses < CONFIG.maxHookAirUses) {
+                this._startHook(input.getAimAngle());
+                if (!this.grounded) this.hookAirUses++;
+            }
+        }
+        if (this.hookActive) this._updateHook(dt, roomState);
+
+        this.facingRight = this.vx !== 0 ? this.vx > 0 : this.facingRight;
+    }
+
+    _applyMovement(dt, roomState) {
+        this.x += this.vx * dt;
+        this._resolveCollisions(roomState, 'x');
+        this.y += this.vy * dt;
+        this._resolveCollisions(roomState, 'y');
+    }
+
+    _resolveCollisions(roomState, axis) {
+        if (!roomState) return;
+        const tiles = roomState.tiles, ts = CONFIG.tileSize;
+        const left = this.x - this.radius, right = this.x + this.radius;
+        const top = this.y - this.radius, bottom = this.y + this.radius;
+        const colL = Math.floor(left/ts), colR = Math.floor(right/ts);
+        const rowT = Math.floor(top/ts), rowB = Math.floor(bottom/ts);
+        this.grounded = false;
+        this.isSlimeWallStuck = false;
+
+        for (let row = rowT; row <= rowB; row++) {
+            for (let col = colL; col <= colR; col++) {
+                if (row<0||row>=tiles.length||col<0||col>=tiles[0].length) continue;
+                if (tiles[row][col] === 1) {
+                    if (axis === 'x') {
+                        if (this.movementProfile === 'slime') {
+                            const movingRight = this.vx > 0;
+                            const movingLeft = this.vx < 0;
+                            const touchingRightWall = (right > col*ts && left < col*ts);
+                            const touchingLeftWall = (left < (col+1)*ts && right > (col+1)*ts);
+                            if ((movingRight && touchingRightWall) || (movingLeft && touchingLeftWall)) {
+                                this.isSlimeWallStuck = true;
+                                this.slimeWallDir = movingRight ? 1 : -1;
+                                if (movingRight) this.x = col*ts - this.radius;
+                                else this.x = (col+1)*ts + this.radius;
+                                this.vx = 0;
+                            } else if (!movingRight && !movingLeft && (touchingRightWall || touchingLeftWall)) {
+                                this.isSlimeWallStuck = true;
+                                this.slimeWallDir = touchingRightWall ? 1 : -1;
+                                this.vx = 0;
+                            } else {
+                                this.isSlimeWallStuck = false;
+                            }
+                        } else {
+                            if (this.vx > 0 && right > col*ts && left < col*ts) {
+                                this.x = col*ts - this.radius;
+                                this.vx = 0;
+                            } else if (this.vx < 0 && left < (col+1)*ts && right > (col+1)*ts) {
+                                this.x = (col+1)*ts + this.radius;
+                                this.vx = 0;
+                            }
+                        }
+                    } else {
+                        if (this.vy > 0 && bottom > row*ts && top < row*ts) {
+                            this.y = row*ts - this.radius;
+                            this.vy = 0;
+                            this.grounded = true;
+                        } else if (this.vy < 0 && top < (row+1)*ts && bottom > (row+1)*ts) {
+                            this.y = (row+1)*ts + this.radius;
+                            this.vy = 0;
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    _slimeDashAttack(roomState) {
+        for (const enemy of roomState.enemies) {
+            if (!enemy.alive) continue;
+            if (Math.hypot(enemy.x - this.x, enemy.y - this.y) < enemy.radius + this.radius + 5) {
+                enemy.hp -= 3;
+                enemy.status = 'quemadura';
+                if (enemy.hp <= 0) enemy.alive = false;
+            }
+        }
+    }
+
+    _meleeAttack(roomState) {
+        const mod = this.modules[0] || null;
+        const element = mod ? mod.element : 'fisico';
+        const color = mod ? mod.color : '#fff';
+        const range = CONFIG.meleeRange;
+        const attackX = this.x + (this.facingRight ? range : -range);
+        if (!roomState.meleeEffects) roomState.meleeEffects = [];
+        roomState.meleeEffects.push({ x: attackX, y: this.y, color, life: 0.3 });
+        for (const enemy of roomState.enemies) {
+            if (!enemy.alive) continue;
+            if (Math.hypot(enemy.x - attackX, enemy.y - this.y) < enemy.radius + 10) {
+                let dmg = 2;
+                if (element === 'fuego') { dmg += 1; enemy.status = 'quemadura'; }
+                else if (element === 'hielo') { enemy.speed *= 0.5; enemy.status = 'congelacion'; }
+                enemy.hp -= dmg;
+                if (enemy.hp <= 0) enemy.alive = false;
+            }
+        }
+    }
+
+    _fireProjectile(roomState) {
+        const mod = this.modules[0] || null;
+        const element = mod ? mod.element : 'fisico';
+        const color = mod ? mod.color : '#ff0';
+        const angle = this.facingRight ? 0 : Math.PI;
+        const p = new PlayerProjectile(
+            this.x + Math.cos(angle)*(this.radius+6), this.y + Math.sin(angle)*(this.radius+6),
+            Math.cos(angle)*CONFIG.projectileSpeed, Math.sin(angle)*CONFIG.projectileSpeed,
+            CONFIG.projectileDamage, element, color, CONFIG.projectileLifetime
+        );
+        if (!roomState.playerProjectiles) roomState.playerProjectiles = [];
+        roomState.playerProjectiles.push(p);
+    }
+
+    _startHook(aimAngle) {
+        this.hookActive = true;
+        this.hookTip = {
+            x: this.x + Math.cos(aimAngle)*(this.radius+5),
+            y: this.y + Math.sin(aimAngle)*(this.radius+5)
+        };
+        this.hookDirection = { cos: Math.cos(aimAngle), sin: Math.sin(aimAngle) };
+        this.hookTraveled = 0;
+    }
+
+    _updateHook(dt, roomState) {
+        if (!roomState) return;
+        const speed = CONFIG.hookSpeed * dt;
+        this.hookTip.x += this.hookDirection.cos * speed;
+        this.hookTip.y += this.hookDirection.sin * speed;
+        this.hookTraveled += speed;
+        const col = Math.floor(this.hookTip.x / CONFIG.tileSize);
+        const row = Math.floor(this.hookTip.y / CONFIG.tileSize);
+        const tiles = roomState.tiles;
+        const maxRange = CONFIG.hookBaseRange + (this.grappleLevel - 1) * 60;
+        if (row >= 0 && row < tiles.length && col >= 0 && col < tiles[0].length) {
+            const tile = tiles[row][col];
+            const canGrapple = (tile === CONFIG.grappleTileBasic && this.grappleLevel >= 1) ||
+                               (tile === CONFIG.grappleTileAdvanced && this.grappleLevel >= 2) ||
+                               (tile === CONFIG.grappleTileMaster && this.grappleLevel >= 3);
+            if (canGrapple) {
+                this._attachHook(col, row);
+            } else if (tile === 1 || this.hookTraveled >= maxRange) {
+                this.hookActive = false;
+                this.hookCooldown = CONFIG.hookBaseCooldown / this.grappleLevel;
+            }
+        } else if (this.hookTraveled >= maxRange) {
+            this.hookActive = false;
+            this.hookCooldown = CONFIG.hookBaseCooldown / this.grappleLevel;
+        }
+    }
+
+    _attachHook(col, row) {
+        const anchorX = col*CONFIG.tileSize + CONFIG.tileSize/2;
+        const anchorY = row*CONFIG.tileSize + CONFIG.tileSize/2;
+        const dx = anchorX - this.x, dy = anchorY - this.y;
+        const dist = Math.hypot(dx, dy);
+        if (dist > 1) {
+            this.vx = (dx/dist) * CONFIG.moveSpeed * 2;
+            this.vy = (dy/dist) * CONFIG.moveSpeed * 2;
+        }
+        this.hookActive = false;
+        this.hookCooldown = CONFIG.hookBaseCooldown / this.grappleLevel;
+        this.isSlimeWallStuck = false;
+    }
+}
+
+class PlayerProjectile {
+    constructor(x, y, vx, vy, damage, element, color, lifetime) {
+        this.x = x; this.y = y; this.vx = vx; this.vy = vy;
+        this.damage = damage; this.element = element; this.color = color;
+        this.radius = 4; this.alive = true; this.life = lifetime;
+    }
+    update(dt, roomState) {
+        this.x += this.vx * dt; this.y += this.vy * dt;
+        this.life -= dt;
+        if (this.life <= 0) { this.alive = false; return; }
+        const col = Math.floor(this.x/CONFIG.tileSize), row = Math.floor(this.y/CONFIG.tileSize);
+        if (row<0||row>=roomState.tiles.length||col<0||col>=roomState.tiles[0].length) { this.alive = false; return; }
+        if (roomState.tiles[row][col] === 1) this.alive = false;
+    }
+}
+
+class Enemy {
+    constructor(x, y, type='chase', data={}) {
+        this.x = x; this.y = y; this.radius = 12;
+        this.hp = data.hp || CONFIG.enemyDefaultHp;
+        this.maxHp = this.hp;
+        this.damage = data.damage || CONFIG.enemyDefaultDamage;
+        this.speed = data.speed || CONFIG.enemyDefaultSpeed;
+        this.alive = true; this.type = type;
+        this.color = data.color || '#f00';
+        this.reflectProjectiles = data.reflectProjectiles || false;
+        this.status = null;
+    }
+    update(dt, player, roomState) {
+        const dx = player.x - this.x, dy = player.y - this.y;
+        const dist = Math.hypot(dx, dy);
+        if (dist > 1) {
+            this.x += (dx/dist) * this.speed * dt;
+            this.y += (dy/dist) * this.speed * dt;
+        }
+    }
+}
+
+class RoomState {
+    constructor(id, tiles, doors=[], enemies=[], objects=[], grappleSurfaces=[], widthTiles, heightTiles) {
+        this.id = id; this.tiles = tiles; this.doors = doors;
+        this.enemies = enemies; this.objects = objects;
+        this.grappleSurfaces = grappleSurfaces;
+        this.playerProjectiles = [];
+        this.meleeEffects = [];
+        this.drops = [];
+        this.visited = false;
+        this.width = widthTiles * CONFIG.tileSize;
+        this.height = heightTiles * CONFIG.tileSize;
+    }
+}
+
+class MapGraph {
+    constructor() { this.rooms = {}; }
+    getRoom(id) { return this.rooms[id]; }
+    addRoom(id, roomState) { this.rooms[id] = roomState; }
+}
+
+// ==================== SERVICIOS ====================
+class PhysicsService {
+    checkEnemyPlayerCollisions(roomState, player, eventBus) {
+        if (!roomState) return;
+        for (const enemy of roomState.enemies) {
+            if (!enemy.alive) continue;
+            if (Math.hypot(enemy.x-player.x, enemy.y-player.y) < enemy.radius+player.radius) {
+                const died = player.takeDamage(enemy.damage);
+                if (died) eventBus.emit('PLAYER_DIED', {});
+            }
+        }
+    }
+    checkObjectPickups(roomState, player, eventBus) {
+        if (!roomState) return;
+        for (const obj of roomState.objects) {
+            if (obj.collected) continue;
+            if (Math.hypot(obj.x-player.x, obj.y-player.y) < player.radius+8) {
+                obj.collected = true;
+                eventBus.emit('OBJECT_COLLECTED', { object: obj, player });
+            }
+        }
+    }
+    updateProjectiles(roomState, player, eventBus, dt) {
+        if (!roomState || !roomState.playerProjectiles) return;
+        for (let i=roomState.playerProjectiles.length-1; i>=0; i--) {
+            const p = roomState.playerProjectiles[i];
+            p.update(dt, roomState);
+            if (!p.alive) { roomState.playerProjectiles.splice(i,1); continue; }
+            for (const enemy of roomState.enemies) {
+                if (!enemy.alive) continue;
+                if (Math.hypot(p.x-enemy.x, p.y-enemy.y) < p.radius+enemy.radius) {
+                    enemy.hp -= p.damage;
+                    if (p.element === 'fuego') enemy.status = 'quemadura';
+                    else if (p.element === 'hielo') { enemy.speed *= 0.5; enemy.status = 'congelacion'; }
+                    p.alive = false;
+                    if (enemy.hp <= 0) enemy.alive = false;
+                    break;
+                }
+            }
+            if (!p.alive) roomState.playerProjectiles.splice(i,1);
+        }
+    }
+    updateDrops(roomState, player, eventBus) {
+        if (!roomState || !roomState.drops) return;
+        for (const drop of roomState.drops) {
+            if (!drop.alive) continue;
+            if (Math.hypot(drop.x-player.x, drop.y-player.y) < player.radius+6) {
+                drop.alive = false;
+                const modData = CONFIG.modules[drop.element] || { name: drop.element, element: drop.element, color: '#fff' };
+                player.modules.push({ name: modData.name, element: modData.element, color: modData.color });
+                eventBus.emit('MODULE_PICKED', { module: modData });
+            }
+        }
+    }
+}
+
+// ==================== ORQUESTADOR ====================
+class Game {
+    constructor(canvas, inputPort, rendererPort, persistencePort) {
+        this.canvas = canvas; this.input = inputPort;
+        this.renderer = rendererPort; this.persistence = persistencePort;
+        this.eventBus = new EventBus();
+        this.physicsService = new PhysicsService();
+        this.mapGraph = new MapGraph();
+        this.player = new Player();
+        this.currentRoomId = null; this.currentRoomState = null;
+        this._previousRoomId = null;
+        this.camera = { x:0, y:0 };
+        this.paused = false;
+
+        this._loadPlayerPersistence();
+        this._loadRoomsFromJSON()
+            .then(() => { if (Object.keys(this.mapGraph.rooms).length===0) this._loadBackupRooms(); })
+            .catch(() => this._loadBackupRooms())
+            .finally(() => {
+                this._switchRoom(CONFIG.startRoomId);
+                this._initSideMenu();
+                this._bindEvents();
+                this._lastTime = performance.now();
+                this._loop();
+            });
+    }
+
+    _loadBackupRooms() {
+        // Sala 0,0 (20x15)
+        const tiles00 = new Array(15).fill().map(() => new Array(20).fill(0));
+        for (let r=0; r<15; r++) { tiles00[r][0]=1; tiles00[r][19]=1; }
+        for (let c=0; c<20; c++) { tiles00[0][c]=1; tiles00[14][c]=1; }
+        tiles00[5][7]=CONFIG.grappleTileBasic; tiles00[6][7]=CONFIG.grappleTileBasic;
+        tiles00[8][12]=CONFIG.grappleTileAdvanced;
+        tiles00[3][5]=1; tiles00[3][6]=1; tiles00[3][7]=1;
+        tiles00[11][15]=1; tiles00[11][16]=1; tiles00[11][17]=1;
+        const room00 = new RoomState('0,0', tiles00,
+            [{row:1,col:19,targetRoomId:'1,0',requiredAbility:null,estado:'abierta'}], [],
+            [{x:200,y:200,type:'module',collected:false,color:'#f60',moduleData:{element:'fuego',name:'Fuego',color:'#f60'}}],
+            [], 20, 15);
+        this.mapGraph.addRoom('0,0', room00);
+
+        // Sala 1,0 (40x30)
+        const tiles10 = new Array(30).fill().map(() => new Array(40).fill(0));
+        for (let r=0; r<30; r++) { tiles10[r][0]=1; tiles10[r][39]=1; }
+        for (let c=0; c<40; c++) { tiles10[0][c]=1; tiles10[29][c]=1; }
+        tiles10[10][10]=CONFIG.grappleTileBasic; tiles10[11][10]=CONFIG.grappleTileBasic;
+        tiles10[15][25]=CONFIG.grappleTileMaster;
+        tiles10[20][15]=1; tiles10[20][16]=1; tiles10[20][17]=1;
+        tiles10[25][5]=1; tiles10[25][6]=1;
+        const room10 = new RoomState('1,0', tiles10,
+            [{row:1,col:0,targetRoomId:'0,0',requiredAbility:null,estado:'abierta'},
+             {row:29,col:20,targetRoomId:'0,1',requiredAbility:'doubleJump',estado:'cerrada'}],
+            [new Enemy(600,400,'chase',{hp:5,damage:1,speed:70,color:'#f00'})],
+            [{x:800,y:200,type:'ability',ability:'doubleJump',collected:false,color:'#0ff'}],
+            [], 40, 30);
+        this.mapGraph.addRoom('1,0', room10);
+
+        // Sala 0,1 (20x15)
+        const tiles01 = new Array(15).fill().map(() => new Array(20).fill(0));
+        for (let r=0; r<15; r++) { tiles01[r][0]=1; tiles01[r][19]=1; }
+        for (let c=0; c<20; c++) { tiles01[0][c]=1; tiles01[14][c]=1; }
+        tiles01[7][10]=CONFIG.grappleTileAdvanced;
+        tiles01[8][10]=CONFIG.grappleTileAdvanced;
+        tiles01[4][14]=1; tiles01[4][15]=1;
+        const room01 = new RoomState('0,1', tiles01,
+            [{row:14,col:10,targetRoomId:'1,0',requiredAbility:null,estado:'abierta'}],
+            [new Enemy(300,200,'chase',{hp:4,damage:1,speed:80,color:'#0ff',reflectProjectiles:true})],
+            [{x:100,y:100,type:'module',collected:false,color:'#6cf',moduleData:{element:'hielo',name:'Hielo',color:'#6cf'}}],
+            [], 20, 15);
+        this.mapGraph.addRoom('0,1', room01);
+    }
+
+    async _loadRoomsFromJSON() {
+        try {
+            const res = await fetch('rooms.json');
+            if (!res.ok) return;
+            const data = await res.json();
+            if (!data.rooms) return;
+            for (const [id, roomData] of Object.entries(data.rooms)) {
+                const tiles = roomData.tiles;
+                const doors = roomData.doors || [];
+                const enemies = (roomData.enemies || []).map(e => new Enemy(e.x, e.y, e.type, e));
+                const objects = roomData.objects || [];
+                const grappleSurfaces = roomData.grappleSurfaces || [];
+                for (const gs of grappleSurfaces) {
+                    if (gs.row < tiles.length && gs.col < tiles[0].length) tiles[gs.row][gs.col] = gs.level || CONFIG.grappleTileBasic;
+                }
+                const roomState = new RoomState(id, tiles, doors, enemies, objects, grappleSurfaces,
+                    roomData.width || tiles[0].length, roomData.height || tiles.length);
+                this.mapGraph.addRoom(id, roomState);
+            }
+        } catch (e) {
+            console.warn('Error cargando rooms.json:', e);
+        }
+    }
+
+    _switchRoom(roomId) {
+        if (this.currentRoomState) this.persistence.saveRoomState(this.currentRoomId, this.currentRoomState);
+        this._previousRoomId = this.currentRoomId;
+        this.currentRoomId = roomId;
+        const template = this.mapGraph.getRoom(roomId);
+        if (!template) { this.currentRoomState = null; return; }
+        const saved = this.persistence.loadRoomState(roomId);
+        this.currentRoomState = saved || new RoomState(
+            template.id, template.tiles.map(r=>[...r]), template.doors.map(d=>({...d})),
+            template.enemies.map(e=>new Enemy(e.x,e.y,e.type,{hp:e.hp,damage:e.damage,speed:e.speed,color:e.color,reflectProjectiles:e.reflectProjectiles})),
+            template.objects.map(o=>({...o})), [], template.width/CONFIG.tileSize, template.height/CONFIG.tileSize
+        );
+        this.currentRoomState.visited = true;
+        const entry = this.currentRoomState.doors.find(d=>d.targetRoomId===this._previousRoomId);
+        if (entry) { this.player.x = entry.col*CONFIG.tileSize+CONFIG.tileSize/2; this.player.y = entry.row*CONFIG.tileSize+CONFIG.tileSize/2; }
+        else { this.player.x = this.currentRoomState.width/2; this.player.y = this.currentRoomState.height/2; }
+        if (!this.currentRoomState.playerProjectiles) this.currentRoomState.playerProjectiles = [];
+        if (!this.currentRoomState.meleeEffects) this.currentRoomState.meleeEffects = [];
+        if (!this.currentRoomState.drops) this.currentRoomState.drops = [];
+        this._clampCamera();
+    }
+
+    _clampCamera() {
+        if (!this.currentRoomState) return;
+        const roomW = this.currentRoomState.width;
+        const roomH = this.currentRoomState.height;
+        const canvasW = this.canvas.width;
+        const canvasH = this.canvas.height;
+        let camX = this.player.x - canvasW/2;
+        let camY = this.player.y - canvasH/2;
+        camX = Math.max(0, Math.min(camX, roomW - canvasW));
+        camY = Math.max(0, Math.min(camY, roomH - canvasH));
+        if (roomW < canvasW) camX = -(canvasW - roomW)/2;
+        if (roomH < canvasH) camY = -(canvasH - roomH)/2;
+        this.camera.x = camX;
+        this.camera.y = camY;
+    }
+
+    _checkDoors() {
+        if (!this.currentRoomState) return;
+        for (const door of this.currentRoomState.doors) {
+            if (door.estado==='cerrada' && door.requiredAbility && this.player.abilities[door.requiredAbility]) {
+                door.estado='abierta'; this.eventBus.emit('DOOR_OPENED', {roomId:this.currentRoomId, door});
+            }
+            const dx = door.col*CONFIG.tileSize+CONFIG.tileSize/2, dy = door.row*CONFIG.tileSize+CONFIG.tileSize/2;
+            if (Math.hypot(this.player.x-dx, this.player.y-dy) < CONFIG.tileSize/2+this.player.radius) {
+                if (door.estado==='abierta' && this.input.isInteractPressed()) {
+                    this._switchRoom(door.targetRoomId); break;
+                }
+            }
+        }
+    }
+
+    _loadPlayerPersistence() {
+        const s = this.persistence.load();
+        if (s.abilities) Object.assign(this.player.abilities, s.abilities);
+        if (s.modules) this.player.modules = s.modules;
+        if (s.movementProfile) this.player.movementProfile = s.movementProfile;
+        if (s.dashLevel) this.player.dashLevel = s.dashLevel;
+        if (s.grappleLevel) this.player.grappleLevel = s.grappleLevel;
+        if (s._doubleJumpUnlocked) this.player._doubleJumpUnlocked = s._doubleJumpUnlocked;
+        if (this.player.movementProfile === 'jumpOnly') this.player.movementProfile = 'normal';
+    }
+
+    _savePlayerPersistence() {
+        this.persistence.save({
+            abilities: {...this.player.abilities},
+            modules: this.player.modules,
+            movementProfile: this.player.movementProfile,
+            dashLevel: this.player.dashLevel,
+            grappleLevel: this.player.grappleLevel,
+            _doubleJumpUnlocked: this.player._doubleJumpUnlocked
+        });
+    }
+
+    _bindEvents() {
+        this.eventBus.on('OBJECT_COLLECTED', ({object, player}) => {
+            if (object.type==='module' && object.moduleData) {
+                player.modules.push(object.moduleData);
+                this._savePlayerPersistence();
+            } else if (object.type==='ability' && object.ability) {
+                if (object.ability === 'doubleJump') {
+                    player._doubleJumpUnlocked = true;
+                    player.abilities.doubleJump = true;
+                } else {
+                    player.abilities[object.ability] = true;
+                }
+                this._savePlayerPersistence();
+            }
+        });
+        this.eventBus.on('PLAYER_DIED', () => {
+            alert('¡Has muerto!'); this.player.hp=CONFIG.maxHp;
+            this._switchRoom(CONFIG.startRoomId);
+        });
+    }
+
+    _initSideMenu() {
+        this.menuPanel = document.getElementById('side-menu');
+        document.getElementById('menu-close').addEventListener('click', ()=>this.toggleMenu());
+        document.addEventListener('keydown', e => { if (e.key==='Tab') { e.preventDefault(); this.toggleMenu(); } });
+        this.tabButtons = document.querySelectorAll('#side-menu .tab-buttons button');
+        this.tabContents = { architect: document.getElementById('tab-architect'), modules: document.getElementById('tab-modules') };
+        this.tabButtons.forEach(btn => btn.addEventListener('click', ()=>this._switchTab(btn.dataset.tab)));
+        this._buildArchitectTab();
+    }
+
+    _switchTab(id) {
+        this.tabButtons.forEach(b=>b.classList.remove('active'));
+        document.querySelector(`[data-tab="${id}"]`).classList.add('active');
+        Object.values(this.tabContents).forEach(d=>d.classList.remove('active'));
+        this.tabContents[id].classList.add('active');
+        if (id==='modules') this._refreshModulesTab();
+    }
+
+    toggleMenu() {
+        if (this.menuPanel.style.display==='block') { this.menuPanel.style.display='none'; this.paused=false; }
+        else { this.paused=true; this._refreshModulesTab(); this._switchTab('architect'); this.menuPanel.style.display='block'; }
+    }
+
+    _buildArchitectTab() {
+        let html = '<h4>Físicas</h4>';
+        html += `Gravedad: <input type="range" min="200" max="1500" value="${CONFIG.gravity}" oninput="CONFIG.gravity=parseFloat(this.value)"><br>`;
+        html += `Salto: <input type="range" min="100" max="600" value="${CONFIG.jumpForce}" oninput="CONFIG.jumpForce=parseFloat(this.value)"><br>`;
+        html += `Velocidad: <input type="range" min="100" max="500" value="${CONFIG.moveSpeed}" oninput="CONFIG.moveSpeed=parseFloat(this.value)"><br>`;
+        html += '<h4>Perfiles de movimiento</h4>';
+        for (const profile of CONFIG.movementProfiles) {
+            html += `<button style="${this.player.movementProfile===profile?'background:#0f0;':''}" onclick="window.__game.player.setMovementProfile('${profile}');window.__game._savePlayerPersistence();">${profile}</button> `;
+        }
+        html += '<h4>Habilidades (Activar/Desactivar)</h4>';
+        html += `<button style="${this.player._doubleJumpUnlocked?'background:#0f0;':''}" onclick="window.__game.player._doubleJumpUnlocked=!window.__game.player._doubleJumpUnlocked;window.__game.player.abilities.doubleJump=window.__game.player._doubleJumpUnlocked;window.__game._savePlayerPersistence();">Toggle Doble Salto</button> `;
+        html += `<button style="${this.player.abilities.dash?'background:#0f0;':''}" onclick="window.__game.player.abilities.dash=!window.__game.player.abilities.dash;window.__game._savePlayerPersistence();">Toggle Dash</button> `;
+        html += `<button style="${this.player.abilities.hook?'background:#0f0;':''}" onclick="window.__game.player.abilities.hook=!window.__game.player.abilities.hook;window.__game._savePlayerPersistence();">Toggle Gancho</button> `;
+        html += '<h4>Niveles de Dash</h4>';
+        html += `<select onchange="window.__game.player.dashLevel=parseInt(this.value);window.__game._savePlayerPersistence();">
+            <option value="1" ${this.player.dashLevel===1?'selected':''}>Nivel 1</option>
+            <option value="2" ${this.player.dashLevel===2?'selected':''}>Nivel 2</option>
+            <option value="3" ${this.player.dashLevel===3?'selected':''}>Nivel 3</option></select>`;
+        html += '<h4>Niveles de Gancho</h4>';
+        html += `<select onchange="window.__game.player.grappleLevel=parseInt(this.value);window.__game._savePlayerPersistence();">
+            <option value="1" ${this.player.grappleLevel===1?'selected':''}>Nivel 1</option>
+            <option value="2" ${this.player.grappleLevel===2?'selected':''}>Nivel 2</option>
+            <option value="3" ${this.player.grappleLevel===3?'selected':''}>Nivel 3</option></select>`;
+        html += '<h4>Módulos de prueba</h4>';
+        html += `<button onclick="window.__game.player.modules.push({name:'Fuego',element:'fuego',color:'#f60'});window.__game._refreshModulesTab()">Añadir Fuego</button> `;
+        html += `<button onclick="window.__game.player.modules.push({name:'Hielo',element:'hielo',color:'#6cf'});window.__game._refreshModulesTab()">Añadir Hielo</button> `;
+        html += `<button onclick="window.__game.player.modules=[];window.__game._refreshModulesTab()">Limpiar módulos</button>`;
+        html += '<h4>Depuración</h4>';
+        html += `<button onclick="window.__game.player.hp=CONFIG.maxHp">Curar</button>`;
+        this.tabContents.architect.innerHTML = html;
+    }
+
+    _refreshModulesTab() {
+        let html = '<h4>Módulos equipados</h4>';
+        if (this.player.modules.length === 0) html += '<p>Ninguno</p>';
+        else {
+            html += '<ul>';
+            this.player.modules.forEach((m,i) => {
+                html += `<li>${m.name} (${m.element}) <button onclick="window.__game.player.modules.splice(${i},1);window.__game._refreshModulesTab()">X</button></li>`;
+            });
+            html += '</ul>';
+        }
+        this.tabContents.modules.innerHTML = html;
+    }
+
+    _update(dt) {
+        if (this.paused || !this.currentRoomState) return;
+        this.input.update();
+        this.player.update(dt, this.input, this.currentRoomState);
+        this.physicsService.checkEnemyPlayerCollisions(this.currentRoomState, this.player, this.eventBus);
+        this.physicsService.checkObjectPickups(this.currentRoomState, this.player, this.eventBus);
+        this.physicsService.updateProjectiles(this.currentRoomState, this.player, this.eventBus, dt);
+        this.physicsService.updateDrops(this.currentRoomState, this.player, this.eventBus);
+        if (this.currentRoomState.meleeEffects) {
+            this.currentRoomState.meleeEffects = this.currentRoomState.meleeEffects.filter(e => (e.life -= dt) > 0);
+        }
+        for (const enemy of this.currentRoomState.enemies) {
+            if (!enemy.alive && !enemy._dropped) {
+                enemy._dropped = true;
+                if (Math.random() < CONFIG.dropChance) {
+                    const elem = CONFIG.elements[Math.floor(Math.random()*CONFIG.elements.length)];
+                    const modData = CONFIG.modules[elem];
+                    this.currentRoomState.drops.push({ x: enemy.x, y: enemy.y, alive: true, color: modData.color, element: elem });
+                }
+            }
+        }
+        this._checkDoors();
+        this._clampCamera();
+    }
+
+    _draw() {
+        this.renderer.clear();
+        if (this.currentRoomState) {
+            this.renderer.drawRoom(this.currentRoomState, this.player, this.camera);
+            if (this.currentRoomState.meleeEffects) {
+                const ctx = this.renderer.ctx;
+                for (const eff of this.currentRoomState.meleeEffects) {
+                    ctx.save();
+                    ctx.globalAlpha = eff.life*3;
+                    ctx.fillStyle = eff.color;
+                    ctx.beginPath(); ctx.arc(eff.x - this.camera.x, eff.y - this.camera.y, 12, 0, Math.PI*2); ctx.fill();
+                    ctx.restore();
+                }
+            }
+        }
+        this.renderer.drawUI(this.player, { currentRoomId: this.currentRoomId||'?' });
+    }
+
+    _loop() {
+        const now = performance.now();
+        const dt = Math.min((now - this._lastTime)/1000, 0.1);
+        this._lastTime = now;
+        this._update(dt);
+        this._draw();
+        requestAnimationFrame(() => this._loop());
+    }
+}
+
+// ==================== INICIALIZACIÓN ====================
+document.addEventListener('DOMContentLoaded', () => {
+    const canvas = document.getElementById('game');
+    canvas.width = 960; canvas.height = 640;
+    const input = new WebInputAdapter(canvas);
+    const renderer = new CanvasRenderer(canvas);
+    const persistence = new LocalStorageRepo();
+    window.__game = new Game(canvas, input, renderer, persistence);
+});
+</script>
+</body>
+</html>
