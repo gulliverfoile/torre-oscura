@@ -1,0 +1,900 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <title>Money Merge – Tienda compartida</title>
+  <style>
+    * { margin:0; padding:0; box-sizing:border-box; }
+    html, body { width:100%; height:100%; overflow:hidden; background:#0a0a14; font-family:monospace; }
+    body { display:flex; justify-content:center; align-items:center; }
+    canvas { display:block; position:absolute; top:0; left:0; }
+    #side-menu {
+      position:fixed; top:0; right:0; width:min(360px,90vw); height:100vh;
+      background:rgba(10,10,25,0.95); border-left:2px solid #ffd700; color:#fff;
+      z-index:100; display:none; font-size:clamp(11px,2vw,13px);
+      backdrop-filter:blur(8px); overflow-y:auto; padding:0;
+    }
+    #side-menu .tabs { display:flex; background:#222; border-bottom:1px solid #444; }
+    #side-menu .tabs button {
+      flex:1; background:none; border:none; color:#aaa; padding:10px 4px; cursor:pointer;
+      font-weight:bold; font-size:inherit; transition:0.2s;
+    }
+    #side-menu .tabs button.active { color:#ffd700; border-bottom:2px solid #ffd700; background:#333; }
+    #side-menu .content { padding:15px; }
+    #side-menu .content > div { display:none; }
+    #side-menu .content > div.active { display:block; }
+    button {
+      background:#ffd700; color:#000; border:none; padding:6px 10px; margin:4px 2px;
+      cursor:pointer; font-weight:bold; border-radius:4px;
+    }
+    button:disabled { opacity:0.4; cursor:default; }
+    .module-slot { display:flex; align-items:center; justify-content:space-between; margin:4px 0; }
+    .module-slot span { flex:1; }
+    #gameover-panel {
+      position:fixed; top:50%; left:50%; transform:translate(-50%,-50%);
+      background:rgba(0,0,0,0.9); border:2px solid #ff4757; color:#fff; padding:20px;
+      z-index:200; display:none; text-align:center; border-radius:10px;
+    }
+    input[type=range] { width:100%; margin:4px 0; }
+  </style>
+</head>
+<body>
+  <canvas id="game"></canvas>
+
+  <div id="side-menu">
+    <div class="tabs">
+      <button data-tab="modules" class="active">Módulos</button>
+      <button data-tab="stats">Stats</button>
+      <button data-tab="architect">Arquitecto</button>
+    </div>
+    <div class="content">
+      <div id="tab-modules" class="active"></div>
+      <div id="tab-stats"></div>
+      <div id="tab-architect"></div>
+    </div>
+    <div style="text-align:center;padding:10px;"><button id="close-menu">Cerrar [Tab]</button></div>
+  </div>
+
+  <div id="gameover-panel">
+    <h2>Fin de la partida</h2>
+    <p id="gameover-msg"></p>
+    <button id="restart-btn">Reiniciar</button>
+  </div>
+
+<script>
+'use strict';
+
+// ==================== CONFIGURACIÓN ====================
+const CFG = {
+  COLS: 6, ROWS: 6,
+  COIN_RADIUS: 16,
+  GRAVITY: 600,
+  SPAWN_INTERVAL_INITIAL: 0.4,
+  SPAWN_INTERVAL_NORMAL: 1.4,
+  MAX_COINS: 45,
+  RADIUS_MIN: 12, RADIUS_MAX: 20,
+  WIN_SCORE: 20000,
+  SHARED_SHOP_INTERVAL: 60,   // segundos entre aparición de tienda compartida
+  SHOP_OPTIONS: 3,
+  MODULE_SLOTS: 3,
+  PENALTY_BASE_CHANCE: 0.18,  // probabilidad de penalización al fusionar (cualquier fusión)
+  COLORS: {
+    1:'#ff4d4d', 5:'#ff8c00', 10:'#ffd700', 25:'#66cc66',
+    50:'#4da6ff', 100:'#4d4dff', 250:'#b366ff', 500:'#ff66b3', 1000:'#ffffff'
+  },
+  NOTES: [262,294,330,349,392,440,494,523,587,659,698,784],
+  COINS: [1,5,10,25,50,100,250,500,1000]
+};
+
+// ==================== UTILIDADES ====================
+const rand = (min,max)=>Math.random()*(max-min)+min;
+const dist = (x1,y1,x2,y2)=>Math.hypot(x2-x1,y2-y1);
+const clamp = (v,min,max)=>Math.max(min,Math.min(max,v));
+
+// ==================== BUS DE EVENTOS ====================
+class EventBus {
+  constructor() { this.listeners = {}; }
+  on(event, cb) { (this.listeners[event]=this.listeners[event]||[]).push(cb); }
+  emit(event, data) { (this.listeners[event]||[]).forEach(cb=>cb(data)); }
+}
+
+// ==================== AUDIO ====================
+class AudioService {
+  constructor() { this.ctx = null; }
+  init() { if(this.ctx)return; try{this.ctx=new(window.AudioContext||window.webkitAudioContext)();}catch(e){console.warn('Audio no disponible');} }
+  playMerge(value) {
+    if(!this.ctx)return;
+    const idx = CFG.COINS.indexOf(value); if(idx<0)return;
+    const freq = CFG.NOTES[idx%CFG.NOTES.length];
+    const now = this.ctx.currentTime;
+    const osc = this.ctx.createOscillator(), gain = this.ctx.createGain();
+    osc.type='sine'; osc.frequency.setValueAtTime(freq,now);
+    gain.gain.setValueAtTime(0.15,now); gain.gain.exponentialRampToValueAtTime(0.001,now+0.3);
+    osc.connect(gain); gain.connect(this.ctx.destination);
+    osc.start(now); osc.stop(now+0.3);
+  }
+  playCoinDrop() {
+    if(!this.ctx)return;
+    const now = this.ctx.currentTime;
+    const osc = this.ctx.createOscillator(), gain = this.ctx.createGain();
+    osc.type='triangle'; osc.frequency.setValueAtTime(200,now); osc.frequency.exponentialRampToValueAtTime(150,now+0.1);
+    gain.gain.setValueAtTime(0.1,now); gain.gain.exponentialRampToValueAtTime(0.001,now+0.1);
+    osc.connect(gain); gain.connect(this.ctx.destination);
+    osc.start(now); osc.stop(now+0.1);
+  }
+}
+
+// ==================== MÓDULOS ====================
+class Module {
+  constructor(id, name, desc, rarity, effectFn, onMerge1000=null) {
+    this.id = id; this.name = name; this.desc = desc; this.rarity = rarity;
+    this.effectFn = effectFn;
+    this.onMerge1000 = onMerge1000;
+  }
+  apply(board, rival) { this.effectFn(board, rival); }
+  trigger1000(board, rival) { if(this.onMerge1000) this.onMerge1000(board, rival); }
+}
+
+const MODULE_LIB = [
+  new Module('mult_x2','Multiplicador x2','Duplica puntos al desaparecer 1000','epic',
+    (board)=>{board.scoreMultiplier*=2;}
+  ),
+  new Module('flat_500','Bonus +500','Añade 500 puntos extra al desaparecer','common',
+    (board)=>{board.scoreBonus+=500;}
+  ),
+  new Module('slow_fall','Caída lenta','Gravedad -30%','rare',
+    (board)=>{board.fallSpeedMod*=0.7;}
+  ),
+  new Module('extra_coin','Moneda extra','20% de generar una moneda de 5 al fusionar','common',
+    (board)=>{board.extraCoinChance=0.2;}
+  ),
+  new Module('bomb','Bomba','Al desaparecer 1000, lanza una moneda de 100 al rival','rare',
+    null,
+    (board,rival)=>{if(rival) rival.spawnFallingCoin(100);}
+  ),
+  new Module('shield','Escudo','Anula el primer game over','rare',
+    (board)=>{board.shieldCharges=(board.shieldCharges||0)+1;}
+  ),
+  new Module('interest','Interés','Cada 1000 puntos, ganas un 10% extra','common',
+    (board)=>{board.interestRate=(board.interestRate||0)+0.1;}
+  ),
+  new Module('snatcher','Ladrón','Roba 200 puntos al rival al desaparecer 1000','rare',
+    null,
+    (board,rival)=>{if(rival){let s=Math.min(200,rival.points);rival.points-=s;board.points+=s;}}
+  ),
+  // Nuevos módulos
+  new Module('bad_blood','Mala leche','+15% probabilidad de penalización al fusionar','rare',
+    (board)=>{board.penaltyChanceBonus=(board.penaltyChanceBonus||0)+0.15;}
+  ),
+  new Module('magnet_chaos','Imán del caos','Tus penalizaciones de repulsión duran el doble','rare',
+    (board)=>{board.magnetDurationMult=(board.magnetDurationMult||1)*2;}
+  ),
+  new Module('daltonic_pro','Daltónico profesional','El efecto modo daltónico dura 3s en lugar de 1.5s','rare',
+    (board)=>{board.daltonicDurationMult=(board.daltonicDurationMult||1)*2;}
+  ),
+  new Module('gravity_quantum','Gravedad cuántica','Cuando causas gravedad errática, las monedas vuelan +50% rápido','rare',
+    (board)=>{board.gravityChaosSpeedMult=(board.gravityChaosSpeedMult||1)*1.5;}
+  ),
+  new Module('pararrayos','Pararrayos','30% de anular una penalización entrante','rare',
+    (board)=>{board.pararrayosChance=(board.pararrayosChance||0)+0.3;}
+  ),
+  new Module('mirror','Espejo','25% de reflejar una penalización entrante al rival','epic',
+    (board)=>{board.mirrorChance=(board.mirrorChance||0)+0.25;}
+  )
+];
+
+// ==================== ENTIDADES ====================
+class Coin {
+  constructor(value, x, y) {
+    this.value=value; this.x=x; this.y=y;
+    this.vx=0; this.vy=0;
+    this.radius=CFG.COIN_RADIUS;
+    this.alive=true; this.merging=false; this.dragging=false;
+    this.justSpawned=true;
+  }
+}
+
+class MergeEffect {
+  constructor(x,y,text,color) { this.x=x; this.y=y; this.text=text; this.color=color; this.life=1.0; this.vy=-80; }
+  update(dt) { this.y+=this.vy*dt; this.life-=dt*2; return this.life>0; }
+}
+
+class Particle {
+  constructor(x,y,color) {
+    this.x=x; this.y=y;
+    this.vx=(Math.random()-0.5)*200; this.vy=(Math.random()-0.5)*200-80;
+    this.color=color; this.life=0.6+Math.random()*0.4; this.maxLife=this.life;
+    this.size=2+Math.random()*4;
+  }
+  update(dt) { this.x+=this.vx*dt; this.y+=this.vy*dt; this.vy+=300*dt; this.life-=dt; return this.life>0; }
+}
+
+// ==================== TABLERO ====================
+class Board {
+  constructor(cols, rows, width, height, playerName, eventBus) {
+    this.cols=cols; this.rows=rows; this.width=width; this.height=height;
+    this.playerName=playerName;
+    this.eventBus=eventBus;
+    this.coins=[];
+    this.points=0; this.wallet=0;
+    this.scoreMultiplier=1; this.scoreBonus=0;
+    this.fallSpeedMod=1; this.extraCoinChance=0;
+    this.shieldCharges=0; this.interestRate=0;
+    this.penaltyChanceBonus=0;
+    this.magnetDurationMult=1;
+    this.daltonicDurationMult=1;
+    this.gravityChaosSpeedMult=1;
+    this.pararrayosChance=0;
+    this.mirrorChance=0;
+    // Efectos temporales
+    this.freezeTimer=0; this.speedBoostTimer=0; this.speedBoostFactor=1;
+    this.daltonicTimer=0;
+    this.repulsionTimer=0;
+    this.gravityChaosTimer=0;
+    this.gravityChaosAngle=0;
+    this.shakeTimer=0; this.shakeIntensity=0;
+    this.modules=new Array(CFG.MODULE_SLOTS).fill(null);
+    this.inventory=[];
+    this.mergeEffects=[];
+    this.particles=[];
+    this.spawnTimer=0.5;
+    this.gameOver=false;
+    this._draggedCoin=null;
+
+    this._initRandomCoins();
+  }
+
+  _initRandomCoins() {
+    const values=[1,5,10,25];
+    for(let i=0;i<8;i++) {
+      const val=values[Math.floor(Math.random()*values.length)];
+      const x=rand(CFG.COIN_RADIUS,this.width-CFG.COIN_RADIUS);
+      const y=rand(this.height*0.4,this.height*0.85);
+      const coin=new Coin(val,x,y); coin.justSpawned=false;
+      this.coins.push(coin);
+    }
+  }
+
+  getMergeResult(value) {
+    const idx=CFG.COINS.indexOf(value); if(idx===-1)return null;
+    if(idx===CFG.COINS.length-1)return 2000;
+    return CFG.COINS[idx+1];
+  }
+
+  spawnFallingCoin(value) {
+    const x=rand(CFG.COIN_RADIUS,this.width-CFG.COIN_RADIUS);
+    const coin=new Coin(value,x,-CFG.COIN_RADIUS); coin.vy=0;
+    this.coins.push(coin);
+    return coin;
+  }
+
+  // Penalizaciones
+  applyPenalty(rivalBoard, type) {
+    if(!rivalBoard)return;
+    switch(type) {
+      case 'freeze': rivalBoard.freezeTimer=4.0; break;
+      case 'bomb': for(let i=0;i<3;i++) rivalBoard.spawnFallingCoin(100); break;
+      case 'steal': {
+        let stolen=Math.floor(rivalBoard.points*0.1);
+        rivalBoard.points=Math.max(0,rivalBoard.points-stolen);
+        this.points+=stolen; this.wallet+=stolen;
+        break;
+      }
+      case 'quake': for(const c of rivalBoard.coins){if(!c.alive||c.merging)continue; c.x+=(Math.random()-0.5)*20; c.y+=(Math.random()-0.5)*20;} break;
+      case 'speed_boost': rivalBoard.speedBoostTimer=4.0; rivalBoard.speedBoostFactor=1.5; break;
+      // Nuevas
+      case 'daltonic': rivalBoard.daltonicTimer = 1.5 * (this.daltonicDurationMult||1); break;
+      case 'repulsion': rivalBoard.repulsionTimer = 3.0 * (this.magnetDurationMult||1); break;
+      case 'gravity_chaos': rivalBoard.gravityChaosTimer = 3.0; rivalBoard.gravityChaosAngle = Math.random()*Math.PI*2; break;
+    }
+  }
+
+  // Efectos temporales de gravedad errática
+  applyGravityChaos(dt) {
+    if(this.gravityChaosTimer<=0)return;
+    this.gravityChaosAngle += (Math.random()-0.5)*2.0;
+    const angle = this.gravityChaosAngle;
+    const strength = 400 * (this.gravityChaosSpeedMult||1);
+    for(const coin of this.coins) {
+      if(!coin.alive||coin.merging||coin.dragging)continue;
+      coin.vx += Math.cos(angle)*strength*dt;
+      coin.vy += Math.sin(angle)*strength*dt;
+    }
+  }
+
+  update(dt, rivalBoard, audio) {
+    if(this.gameOver)return;
+    // Timers
+    if(this.freezeTimer>0)this.freezeTimer-=dt;
+    if(this.speedBoostTimer>0)this.speedBoostTimer-=dt;
+    if(this.daltonicTimer>0)this.daltonicTimer-=dt;
+    if(this.repulsionTimer>0)this.repulsionTimer-=dt;
+    if(this.gravityChaosTimer>0)this.gravityChaosTimer-=dt;
+    if(this.shakeTimer>0)this.shakeTimer-=dt;
+
+    let speedMod = this.fallSpeedMod;
+    if(this.freezeTimer>0)speedMod*=0.4;
+    if(this.speedBoostTimer>0)speedMod*=this.speedBoostFactor;
+
+    // Spawn
+    const alive = this.coins.filter(c=>c.alive).length;
+    if(alive<CFG.MAX_COINS) {
+      this.spawnTimer-=dt;
+      if(this.spawnTimer<=0) {
+        const vals=[1,5,10,25]; const val=vals[Math.floor(Math.random()*vals.length)];
+        this.spawnFallingCoin(val);
+        // intervalo variable: rápido al inicio, luego normal
+        const initialPhase = this.points<2000;
+        this.spawnTimer = initialPhase ? CFG.SPAWN_INTERVAL_INITIAL : CFG.SPAWN_INTERVAL_NORMAL * (0.8+Math.random()*0.4);
+        if(audio)audio.playCoinDrop();
+      }
+    }
+
+    // Física normal + gravedad caótica
+    for(const coin of this.coins) {
+      if(!coin.alive||coin.merging||coin.dragging)continue;
+      coin.vy += CFG.GRAVITY*speedMod*dt;
+      coin.x += coin.vx*dt;
+      coin.y += coin.vy*dt;
+      coin.vx*=0.98;
+      if(coin.justSpawned && coin.y>coin.radius) coin.justSpawned=false;
+    }
+    if(this.gravityChaosTimer>0) this.applyGravityChaos(dt);
+
+    this.resolveCollisions();
+    this.detectContactMerges(rivalBoard, audio);
+    this.mergeEffects=this.mergeEffects.filter(e=>e.update(dt));
+    this.particles=this.particles.filter(p=>p.update(dt));
+    this.coins=this.coins.filter(c=>c.alive);
+
+    // Game over
+    for(const coin of this.coins) {
+      if(!coin.justSpawned && coin.y-coin.radius<0 && !coin.merging && !coin.dragging) {
+        if(this.shieldCharges>0){coin.y=this.height-coin.radius; coin.vy=0; coin.justSpawned=false; this.shieldCharges--;}
+        else {this.gameOver=true; break;}
+      }
+    }
+  }
+
+  resolveCollisions() {
+    const coins = this.coins.filter(c=>c.alive&&!c.merging&&!c.dragging);
+    const repulsionActive = this.repulsionTimer>0;
+    for(let iter=0;iter<2;iter++) {
+      for(let i=0;i<coins.length;i++) {
+        const a=coins[i];
+        if(a.x-a.radius<0){a.x=a.radius;a.vx*=-0.3;}
+        if(a.x+a.radius>this.width){a.x=this.width-a.radius;a.vx*=-0.3;}
+        if(a.y+a.radius>this.height){a.y=this.height-a.radius;a.vy=0;a.vx*=0.5;}
+        const sorted = coins.slice(i+1).sort((b1,b2)=>dist(a.x,a.y,b1.x,b1.y)-dist(a.x,a.y,b2.x,b2.y));
+        for(let k=0;k<Math.min(10,sorted.length);k++) {
+          const b=sorted[k];
+          const d=dist(a.x,a.y,b.x,b.y);
+          const minDist=a.radius+b.radius;
+          if(d<minDist && d>0) {
+            const angle=Math.atan2(b.y-a.y,b.x-a.x);
+            const overlap=(minDist-d)/2;
+            if(repulsionActive) {
+              // Repulsión extra
+              a.x -= Math.cos(angle)*overlap*1.5;
+              a.y -= Math.sin(angle)*overlap*1.5;
+              b.x += Math.cos(angle)*overlap*1.5;
+              b.y += Math.sin(angle)*overlap*1.5;
+            } else {
+              a.x -= Math.cos(angle)*overlap;
+              a.y -= Math.sin(angle)*overlap;
+              b.x += Math.cos(angle)*overlap;
+              b.y += Math.sin(angle)*overlap;
+            }
+            if(a.y<b.y&&a.vy>0){a.vy=0;a.y=b.y-minDist;}
+            if(b.y<a.y&&b.vy>0){b.vy=0;b.y=a.y-minDist;}
+          }
+        }
+      }
+    }
+  }
+
+  detectContactMerges(rivalBoard, audio) {
+    const coins=this.coins.filter(c=>c.alive&&!c.merging&&!c.dragging);
+    for(let i=0;i<coins.length;i++) {
+      const a=coins[i];
+      for(let j=i+1;j<coins.length;j++) {
+        const b=coins[j];
+        if(a.value!==b.value)continue;
+        if(dist(a.x,a.y,b.x,b.y)<a.radius+b.radius-4) {
+          const resultValue=this.getMergeResult(a.value);
+          if(resultValue===null)continue;
+          a.merging=b.merging=true;
+          const midX=(a.x+b.x)/2, midY=(a.y+b.y)/2;
+          const pointsEarned=a.value+b.value;
+          this.points+=pointsEarned; this.wallet+=pointsEarned;
+          this.mergeEffects.push(new MergeEffect(midX,midY,`+${pointsEarned}`,CFG.COLORS[a.value]||'#fff'));
+          if(audio)audio.playMerge(a.value);
+          for(let p=0;p<10;p++)this.particles.push(new Particle(midX,midY,CFG.COLORS[a.value]||'#fff'));
+          if(a.value>=100){this.shakeTimer=0.25;this.shakeIntensity=8;}
+
+          // Probabilidad de penalización al rival
+          const chance = CFG.PENALTY_BASE_CHANCE + (this.penaltyChanceBonus||0);
+          if(Math.random()<chance) {
+            const smallPenalties = ['daltonic','repulsion','gravity_chaos','speed_boost','quake'];
+            const chosen = smallPenalties[Math.floor(Math.random()*smallPenalties.length)];
+            this.applyPenalty(rivalBoard, chosen);
+          }
+
+          a.alive=b.alive=false;
+          if(resultValue===2000) {
+            let base=2000*this.scoreMultiplier+this.scoreBonus;
+            this.points+=base; this.wallet+=base;
+            if(this.interestRate>0){let extra=Math.floor(this.points*this.interestRate);this.points+=extra;this.wallet+=extra;}
+            for(const mod of this.modules)if(mod&&mod.onMerge1000)mod.trigger1000(this,rivalBoard);
+            // Penalización grande aleatoria
+            const bigPenalties = ['freeze','bomb','steal','quake','speed_boost'];
+            const bigChosen = bigPenalties[Math.floor(Math.random()*bigPenalties.length)];
+            this.applyPenalty(rivalBoard, bigChosen);
+            if(this.extraCoinChance>0&&Math.random()<this.extraCoinChance)this.spawnFallingCoin(5);
+            for(let p=0;p<25;p++)this.particles.push(new Particle(midX,midY,'#ffd700'));
+          } else {
+            const newCoin=new Coin(resultValue,midX,midY); newCoin.vy=-100;
+            this.coins.push(newCoin);
+          }
+          break;
+        }
+      }
+    }
+  }
+
+  startDrag(mx,my){ /* ... igual que antes ... */ }
+  moveDrag(coin,mx,my){ /* ... */ }
+  endDrag(coin,rivalBoard,audio){ /* ... */ }
+  findMergePair(){ /* ... */ }
+}
+
+// Métodos de arrastre (prototype)
+Board.prototype.startDrag = function(mx,my) {
+  for(const coin of this.coins) {
+    if(!coin.alive||coin.merging||coin.dragging)continue;
+    if(dist(mx,my,coin.x,coin.y)<coin.radius) {
+      let blocked=false;
+      for(const other of this.coins) {
+        if(other===coin||!other.alive||other.merging)continue;
+        if(dist(other.x,other.y,coin.x,coin.y)<coin.radius+other.radius&&other.y<coin.y){blocked=true;break;}
+      }
+      if(!blocked){coin.dragging=true; return coin;}
+    }
+  }
+  return null;
+};
+Board.prototype.moveDrag = function(coin,mx,my) {
+  if(!coin||!coin.dragging)return;
+  coin.x=clamp(mx,coin.radius,this.width-coin.radius);
+  coin.y=clamp(my,coin.radius,this.height-coin.radius);
+};
+Board.prototype.endDrag = function(coin,rivalBoard,audio) {
+  if(!coin||!coin.dragging)return;
+  coin.dragging=false;
+  let merged=false;
+  for(const other of this.coins) {
+    if(other===coin||!other.alive||other.merging)continue;
+    if(other.value===coin.value&&dist(coin.x,coin.y,other.x,other.y)<coin.radius+other.radius) {
+      const resultValue=this.getMergeResult(coin.value);
+      if(resultValue!==null) {
+        coin.merging=other.merging=true;
+        const midX=(coin.x+other.x)/2, midY=(coin.y+other.y)/2;
+        const pointsEarned=coin.value+other.value;
+        this.points+=pointsEarned; this.wallet+=pointsEarned;
+        this.mergeEffects.push(new MergeEffect(midX,midY,`+${pointsEarned}`,CFG.COLORS[coin.value]||'#fff'));
+        if(audio)audio.playMerge(coin.value);
+        for(let p=0;p<10;p++)this.particles.push(new Particle(midX,midY,CFG.COLORS[coin.value]||'#fff'));
+        if(coin.value>=100){this.shakeTimer=0.25;this.shakeIntensity=8;}
+        const chance=CFG.PENALTY_BASE_CHANCE+(this.penaltyChanceBonus||0);
+        if(Math.random()<chance) {
+          const smallPenalties=['daltonic','repulsion','gravity_chaos','speed_boost','quake'];
+          const chosen=smallPenalties[Math.floor(Math.random()*smallPenalties.length)];
+          this.applyPenalty(rivalBoard,chosen);
+        }
+        coin.alive=other.alive=false;
+        if(resultValue===2000) {
+          let base=2000*this.scoreMultiplier+this.scoreBonus;
+          this.points+=base; this.wallet+=base;
+          if(this.interestRate>0){let extra=Math.floor(this.points*this.interestRate);this.points+=extra;this.wallet+=extra;}
+          for(const mod of this.modules)if(mod&&mod.onMerge1000)mod.trigger1000(this,rivalBoard);
+          const bigPenalties=['freeze','bomb','steal','quake','speed_boost'];
+          const bigChosen=bigPenalties[Math.floor(Math.random()*bigPenalties.length)];
+          this.applyPenalty(rivalBoard,bigChosen);
+          if(this.extraCoinChance>0&&Math.random()<this.extraCoinChance)this.spawnFallingCoin(5);
+          for(let p=0;p<25;p++)this.particles.push(new Particle(midX,midY,'#ffd700'));
+        } else {
+          const newCoin=new Coin(resultValue,midX,midY); newCoin.vy=-100;
+          this.coins.push(newCoin);
+        }
+        merged=true; break;
+      }
+    }
+  }
+  if(!merged){coin.vx=0;coin.vy=0;}
+};
+Board.prototype.findMergePair = function() {
+  const coins=this.coins.filter(c=>c.alive&&!c.merging&&!c.dragging);
+  for(let i=0;i<coins.length;i++) for(let j=i+1;j<coins.length;j++) if(coins[i].value===coins[j].value&&dist(coins[i].x,coins[i].y,coins[j].x,coins[j].y)<100) return {a:coins[i],b:coins[j]};
+  return null;
+};
+
+// ==================== IA ====================
+class SimpleAI {
+  constructor(board, rivalBoard, personality='agresivo') {
+    this.board=board; this.rivalBoard=rivalBoard; this.personality=personality;
+    this.timer=1.2; this.mergeTimer=2.0;
+  }
+  update(dt, audio) {
+    this.timer-=dt; this.mergeTimer-=dt;
+    if(this.personality!=='pasivo'&&this.mergeTimer<=0) {
+      this.mergeTimer=this.personality==='caotico'?1.0+Math.random()*2:2.5;
+      const pair=this.board.findMergePair();
+      if(pair) {
+        pair.a.merging=pair.b.merging=true;
+        const midX=(pair.a.x+pair.b.x)/2, midY=(pair.a.y+pair.b.y)/2;
+        const pointsEarned=pair.a.value+pair.b.value;
+        this.board.points+=pointsEarned; this.board.wallet+=pointsEarned;
+        const resultValue=this.board.getMergeResult(pair.a.value);
+        pair.a.alive=pair.b.alive=false;
+        if(resultValue===2000) {
+          let base=2000*this.board.scoreMultiplier+this.board.scoreBonus;
+          this.board.points+=base; this.board.wallet+=base;
+          const bigPenalties=['freeze','bomb','steal','quake','speed_boost'];
+          this.board.applyPenalty(this.rivalBoard, bigPenalties[Math.floor(Math.random()*bigPenalties.length)]);
+        } else if(resultValue) {
+          const newCoin=new Coin(resultValue,midX,midY); newCoin.vy=-80;
+          this.board.coins.push(newCoin);
+        }
+        // Penalización menor al jugador
+        const smallPenalties=['daltonic','repulsion','gravity_chaos','speed_boost','quake'];
+        this.rivalBoard.applyPenalty(this.rivalBoard, smallPenalties[Math.floor(Math.random()*smallPenalties.length)]);
+      }
+    }
+    if(this.timer<=0) {
+      this.timer=this.personality==='agresivo'?2.5:(this.personality==='caotico'?1.5+Math.random()*3:5);
+      this._performAction();
+    }
+  }
+  _performAction() {
+    if(this.personality==='pasivo')return;
+    if(this.personality==='agresivo') {
+      if(this.board.wallet>=400&&Math.random()<0.7) {
+        this.board.wallet-=400;
+        const vals=[50,100,250]; this.rivalBoard.spawnFallingCoin(vals[Math.floor(Math.random()*vals.length)]);
+      }
+    } else if(this.personality==='caotico') {
+      const r=Math.random();
+      if(r<0.3&&this.board.wallet>=300){this.board.wallet-=300;this.rivalBoard.spawnFallingCoin(100);}
+      else if(r<0.6) {
+        const alive=this.board.coins.filter(c=>c.alive&&!c.dragging&&!c.merging);
+        if(alive.length>0){const coin=alive[Math.floor(Math.random()*alive.length)]; coin.x=rand(coin.radius,this.board.width-coin.radius); coin.y=rand(coin.radius,this.board.height*0.8); coin.vx=(Math.random()-0.5)*100; coin.vy=0;}
+      }
+    }
+  }
+}
+
+// ==================== TIENDA COMPARTIDA ====================
+class SharedShop {
+  constructor() {
+    this.options = [];
+    this.visible = false;
+    this.timer = CFG.SHARED_SHOP_INTERVAL;
+  }
+  generateOptions() {
+    this.options = [];
+    for(let i=0;i<CFG.SHOP_OPTIONS;i++) {
+      const mod = MODULE_LIB[Math.floor(Math.random()*MODULE_LIB.length)];
+      this.options.push({module:mod, cost:this.getCost(mod.rarity)});
+    }
+  }
+  getCost(rarity) { return rarity==='common'?300:(rarity==='rare'?600:1200); }
+  update(dt) {
+    this.timer-=dt;
+    if(this.timer<=0) { this.timer=CFG.SHARED_SHOP_INTERVAL; this.generateOptions(); this.visible=true; }
+  }
+  buy(optionIndex, board) {
+    if(!this.visible||optionIndex>=this.options.length)return false;
+    const opt=this.options[optionIndex];
+    if(board.wallet>=opt.cost) {
+      board.wallet-=opt.cost;
+      board.inventory.push(opt.module);
+      this.options.splice(optionIndex,1);
+      return true;
+    }
+    return false;
+  }
+  draw(ctx, x, y, playerBoard, iaBoard) {
+    if(!this.visible)return;
+    ctx.fillStyle='rgba(0,0,0,0.8)'; ctx.fillRect(x-130,y-30,260,this.options.length*50+60);
+    ctx.fillStyle='#ffd700'; ctx.font='bold 14px monospace'; ctx.textAlign='center';
+    ctx.fillText('Tienda compartida',x,y);
+    for(let i=0;i<this.options.length;i++) {
+      const opt=this.options[i];
+      const optY=y+30+i*50;
+      ctx.fillStyle='#fff'; ctx.font='11px monospace'; ctx.textAlign='left';
+      ctx.fillText(`${opt.module.name} (${opt.module.rarity}) - ${opt.cost}`, x-120, optY);
+      ctx.fillText(`${opt.module.desc}`, x-120, optY+15);
+      // botones visuales (la compra real es con teclas)
+      ctx.fillStyle=playerBoard.wallet>=opt.cost?'#4caf50':'#555';
+      ctx.fillRect(x+60,optY-5,40,20);
+      ctx.fillStyle='#000'; ctx.font='10px monospace'; ctx.textAlign='center';
+      ctx.fillText('Tú',x+80,optY+8);
+      ctx.fillStyle=iaBoard.wallet>=opt.cost?'#f44336':'#555';
+      ctx.fillRect(x+105,optY-5,40,20);
+      ctx.fillStyle='#000'; ctx.fillText('IA',x+125,optY+8);
+    }
+  }
+}
+
+// ==================== RENDERER ====================
+class Renderer {
+  constructor(canvas) { this.canvas=canvas; this.ctx=canvas.getContext('2d'); }
+  clear() { this.ctx.clearRect(0,0,this.canvas.width,this.canvas.height); }
+
+  drawBoard(board, offsetX, boardWidth, boardHeight, isPlayer) {
+    const ctx=this.ctx;
+    ctx.fillStyle='#1a1a2e'; ctx.fillRect(offsetX,0,boardWidth,boardHeight);
+    ctx.strokeStyle='#555'; ctx.strokeRect(offsetX,0,boardWidth,boardHeight);
+
+    const aliveCount=board.coins.filter(c=>c.alive&&!c.merging).length;
+    const t=clamp((aliveCount-15)/30,0,1);
+    const visualRadius=CFG.RADIUS_MAX - t*(CFG.RADIUS_MAX-CFG.RADIUS_MIN);
+
+    for(const coin of board.coins) {
+      if(!coin.alive||coin.merging)continue;
+      let color = CFG.COLORS[coin.value]||'#fff';
+      if(board.daltonicTimer>0) color = '#aaaaaa';
+      ctx.fillStyle=color;
+      ctx.beginPath(); ctx.arc(offsetX+coin.x, coin.y, visualRadius, 0, Math.PI*2); ctx.fill();
+      if(coin.value===1000&&board.daltonicTimer<=0) { ctx.strokeStyle='#ffd700'; ctx.lineWidth=2; ctx.stroke(); }
+      if(board.daltonicTimer<=0) {
+        ctx.fillStyle='#000'; ctx.font=`bold ${Math.floor(visualRadius*0.6)}px monospace`;
+        ctx.textAlign='center'; ctx.textBaseline='middle';
+        ctx.fillText(coin.value, offsetX+coin.x, coin.y);
+      }
+    }
+
+    for(const p of board.particles) { ctx.globalAlpha=p.life/p.maxLife; ctx.fillStyle=p.color; ctx.beginPath(); ctx.arc(offsetX+p.x,p.y,p.size,0,Math.PI*2); ctx.fill(); }
+    ctx.globalAlpha=1;
+
+    for(const eff of board.mergeEffects) {
+      ctx.save(); ctx.globalAlpha=eff.life; ctx.fillStyle=eff.color; ctx.font='bold 16px monospace'; ctx.textAlign='center';
+      ctx.fillText(eff.text, offsetX+eff.x, eff.y); ctx.restore();
+    }
+
+    if(board._draggedCoin&&isPlayer) {
+      const c=board._draggedCoin; ctx.globalAlpha=0.6; ctx.fillStyle=CFG.COLORS[c.value];
+      ctx.beginPath(); ctx.arc(offsetX+c.x,c.y,visualRadius,0,Math.PI*2); ctx.fill(); ctx.globalAlpha=1;
+    }
+
+    // Overlays de estado
+    if(board.freezeTimer>0) { ctx.fillStyle='rgba(0,100,255,0.2)'; ctx.fillRect(offsetX,0,boardWidth,boardHeight); }
+    else if(board.speedBoostTimer>0) { ctx.fillStyle='rgba(255,50,50,0.2)'; ctx.fillRect(offsetX,0,boardWidth,boardHeight); }
+    if(board.daltonicTimer>0) { ctx.fillStyle='rgba(255,255,255,0.25)'; ctx.fillRect(offsetX,0,boardWidth,boardHeight); }
+    if(board.repulsionTimer>0) { ctx.strokeStyle='#ff00ff'; ctx.lineWidth=3; ctx.strokeRect(offsetX,0,boardWidth,boardHeight); }
+    if(board.gravityChaosTimer>0) { ctx.strokeStyle='#00ffff'; ctx.lineWidth=3; ctx.setLineDash([8,4]); ctx.strokeRect(offsetX,0,boardWidth,boardHeight); ctx.setLineDash([]); }
+
+    ctx.fillStyle='#fff'; ctx.font='12px monospace'; ctx.textAlign='left';
+    ctx.fillText(`${isPlayer?'Tú':'IA'} – Pts: ${board.points}`, offsetX+10, boardHeight-25);
+    ctx.fillText(`Monedero: ${board.wallet}`, offsetX+10, boardHeight-10);
+  }
+
+  drawUI(game) {
+    const ctx=this.ctx;
+    // Barra de progreso
+    const barWidth=200, barHeight=12, barX=this.canvas.width/2-barWidth/2, barY=this.canvas.height-25;
+    ctx.fillStyle='#333'; ctx.fillRect(barX,barY,barWidth,barHeight);
+    const playerProgress=Math.min(1,game.playerBoard.points/CFG.WIN_SCORE);
+    const iaProgress=Math.min(1,game.iaBoard.points/CFG.WIN_SCORE);
+    ctx.fillStyle='#4caf50'; ctx.fillRect(barX,barY,barWidth*playerProgress,barHeight/2);
+    ctx.fillStyle='#f44336'; ctx.fillRect(barX,barY+barHeight/2,barWidth*iaProgress,barHeight/2);
+    // Tienda compartida (se dibuja en el centro si está activa)
+    if(game.sharedShop.visible) {
+      game.sharedShop.draw(ctx, this.canvas.width/2, 60, game.playerBoard, game.iaBoard);
+    }
+  }
+}
+
+// ==================== JUEGO PRINCIPAL ====================
+class Game {
+  constructor(canvas) {
+    this.canvas=canvas;
+    this.renderer=new Renderer(canvas);
+    this.audio=new AudioService(); this.audio.init();
+    this.eventBus=new EventBus();
+    // Dimensiones de tableros: ocupan el 40% del ancho cada uno, centrados
+    const totalWidth=canvas.width;
+    const boardWidth=Math.floor(totalWidth*0.4);
+    const boardHeight=canvas.height;
+    const offsetLeft=Math.floor((totalWidth-boardWidth*2-20)/2);
+    this.boardWidth=boardWidth;
+    this.boardHeight=boardHeight;
+    this.playerBoard=new Board(CFG.COLS,CFG.ROWS,boardWidth,boardHeight,'Jugador',this.eventBus);
+    this.iaBoard=new Board(CFG.COLS,CFG.ROWS,boardWidth,boardHeight,'IA',this.eventBus);
+    this.sharedShop=new SharedShop();
+    this.iaPersonality='agresivo';
+    this.ia=new SimpleAI(this.iaBoard,this.playerBoard,this.iaPersonality);
+    this.lastTime=performance.now();
+    this.paused=false;
+    this.mouse={x:0,y:0,down:false};
+    this.draggedCoin=null;
+    this.playerBoardOffset=offsetLeft;
+    this.iaBoardOffset=offsetLeft+boardWidth+20;
+    this._initMenu();
+    this._bindEvents();
+    this._loop();
+  }
+
+  _bindEvents() {
+    document.addEventListener('keydown',e=>{
+      if(e.key==='Tab'){e.preventDefault();this.toggleMenu();}
+      // Comprar en tienda compartida con teclas 1,2,3
+      if(this.sharedShop.visible) {
+        if(e.key==='1'){e.preventDefault();this._buyFromSharedShop(0);}
+        if(e.key==='2'){e.preventDefault();this._buyFromSharedShop(1);}
+        if(e.key==='3'){e.preventDefault();this._buyFromSharedShop(2);}
+      }
+    });
+    document.getElementById('close-menu').addEventListener('click',()=>this.toggleMenu());
+    document.getElementById('restart-btn').addEventListener('click',()=>this.restart());
+    this.canvas.addEventListener('mousedown',e=>this._onMouseDown(e));
+    this.canvas.addEventListener('mousemove',e=>this._onMouseMove(e));
+    this.canvas.addEventListener('mouseup',e=>this._onMouseUp(e));
+    this.canvas.addEventListener('touchstart',e=>{e.preventDefault();const t=e.touches[0];this._onMouseDown({clientX:t.clientX,clientY:t.clientY});},{passive:false});
+    this.canvas.addEventListener('touchmove',e=>{e.preventDefault();const t=e.touches[0];this._onMouseMove({clientX:t.clientX,clientY:t.clientY});},{passive:false});
+    this.canvas.addEventListener('touchend',e=>{e.preventDefault();this._onMouseUp();});
+  }
+
+  _buyFromSharedShop(index) {
+    if(this.sharedShop.buy(index, this.playerBoard)) {
+      // IA también puede comprar (se evalúa en su update)
+    }
+  }
+
+  _onMouseDown(e) {
+    if(this.paused||this.playerBoard.gameOver)return;
+    const rect=this.canvas.getBoundingClientRect();
+    const mx=e.clientX-rect.left, my=e.clientY-rect.top;
+    // Solo en el tablero del jugador (izquierda)
+    if(mx>=this.playerBoardOffset && mx<=this.playerBoardOffset+this.boardWidth) {
+      const localX=mx-this.playerBoardOffset;
+      this.draggedCoin=this.playerBoard.startDrag(localX,my);
+      if(this.draggedCoin){this.mouse.down=true;this.mouse.x=localX;this.mouse.y=my;}
+    }
+  }
+  _onMouseMove(e) {
+    if(!this.mouse.down||!this.draggedCoin)return;
+    const rect=this.canvas.getBoundingClientRect();
+    const mx=e.clientX-rect.left, my=e.clientY-rect.top;
+    const localX=clamp(mx-this.playerBoardOffset, 0, this.boardWidth);
+    this.mouse.x=localX; this.mouse.y=my;
+    this.playerBoard.moveDrag(this.draggedCoin, localX, my);
+  }
+  _onMouseUp() {
+    if(this.draggedCoin){this.playerBoard.endDrag(this.draggedCoin,this.iaBoard,this.audio);this.draggedCoin=null;this.mouse.down=false;}
+  }
+
+  _initMenu() {
+    this.menuPanel=document.getElementById('side-menu');
+    this.tabButtons=document.querySelectorAll('#side-menu .tabs button');
+    this.tabContents={
+      modules:document.getElementById('tab-modules'),
+      stats:document.getElementById('tab-stats'),
+      architect:document.getElementById('tab-architect')
+    };
+    this.tabButtons.forEach(btn=>btn.addEventListener('click',()=>this._switchTab(btn.dataset.tab)));
+    this._buildArchitectTab();
+  }
+  toggleMenu() {
+    if(this.menuPanel.style.display==='block'){this.menuPanel.style.display='none';this.paused=false;}
+    else{this.paused=true;this._refreshModulesTab();this._refreshStatsTab();this.menuPanel.style.display='block';}
+  }
+  _switchTab(id) {
+    this.tabButtons.forEach(b=>b.classList.remove('active'));
+    document.querySelector(`[data-tab="${id}"]`).classList.add('active');
+    Object.values(this.tabContents).forEach(d=>d.classList.remove('active'));
+    this.tabContents[id].classList.add('active');
+    if(id==='modules')this._refreshModulesTab();
+    else if(id==='stats')this._refreshStatsTab();
+  }
+  _refreshModulesTab() {
+    let html='<h4>Ranuras equipadas</h4>';
+    for(let i=0;i<this.playerBoard.modules.length;i++) {
+      const mod=this.playerBoard.modules[i];
+      html+=`<div class="module-slot"><span>Ranura ${i+1}: ${mod?mod.name+' ('+mod.rarity+')':'vacía'}</span>${mod?`<button onclick="window.game.removeModule(${i})">X</button>`:''}</div>`;
+    }
+    html+='<h4>Inventario</h4>';
+    if(this.playerBoard.inventory.length===0)html+='<p>Vacío</p>';
+    else{this.playerBoard.inventory.forEach((mod,idx)=>{html+=`<div class="module-slot"><span>${mod.name} (${mod.rarity}) - ${mod.desc}</span><button onclick="window.game.equipModule(${idx})">Equipar</button></div>`;});}
+    this.tabContents.modules.innerHTML=html;
+  }
+  _refreshStatsTab() {
+    this.tabContents.stats.innerHTML=`<p>Puntos: ${this.playerBoard.points}/${CFG.WIN_SCORE}</p><p>Monedero: ${this.playerBoard.wallet}</p><p>Multiplicador: x${this.playerBoard.scoreMultiplier}</p><p>Bonus: +${this.playerBoard.scoreBonus}</p><p>Escudos: ${this.playerBoard.shieldCharges}</p>`;
+  }
+  _buildArchitectTab() {
+    let html='<h4>Parámetros</h4>';
+    html+=`Velocidad: <input type="range" min="50" max="300" value="${CFG.GRAVITY}" oninput="CFG.GRAVITY=parseInt(this.value);document.getElementById('val-grav').innerText=this.value"><span id="val-grav">${CFG.GRAVITY}</span><br>`;
+    html+=`Intervalo spawn (s): <input type="range" min="0.3" max="3" step="0.1" value="${CFG.SPAWN_INTERVAL_NORMAL}" oninput="CFG.SPAWN_INTERVAL_NORMAL=parseFloat(this.value);document.getElementById('val-spawn').innerText=this.value"><span id="val-spawn">${CFG.SPAWN_INTERVAL_NORMAL}</span><br>`;
+    html+='<h4>Personalidad IA</h4><select id="ia-personality" onchange="window.game.setIAPersonality(this.value)">';
+    ['pasivo','agresivo','caotico'].forEach(p=>html+=`<option value="${p}" ${this.iaPersonality===p?'selected':''}>${p}</option>`);
+    html+='</select><br><button onclick="CFG.GRAVITY=600;CFG.SPAWN_INTERVAL_NORMAL=1.4;document.getElementById(\'val-grav\').innerText=600;document.getElementById(\'val-spawn\').innerText=1.4;">Reset</button>';
+    this.tabContents.architect.innerHTML=html;
+  }
+  setIAPersonality(p){this.iaPersonality=p;this.ia.personality=p;}
+
+  removeModule(slot){if(this.playerBoard.modules[slot]){this.playerBoard.inventory.push(this.playerBoard.modules[slot]);this.playerBoard.modules[slot]=null;this._recalcBoardEffects();this._refreshModulesTab();}}
+  equipModule(invIdx){const mod=this.playerBoard.inventory[invIdx];if(!mod)return;let slot=this.playerBoard.modules.indexOf(null);if(slot===-1)slot=0;if(this.playerBoard.modules[slot])this.playerBoard.inventory.push(this.playerBoard.modules[slot]);this.playerBoard.modules[slot]=mod;this.playerBoard.inventory.splice(invIdx,1);this._recalcBoardEffects();this._refreshModulesTab();}
+  _recalcBoardEffects(){
+    this.playerBoard.scoreMultiplier=1;this.playerBoard.scoreBonus=0;this.playerBoard.fallSpeedMod=1;this.playerBoard.extraCoinChance=0;
+    this.playerBoard.shieldCharges=0;this.playerBoard.interestRate=0;this.playerBoard.penaltyChanceBonus=0;
+    this.playerBoard.magnetDurationMult=1;this.playerBoard.daltonicDurationMult=1;this.playerBoard.gravityChaosSpeedMult=1;
+    this.playerBoard.pararrayosChance=0;this.playerBoard.mirrorChance=0;
+    for(const mod of this.playerBoard.modules)if(mod)mod.apply(this.playerBoard,this.iaBoard);
+  }
+
+  _update(dt) {
+    if(this.paused)return;
+    this.playerBoard._draggedCoin=this.draggedCoin;
+    this.playerBoard.update(dt, this.iaBoard, this.audio);
+    this.iaBoard.update(dt, this.playerBoard, null);
+    this.ia.update(dt, this.audio);
+    this.sharedShop.update(dt);
+    // IA compra en tienda compartida (muy simple)
+    if(this.sharedShop.visible) {
+      for(let i=0;i<this.sharedShop.options.length;i++) {
+        if(this.iaBoard.wallet>=this.sharedShop.options[i].cost && Math.random()<0.5) {
+          this.sharedShop.buy(i, this.iaBoard);
+          break;
+        }
+      }
+    }
+    if(this.playerBoard.points>=CFG.WIN_SCORE||this.iaBoard.points>=CFG.WIN_SCORE)this.gameOver();
+    if(this.playerBoard.gameOver||this.iaBoard.gameOver)this.gameOver();
+  }
+
+  _draw() {
+    this.renderer.clear();
+    let playerOffX=0,playerOffY=0;
+    if(this.playerBoard.shakeTimer>0){const s=this.playerBoard.shakeIntensity;playerOffX=(Math.random()-0.5)*s;playerOffY=(Math.random()-0.5)*s;}
+    this.renderer.drawBoard(this.playerBoard, this.playerBoardOffset+playerOffX, this.boardWidth, this.boardHeight, true);
+    this.renderer.drawBoard(this.iaBoard, this.iaBoardOffset, this.boardWidth, this.boardHeight, false);
+    this.renderer.drawUI(this);
+  }
+
+  gameOver() {
+    this.paused=true;
+    const winner=this.playerBoard.points>=CFG.WIN_SCORE?'¡Has ganado!':'La IA ha ganado.';
+    document.getElementById('gameover-msg').innerText=winner;
+    document.getElementById('gameover-panel').style.display='block';
+  }
+
+  restart() {
+    this.playerBoard=new Board(CFG.COLS,CFG.ROWS,this.boardWidth,this.boardHeight,'Jugador',this.eventBus);
+    this.iaBoard=new Board(CFG.COLS,CFG.ROWS,this.boardWidth,this.boardHeight,'IA',this.eventBus);
+    this.sharedShop=new SharedShop();
+    this.ia=new SimpleAI(this.iaBoard,this.playerBoard,this.iaPersonality);
+    this.paused=false; this.draggedCoin=null;
+    document.getElementById('gameover-panel').style.display='none';
+  }
+
+  _loop() {
+    const now=performance.now();
+    const dt=Math.min((now-this.lastTime)/1000,0.1);
+    this.lastTime=now;
+    this._update(dt);
+    this._draw();
+    requestAnimationFrame(()=>this._loop());
+  }
+}
+
+// ==================== ARRANQUE ====================
+window.addEventListener('load',()=>{
+  const canvas=document.getElementById('game');
+  canvas.width=window.innerWidth;
+  canvas.height=window.innerHeight;
+  window.game=new Game(canvas);
+});
+</script>
+</body>
+</html>
