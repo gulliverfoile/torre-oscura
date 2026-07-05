@@ -1,0 +1,99 @@
+# 💰 Money Merge · Puzzle Edition (Prototipo v2)
+
+**Juego de puzle competitivo por turnos con mecánicas de fusión de monedas, disparo direccional y ataques automáticos.**  
+Desarrollado como prototipo para explorar sistemas modulares y arquitectura limpia en JavaScript vanilla.
+
+![Versión](https://img.shields.io/badge/version-2.0-blue)
+![Licencia](https://img.shields.io/badge/license-MIT-green)
+
+---
+
+## 🎮 ¿Qué es Money Merge?
+
+**Money Merge** es un juego de puzle donde dos tableros (jugador e IA) compiten por alcanzar una puntuación objetivo fusionando monedas del mismo valor. La originalidad reside en:
+
+- 🎯 **Disparo direccional con predicción de rebotes**: apuntas con el ratón o teclado y ves la trayectoria exacta antes de lanzar.
+- 💥 **Fusión local en cadena**: solo se fusionan las monedas conectadas a la que acabas de colocar, permitiendo combos estratégicos.
+- 📉 **Gravedad invertida**: las monedas se acumulan desde el techo, como en un *reverse puzzle*.
+- ⏱️ **Ataques automáticos**: cada pocos segundos recibes una fila de monedas que añade presión y ritmo.
+- 🧩 **Sistema de módulos**: equipa potenciadores pasivos (escudo, multiplicador, bomba…) que alteran las reglas.
+
+---
+
+## 🕹️ Cómo jugar
+
+1. Abre `index.html` en cualquier navegador moderno.
+2. Usa el **ratón** para apuntar (verás una línea de trayectoria y la columna de impacto resaltada).
+3. Haz **clic** o pulsa **espacio** para disparar la moneda actual.
+4. Las monedas del mismo valor que se toquen (ortogonalmente) se fusionan en una de valor superior.
+5. Al fusionar una moneda de **1000**, sumas puntos y envías una fila de ataque al rival.
+6. ¡Alcanza **20 000 puntos** antes que la IA o muere si tu tablero se desborda!
+
+**Controles adicionales:**
+- `Tab`: abre el menú lateral con pestañas de **Módulos**, **Estadísticas** y **Arquitecto** (para modificar parámetros en caliente).
+- `←` / `→`: ajustan el ángulo de disparo (alternativa al ratón).
+
+---
+
+## 🧱 Arquitectura del proyecto
+
+El código sigue principios de **modularidad y separación de responsabilidades**, preparado para migrar a una arquitectura hexagonal.
+
+| Módulo | Descripción |
+|--------|-------------|
+| `Board` | Tablero con lógica de colocación, compactación, fusión local y ataques. |
+| `Shooter` | Sistema de disparo con predicción de trayectoria y rebotes. |
+| `AudioService` | Síntesis de sonidos mediante Web Audio API (sin archivos externos). |
+| `Module` / `MODULE_LIB` | Sistema de módulos equipables que modifican el comportamiento del tablero. |
+| `SimpleAI` | Oponente automático que dispara aleatoriamente. |
+| `Game` | Orquestador principal (bucle de juego, eventos, menú lateral). |
+| `EventBus` | Bus de eventos para desacoplar componentes (listo para hexagonal). |
+
+Los tableros no dependen de la entrada ni del renderizado; reciben comandos y emiten eventos, facilitando la migración a una arquitectura de puertos y adaptadores.
+
+---
+
+## 🧪 Panel de Arquitecto
+
+Pulsando `Tab` accedes a un panel con tres pestañas:
+
+- **Módulos**: equipa hasta 3 potenciadores (arrastra efectos al tablero).
+- **Stats**: consulta tus puntos, monedero y multiplicadores.
+- **Arquitecto**: ajusta en tiempo real el ángulo máximo de disparo, los intervalos de ataque automático y las filas iniciales.
+
+---
+
+## 🚀 Posibles mejoras (roadmap)
+
+- [ ] Migrar a arquitectura hexagonal pura (separar puertos y adaptadores).
+- [ ] Añadir más tipos de monedas y fusiones especiales.
+- [ ] Implementar un sistema de campaña con niveles.
+- [ ] Mejorar la IA (que evalúe trayectorias).
+- [ ] Efectos visuales avanzados (partículas, animaciones de fusión).
+- [ ] Modo multijugador local (dos jugadores en el mismo teclado).
+
+---
+
+## 📂 Estructura del archivo
+money-merge/
+└── index.html # Todo el juego en un solo archivo (HTML + CSS + JS)
+
+text
+
+---
+
+## 🛠️ Tecnologías utilizadas
+
+- **HTML5 Canvas** para el renderizado.
+- **JavaScript (ES6+)** vanilla, sin dependencias externas.
+- **Web Audio API** para los efectos de sonido.
+
+---
+
+## 📜 Licencia
+
+MIT © 2025 – Siéntete libre de usar, modificar y compartir este prototipo.
+
+---
+
+*“Un puzle que recompensa la precisión, donde cada disparo puede desencadenar una cascada de fusiones.”*
