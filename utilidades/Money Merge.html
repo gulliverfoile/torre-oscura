@@ -1,0 +1,737 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>Money Merge · Puzzle Edition (v2)</title>
+    <style>
+        * { margin:0; padding:0; box-sizing:border-box; }
+        html, body { width:100%; height:100%; overflow:hidden; background:#0a0a14; font-family:monospace; }
+        body { display:flex; justify-content:center; align-items:center; }
+        canvas { display:block; position:absolute; top:0; left:0; }
+
+        #side-menu {
+            position:fixed; top:0; right:0; width:min(360px,90vw); height:100vh;
+            background:rgba(10,10,25,0.95); border-left:2px solid #ffd700; color:#fff;
+            z-index:100; display:none; font-size:clamp(11px,2vw,13px);
+            backdrop-filter:blur(8px); overflow-y:auto; padding:0;
+        }
+        #side-menu .tabs { display:flex; background:#222; border-bottom:1px solid #444; }
+        #side-menu .tabs button {
+            flex:1; background:none; border:none; color:#aaa; padding:10px 4px; cursor:pointer;
+            font-weight:bold; font-size:inherit; transition:0.2s;
+        }
+        #side-menu .tabs button.active { color:#ffd700; border-bottom:2px solid #ffd700; background:#333; }
+        #side-menu .content { padding:15px; }
+        #side-menu .content > div { display:none; }
+        #side-menu .content > div.active { display:block; }
+
+        button {
+            background:#ffd700; color:#000; border:none; padding:6px 10px; margin:4px 2px;
+            cursor:pointer; font-weight:bold; border-radius:4px;
+        }
+        button:disabled { opacity:0.4; cursor:default; }
+        .module-slot { display:flex; align-items:center; justify-content:space-between; margin:4px 0; }
+        .module-slot span { flex:1; }
+        #gameover-panel {
+            position:fixed; top:50%; left:50%; transform:translate(-50%,-50%);
+            background:rgba(0,0,0,0.9); border:2px solid #ff4757; color:#fff; padding:20px;
+            z-index:200; display:none; text-align:center; border-radius:10px;
+        }
+        input[type=range] { width:100%; margin:4px 0; }
+        label { color:#ccc; }
+    </style>
+</head>
+<body>
+    <canvas id="game"></canvas>
+    <div id="side-menu">
+        <div class="tabs">
+            <button data-tab="modules" class="active">Módulos</button>
+            <button data-tab="stats">Stats</button>
+            <button data-tab="architect">Arquitecto</button>
+        </div>
+        <div class="content">
+            <div id="tab-modules" class="active"></div>
+            <div id="tab-stats"></div>
+            <div id="tab-architect"></div>
+        </div>
+        <div style="text-align:center;padding:10px;"><button id="close-menu">Cerrar [Tab]</button></div>
+    </div>
+    <div id="gameover-panel">
+        <h2>Fin de la partida</h2>
+        <p id="gameover-msg"></p>
+        <button id="restart-btn">Reiniciar</button>
+    </div>
+
+<script>
+'use strict';
+
+// ==================== CONFIGURACIÓN ====================
+const CFG = {
+    COLS: 8,
+    ROWS: 12,
+    CELL_SIZE: 36,
+    BOARD_OFFSET_X: 40,
+    BOARD_OFFSET_Y: 40,
+    MAX_ANGLE: Math.PI * 0.45, // ±81° aprox
+    INITIAL_FILLED_ROWS: 3,
+    PLAYER_ATTACK_INTERVAL: 4,
+    IA_ATTACK_INTERVAL: 5,
+    WIN_SCORE: 20000,
+    MODULE_SLOTS: 3,
+    COLORS: {
+        1:'#ff4d4d', 5:'#ff8c00', 10:'#ffd700', 25:'#66cc66',
+        50:'#4da6ff', 100:'#4d4dff', 250:'#b366ff', 500:'#ff66b3', 1000:'#ffffff'
+    },
+    COINS: [1,5,10,25,50,100,250,500,1000]
+};
+
+// ==================== EVENT BUS ====================
+class EventBus {
+    constructor() { this._listeners = {}; }
+    on(event, callback) { (this._listeners[event] = this._listeners[event] || []).push(callback); }
+    off(event, callback) { if(this._listeners[event]) this._listeners[event] = this._listeners[event].filter(cb => cb !== callback); }
+    emit(event, data) { (this._listeners[event] || []).forEach(cb => cb(data)); }
+}
+
+// ==================== AUDIO ====================
+class AudioService {
+    constructor() { this.ctx = null; this.initialized = false; }
+    init() {
+        if(this.initialized) return;
+        try { this.ctx = new (window.AudioContext || window.webkitAudioContext)(); this.initialized = true; } catch(e) { console.warn('Audio no disponible'); }
+    }
+    _playTone(freq, type, duration, vol=0.1) {
+        if(!this.ctx || this.ctx.state === 'closed') return;
+        if(this.ctx.state === 'suspended') this.ctx.resume();
+        const now = this.ctx.currentTime;
+        const osc = this.ctx.createOscillator(); osc.type = type;
+        osc.frequency.setValueAtTime(freq, now);
+        const gain = this.ctx.createGain();
+        gain.gain.setValueAtTime(0, now);
+        gain.gain.linearRampToValueAtTime(vol, now + 0.01);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + duration);
+        osc.connect(gain); gain.connect(this.ctx.destination);
+        osc.start(now); osc.stop(now + duration);
+    }
+    playMerge(value) {
+        const idx = CFG.COINS.indexOf(value);
+        if(idx < 0) return;
+        const freq = [262,294,330,349,392,440,494,523][idx % 8];
+        this._playTone(freq, 'sine', 0.3, 0.15);
+    }
+    playPlace() { this._playTone(200, 'triangle', 0.1, 0.1); }
+    playGameOver() { this._playTone(100, 'sawtooth', 0.5, 0.2); }
+    playAttack() { this._playTone(150, 'square', 0.2, 0.15); }
+}
+
+// ==================== MÓDULOS (pasivos) ====================
+class Module {
+    constructor(id, name, desc, rarity, applyFn = null, onMerge1000Fn = null) {
+        this.id = id; this.name = name; this.desc = desc; this.rarity = rarity;
+        this.applyFn = applyFn; this.onMerge1000Fn = onMerge1000Fn;
+    }
+    apply(board, rival) { if(this.applyFn) this.applyFn(board, rival); }
+    trigger1000(board, rival) { if(this.onMerge1000Fn) this.onMerge1000Fn(board, rival); }
+}
+
+const MODULE_LIB = [
+    new Module('mult_x2', 'Multiplicador x2', 'Duplica puntos al desaparecer 1000', 'epic',
+        b => { b.scoreMultiplier *= 2; }
+    ),
+    new Module('flat_500', 'Bonus +500', 'Añade 500 puntos extra', 'common',
+        b => { b.scoreBonus += 500; }
+    ),
+    new Module('shield', 'Escudo', 'Anula el primer game over', 'rare',
+        b => { b.shieldCharges = (b.shieldCharges||0) + 1; }
+    ),
+    new Module('bomb', 'Bomba', 'Al desaparecer 1000, lanza moneda 100 al rival', 'rare',
+        null, (b, r) => { if(r) r.spawnAttackRow(); }
+    ),
+    new Module('bad_blood', 'Mala leche', '+15% probabilidad de penalización', 'rare',
+        b => { b.penaltyChanceBonus = (b.penaltyChanceBonus||0) + 0.15; }
+    )
+];
+
+// ==================== TABLERO (gravedad invertida: monedas pegadas al techo) ====================
+class Board {
+    constructor(cols, rows, offsetX, offsetY, cellSize, playerName, eventBus) {
+        this.cols = cols; this.rows = rows;
+        this.offsetX = offsetX; this.offsetY = offsetY;
+        this.cellSize = cellSize;
+        this.playerName = playerName;
+        this.eventBus = eventBus;
+
+        // grid[row][col], row 0 = techo, row rows-1 = suelo
+        this.grid = Array.from({ length: rows }, () => Array(cols).fill(null));
+        this.points = 0;
+        this.wallet = 0;
+        this.scoreMultiplier = 1;
+        this.scoreBonus = 0;
+        this.shieldCharges = 0;
+        this.penaltyChanceBonus = 0;
+        this.modules = new Array(CFG.MODULE_SLOTS).fill(null);
+        this.inventory = [];
+
+        this.comboCount = 0;
+        this.comboTimer = 0;
+        this.flashCells = [];
+
+        this.gameOver = false;
+        this.frozen = false;
+        this.attackTimer = 0;
+        this.attackInterval = CFG.PLAYER_ATTACK_INTERVAL;
+
+        this._initBoard();
+    }
+
+    _initBoard() {
+        for(let row = 0; row < Math.min(CFG.INITIAL_FILLED_ROWS, this.rows); row++) {
+            for(let col = 0; col < this.cols; col++) {
+                if(Math.random() < 0.8) {
+                    const vals = [1,5,10,25];
+                    const val = vals[Math.floor(Math.random() * vals.length)];
+                    this.grid[row][col] = { value: val };
+                }
+            }
+        }
+        this._compactAll(); // asegurar que no queden huecos
+    }
+
+    // Coloca una moneda en la columna dada, en la primera celda libre desde el techo (row 0)
+    placeInColumn(col, value) {
+        if(this.gameOver || this.frozen) return false;
+        for(let row = 0; row < this.rows; row++) {
+            if(!this.grid[row][col]) {
+                this.grid[row][col] = { value };
+                return true;
+            }
+        }
+        this._triggerGameOver();
+        return false;
+    }
+
+    // Inserta una fila completa de monedas de valor 1 desde el techo, empujando hacia abajo
+    spawnAttackRow() {
+        if(this.gameOver) return;
+        const newRow = Array.from({ length: this.cols }, () => ({ value: 1 }));
+        this.grid.unshift(newRow);
+        const removedRow = this.grid.pop();
+        if(removedRow.some(cell => cell !== null)) {
+            this._triggerGameOver();
+        }
+        this._compactAll();
+    }
+
+    // Compacta cada columna hacia el techo (los elementos deben estar en los índices más bajos)
+    _compactAll() {
+        for(let col = 0; col < this.cols; col++) {
+            const column = [];
+            for(let row = 0; row < this.rows; row++) {
+                if(this.grid[row][col]) column.push(this.grid[row][col]);
+            }
+            for(let row = 0; row < this.rows; row++) {
+                this.grid[row][col] = column[row] || null;
+            }
+        }
+    }
+
+    // Encuentra el grupo conexo del mismo valor que contenga a (r,c)
+    _findGroupFrom(r, c) {
+        const cell = this.grid[r][c];
+        if(!cell) return [];
+        const value = cell.value;
+        const visited = new Set();
+        const stack = [[r,c]];
+        const group = [];
+        while(stack.length) {
+            const [row, col] = stack.pop();
+            const key = `${row},${col}`;
+            if(row < 0 || row >= this.rows || col < 0 || col >= this.cols || visited.has(key)) continue;
+            visited.add(key);
+            const cur = this.grid[row][col];
+            if(!cur || cur.value !== value) continue;
+            group.push([row, col]);
+            stack.push([row-1, col], [row+1, col], [row, col-1], [row, col+1]);
+        }
+        return group;
+    }
+
+    // Resuelve fusiones locales en cadena a partir de la celda (r,c)
+    resolveLocal(r, c) {
+        if(r < 0 || r >= this.rows || c < 0 || c >= this.cols || !this.grid[r][c]) return;
+        const value = this.grid[r][c].value;
+        const group = this._findGroupFrom(r, c);
+        if(group.length < 2) return;
+
+        // Eliminar grupo
+        for(const [gr, gc] of group) this.grid[gr][gc] = null;
+
+        const nextValue = this._getNextValue(value);
+        // Determinar la celda donde colocar la moneda resultante
+        let topRow = Infinity, topCol = c;
+        for(const [gr, gc] of group) {
+            if(gr < topRow) { topRow = gr; topCol = gc; }
+            else if(gr === topRow && gc < topCol) topCol = gc;
+        }
+
+        // Caso especial: moneda de 1000
+        if(nextValue === 2000) {
+            let points = 2000 * this.scoreMultiplier + this.scoreBonus;
+            this.points += points; this.wallet += points;
+            if(this.audio) this.audio.playMerge(1000);
+            for(const mod of this.modules) if(mod) mod.trigger1000(this, this.rivalBoard);
+            if(this.rivalBoard) this.rivalBoard.spawnAttackRow();
+            this.flashCells = []; // limpiamos destellos
+        } else {
+            this.grid[topRow][topCol] = { value: nextValue };
+            this.flashCells.push({ row: topRow, col: topCol, timer: 0.3 });
+            if(this.audio) this.audio.playMerge(nextValue);
+            this._compactAll();
+            // Reacción en cadena
+            this.resolveLocal(topRow, topCol);
+        }
+    }
+
+    _getNextValue(value) {
+        const idx = CFG.COINS.indexOf(value);
+        if(idx === -1 || idx === CFG.COINS.length - 1) return 2000;
+        return CFG.COINS[idx + 1];
+    }
+
+    _triggerGameOver() {
+        if(this.shieldCharges > 0) { this.shieldCharges--; return; }
+        this.gameOver = true;
+        this.eventBus.emit('gameOver', { board: this });
+    }
+
+    update(dt) {
+        if(this.gameOver || this.frozen) return;
+        this.attackTimer += dt;
+        if(this.attackTimer >= this.attackInterval) {
+            this.attackTimer -= this.attackInterval;
+            this.spawnAttackRow();
+            if(this.audio) this.audio.playAttack();
+        }
+        if(this.comboTimer > 0) {
+            this.comboTimer -= dt;
+            if(this.comboTimer <= 0) this.comboCount = 0;
+        }
+        for(const f of this.flashCells) f.timer -= dt;
+        this.flashCells = this.flashCells.filter(f => f.timer > 0);
+    }
+
+    // Dibuja el tablero (techo arriba)
+    draw(ctx) {
+        const { offsetX, offsetY, cellSize, cols, rows } = this;
+        for(let r = 0; r < rows; r++) {
+            for(let c = 0; c < cols; c++) {
+                const x = offsetX + c * cellSize, y = offsetY + r * cellSize;
+                ctx.fillStyle = '#1a1a2e';
+                ctx.fillRect(x, y, cellSize, cellSize);
+                ctx.strokeStyle = '#333';
+                ctx.strokeRect(x, y, cellSize, cellSize);
+
+                const cell = this.grid[r][c];
+                if(cell) {
+                    const color = CFG.COLORS[cell.value] || '#fff';
+                    ctx.fillStyle = color;
+                    ctx.beginPath();
+                    ctx.arc(x + cellSize/2, y + cellSize/2, cellSize/2.2, 0, Math.PI*2);
+                    ctx.fill();
+                    if(this.flashCells.some(f => f.row === r && f.col === c)) {
+                        ctx.strokeStyle = '#fff'; ctx.lineWidth = 2;
+                        ctx.beginPath();
+                        ctx.arc(x + cellSize/2, y + cellSize/2, cellSize/2.2 + 2, 0, Math.PI*2);
+                        ctx.stroke();
+                    }
+                    ctx.fillStyle = '#000'; ctx.font = 'bold 10px monospace';
+                    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+                    ctx.fillText(cell.value, x + cellSize/2, y + cellSize/2 + 3);
+                }
+            }
+        }
+        ctx.fillStyle = '#fff'; ctx.font = '12px monospace'; ctx.textAlign = 'left';
+        ctx.fillText(`${this.playerName} – Pts: ${this.points}`, offsetX + 5, offsetY - 10);
+        ctx.fillText(`Monedero: ${this.wallet}`, offsetX + 5, offsetY - 25);
+        if(this.comboCount > 1) {
+            ctx.fillStyle = '#ff0';
+            ctx.fillText(`Combo x${this.comboCount}`, offsetX + 5, offsetY - 40);
+        }
+    }
+}
+
+// ==================== SISTEMA DE DISPARO (con predicción de rebotes) ====================
+class Shooter {
+    constructor(board, rivalBoard, audio) {
+        this.board = board;
+        this.rivalBoard = rivalBoard;
+        this.audio = audio;
+        this.angle = 0; // radianes: 0 = recto hacia arriba
+        this.nextCoinValue = 1;
+        this.cooldown = 0;
+        this._updateNextCoin();
+    }
+
+    _updateNextCoin() {
+        const vals = [1,5,10,25];
+        this.nextCoinValue = vals[Math.floor(Math.random() * vals.length)];
+    }
+
+    // Devuelve la posición inicial del disparo (centro abajo del tablero)
+    _startPos() {
+        return {
+            x: this.board.offsetX + this.board.cols * this.board.cellSize / 2,
+            y: this.board.offsetY + this.board.rows * this.board.cellSize + 20
+        };
+    }
+
+    // Simula la trayectoria y devuelve { path: [{x,y}], hitCol: col, hitRow: row } donde la moneda tocaría
+    _simulatePath() {
+        const start = this._startPos();
+        const dir = { x: Math.sin(this.angle), y: -Math.cos(this.angle) }; // hacia arriba
+        const boardLeft = this.board.offsetX;
+        const boardRight = boardLeft + this.board.cols * this.board.cellSize;
+        const boardTop = this.board.offsetY;
+        const step = 1; // píxeles
+
+        let pos = { x: start.x, y: start.y };
+        let vx = dir.x, vy = dir.y;
+        const path = [{ x: pos.x, y: pos.y }];
+
+        while(pos.y > boardTop) {
+            pos.x += vx * step;
+            pos.y += vy * step;
+            path.push({ x: pos.x, y: pos.y });
+
+            // Rebote en paredes laterales
+            if(pos.x <= boardLeft + 0.5) { pos.x = boardLeft + 0.5; vx = Math.abs(vx); }
+            else if(pos.x >= boardRight - 0.5) { pos.x = boardRight - 0.5; vx = -Math.abs(vx); }
+
+            // Colisión con una moneda
+            const col = Math.floor((pos.x - boardLeft) / this.board.cellSize);
+            const row = Math.floor((pos.y - boardTop) / this.board.cellSize);
+            if(col >= 0 && col < this.board.cols && row >= 0 && row < this.board.rows && this.board.grid[row][col]) {
+                // La moneda se detiene antes de chocar; el punto de impacto es justo debajo de esta celda
+                // pero para que quede pegada, la celda de destino será la primera libre desde el techo en esa columna
+                return { path, hitCol: col };
+            }
+        }
+        // Llegó al techo sin tocar moneda
+        return { path, hitCol: Math.floor((pos.x - boardLeft) / this.board.cellSize) };
+    }
+
+    // Dispara la moneda
+    fire() {
+        if(this.board.gameOver || this.cooldown > 0) return;
+        const { hitCol } = this._simulatePath();
+        if(hitCol < 0 || hitCol >= this.board.cols) return;
+        const col = hitCol;
+        if(this.board.placeInColumn(col, this.nextCoinValue)) {
+            if(this.audio) this.audio.playPlace();
+            // Iniciar fusión local desde la nueva celda (buscamos la celda exacta donde se colocó)
+            // placeInColumn ya la puso en la primera fila libre, así que podemos buscar esa celda
+            for(let row = 0; row < this.board.rows; row++) {
+                if(this.board.grid[row][col] && this.board.grid[row][col].value === this.nextCoinValue) {
+                    this.board.resolveLocal(row, col);
+                    break;
+                }
+            }
+            this.cooldown = 0.15;
+            this._updateNextCoin();
+        }
+    }
+
+    update(dt) {
+        this.cooldown = Math.max(0, this.cooldown - dt);
+    }
+
+    // Dibuja la mira, la moneda actual y la línea de trayectoria
+    draw(ctx) {
+        const start = this._startPos();
+        // Moneda actual abajo
+        const val = this.nextCoinValue;
+        ctx.fillStyle = CFG.COLORS[val] || '#fff';
+        ctx.beginPath();
+        ctx.arc(start.x, start.y, this.board.cellSize/2.2, 0, Math.PI*2);
+        ctx.fill();
+        ctx.fillStyle = '#000';
+        ctx.font = 'bold 10px monospace';
+        ctx.textAlign = 'center';
+        ctx.fillText(val, start.x, start.y + 3);
+
+        // Línea de trayectoria
+        const { path } = this._simulatePath();
+        ctx.strokeStyle = 'rgba(255,255,0,0.7)';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(path[0].x, path[0].y);
+        for(let i = 1; i < path.length; i++) ctx.lineTo(path[i].x, path[i].y);
+        ctx.stroke();
+
+        // Resaltar columna de impacto
+        const { hitCol } = this._simulatePath();
+        if(hitCol >= 0 && hitCol < this.board.cols) {
+            const x = this.board.offsetX + hitCol * this.board.cellSize;
+            ctx.fillStyle = 'rgba(255,255,0,0.2)';
+            ctx.fillRect(x, this.board.offsetY, this.board.cellSize, this.board.rows * this.board.cellSize);
+        }
+    }
+}
+
+// ==================== IA SIMPLE ====================
+class SimpleAI {
+    constructor(board, rivalBoard, audio) {
+        this.board = board;
+        this.rivalBoard = rivalBoard;
+        this.audio = audio;
+        this.timer = 2.0;
+        this.aimAngle = 0;
+    }
+
+    update(dt) {
+        if(this.board.gameOver) return;
+        this.timer -= dt;
+        if(this.timer <= 0) {
+            this.timer = 1.5 + Math.random() * 2.0;
+            this._shoot();
+        }
+    }
+
+    _shoot() {
+        const vals = [1,5,10,25];
+        const val = vals[Math.floor(Math.random() * vals.length)];
+        const col = Math.floor(Math.random() * this.board.cols);
+        if(this.board.placeInColumn(col, val)) {
+            for(let row = 0; row < this.board.rows; row++) {
+                if(this.board.grid[row][col] && this.board.grid[row][col].value === val) {
+                    this.board.resolveLocal(row, col);
+                    break;
+                }
+            }
+        }
+    }
+}
+
+// ==================== RENDERER ====================
+class Renderer {
+    constructor(canvas) { this.canvas = canvas; this.ctx = canvas.getContext('2d'); }
+    clear() { this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height); }
+    drawUI(game) {
+        const ctx = this.ctx;
+        ctx.fillStyle = '#fff'; ctx.font = '14px monospace'; ctx.textAlign = 'center';
+        ctx.fillText(`Meta: ${CFG.WIN_SCORE}`, this.canvas.width / 2, 20);
+    }
+}
+
+// ==================== JUEGO PRINCIPAL ====================
+class Game {
+    constructor(canvas) {
+        this.canvas = canvas;
+        this.audio = new AudioService(); this.audio.init();
+        this.eventBus = new EventBus();
+
+        const boardWidth = CFG.COLS * CFG.CELL_SIZE;
+        const leftX = CFG.BOARD_OFFSET_X;
+        const rightX = canvas.width - boardWidth - CFG.BOARD_OFFSET_X;
+
+        // Crear tableros (referencia al rival para ataques)
+        this.playerBoard = new Board(CFG.COLS, CFG.ROWS, leftX, CFG.BOARD_OFFSET_Y, CFG.CELL_SIZE, 'Tú', this.eventBus);
+        this.iaBoard = new Board(CFG.COLS, CFG.ROWS, rightX, CFG.BOARD_OFFSET_Y, CFG.CELL_SIZE, 'IA', this.eventBus);
+        this.playerBoard.rivalBoard = this.iaBoard;
+        this.iaBoard.rivalBoard = this.playerBoard;
+        this.playerBoard.audio = this.audio;
+        this.iaBoard.audio = null; // IA no necesita sonido
+
+        this.playerBoard.attackInterval = CFG.PLAYER_ATTACK_INTERVAL;
+        this.iaBoard.attackInterval = CFG.IA_ATTACK_INTERVAL;
+
+        this.shooter = new Shooter(this.playerBoard, this.iaBoard, this.audio);
+        this.ia = new SimpleAI(this.iaBoard, this.playerBoard, this.audio);
+        this.renderer = new Renderer(canvas);
+
+        this.paused = false;
+        this.lastTime = performance.now();
+
+        this._initMenu();
+        this._bindEvents();
+        this._subscribeEvents();
+
+        requestAnimationFrame(this._loop.bind(this));
+    }
+
+    _subscribeEvents() {
+        this.eventBus.on('gameOver', (data) => {
+            if(data.board === this.playerBoard || data.board === this.iaBoard) this._gameOver();
+        });
+    }
+
+    _bindEvents() {
+        document.addEventListener('keydown', e => {
+            if(e.key === 'Tab') { e.preventDefault(); this.toggleMenu(); }
+            if(e.key === 'ArrowLeft') this.shooter.angle = Math.max(-CFG.MAX_ANGLE, this.shooter.angle - 0.03);
+            if(e.key === 'ArrowRight') this.shooter.angle = Math.min(CFG.MAX_ANGLE, this.shooter.angle + 0.03);
+            if(e.key === ' ') { e.preventDefault(); this.shooter.fire(); }
+        });
+        this.canvas.addEventListener('mousemove', e => {
+            const rect = this.canvas.getBoundingClientRect();
+            const mx = e.clientX - rect.left, my = e.clientY - rect.top;
+            const start = this.shooter._startPos();
+            this.shooter.angle = Math.atan2(mx - start.x, -(my - start.y));
+            this.shooter.angle = Math.max(-CFG.MAX_ANGLE, Math.min(CFG.MAX_ANGLE, this.shooter.angle));
+        });
+        this.canvas.addEventListener('click', e => {
+            const rect = this.canvas.getBoundingClientRect();
+            const mx = e.clientX - rect.left;
+            // Solo disparar si el clic está en el tablero del jugador o en la zona de disparo
+            if(mx < this.canvas.width / 2) this.shooter.fire();
+        });
+        document.getElementById('close-menu').addEventListener('click', () => this.toggleMenu());
+        document.getElementById('restart-btn').addEventListener('click', () => this.restart());
+    }
+
+    _initMenu() {
+        this.menuPanel = document.getElementById('side-menu');
+        this.tabButtons = document.querySelectorAll('#side-menu .tabs button');
+        this.tabContents = {
+            modules: document.getElementById('tab-modules'),
+            stats: document.getElementById('tab-stats'),
+            architect: document.getElementById('tab-architect')
+        };
+        this.tabButtons.forEach(btn => btn.addEventListener('click', () => this._switchTab(btn.dataset.tab)));
+        this._buildArchitectTab();
+    }
+
+    toggleMenu() {
+        if(this.menuPanel.style.display === 'block') { this.menuPanel.style.display = 'none'; this.paused = false; }
+        else { this.paused = true; this._refreshModulesTab(); this._refreshStatsTab(); this.menuPanel.style.display = 'block'; }
+    }
+
+    _switchTab(id) {
+        this.tabButtons.forEach(b => b.classList.remove('active'));
+        document.querySelector(`[data-tab="${id}"]`).classList.add('active');
+        Object.values(this.tabContents).forEach(d => d.classList.remove('active'));
+        this.tabContents[id].classList.add('active');
+        if(id === 'modules') this._refreshModulesTab();
+        else if(id === 'stats') this._refreshStatsTab();
+    }
+
+    _refreshModulesTab() {
+        let html = '<h4>Ranuras equipadas</h4>';
+        for(let i = 0; i < this.playerBoard.modules.length; i++) {
+            const mod = this.playerBoard.modules[i];
+            html += `<div class="module-slot"><span>Ranura ${i+1}: ${mod ? mod.name + ' (' + mod.rarity + ')' : 'vacía'}</span>${mod ? `<button onclick="window.game.removeModule(${i})">X</button>` : ''}</div>`;
+        }
+        html += '<h4>Inventario</h4>';
+        if(this.playerBoard.inventory.length === 0) html += '<p>Vacío</p>';
+        else {
+            this.playerBoard.inventory.forEach((mod, idx) => {
+                html += `<div class="module-slot"><span>${mod.name} (${mod.rarity}) - ${mod.desc}</span><button onclick="window.game.equipModule(${idx})">Equipar</button></div>`;
+            });
+        }
+        this.tabContents.modules.innerHTML = html;
+    }
+
+    _refreshStatsTab() {
+        this.tabContents.stats.innerHTML = `
+            <p>Puntos: ${this.playerBoard.points}/${CFG.WIN_SCORE}</p>
+            <p>Monedero: ${this.playerBoard.wallet}</p>
+            <p>Multiplicador: x${this.playerBoard.scoreMultiplier}</p>
+            <p>Bonus: +${this.playerBoard.scoreBonus}</p>
+            <p>Escudos: ${this.playerBoard.shieldCharges}</p>`;
+    }
+
+    _buildArchitectTab() {
+        let html = '<h4>Parámetros</h4>';
+        html += `Ángulo máx. <input type="range" min="0.3" max="1.5" step="0.05" value="${CFG.MAX_ANGLE}" oninput="CFG.MAX_ANGLE=parseFloat(this.value);"><br>`;
+        html += `Ataque auto jug. (s) <input type="range" min="3" max="15" step="0.5" value="${CFG.PLAYER_ATTACK_INTERVAL}" oninput="CFG.PLAYER_ATTACK_INTERVAL=parseFloat(this.value);window.game.playerBoard.attackInterval=CFG.PLAYER_ATTACK_INTERVAL;"><br>`;
+        html += `Ataque auto IA (s) <input type="range" min="3" max="15" step="0.5" value="${CFG.IA_ATTACK_INTERVAL}" oninput="CFG.IA_ATTACK_INTERVAL=parseFloat(this.value);window.game.iaBoard.attackInterval=CFG.IA_ATTACK_INTERVAL;"><br>`;
+        html += `Filas iniciales <input type="range" min="1" max="8" value="${CFG.INITIAL_FILLED_ROWS}" oninput="CFG.INITIAL_FILLED_ROWS=parseInt(this.value);"><br>`;
+        html += `<button onclick="window.game.restart()">Aplicar y reiniciar</button>`;
+        this.tabContents.architect.innerHTML = html;
+    }
+
+    removeModule(slot) {
+        if(this.playerBoard.modules[slot]) {
+            this.playerBoard.inventory.push(this.playerBoard.modules[slot]);
+            this.playerBoard.modules[slot] = null;
+            this._recalcBoardEffects(); this._refreshModulesTab();
+        }
+    }
+    equipModule(invIdx) {
+        const mod = this.playerBoard.inventory[invIdx];
+        if(!mod) return;
+        let slot = this.playerBoard.modules.indexOf(null);
+        if(slot === -1) slot = 0;
+        if(this.playerBoard.modules[slot]) this.playerBoard.inventory.push(this.playerBoard.modules[slot]);
+        this.playerBoard.modules[slot] = mod;
+        this.playerBoard.inventory.splice(invIdx, 1);
+        this._recalcBoardEffects(); this._refreshModulesTab();
+    }
+    _recalcBoardEffects() {
+        this.playerBoard.scoreMultiplier = 1; this.playerBoard.scoreBonus = 0;
+        this.playerBoard.shieldCharges = 0; this.playerBoard.penaltyChanceBonus = 0;
+        for(const mod of this.playerBoard.modules) if(mod) mod.apply(this.playerBoard, this.iaBoard);
+    }
+
+    _update(dt) {
+        if(this.paused) return;
+        this.shooter.update(dt);
+        this.playerBoard.update(dt);
+        this.iaBoard.update(dt);
+        this.ia.update(dt);
+        if(this.playerBoard.points >= CFG.WIN_SCORE || this.iaBoard.points >= CFG.WIN_SCORE) this._gameOver();
+    }
+
+    _draw() {
+        this.renderer.clear();
+        this.playerBoard.draw(this.renderer.ctx);
+        this.iaBoard.draw(this.renderer.ctx);
+        this.shooter.draw(this.renderer.ctx);
+        this.renderer.drawUI(this);
+    }
+
+    _gameOver() {
+        this.paused = true;
+        const winner = this.playerBoard.points >= CFG.WIN_SCORE ? '¡Has ganado!' : 'La IA ha ganado.';
+        document.getElementById('gameover-msg').innerText = winner;
+        document.getElementById('gameover-panel').style.display = 'block';
+    }
+
+    restart() {
+        const boardWidth = CFG.COLS * CFG.CELL_SIZE;
+        const leftX = CFG.BOARD_OFFSET_X;
+        const rightX = this.canvas.width - boardWidth - CFG.BOARD_OFFSET_X;
+        this.playerBoard = new Board(CFG.COLS, CFG.ROWS, leftX, CFG.BOARD_OFFSET_Y, CFG.CELL_SIZE, 'Tú', this.eventBus);
+        this.iaBoard = new Board(CFG.COLS, CFG.ROWS, rightX, CFG.BOARD_OFFSET_Y, CFG.CELL_SIZE, 'IA', this.eventBus);
+        this.playerBoard.rivalBoard = this.iaBoard;
+        this.iaBoard.rivalBoard = this.playerBoard;
+        this.playerBoard.audio = this.audio;
+        this.iaBoard.audio = null;
+        this.playerBoard.attackInterval = CFG.PLAYER_ATTACK_INTERVAL;
+        this.iaBoard.attackInterval = CFG.IA_ATTACK_INTERVAL;
+        this.shooter = new Shooter(this.playerBoard, this.iaBoard, this.audio);
+        this.ia = new SimpleAI(this.iaBoard, this.playerBoard, this.audio);
+        this.paused = false;
+        document.getElementById('gameover-panel').style.display = 'none';
+    }
+
+    _loop(now) {
+        const dt = Math.min((now - this.lastTime) / 1000, 0.1);
+        this.lastTime = now;
+        this._update(dt);
+        this._draw();
+        requestAnimationFrame(this._loop.bind(this));
+    }
+}
+
+// ==================== ARRANQUE ====================
+window.addEventListener('load', () => {
+    const canvas = document.getElementById('game');
+    canvas.width = Math.max(960, window.innerWidth);
+    canvas.height = Math.max(640, window.innerHeight);
+    window.game = new Game(canvas);
+});
+</script>
+</body>
+</html>
