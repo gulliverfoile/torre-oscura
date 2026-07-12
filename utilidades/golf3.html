@@ -1,0 +1,597 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>Neo Turf Masters – Golf Mejorado</title>
+    <style>
+        * { margin:0; padding:0; box-sizing:border-box; }
+        body { background:#1a3a1a; display:flex; justify-content:center; align-items:center; height:100vh; overflow:hidden; font-family:monospace; }
+        canvas { display:block; }
+        #ui {
+            position:absolute; top:10px; left:50%; transform:translateX(-50%);
+            color:white; background:rgba(0,0,0,0.6); padding:8px 16px; border-radius:8px;
+            text-align:center; pointer-events:none; font-size:14px;
+        }
+        #ui div { display:inline-block; margin:0 15px; }
+    </style>
+</head>
+<body>
+    <canvas id="gameCanvas" width="1000" height="600"></canvas>
+    <div id="ui">
+        <div>🏌️ <span id="yards">0</span> yd</div>
+        <div>🌬️ <span id="windInfo">0</span></div>
+        <div>⚡ <span id="powerDisplay">0</span>%</div>
+        <div>📈 <span id="heightDisplay">Medio</span></div>
+        <div>🕳️ <span id="putts">0</span> putts</div>
+        <div>🏆 <span id="parDisplay">Par 4</span></div>
+    </div>
+    <script>
+        // ==================== CONFIGURACIÓN ====================
+        const CONFIG = {
+            worldWidth: 3000,
+            worldHeight: 1500,
+            maxClubDistance: 500,
+            heightEffectOnDistance: 0.15,
+            heightWindFactor: 0.5,
+            windMaxSpeed: 60,
+            gravity: 800,
+            treeCollisionRadius: 20,
+            greenRadius: 60,
+            holeRadius: 8,
+            puttMaxPower: 300,
+            puttFriction: 0.97,
+            shotAngleError: 0.02,
+            shotPowerError: 0.02,
+            cameraSmooth: 0.1,
+            roughPenalty: 0.7,
+            bunkerPenalty: 0.5,
+            waterDropDistance: 30,
+            greenSlopeStrength: 60,
+        };
+
+        // ==================== EVENT BUS ====================
+        class EventBus {
+            constructor() { this._listeners = {}; }
+            on(event, callback) { (this._listeners[event] = this._listeners[event] || []).push(callback); }
+            off(event, callback) { if(this._listeners[event]) this._listeners[event] = this._listeners[event].filter(cb => cb !== callback); }
+            emit(event, data) { (this._listeners[event] || []).forEach(cb => cb(data)); }
+        }
+
+        // ==================== GENERADOR DE HOYOS ====================
+        class HoleGenerator {
+            constructor() { this.seed = Math.random(); }
+            generate(par = 4) {
+                let length;
+                switch(par) {
+                    case 3: length = 300 + Math.random() * 200; break;
+                    case 4: length = 500 + Math.random() * 400; break;
+                    case 5: length = 700 + Math.random() * 400; break;
+                    default: length = 500 + Math.random() * 400;
+                }
+                const margin = 200;
+                const teeX = margin + Math.random() * 300;
+                const teeY = CONFIG.worldHeight / 2 + (Math.random() - 0.5) * 400;
+                let greenX = teeX + length * (0.8 + Math.random() * 0.4);
+                let greenY = teeY + (Math.random() - 0.5) * 600;
+                greenX = Math.min(CONFIG.worldWidth - margin, Math.max(margin, greenX));
+                greenY = Math.min(CONFIG.worldHeight - margin, Math.max(margin, greenY));
+
+                const bunkers = [];
+                const trees = [];
+                const water = [];
+
+                const numTreeGroups = 3 + Math.floor(Math.random() * 5);
+                for (let i = 0; i < numTreeGroups; i++) {
+                    const groupX = teeX + (greenX - teeX) * (0.2 + Math.random() * 0.6);
+                    const groupY = teeY + (greenY - teeY) * (0.2 + Math.random() * 0.6) + (Math.random() - 0.5) * 300;
+                    const count = 3 + Math.floor(Math.random() * 8);
+                    for (let j = 0; j < count; j++) {
+                        trees.push({
+                            x: groupX + (Math.random() - 0.5) * 150,
+                            y: groupY + (Math.random() - 0.5) * 150,
+                            radius: 10 + Math.random() * 20,
+                        });
+                    }
+                }
+
+                const numBunkers = 2 + Math.floor(Math.random() * 4);
+                for (let i = 0; i < numBunkers; i++) {
+                    const bx = teeX + (greenX - teeX) * (0.3 + Math.random() * 0.6);
+                    const by = teeY + (greenY - teeY) * (0.2 + Math.random() * 0.6) + (Math.random() - 0.5) * 200;
+                    bunkers.push({
+                        x: bx, y: by,
+                        width: 40 + Math.random() * 60,
+                        height: 30 + Math.random() * 40,
+                    });
+                }
+
+                if (Math.random() < 0.4) {
+                    const wx = teeX + (greenX - teeX) * (0.4 + Math.random() * 0.4);
+                    const wy = teeY + (greenY - teeY) * (0.3 + Math.random() * 0.4);
+                    water.push({
+                        x: wx, y: wy,
+                        width: 80 + Math.random() * 120,
+                        height: 60 + Math.random() * 100,
+                    });
+                }
+
+                const windAngle = Math.random() * Math.PI * 2;
+                const windSpeed = 10 + Math.random() * CONFIG.windMaxSpeed;
+
+                const greenCenterX = greenX;
+                const greenCenterY = greenY;
+                const slopeAngle = Math.random() * Math.PI * 2;
+                const slopeMagnitude = 0.3 + Math.random() * 0.7;
+                const slope = { angle: slopeAngle, magnitude: slopeMagnitude };
+
+                const holeX = greenX + (Math.random() - 0.5) * 30;
+                const holeY = greenY + (Math.random() - 0.5) * 30;
+
+                return new Hole({
+                    par, teeX, teeY,
+                    greenCenterX, greenCenterY,
+                    greenRadius: CONFIG.greenRadius,
+                    holeX, holeY,
+                    length, trees, bunkers, water,
+                    windAngle, windSpeed, slope
+                });
+            }
+        }
+
+        // ==================== DATOS DEL HOYO ====================
+        class Hole {
+            constructor(data) {
+                this.par = data.par;
+                this.teeX = data.teeX; this.teeY = data.teeY;
+                this.greenCenterX = data.greenCenterX; this.greenCenterY = data.greenCenterY;
+                this.greenRadius = data.greenRadius;
+                this.holeX = data.holeX; this.holeY = data.holeY;
+                this.length = data.length;
+                this.trees = data.trees; this.bunkers = data.bunkers; this.water = data.water;
+                this.windAngle = data.windAngle; this.windSpeed = data.windSpeed;
+                this.slope = data.slope;
+            }
+            getTerrainAt(x, y) {
+                if (Math.hypot(x - this.greenCenterX, y - this.greenCenterY) < this.greenRadius) return 'green';
+                for (const w of this.water)
+                    if (x > w.x - w.width/2 && x < w.x + w.width/2 && y > w.y - w.height/2 && y < w.y + w.height/2) return 'water';
+                for (const b of this.bunkers)
+                    if (x > b.x - b.width/2 && x < b.x + b.width/2 && y > b.y - b.height/2 && y < b.y + b.height/2) return 'bunker';
+                return 'rough';
+            }
+            distanceToGreen(x, y) {
+                return Math.hypot(x - this.greenCenterX, y - this.greenCenterY) - this.greenRadius;
+            }
+            isInWater(x, y) {
+                for (const w of this.water)
+                    if (x > w.x - w.width/2 && x < w.x + w.width/2 && y > w.y - w.height/2 && y < w.y + w.height/2) return true;
+                return false;
+            }
+            getWaterDropPoint(x, y) {
+                const dx = x - this.greenCenterX, dy = y - this.greenCenterY;
+                const dist = Math.hypot(dx, dy);
+                if (dist === 0) return { x, y };
+                const normX = dx / dist, normY = dy / dist;
+                let dropX = x, dropY = y;
+                while (this.isInWater(dropX, dropY)) { dropX += normX * 5; dropY += normY * 5; }
+                dropX += normX * CONFIG.waterDropDistance;
+                dropY += normY * CONFIG.waterDropDistance;
+                return { x: dropX, y: dropY };
+            }
+            getSlopeAccel(x, y) {
+                if (this.getTerrainAt(x, y) !== 'green') return { ax: 0, ay: 0 };
+                const angle = this.slope.angle;
+                const mag = this.slope.magnitude * CONFIG.greenSlopeStrength;
+                return { ax: Math.cos(angle) * mag, ay: Math.sin(angle) * mag };
+            }
+        }
+
+        // ==================== BOLA ====================
+        class Ball {
+            constructor(x, y) {
+                this.x = x; this.y = y;
+                this.vx = 0; this.vy = 0; this.z = 0; this.vz = 0;
+                this.state = 'idle';
+                this.trajectory = null; this.trajIndex = 0;
+                this.onGround = true;
+            }
+            launch(vx, vy, vz) {
+                this.vx = vx; this.vy = vy; this.vz = vz; this.z = 0;
+                this.state = 'flying'; this.onGround = false;
+                this.trajectory = null; this.trajIndex = 0;
+            }
+            precalculateTrajectory(hole, wind) {
+                const points = [];
+                let x = this.x, y = this.y, z = 0;
+                let vx = this.vx, vy = this.vy, vz = this.vz;
+                const dt = 0.05, maxTime = 10;
+                for (let t = 0; t < maxTime; t += dt) {
+                    const windFactor = 1 + (z / 100) * CONFIG.heightWindFactor;
+                    vx += wind.speed * Math.cos(wind.angle) * windFactor * dt;
+                    vy += wind.speed * Math.sin(wind.angle) * windFactor * dt;
+                    vz -= CONFIG.gravity * dt;
+                    x += vx * dt; y += vy * dt; z += vz * dt;
+                    if (z <= 0) { points.push({ x, y, z:0, colision:null }); break; }
+                    let colision = null;
+                    for (const tree of hole.trees) {
+                        if (Math.hypot(x-tree.x, y-tree.y) < tree.radius + CONFIG.treeCollisionRadius && z < 60) {
+                            colision = { type:'tree', tree }; break;
+                        }
+                    }
+                    if (colision) { points.push({ x, y, z, colision }); break; }
+                    if (z < 10 && hole.isInWater(x, y)) {
+                        colision = { type:'water' }; points.push({ x, y, z:0, colision }); break;
+                    }
+                    points.push({ x, y, z, colision:null });
+                }
+                this.trajectory = points; this.trajIndex = 0;
+            }
+            updateFlight(dt) {
+                if (!this.trajectory || this.trajIndex >= this.trajectory.length) {
+                    this.z += this.vz * dt; this.x += this.vx * dt; this.y += this.vy * dt;
+                    this.vz -= CONFIG.gravity * dt;
+                    if (this.z <= 0) { this.z = 0; this.state = 'rolling'; this.onGround = true; }
+                    return;
+                }
+                const steps = Math.ceil(dt / 0.05);
+                for (let i=0; i<steps; i++) {
+                    if (this.trajIndex >= this.trajectory.length) break;
+                    const pt = this.trajectory[this.trajIndex];
+                    this.x = pt.x; this.y = pt.y; this.z = pt.z;
+                    if (pt.colision) { this.handleCollision(pt.colision); this.trajIndex = this.trajectory.length; return; }
+                    this.trajIndex++;
+                }
+                if (this.trajIndex >= this.trajectory.length) {
+                    this.z = 0; this.state = 'rolling'; this.onGround = true;
+                    const last = this.trajectory[this.trajectory.length-1];
+                    if (last) {
+                        const prev = this.trajectory[Math.max(0, this.trajectory.length-2)];
+                        if (prev) { this.vx = (last.x-prev.x)/0.05; this.vy = (last.y-prev.y)/0.05; }
+                    }
+                }
+            }
+            handleCollision(col) {
+                if (col.type === 'tree') { this.vx=0; this.vy=0; this.vz=0; this.z=0; this.state='stopped'; this.onGround=true; }
+                else if (col.type === 'water') { this.state = 'water'; }
+            }
+            updateRolling(dt, hole) {
+                const terrain = hole.getTerrainAt(this.x, this.y);
+                let mult = 1;
+                if (terrain === 'green') mult = 0.95;
+                else if (terrain === 'bunker') mult = 0.7;
+                else if (terrain === 'rough') mult = 0.85;
+                this.vx *= (0.9 * mult); this.vy *= (0.9 * mult);
+                this.x += this.vx * dt; this.y += this.vy * dt;
+                if (hole.isInWater(this.x, this.y)) { this.state = 'water'; return; }
+                if (Math.abs(this.vx) < 1 && Math.abs(this.vy) < 1) { this.vx=0; this.vy=0; this.state='stopped'; }
+                if (terrain === 'green' && Math.hypot(this.x-hole.holeX, this.y-hole.holeY) < CONFIG.holeRadius)
+                    this.state = 'inHole';
+            }
+            launchPutt(vx, vy) {
+                this.vx = vx; this.vy = vy; this.z = 0;
+                this.state = 'puttingFlight'; this.onGround = true;
+            }
+            updatePutt(dt, hole) {
+                this.vx *= CONFIG.puttFriction; this.vy *= CONFIG.puttFriction;
+                const slope = hole.getSlopeAccel(this.x, this.y);
+                this.vx += slope.ax * dt; this.vy += slope.ay * dt;
+                this.x += this.vx * dt; this.y += this.vy * dt;
+                if (hole.getTerrainAt(this.x, this.y) === 'green' &&
+                    Math.hypot(this.x-hole.holeX, this.y-hole.holeY) < CONFIG.holeRadius + 3) {
+                    this.state = 'inHole'; return;
+                }
+                if (Math.abs(this.vx) < 0.5 && Math.abs(this.vy) < 0.5) {
+                    this.vx = 0; this.vy = 0; this.state = 'stopped';
+                }
+            }
+        }
+
+        // ==================== JUEGO PRINCIPAL ====================
+        class Game {
+            constructor(canvas) {
+                this.canvas = canvas;
+                this.ctx = canvas.getContext('2d');
+                this.eventBus = new EventBus();
+                this.hole = null; this.ball = null;
+                this.state = 'generating';
+                this.powerValue = 0; this.powerDirection = 1;
+                this.heightValue = 0; this.heightDirection = 1;
+                this.puttPower = 0; this.puttDirection = 0; this.puttPowerDir = 1;
+                this.putts = 0; this.score = 0;
+                this.camera = { x:0, y:0 }; this.cameraTarget = { x:0, y:0 };
+                this.input = new InputHandler(canvas);
+                this.lastTime = performance.now();
+                this.oscSpeed = 80; this.heightOscSpeed = 1.2;
+                this.generateNewHole();
+                this.state = 'aiming';
+                this.updateCameraTarget();
+                requestAnimationFrame(t => this.loop(t));
+            }
+            generateNewHole() {
+                const gen = new HoleGenerator();
+                const par = 3 + Math.floor(Math.random()*3);
+                this.hole = gen.generate(par);
+                this.ball = new Ball(this.hole.teeX, this.hole.teeY);
+                this.putts = 0;
+                this.state = 'aiming';
+                document.getElementById('parDisplay').textContent = `Par ${par}`;
+            }
+            updateCameraTarget() {
+                this.cameraTarget.x = this.ball.x - this.canvas.width/2;
+                this.cameraTarget.y = this.ball.y - this.canvas.height/2;
+            }
+            handleInput() {
+                if (this.state === 'aiming' && this.input.isSpacePressed()) this.startPowerOsc();
+                else if (this.state === 'powerOsc' && this.input.isSpacePressed()) this.lockPower();
+                else if (this.state === 'heightOsc' && this.input.isSpacePressed()) this.lockHeight();
+                else if (this.state === 'puttingAim' && this.input.isSpacePressed()) this.startPuttPower();
+                else if (this.state === 'puttingPowerOsc' && this.input.isSpacePressed()) this.lockPuttPower();
+            }
+            startPowerOsc() { this.state='powerOsc'; this.powerValue=0; this.powerDirection=1; }
+            lockPower() { this.state='heightOsc'; this.heightValue=0; this.heightDirection=1; }
+            lockHeight() { this.shoot(); }
+            startPuttPower() {
+                this.state = 'puttingPowerOsc';
+                this.puttPower = 0; this.puttPowerDir = 1;
+                this.puttDirection = this.input.getAimAngle(
+                    this.ball.x - this.camera.x,
+                    this.ball.y - this.camera.y
+                );
+            }
+            lockPuttPower() {
+                const power = this.puttPower/100 * CONFIG.puttMaxPower;
+                this.ball.launchPutt(Math.cos(this.puttDirection)*power, Math.sin(this.puttDirection)*power);
+                this.state = 'puttFlight'; this.putts++;
+            }
+            shoot() {
+                const power = this.powerValue/100;
+                const heightNorm = this.heightValue;
+                const distFactor = 1 - CONFIG.heightEffectOnDistance * heightNorm*heightNorm;
+                const distance = CONFIG.maxClubDistance * power * distFactor;
+                const baseAngle = this.input.getAimAngle(
+                    this.ball.x - this.camera.x,
+                    this.ball.y - this.camera.y
+                );
+                const angleErr = (Math.random()-0.5)*CONFIG.shotAngleError*2;
+                const powerErr = 1 + (Math.random()-0.5)*CONFIG.shotPowerError*2;
+                const finalAngle = baseAngle + angleErr;
+                const finalDist = distance * powerErr;
+                const vx = Math.cos(finalAngle) * finalDist * 1.2;
+                const vy = Math.sin(finalAngle) * finalDist * 1.2;
+                const vz = 300 * (1 + heightNorm*0.8);
+                this.ball.launch(vx, vy, vz);
+                this.ball.precalculateTrajectory(this.hole, {
+                    speed: this.hole.windSpeed,
+                    angle: this.hole.windAngle
+                });
+                this.state = 'flight';
+                this.updateCameraTarget();
+            }
+            update(dt) {
+                this.camera.x += (this.cameraTarget.x - this.camera.x) * CONFIG.cameraSmooth;
+                this.camera.y += (this.cameraTarget.y - this.camera.y) * CONFIG.cameraSmooth;
+                if (this.state === 'powerOsc') {
+                    this.powerValue += this.oscSpeed * dt * this.powerDirection;
+                    if (this.powerValue >= 100) { this.powerValue=100; this.powerDirection=-1; }
+                    if (this.powerValue <= 0) { this.powerValue=0; this.powerDirection=1; }
+                } else if (this.state === 'heightOsc') {
+                    this.heightValue += this.heightOscSpeed * dt * this.heightDirection;
+                    if (this.heightValue >= 1) { this.heightValue=1; this.heightDirection=-1; }
+                    if (this.heightValue <= -1) { this.heightValue=-1; this.heightDirection=1; }
+                } else if (this.state === 'puttingPowerOsc') {
+                    this.puttPower += this.oscSpeed * dt * this.puttPowerDir;
+                    if (this.puttPower >= 100) { this.puttPower=100; this.puttPowerDir=-1; }
+                    if (this.puttPower <= 0) { this.puttPower=0; this.puttPowerDir=1; }
+                }
+                if (this.state === 'flight') {
+                    this.ball.updateFlight(dt); this.updateCameraTarget();
+                    if (this.ball.state === 'rolling') this.state = 'rolling';
+                    else if (this.ball.state === 'stopped') { this.state='stopped'; this.evaluateBallPosition(); }
+                    else if (this.ball.state === 'water') this.handleWater();
+                } else if (this.state === 'rolling') {
+                    this.ball.updateRolling(dt, this.hole); this.updateCameraTarget();
+                    if (this.ball.state === 'stopped') { this.state='stopped'; this.evaluateBallPosition(); }
+                    else if (this.ball.state === 'inHole') { this.state='complete'; this.eventBus.emit('holeComplete'); }
+                    else if (this.ball.state === 'water') this.handleWater();
+                } else if (this.state === 'puttFlight') {
+                    this.ball.updatePutt(dt, this.hole); this.updateCameraTarget();
+                    if (this.ball.state === 'stopped') {
+                        this.state = 'puttingAim';
+                        if (this.ball.state === 'inHole') { this.state='complete'; this.eventBus.emit('holeComplete'); }
+                    } else if (this.ball.state === 'inHole') { this.state='complete'; this.eventBus.emit('holeComplete'); }
+                }
+            }
+            evaluateBallPosition() {
+                if (this.hole.getTerrainAt(this.ball.x, this.ball.y) === 'green') {
+                    this.state = 'puttingAim';
+                    this.cameraTarget.x = this.hole.greenCenterX - this.canvas.width/2;
+                    this.cameraTarget.y = this.hole.greenCenterY - this.canvas.height/2;
+                } else this.state = 'aiming';
+            }
+            handleWater() {
+                const dp = this.hole.getWaterDropPoint(this.ball.x, this.ball.y);
+                this.ball.x = dp.x; this.ball.y = dp.y;
+                this.ball.vx=0; this.ball.vy=0; this.ball.z=0;
+                this.ball.state='stopped'; this.state='aiming';
+                this.updateCameraTarget();
+            }
+            draw() {
+                const ctx = this.ctx;
+                ctx.clearRect(0,0,this.canvas.width,this.canvas.height);
+                ctx.fillStyle = '#87CEEB'; ctx.fillRect(0,0,this.canvas.width,this.canvas.height);
+                ctx.save();
+                ctx.translate(-this.camera.x, -this.camera.y);
+                ctx.fillStyle = '#3d5c1a'; ctx.fillRect(0,0,CONFIG.worldWidth,CONFIG.worldHeight);
+                ctx.fillStyle = '#2ca02c';
+                ctx.beginPath();
+                ctx.arc(this.hole.greenCenterX, this.hole.greenCenterY, this.hole.greenRadius, 0, Math.PI*2);
+                ctx.fill();
+                if (this.state.startsWith('putting')) {
+                    const s = this.hole.slope;
+                    const ax = this.hole.greenCenterX + Math.cos(s.angle)*25;
+                    const ay = this.hole.greenCenterY + Math.sin(s.angle)*25;
+                    ctx.strokeStyle='#fff'; ctx.lineWidth=3;
+                    ctx.beginPath(); ctx.moveTo(ax,ay);
+                    ctx.lineTo(ax+Math.cos(s.angle)*20, ay+Math.sin(s.angle)*20);
+                    ctx.stroke();
+                }
+                for (const w of this.hole.water) {
+                    ctx.fillStyle='#3182bd';
+                    ctx.fillRect(w.x-w.width/2, w.y-w.height/2, w.width, w.height);
+                }
+                for (const b of this.hole.bunkers) {
+                    ctx.fillStyle='#e6c280';
+                    ctx.fillRect(b.x-b.width/2, b.y-b.height/2, b.width, b.height);
+                }
+                for (const t of this.hole.trees) {
+                    ctx.fillStyle='#5a3e1b'; ctx.fillRect(t.x-3, t.y-10, 6, 20);
+                    ctx.fillStyle='#2d5a27'; ctx.beginPath(); ctx.arc(t.x, t.y-15, t.radius, 0, Math.PI*2); ctx.fill();
+                }
+                ctx.fillStyle='#000'; ctx.beginPath();
+                ctx.arc(this.hole.holeX, this.hole.holeY, CONFIG.holeRadius, 0, Math.PI*2); ctx.fill();
+                if (this.ball.state !== 'inHole') {
+                    ctx.save();
+                    let bx = this.ball.x, by = this.ball.y, sc = 1;
+                    if (!this.ball.onGround) { sc = Math.max(0.4, 1 - this.ball.z/400); by -= this.ball.z*0.5; }
+                    ctx.translate(bx, by); ctx.scale(sc, sc);
+                    ctx.fillStyle='#fff'; ctx.beginPath(); ctx.arc(0,0,8,0,Math.PI*2); ctx.fill();
+                    ctx.strokeStyle='#000'; ctx.lineWidth=1; ctx.stroke();
+                    ctx.restore();
+                }
+                if (this.state === 'aiming' || this.state === 'powerOsc' || this.state === 'heightOsc') {
+                    const ang = this.input.getAimAngle(this.ball.x-this.camera.x, this.ball.y-this.camera.y);
+                    ctx.strokeStyle='#ff0'; ctx.lineWidth=2; ctx.setLineDash([5,5]);
+                    ctx.beginPath(); ctx.moveTo(this.ball.x, this.ball.y);
+                    ctx.lineTo(this.ball.x+Math.cos(ang)*80, this.ball.y+Math.sin(ang)*80);
+                    ctx.stroke(); ctx.setLineDash([]);
+                }
+                ctx.restore();
+                this.drawMinimap();
+                this.drawGauges();
+                this.drawWindIndicator();
+            }
+            drawMinimap() {
+                const ctx = this.ctx;
+                const mmW = 280, mmH = 200;
+                const mmX = this.canvas.width - mmW - 20;  // <-- esquina superior derecha
+                const mmY = 20;
+                ctx.fillStyle = 'rgba(0,0,0,0.6)'; ctx.fillRect(mmX, mmY, mmW, mmH);
+                ctx.strokeStyle = '#fff'; ctx.lineWidth = 2; ctx.strokeRect(mmX, mmY, mmW, mmH);
+                const scaleX = mmW / CONFIG.worldWidth;
+                const scaleY = mmH / CONFIG.worldHeight;
+                ctx.fillStyle = '#2ca02c'; ctx.beginPath();
+                ctx.arc(mmX+this.hole.greenCenterX*scaleX, mmY+this.hole.greenCenterY*scaleY, this.hole.greenRadius*scaleX, 0, Math.PI*2);
+                ctx.fill();
+                for (const t of this.hole.trees) {
+                    ctx.fillStyle='#0a0'; ctx.fillRect(mmX+t.x*scaleX-2, mmY+t.y*scaleY-2, 4, 4);
+                }
+                for (const b of this.hole.bunkers) {
+                    ctx.fillStyle='#e6c280';
+                    ctx.fillRect(mmX+(b.x-b.width/2)*scaleX, mmY+(b.y-b.height/2)*scaleY, b.width*scaleX, b.height*scaleY);
+                }
+                for (const w of this.hole.water) {
+                    ctx.fillStyle='#3182bd';
+                    ctx.fillRect(mmX+(w.x-w.width/2)*scaleX, mmY+(w.y-w.height/2)*scaleY, w.width*scaleX, w.height*scaleY);
+                }
+                ctx.fillStyle='#fff'; ctx.beginPath();
+                ctx.arc(mmX+this.ball.x*scaleX, mmY+this.ball.y*scaleY, 5, 0, Math.PI*2); ctx.fill();
+                ctx.fillStyle='#000'; ctx.beginPath();
+                ctx.arc(mmX+this.hole.holeX*scaleX, mmY+this.hole.holeY*scaleY, 4, 0, Math.PI*2); ctx.fill();
+            }
+            drawGauges() {
+                const ctx = this.ctx;
+                const gx = this.canvas.width - 230, gy = this.canvas.height - 230;
+                ctx.strokeStyle = '#fff'; ctx.lineWidth = 18;
+                ctx.beginPath(); ctx.arc(gx+115, gy+115, 80, Math.PI, 0); ctx.stroke();
+                ctx.fillStyle = '#fff'; ctx.font = '10px monospace'; ctx.textAlign = 'center';
+                for (let i=0; i<=100; i+=25) {
+                    const a = Math.PI*(1 - i/100);
+                    ctx.fillText(i, gx+115+Math.cos(a)*80, gy+115-Math.sin(a)*80-8);
+                }
+                const pa = Math.PI*(1 - this.powerValue/100);
+                ctx.fillStyle='#f00'; ctx.beginPath();
+                ctx.arc(gx+115+Math.cos(pa)*80, gy+115-Math.sin(pa)*80, 7, 0, Math.PI*2); ctx.fill();
+                ctx.strokeStyle='#aaa'; ctx.lineWidth=12;
+                ctx.beginPath(); ctx.arc(gx+115, gy+115, 52, Math.PI, 0); ctx.stroke();
+                const ha = Math.PI*(0.5 - this.heightValue*0.5);
+                ctx.fillStyle='#00f'; ctx.beginPath();
+                ctx.arc(gx+115+Math.cos(ha)*52, gy+115-Math.sin(ha)*52, 5, 0, Math.PI*2); ctx.fill();
+                if (this.powerValue===100 || this.powerValue===0) {
+                    ctx.strokeStyle='#ff0'; ctx.lineWidth=4;
+                    ctx.beginPath(); ctx.arc(gx+115, gy+115, 80, Math.PI, 0); ctx.stroke();
+                }
+                if (this.heightValue===1 || this.heightValue===-1) {
+                    ctx.strokeStyle='#ff0'; ctx.lineWidth=3;
+                    ctx.beginPath(); ctx.arc(gx+115, gy+115, 52, Math.PI, 0); ctx.stroke();
+                }
+                ctx.fillStyle='#fff'; ctx.font='bold 12px monospace'; ctx.textAlign='center';
+                ctx.fillText('POTENCIA', gx+115, gy+20);
+                ctx.fillText('ALTURA', gx+115, gy+140);
+                if (this.state === 'puttingPowerOsc') {
+                    const pw=150, ph=15, pwx=gx+115-pw/2, pwy=gy-30;
+                    ctx.fillStyle='#333'; ctx.fillRect(pwx, pwy, pw, ph);
+                    ctx.fillStyle='#0f0'; ctx.fillRect(pwx, pwy, pw*(this.puttPower/100), ph);
+                    ctx.strokeStyle='#fff'; ctx.strokeRect(pwx, pwy, pw, ph);
+                    ctx.fillStyle='#fff'; ctx.font='10px monospace'; ctx.textAlign='center';
+                    ctx.fillText('Fuerza putt', gx+115, pwy-5);
+                }
+            }
+            drawWindIndicator() {
+                const ctx = this.ctx;
+                const wx=100, wy=30;
+                ctx.fillStyle='#fff'; ctx.font='14px monospace'; ctx.textAlign='center';
+                ctx.fillText('Viento', wx, wy-10);
+                const len = 30 + this.hole.windSpeed*0.5;
+                ctx.beginPath(); ctx.moveTo(wx,wy);
+                ctx.lineTo(wx+Math.cos(this.hole.windAngle)*len, wy-Math.sin(this.hole.windAngle)*len);
+                ctx.strokeStyle='#fff'; ctx.lineWidth=3; ctx.stroke();
+                ctx.fillText(`${Math.round(this.hole.windSpeed)}`, wx+25, wy+15);
+            }
+            loop(timestamp) {
+                const dt = Math.min((timestamp - this.lastTime)/1000, 0.1);
+                this.lastTime = timestamp;
+                this.input.update();
+                this.handleInput();
+                this.update(dt);
+                this.draw();
+                document.getElementById('yards').textContent = Math.round(this.hole.distanceToGreen(this.ball.x, this.ball.y));
+                document.getElementById('windInfo').textContent = `${Math.round(this.hole.windSpeed)} @ ${Math.round(this.hole.windAngle*180/Math.PI)}°`;
+                document.getElementById('powerDisplay').textContent = Math.round(this.powerValue);
+                document.getElementById('heightDisplay').textContent = this.heightValue < -0.3 ? 'Baja' : (this.heightValue > 0.3 ? 'Alta' : 'Media');
+                document.getElementById('putts').textContent = this.putts;
+                requestAnimationFrame(t => this.loop(t));
+            }
+        }
+
+        class InputHandler {
+            constructor(canvas) {
+                this.canvas = canvas;
+                this.mouse = { x: canvas.width/2, y: canvas.height/2 };
+                this.spacePressed = false; this._lastSpace = false;
+                canvas.addEventListener('mousemove', e => {
+                    const rect = canvas.getBoundingClientRect();
+                    this.mouse.x = (e.clientX - rect.left) * (canvas.width / rect.width);
+                    this.mouse.y = (e.clientY - rect.top) * (canvas.height / rect.height);
+                });
+                window.addEventListener('keydown', e => {
+                    if (e.code === 'Space') { e.preventDefault(); if (!this._lastSpace) this.spacePressed = true; this._lastSpace = true; }
+                });
+                window.addEventListener('keyup', e => { if (e.code === 'Space') this._lastSpace = false; });
+            }
+            isSpacePressed() { if (this.spacePressed) { this.spacePressed = false; return true; } return false; }
+            getAimAngle(ballScreenX, ballScreenY) {
+                return Math.atan2(this.mouse.y - ballScreenY, this.mouse.x - ballScreenX);
+            }
+            update() {}
+        }
+
+        window.addEventListener('DOMContentLoaded', () => {
+            const canvas = document.getElementById('gameCanvas');
+            canvas.width = 1000; canvas.height = 600;
+            const game = new Game(canvas);
+            window.game = game;
+        });
+    </script>
+</body>
+</html>
