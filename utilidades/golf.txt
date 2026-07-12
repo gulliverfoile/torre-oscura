@@ -1,0 +1,98 @@
+txt
+## ¿Qué es?
+Un prototipo de juego de golf en 2D con generación procedural de hoyos, física de vuelo realista y sistema de putting. Está programado en JavaScript puro sobre un único archivo HTML, sin dependencias externas.
+
+## Mecánicas principales
+
+### Sistema de swing con dos barras
+- Barra de **potencia** (0-100%): oscila automáticamente. El jugador pulsa ESPACIO para fijar la fuerza del golpe.
+- Barra de **altura** (Baja/Media/Alta): oscila después de fijar la potencia. Controla el ángulo de salida de la bola.
+- Ambas barras se muestran como semicírculos concéntricos en la esquina inferior derecha, con marcas numéricas y efectos visuales al llegar a los topes.
+
+### Apuntado libre
+- El ratón define la dirección del golpe. Una línea amarilla discontinua muestra la trayectoria prevista antes de ejecutar el swing.
+
+### Física de vuelo
+- La bola sigue una parábola afectada por:
+  - Gravedad.
+  - Viento aleatorio (dirección y velocidad).
+  - Altura del golpe: los tiros altos son más sensibles al viento, los bajos pierden algo de distancia.
+- Las colisiones con árboles detienen la bola; el agua penaliza recolocando la bola en el borde más alejado del green.
+
+### Terrenos y penalizaciones
+- **Fairway / Rough**: diferente fricción en la rodadura.
+- **Bunkers**: reducen la distancia del siguiente golpe.
+- **Árboles**: obstáculos sólidos que bloquean la bola si impactan a baja altura.
+- **Agua**: la bola se recoloca automáticamente en tierra firme, penalizando un golpe.
+
+### Sistema de putting
+- Al entrar en el green, la cámara se centra en él y se activa el modo putt.
+- El jugador apunta con el ratón y pulsa ESPACIO para iniciar una barra de fuerza del putt.
+- El green tiene una **pendiente aleatoria** que afecta la trayectoria de la bola, mostrada con flechas.
+- Si la bola pasa cerca del hoyo (radio extendido), "cae" por efecto labio.
+
+### Generación procedural de hoyos
+- Cada partida genera un campo nuevo con:
+  - Posición aleatoria del tee y del green.
+  - Longitud variable según el par (3, 4 o 5).
+  - Grupos de árboles, bunkers rectangulares y posibles lagos.
+  - Viento aleatorio.
+  - Pendiente del green aleatoria (dirección y magnitud).
+- El mundo mide 3000x1500 píxeles (escalable).
+
+### Interfaz y cámara
+- Cámara con seguimiento suave de la bola.
+- Bola que cambia de tamaño según su altura (simula perspectiva).
+- **Minimapa** en la esquina superior derecha (opcional, se puede ocultar fácilmente).
+- Indicador de viento con flecha y velocidad.
+- HUD HTML con yardas restantes, viento, potencia actual y altura.
+
+## Cómo funciona internamente (arquitectura)
+
+### Estructura del código
+El código está organizado en clases con responsabilidades bien definidas, preparado para migrar a una arquitectura hexagonal (separación de lógica, vista y entrada).
+
+- `CONFIG`: constantes de físicas y dimensiones.
+- `EventBus`: sistema de eventos simple para desacoplar módulos.
+- `HoleGenerator`: crea los datos del hoyo usando aleatoriedad controlada.
+- `Hole`: almacena y consulta los datos del hoyo (obstáculos, green, viento, pendiente). También calcula el drop point de agua y la aceleración por pendiente.
+- `Ball`: estado de la bola (posición, velocidad, altura). Maneja tres fases:
+  1. `launch()` inicia el vuelo.
+  2. `precalculateTrajectory()` simula la trayectoria completa para detectar colisiones con árboles, agua y suelo.
+  3. Durante el juego, `updateFlight()` sigue la trayectoria precalculada; al aterrizar pasa a `updateRolling()`; en el green, `updatePutt()` aplica fricción y pendiente.
+- `Game`: máquina de estados principal. Controla las fases:
+  - `aiming` → `powerOsc` → `heightOsc` → `flight` → `rolling` → `stopped` → (si green) `puttingAim` → `puttingPowerOsc` → `puttFlight` → `stopped` / `inHole`
+  - Maneja las oscilaciones de las barras, el input, la cámara y las transiciones.
+- `InputHandler`: captura ratón y teclado (ESPACIO). Calcula el ángulo de apuntado relativo a la posición de la bola en pantalla.
+
+### Bucle del juego
+`requestAnimationFrame` llama a `Game.loop()`:
+1. Calcula delta time.
+2. Actualiza input y cambios de estado.
+3. Ejecuta física de la bola según la fase.
+4. Dibuja el mundo (terreno, obstáculos, bola, trayectoria) con la cámara actual.
+5. Dibuja la interfaz fija (minimapa, barras, viento).
+
+### Generación procedural en detalle
+- La semilla se basa en `Math.random()` (podría reemplazarse por una semilla determinista).
+- Los árboles se agrupan en clusters aleatorios a lo largo de la línea tee-green.
+- Los bunkers y el agua se colocan en zonas intermedias con tamaños aleatorios.
+- La pendiente del green se elige como un vector fijo con dirección y magnitud aleatoria.
+- El viento se genera con ángulo aleatorio y velocidad entre 10 y 60 px/s.
+
+## Cómo ejecutar
+1. Guarda el archivo HTML proporcionado.
+2. Ábrelo en cualquier navegador moderno (Chrome, Firefox, Edge).
+3. Mueve el ratón para apuntar.
+4. Pulsa ESPACIO para iniciar el swing (potencia), otra vez para altura, y una tercera para golpear.
+5. En el green, pulsa ESPACIO para el putt.
+
+## Limitaciones y siguientes pasos
+- El minimapa es opcional; se puede eliminar cambiando la llamada en `draw()`.
+- No hay sistema de puntuación acumulada ni varios hoyos seguidos.
+- La física no simula efectos de retroceso o spin.
+- Los gráficos son puramente funcionales (círculos, rectángulos).
+- El código está preparado para migrar a una arquitectura hexagonal con eventos, por lo que separar la lógica en módulos independientes (servidor/cliente) sería sencillo.
+
+## Autor y licencia
+Desarrollado como prototipo educativo y demostración de mecánicas de golf procedural. Libre para modificar y distribuir.
