@@ -1,0 +1,137 @@
+# ⚽ Fútbol 4vs4 – Simulador táctico en navegador
+
+Simulador de fútbol reducido (4 jugadores de campo + 1 portero por equipo) desarrollado íntegramente en **JavaScript vanilla** con renderizado en **Canvas 2D**.  
+Pensado como base experimental para mecánicas de juego, inteligencia artificial y arquitectura modular preparada para migrar a hexagonal.
+
+---
+
+## 🎮 Características principales
+
+- **Motor físico propio** con gravedad, fricción, colisiones y física de balón en vuelo/rodando.
+- **Control por teclado** de todos los jugadores humanos del equipo local.
+- **IA adversaria** que defiende, presiona, pasa y dispara según el contexto.
+- **Sistema de pases y disparos** con barra de potencia oscilante.
+- **Acciones especiales**: entrada defensiva (dash + hitbox) y regate ofensivo (dribbling boost).
+- **Faltas** con probabilidad variable según el ángulo de la entrada.
+- **Portero** que atrapa o repele el balón, y que cede el control al jugador cuando lo retiene.
+- **Cambio de jugador** manual (tecla `I`) y automático configurable (inmediato / con retardo / manual).
+- **Menú lateral** (tecla `Tab`) con 5 pestañas:
+  - **Formación**: arrastra los círculos para cambiar posiciones.
+  - **Jugadores**: ajusta estadísticas al vuelo con sliders.
+  - **Estadísticas**: posesión y marcador.
+  - **Arquitecto**: activa/desactiva zonas de influencia, hitboxes, y modifica parámetros globales (gravedad, fricción, modo de cambio automático).
+  - **Controles**: reasignación de teclas persistente en `localStorage`.
+- **Menú de pausa** (`P`) para modificar estadísticas del jugador controlado.
+- **Efectos sonoros procedurales** vía Web Audio API.
+- **Indicadores visuales**: barra de sprint, color de fatiga en jugadores cansados, zonas de influencia, hitboxes de dash.
+
+---
+
+## ⌨️ Controles por defecto
+
+| Tecla      | Acción                                |
+|------------|---------------------------------------|
+| `WASD` / Flechas | Movimiento y orientación        |
+| `Shift`    | Sprint (izquierdo o derecho)          |
+| `J`        | Pase (mantener para cargar potencia)  |
+| `K`        | Tiro a puerta (mantener para cargar)  |
+| `L`        | Acción contextual: regate (con balón) / entrada (sin balón) |
+| `I`        | Cambiar de jugador (cicla por el equipo local) |
+| `O`        | Presión (correr hacia el balón)       |
+| `Tab`      | Abrir / cerrar menú lateral           |
+| `P`        | Pausar / reanudar juego               |
+
+> **Nota:** Todas las teclas se pueden reasignar desde la pestaña **Controles** del menú lateral. Los cambios se guardan automáticamente en el navegador.
+
+---
+
+## 🧱 Arquitectura del código
+
+El proyecto sigue una estructura modular pensada para migrar en el futuro a una arquitectura hexagonal (puertos y adaptadores).
+/
+├── CONFIG # Objeto central de parámetros ajustables
+├── EventBus # Bus de eventos para desacoplar componentes
+├── AudioService # Síntesis de sonido con Web Audio API
+├── InputHandler (abstracta) # Interfaz de entrada (teclado, mando, táctil)
+│ └── KeyboardHandler # Implementación con mapeo de teclas configurable
+├── Entities
+│ ├── Ball # Física del balón (vuelo, rodadura, colisiones)
+│ └── FootballPlayer # Jugador (movimiento, dash, dribble, portero)
+├── AI
+│ └── AIController # Comportamiento de jugadores no controlados
+└── Game # Bucle principal, renderizado, lógica de partido
+
+text
+
+**Patrones utilizados:**  
+- **Observer** (EventBus) para goles y faltas.  
+- **Strategy** para el modo de cambio automático de jugador.  
+- **Inyección de dependencias** del InputHandler en Game.  
+
+---
+
+## 🐛 Fallos conocidos
+
+- **Teclas sin respuesta** en algunas ejecuciones con `file:///`. Solución: usar **Live Server** o cualquier servidor local.
+- **Audio bloqueado** hasta la primera interacción del usuario (política de autoplay de navegadores).
+- **Saques de banda y de esquina** no implementados: el balón rebota en las líneas laterales.
+- **El portero** puede quedarse congelado si se le cambia manualmente justo cuando suelta el balón (poco frecuente).
+- **Rendimiento** no testeado en dispositivos móviles o con muchos elementos en pantalla.
+
+---
+
+## 🔜 Posibles implementaciones futuras
+
+### Prioridad alta
+- [ ] Añadir saques de banda y de esquina con reglas completas.
+- [ ] Soporte para **gamepad** (Gamepad API) y **controles táctiles** (joystick virtual).
+- [ ] Árbitro visual y fuera de juego básico.
+- [ ] Efecto de zoom dinámico en pases y disparos.
+
+### Mejoras de jugabilidad
+- [ ] Desmarques ofensivos de la IA (diagonales, paredes).
+- [ ] Regates avanzados (caños, bicicletas) con probabilidad de éxito.
+- [ ] Sistema de fatiga global que afecte a todo el equipo.
+- [ ] Diferentes estilos de juego (posesión, contraataque, presión alta).
+
+### Arquitectura y herramienta
+- [ ] Migrar a **arquitectura hexagonal** (separar dominio, aplicación, infraestructura).
+- [ ] Editor de formaciones con exportación/importación JSON.
+- [ ] Grabación y reproducción de partidos (replay).
+- [ ] Tests unitarios con Vitest / Jest.
+
+### Audiovisual
+- [ ] Sonido ambiental (público, cánticos) y locución de goles.
+- [ ] Partículas y efectos visuales (polvo, estelas).
+- [ ] Soporte multilenguaje.
+
+---
+
+## 🚀 Cómo ejecutar el proyecto
+
+1. Clona este repositorio.
+2. Abre la carpeta con **Visual Studio Code**.
+3. Instala la extensión **Live Server** (o similar).
+4. Haz clic derecho sobre `index.html` → **Open with Live Server**.
+5. El juego se abrirá en `http://127.0.0.1:5500` (o similar).
+6. Haz clic en el canvas para asegurar el foco del teclado.
+7. ¡A jugar!
+
+> También puedes usar cualquier servidor HTTP local (Python: `python -m http.server 8000`, Node: `npx serve`, etc.).
+
+---
+
+## 📜 Licencia
+
+Este proyecto se distribuye bajo la licencia **MIT**.  
+Eres libre de usar, modificar y compartir el código, siempre que mantengas el aviso de copyright original.
+
+---
+
+## 🙏 Agradecimientos
+
+A la comunidad de código abierto y a todos los que comparten su conocimiento sobre desarrollo de videojuegos en JavaScript.
+
+---
+
+*¡Gracias por jugar y experimentar con este pequeño simulador de fútbol!*
