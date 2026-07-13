@@ -1,0 +1,1154 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>Fútbol 4vs4 – Arquitecto</title>
+    <style>
+        * { margin:0; padding:0; box-sizing:border-box; }
+        body { background:#1a3a1a; display:flex; justify-content:center; align-items:center; height:100vh; overflow:hidden; font-family:monospace; }
+        canvas { display:block; }
+        #ui { position:absolute; top:10px; left:50%; transform:translateX(-50%); color:white; background:rgba(0,0,0,0.6); padding:8px 16px; border-radius:8px; text-align:center; pointer-events:none; font-size:14px; }
+        #message { position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); font-size:80px; font-weight:bold; color:white; text-shadow: 3px 3px 0 #000; pointer-events:none; opacity:0; transition: opacity 0.3s; }
+        #dynamic-message { position:absolute; bottom:20px; left:50%; transform:translateX(-50%); color:yellow; font-size:18px; background:rgba(0,0,0,0.7); padding:4px 12px; border-radius:10px; opacity:0; transition: opacity 0.5s; pointer-events:none; }
+        #pause-menu { position:absolute; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.8); display:none; justify-content:center; align-items:center; flex-direction:column; color:white; font-family:monospace; z-index:10; }
+        #pause-menu .menu-section { margin:15px; }
+        #pause-menu button { margin:8px; padding:8px 16px; font-size:16px; cursor:pointer; }
+        #pause-menu input { margin:4px; padding:4px; font-size:14px; }
+        #pause-menu label { display:block; margin-top:8px; }
+
+        #side-menu { position:fixed; top:0; right:0; width:min(420px, 95vw); height:100vh; background:rgba(10,10,25,0.96); border-left:2px solid #ffd700; color:#fff; z-index:10000; display:none; font-family:monospace; font-size:13px; backdrop-filter:blur(8px); overflow-y:auto; padding:0; }
+        #side-menu .tab-buttons { display:flex; flex-wrap:wrap; background:#111; border-bottom:1px solid #444; }
+        #side-menu .tab-buttons button { flex:1; min-width:60px; background:transparent; border:none; color:#aaa; padding:10px 5px; cursor:pointer; font-weight:bold; font-size:inherit; transition:0.2s; }
+        #side-menu .tab-buttons button.active { color:#ffd700; border-bottom:2px solid #ffd700; background:#222; }
+        #side-menu .tab-content { padding:15px; }
+        #side-menu .tab-content > div { display:none; }
+        #side-menu .tab-content > div.active { display:block; }
+        #side-menu button { background:#ffd700; color:#000; border:none; padding:6px 10px; margin:4px 2px; cursor:pointer; font-weight:bold; border-radius:4px; }
+        #side-menu input, #side-menu select { width:100%; margin:2px 0 8px; background:#222; color:#0f0; border:1px solid #0f0; padding:4px; border-radius:3px; font-family:monospace; }
+        #side-menu label { display:block; margin:6px 0 2px; color:#ccc; }
+        #side-menu .formation-canvas { border:1px solid #fff; background:rgba(0,100,0,0.5); }
+        #controls-tab { display: flex; flex-direction: column; }
+        .keybind-row { display:flex; align-items:center; margin-bottom:6px; }
+        .keybind-row span { flex:1; }
+        .keybind-row .key-btn { background:#333; color:#0f0; border:1px solid #0f0; padding:4px 8px; cursor:pointer; min-width:50px; text-align:center; }
+        .keybind-row .rebind-btn { background:#ffd700; color:#000; margin-left:5px; }
+    </style>
+</head>
+<body>
+    <canvas id="gameCanvas" width="1000" height="600"></canvas>
+    <div id="ui">
+        <div>⚽ <span id="score">0 - 0</span></div>
+        <div>👤 <span id="controlledPlayer">Delantero</span></div>
+        <div>💨 <span id="sprintBar">Sprint</span></div>
+        <div id="hintDisplay">🛡️ Pase:J | Tiro:K | Acción:L | Cambiar:I | Presión:O</div>
+    </div>
+    <div id="message"></div>
+    <div id="dynamic-message"></div>
+    <div id="pause-menu">
+        <h2>PAUSA (P)</h2>
+        <button id="resume-btn">Reanudar</button>
+        <div class="menu-section">
+            <h3>Estadísticas del jugador controlado</h3>
+            <label>Velocidad: <input type="range" id="stat-speed" min="50" max="200" value="160"> <span id="val-speed">160</span></label>
+            <label>Pase: <input type="range" id="stat-pass" min="30" max="100" value="75"> <span id="val-pass">75</span></label>
+            <label>Tiro: <input type="range" id="stat-shot" min="30" max="100" value="80"> <span id="val-shot">80</span></label>
+            <label>Control: <input type="range" id="stat-control" min="30" max="100" value="70"> <span id="val-control">70</span></label>
+            <label>Defensa: <input type="range" id="stat-defense" min="30" max="100" value="40"> <span id="val-defense">40</span></label>
+            <label>Agilidad: <input type="range" id="stat-agility" min="30" max="100" value="60"> <span id="val-agility">60</span></label>
+            <label>Resistencia: <input type="range" id="stat-stamina" min="50" max="150" value="100"> <span id="val-stamina">100</span></label>
+            <button id="apply-stats">Aplicar stats</button>
+        </div>
+    </div>
+
+    <div id="side-menu">
+        <div class="tab-buttons">
+            <button data-tab="formation" class="active">🏟️ Formación</button>
+            <button data-tab="players">👥 Jugadores</button>
+            <button data-tab="stats">📊 Estadísticas</button>
+            <button data-tab="architect">🔧 Arquitecto</button>
+            <button data-tab="controls">🎮 Controles</button>
+        </div>
+        <div class="tab-content">
+            <div id="tab-formation" class="active">
+                <p>Arrastra los círculos para cambiar la formación (solo equipo local)</p>
+                <canvas id="formationCanvas" class="formation-canvas" width="360" height="220"></canvas>
+            </div>
+            <div id="tab-players">
+                <div id="players-list"></div>
+            </div>
+            <div id="tab-stats">
+                <div id="match-stats">Cargando...</div>
+            </div>
+            <div id="tab-architect">
+                <label><input type="checkbox" id="show-zones" checked> Mostrar zonas de influencia</label>
+                <label><input type="checkbox" id="show-hitboxes"> Mostrar hitboxes de dash</label>
+                <label>Radio de zona: <input type="range" id="zone-radius" min="100" max="300" value="200"> <span id="val-zone-radius">200</span></label>
+                <button id="reset-formation">Reset formación</button>
+                <hr>
+                <h4>Parámetros globales</h4>
+                <label>Gravedad: <input type="range" id="global-gravity" min="300" max="1200" value="800"> <span id="val-gravity">800</span></label>
+                <label>Fricción balón: <input type="range" id="ball-friction" min="0.9" max="1.0" step="0.01" value="0.98"> <span id="val-friction">0.98</span></label>
+                <label>Modo cambio auto: <select id="autoSwitchMode"><option value="delay" selected>Con retardo</option><option value="immediate">Inmediato</option><option value="manual">Manual</option></select></label>
+                <label>Retardo cambio (s): <input type="range" id="autoSwitchDelay" min="0" max="1.0" step="0.05" value="0.2"> <span id="val-autoSwitchDelay">0.2</span></label>
+                <button id="apply-globals">Aplicar globales</button>
+            </div>
+            <div id="tab-controls">
+                <div id="controls-tab"></div>
+                <button id="reset-bindings">Restaurar predeterminados</button>
+            </div>
+        </div>
+        <div style="text-align:center; padding:10px;">
+            <button id="menu-close">Cerrar menú [Tab]</button>
+        </div>
+    </div>
+
+    <script>
+        // ==================== CONFIGURACIÓN GLOBAL ====================
+        const CONFIG = {
+            fieldWidth: 2400,
+            fieldHeight: 1400,
+            goalWidth: 160,
+            goalDepth: 80,
+            playerRadius: 15,
+            goalkeeperRadius: 18,
+            sprintMultiplier: 1.8,
+            sprintCostPerSec: 25,
+            sprintRecoveryPerSec: 15,
+            maxSprint: 100,
+            dashTackleSpeed: 450,
+            dashTackleDuration: 0.15,
+            dashTackleCooldown: 0.8,
+            dashTackleRange: 55,
+            dashTackleSprintCost: 35,
+            dashTackleHitboxWidth: 25,
+            dashTackleHitboxLength: 45,
+            dribbleDashSpeed: 400,
+            dribbleDashDuration: 0.12,
+            dribbleDashCooldown: 1.0,
+            dribbleDashSprintCost: 50,
+            ballRadius: 8,
+            gravity: 800,
+            ballFriction: 0.98,
+            shotMaxPower: 600,
+            passMaxPower: 500,
+            passTravelTime: 0.8,
+            tackleSuccessBase: 50,
+            foulProbability: 0.4,
+            foulProbabilityFromBehind: 0.9,
+            foulProbabilitySide: 0.3,
+            foulProbabilityFront: 0.1,
+            messageDuration: 1.8,
+            dynamicMessageDuration: 2.0,
+            aiVisionRange: 250,
+            aiPressureRange: 220,
+            aiShootRange: 400,
+            zoneRadius: 200,
+            gaugeWidth: 120,
+            gaugeHeight: 16,
+            gaugeYOffset: -35,
+            goalkeeperAgility: 60,
+            goalkeeperReflexes: 70,
+            saveCatchChance: 70,
+            goalkeeperHoldTime: 2.0,
+            autoSwitchDelay: 0.2,
+            autoSwitchMode: 'delay', // 'immediate', 'delay', 'manual'
+            fatigueColorThreshold: 30   // umbral de sprint para mostrar fatiga
+        };
+
+        // ==================== EVENT BUS ====================
+        class EventBus {
+            constructor() { this._listeners = {}; }
+            on(event, callback) { (this._listeners[event] = this._listeners[event] || []).push(callback); }
+            off(event, callback) { if(this._listeners[event]) this._listeners[event] = this._listeners[event].filter(cb => cb !== callback); }
+            emit(event, data) { (this._listeners[event] || []).forEach(cb => cb(data)); }
+        }
+
+        // ==================== AUDIO SERVICE ====================
+        class AudioService {
+            constructor() { this.ctx = null; this.initialized = false; }
+            init() { if (this.initialized) return; try { this.ctx = new (window.AudioContext || window.webkitAudioContext)(); this.initialized = true; } catch(e) { console.warn('Audio no disponible'); } }
+            _tone(freq, type, duration, volume = 0.1) {
+                if (!this.ctx || this.ctx.state === 'closed') return;
+                if (this.ctx.state === 'suspended') this.ctx.resume();
+                const now = this.ctx.currentTime;
+                const osc = this.ctx.createOscillator(); osc.type = type;
+                osc.frequency.setValueAtTime(freq, now);
+                const gain = this.ctx.createGain();
+                gain.gain.setValueAtTime(0, now);
+                gain.gain.linearRampToValueAtTime(volume, now + 0.01);
+                gain.gain.exponentialRampToValueAtTime(0.001, now + duration);
+                osc.connect(gain); gain.connect(this.ctx.destination);
+                osc.start(now); osc.stop(now + duration);
+            }
+            playGoal() { this._tone(440, 'square', 0.3, 0.2); this._tone(660, 'square', 0.4, 0.2); }
+            playFoul() { this._tone(150, 'sawtooth', 0.3, 0.15); }
+            playTackle() { this._tone(200, 'triangle', 0.08, 0.1); }
+            playPass() { this._tone(500, 'sine', 0.1, 0.05); }
+            playShoot() { this._tone(800, 'sawtooth', 0.12, 0.08); }
+            playDribble() { this._tone(300, 'sine', 0.08, 0.06); }
+            playSave() { this._tone(250, 'square', 0.15, 0.12); }
+            playBlock() { this._tone(100, 'triangle', 0.2, 0.1); }
+        }
+
+        // ==================== INPUT HANDLER (BASE ABSTRACTA) ====================
+        class InputHandler {
+            constructor() {
+                this._keys = {};
+                this._lastKeys = {};
+                this._mouse = { x:0, y:0, down:false, rightDown:false };
+                this._canvas = null;
+            }
+            init(canvas) {
+                this._canvas = canvas;
+                // Los listeners concretos deben sobreescribir este método y añadir sus propios handlers,
+                // incluyendo preventDefault para las teclas relevantes.
+            }
+            getMovement() { return { x:0, y:0 }; }
+            isSprintHeld() { return false; }
+            isPassStart() { return false; }
+            isPassHeld() { return false; }
+            isPassReleased() { return false; }
+            isShootStart() { return false; }
+            isShootHeld() { return false; }
+            isShootReleased() { return false; }
+            isActionPressed() { return false; }
+            isSwitchPlayerPressed() { return false; }
+            isPressurePressed() { return false; }
+            isMenuTogglePressed() { return false; }
+            isPausePressed() { return false; }
+            getAimAngle(px, py) { return Math.atan2(this._mouse.y - py, this._mouse.x - px); }
+            update() { for (const k in this._keys) this._lastKeys[k] = this._keys[k]; }
+        }
+
+        // ==================== KEYBOARD HANDLER (MAPEO CONFIGURABLE) ====================
+        class KeyboardHandler extends InputHandler {
+            constructor(bindings) {
+                super();
+                this.bindings = this._validateBindings(bindings);
+            }
+            _validateBindings(bindings) {
+                const defaults = this.getDefaultBindings();
+                if (!bindings || typeof bindings !== 'object') return { ...defaults };
+                const required = Object.keys(defaults);
+                const sanitized = {};
+                let valid = true;
+                for (const key of required) {
+                    if (typeof bindings[key] === 'string' && bindings[key].length === 1) {
+                        sanitized[key] = bindings[key];
+                    } else {
+                        sanitized[key] = defaults[key];
+                        valid = false;
+                    }
+                }
+                if (!valid) {
+                    localStorage.setItem('football4v4_bindings', JSON.stringify(defaults));
+                }
+                return sanitized;
+            }
+            getDefaultBindings() {
+                return {
+                    moveUp: 'w',
+                    moveDown: 's',
+                    moveLeft: 'a',
+                    moveRight: 'd',
+                    sprint: 'shift',
+                    pass: 'j',
+                    shoot: 'k',
+                    action: 'l',
+                    switchPlayer: 'i',
+                    pressure: 'o',
+                    menu: 'tab',
+                    pause: 'p'
+                };
+            }
+            init(canvas) {
+                // No llamamos a super.init() para evitar listeners duplicados.
+                // En su lugar, registramos nuestros propios listeners con preventDefault fusionado.
+                this._canvas = canvas;
+                const boundKeys = new Set(Object.values(this.bindings));
+                // Además, prevenimos flechas y espacio
+                boundKeys.add('arrowleft'); boundKeys.add('arrowright');
+                boundKeys.add('arrowup'); boundKeys.add('arrowdown');
+                boundKeys.add(' ');
+
+                window.addEventListener('keydown', e => {
+                    const key = e.key.toLowerCase();
+                    this._keys[key] = true;
+                    if (boundKeys.has(key)) {
+                        e.preventDefault();
+                    }
+                });
+                window.addEventListener('keyup', e => {
+                    this._keys[e.key.toLowerCase()] = false;
+                });
+                canvas.addEventListener('mousemove', e => {
+                    const rect = canvas.getBoundingClientRect();
+                    this._mouse.x = (e.clientX - rect.left) * (canvas.width / rect.width);
+                    this._mouse.y = (e.clientY - rect.top) * (canvas.height / rect.height);
+                });
+                canvas.addEventListener('mousedown', e => {
+                    if (e.button === 0) this._mouse.down = true;
+                    if (e.button === 2) this._mouse.rightDown = true;
+                    e.preventDefault();
+                });
+                canvas.addEventListener('mouseup', e => {
+                    if (e.button === 0) this._mouse.down = false;
+                    if (e.button === 2) this._mouse.rightDown = false;
+                });
+                canvas.addEventListener('contextmenu', e => e.preventDefault());
+            }
+            getMovement() {
+                let x = 0, y = 0;
+                if (this._keys[this.bindings.moveLeft]) x -= 1;
+                if (this._keys[this.bindings.moveRight]) x += 1;
+                if (this._keys[this.bindings.moveUp]) y -= 1;
+                if (this._keys[this.bindings.moveDown]) y += 1;
+                const len = Math.hypot(x, y);
+                if (len > 1) { x /= len; y /= len; }
+                return { x, y };
+            }
+            isSprintHeld() { return !!this._keys[this.bindings.sprint]; }
+            isPassStart() { return this._keys[this.bindings.pass] && !this._lastKeys[this.bindings.pass]; }
+            isPassHeld() { return !!this._keys[this.bindings.pass]; }
+            isPassReleased() { return !this._keys[this.bindings.pass] && this._lastKeys[this.bindings.pass]; }
+            isShootStart() { return this._keys[this.bindings.shoot] && !this._lastKeys[this.bindings.shoot]; }
+            isShootHeld() { return !!this._keys[this.bindings.shoot]; }
+            isShootReleased() { return !this._keys[this.bindings.shoot] && this._lastKeys[this.bindings.shoot]; }
+            isActionPressed() { return this._keys[this.bindings.action] && !this._lastKeys[this.bindings.action]; }
+            isSwitchPlayerPressed() { return this._keys[this.bindings.switchPlayer] && !this._lastKeys[this.bindings.switchPlayer]; }
+            isPressurePressed() { return this._keys[this.bindings.pressure] && !this._lastKeys[this.bindings.pressure]; }
+            isMenuTogglePressed() { return this._keys[this.bindings.menu] && !this._lastKeys[this.bindings.menu]; }
+            isPausePressed() { return this._keys[this.bindings.pause] && !this._lastKeys[this.bindings.pause]; }
+            update() { super.update(); }
+        }
+
+        // ==================== ENTIDADES ====================
+        class Ball {
+            constructor(x, y) { this.x = x; this.y = y; this.vx = 0; this.vy = 0; this.z = 0; this.vz = 0; this.state = 'idle'; this.owner = null; }
+            launch(vx, vy, vz) { this.vx = vx; this.vy = vy; this.vz = vz; this.z = 0; this.state = 'flying'; this.owner = null; }
+            update(dt) {
+                if (this.state === 'flying') {
+                    this.vz -= CONFIG.gravity * dt;
+                    this.x += this.vx * dt; this.y += this.vy * dt; this.z += this.vz * dt;
+                    if (this.z <= 0) { this.z = 0; this.state = 'rolling'; }
+                } else if (this.state === 'rolling') {
+                    this.vx *= CONFIG.ballFriction; this.vy *= CONFIG.ballFriction;
+                    this.x += this.vx * dt; this.y += this.vy * dt;
+                    if (Math.abs(this.vx) < 2 && Math.abs(this.vy) < 2) { this.vx = 0; this.vy = 0; this.state = 'stopped'; }
+                }
+                this._checkBoundaries();
+            }
+            _checkBoundaries() {
+                const hw = CONFIG.fieldWidth/2, hh = CONFIG.fieldHeight/2, gW = CONFIG.goalWidth;
+                if (this.x - CONFIG.ballRadius < -hw) {
+                    if (Math.abs(this.y) < gW/2) { this.state = 'goal'; this._goalSide = 'home'; }
+                    else { this.vx *= -0.5; this.x = -hw + CONFIG.ballRadius; }
+                }
+                if (this.x + CONFIG.ballRadius > hw) {
+                    if (Math.abs(this.y) < gW/2) { this.state = 'goal'; this._goalSide = 'away'; }
+                    else { this.vx *= -0.5; this.x = hw - CONFIG.ballRadius; }
+                }
+                if (this.y - CONFIG.ballRadius < -hh) { this.vy *= -0.5; this.y = -hh + CONFIG.ballRadius; }
+                if (this.y + CONFIG.ballRadius > hh) { this.vy *= -0.5; this.y = hh - CONFIG.ballRadius; }
+            }
+            isPossessed() { return this.owner !== null; }
+            reset(x, y) { this.x = x; this.y = y; this.vx = 0; this.vy = 0; this.vz = 0; this.z = 0; this.state = 'stopped'; this.owner = null; }
+        }
+
+        class FootballPlayer {
+            constructor(x, y, team, role, stats, isHuman = false) {
+                this.x = x; this.y = y; this.team = team; this.role = role;
+                this.stats = stats || { speed:150, pass:70, shot:70, control:70, defense:70, agility:50, stamina:100 };
+                this.radius = role === 'goalkeeper' ? CONFIG.goalkeeperRadius : CONFIG.playerRadius;
+                this.sprint = CONFIG.maxSprint;
+                this.isHuman = isHuman;
+                this.controlled = false;
+                this.hasBall = false;
+                this.state = 'POSITION';
+                this.targetX = x; this.targetY = y;
+                this.homePositionX = x; this.homePositionY = y;
+                this.facingAngle = 0;
+                this.dashActive = false; this.dashTimer = 0; this.dashCooldown = 0;
+                this.dashVx = 0; this.dashVy = 0; this.dashHitbox = null;
+                this.dribbleActive = false; this.dribbleTimer = 0; this.dribbleCooldown = 0;
+                this.dribbleVx = 0; this.dribbleVy = 0;
+                this.saveCooldown = 0;
+                this.holdTimer = 0;
+            }
+            startDash(angle) {
+                if (this.dashActive || this.dashCooldown > 0 || this.sprint < CONFIG.dashTackleSprintCost) return false;
+                this.sprint -= CONFIG.dashTackleSprintCost;
+                this.dashActive = true; this.dashTimer = CONFIG.dashTackleDuration; this.dashCooldown = CONFIG.dashTackleCooldown;
+                this.dashVx = Math.cos(angle) * CONFIG.dashTackleSpeed;
+                this.dashVy = Math.sin(angle) * CONFIG.dashTackleSpeed;
+                const hx = this.x + Math.cos(angle) * (this.radius + CONFIG.dashTackleHitboxLength/2);
+                const hy = this.y + Math.sin(angle) * (this.radius + CONFIG.dashTackleHitboxLength/2);
+                this.dashHitbox = { x: hx, y: hy, width: CONFIG.dashTackleHitboxWidth, height: CONFIG.dashTackleHitboxLength, angle };
+                return true;
+            }
+            startDribble(angle) {
+                if (this.dribbleActive || this.dribbleCooldown > 0 || this.sprint < CONFIG.dribbleDashSprintCost || !this.hasBall) return false;
+                this.sprint -= CONFIG.dribbleDashSprintCost;
+                this.dribbleActive = true; this.dribbleTimer = CONFIG.dribbleDashDuration; this.dribbleCooldown = CONFIG.dribbleDashCooldown;
+                this.dribbleVx = Math.cos(angle) * CONFIG.dribbleDashSpeed;
+                this.dribbleVy = Math.sin(angle) * CONFIG.dribbleDashSpeed;
+                return true;
+            }
+            update(dt, ball, players) {
+                this.dashCooldown = Math.max(0, this.dashCooldown - dt);
+                this.dribbleCooldown = Math.max(0, this.dribbleCooldown - dt);
+                if (!this.dashActive && !this.dribbleActive) {
+                    if (this.controlled && this.isHuman && Game.instance.input.isSprintHeld() && this.sprint > 0)
+                        this.sprint -= CONFIG.sprintCostPerSec * dt;
+                    else
+                        this.sprint = Math.min(CONFIG.maxSprint, this.sprint + CONFIG.sprintRecoveryPerSec * dt);
+                }
+                let moveX = 0, moveY = 0;
+                if (this.dashActive) {
+                    moveX = this.dashVx * dt; moveY = this.dashVy * dt;
+                    this.dashTimer -= dt;
+                    if (this.dashTimer <= 0) { this.dashActive = false; this.dashHitbox = null; }
+                } else if (this.dribbleActive) {
+                    moveX = this.dribbleVx * dt; moveY = this.dribbleVy * dt;
+                    this.dribbleTimer -= dt;
+                    if (this.dribbleTimer <= 0) this.dribbleActive = false;
+                } else if (this.controlled && this.isHuman) {
+                    const move = Game.instance.input.getMovement();
+                    const speed = this.stats.speed * (Game.instance.input.isSprintHeld() && this.sprint > 0 ? CONFIG.sprintMultiplier : 1);
+                    moveX = move.x * speed * dt; moveY = move.y * speed * dt;
+                } else {
+                    const dx = this.targetX - this.x, dy = this.targetY - this.y, dist = Math.hypot(dx, dy);
+                    if (dist > 2) {
+                        const speed = this.stats.speed * (this.sprint > 0 && this.state === 'PRESS' ? 1.5 : 1);
+                        const step = Math.min(speed * dt, dist);
+                        moveX = (dx / dist) * step; moveY = (dy / dist) * step;
+                    }
+                }
+                this.x += moveX; this.y += moveY;
+                for (const other of players) {
+                    if (other === this) continue;
+                    const dx = this.x - other.x, dy = this.y - other.y, dist = Math.hypot(dx, dy), minDist = this.radius + other.radius + 4;
+                    if (dist < minDist && dist > 0.01) {
+                        const overlap = minDist - dist, nx = dx / dist, ny = dy / dist;
+                        this.x += nx * overlap * 0.5; this.y += ny * overlap * 0.5;
+                        other.x -= nx * overlap * 0.5; other.y -= ny * overlap * 0.5;
+                    }
+                }
+                const marginX = CONFIG.fieldWidth/2 - this.radius, marginY = CONFIG.fieldHeight/2 - this.radius;
+                this.x = Math.max(-marginX, Math.min(marginX, this.x));
+                this.y = Math.max(-marginY, Math.min(marginY, this.y));
+                if (this.dashActive) this.facingAngle = Math.atan2(this.dashVy, this.dashVx);
+                else if (this.dribbleActive) this.facingAngle = Math.atan2(this.dribbleVy, this.dribbleVx);
+                else if (Math.abs(moveX) > 0.1 || Math.abs(moveY) > 0.1) this.facingAngle = Math.atan2(moveY, moveX);
+                else if (this.hasBall) {
+                    const goalX = this.team === 'home' ? CONFIG.fieldWidth/2 : -CONFIG.fieldWidth/2;
+                    this.facingAngle = Math.atan2(0 - this.y, goalX - this.x);
+                }
+                if (this.hasBall && ball.owner === this) {
+                    const offset = this.radius + CONFIG.ballRadius + 4;
+                    ball.x = this.x + Math.cos(this.facingAngle) * offset;
+                    ball.y = this.y + Math.sin(this.facingAngle) * offset;
+                    ball.vx = 0; ball.vy = 0; ball.vz = 0; ball.state = 'stopped';
+                }
+            }
+            setHomePosition(x, y) { this.homePositionX = x; this.homePositionY = y; }
+            handleGoalAttempt(ball, audio) {
+                if (this.role !== 'goalkeeper' || this.saveCooldown > 0) return false;
+                const dist = Math.hypot(this.x - ball.x, this.y - ball.y);
+                if (dist > this.radius + CONFIG.ballRadius + 20) return false;
+                const catchChance = CONFIG.saveCatchChance + (this.stats.agility || CONFIG.goalkeeperAgility) * 0.3;
+                const success = Math.random() * 100 < catchChance;
+                this.saveCooldown = success ? 0.8 : 0.2;
+                if (success) {
+                    ball.vx = 0; ball.vy = 0; ball.vz = 0; ball.z = 0; ball.state = 'stopped';
+                    ball.owner = this; this.hasBall = true;
+                    this.holdTimer = 0;
+                    audio.playSave();
+                    return true;
+                } else {
+                    const dx = ball.x - this.x, dy = ball.y - this.y, dist2 = Math.hypot(dx, dy);
+                    if (dist2 > 0) {
+                        const nx = dx / dist2, ny = dy / dist2;
+                        const speed = CONFIG.goalkeeperRepelStrength + Math.hypot(ball.vx, ball.vy) * CONFIG.goalkeeperRepelFactor;
+                        ball.vx = nx * speed; ball.vy = ny * speed;
+                    }
+                    ball.state = 'rolling';
+                    audio.playBlock();
+                    return false;
+                }
+            }
+        }
+
+        // ==================== IA ====================
+        class AIController {
+            static updateAll(players, ball, dt, audio) {
+                for (const p of players) {
+                    if (p.isHuman && p.controlled) continue;
+                    if (p.role === 'goalkeeper') {
+                        this.updateGoalkeeper(p, ball, dt, audio);
+                        continue;
+                    }
+                    this.updateSingle(p, ball, players, dt, audio);
+                }
+            }
+            static updateGoalkeeper(gk, ball, dt, audio) {
+                const goalX = gk.team === 'home' ? CONFIG.fieldWidth/2 - CONFIG.goalDepth/2 : -CONFIG.fieldWidth/2 + CONFIG.goalDepth/2;
+                gk.x = goalX;
+                if (gk.hasBall) {
+                    gk.holdTimer += dt;
+                    if (gk.holdTimer >= CONFIG.goalkeeperHoldTime) {
+                        const teammates = Game.instance.players.filter(p => p.team === gk.team && p !== gk && p.role !== 'goalkeeper');
+                        if (teammates.length > 0) {
+                            const target = teammates.reduce((a, b) => Math.hypot(a.x - gk.x, a.y - gk.y) < Math.hypot(b.x - gk.x, b.y - gk.y) ? a : b);
+                            const angle = Math.atan2(target.y - gk.y, target.x - gk.x);
+                            ball.launch(Math.cos(angle) * CONFIG.passMaxPower * 0.4, Math.sin(angle) * CONFIG.passMaxPower * 0.4, 30);
+                            gk.hasBall = false; ball.owner = null;
+                            audio.playPass();
+                            gk.holdTimer = 0;
+                        }
+                    }
+                    return;
+                }
+                gk.y += (ball.y * 0.8 - gk.y) * 0.1;
+                gk.y = Math.max(-CONFIG.goalWidth/2 + gk.radius, Math.min(CONFIG.goalWidth/2 - gk.radius, gk.y));
+                if ((ball.state === 'flying' || ball.state === 'rolling') && Math.hypot(gk.x - ball.x, gk.y - ball.y) < gk.radius + CONFIG.ballRadius + 30) {
+                    gk.handleGoalAttempt(ball, audio);
+                }
+            }
+            static updateSingle(player, ball, allPlayers, dt, audio) {
+                if (player.dashActive || player.dribbleActive) return;
+                if (player.hasBall) {
+                    const goalX = player.team === 'home' ? CONFIG.fieldWidth/2 : -CONFIG.fieldWidth/2;
+                    const distToGoal = Math.hypot(player.x - goalX, player.y);
+                    if (distToGoal < CONFIG.aiShootRange && Math.random() < 0.01) {
+                        const angle = Math.atan2(-player.y, goalX - player.x);
+                        const power = 0.6 + Math.random() * 0.4;
+                        ball.launch(Math.cos(angle) * CONFIG.shotMaxPower * power, Math.sin(angle) * CONFIG.shotMaxPower * power, 100 + Math.random() * 200);
+                        player.hasBall = false; ball.owner = null; player.state = 'SHOOT'; audio.playShoot();
+                    } else if (Math.random() < 0.002) {
+                        const teammates = allPlayers.filter(p => p.team === player.team && p !== player && p.role !== 'goalkeeper');
+                        if (teammates.length > 0) {
+                            const target = teammates[Math.floor(Math.random() * teammates.length)];
+                            const angle = Math.atan2(target.y - player.y, target.x - player.x);
+                            const power = 0.5 + Math.random() * 0.3;
+                            ball.launch(Math.cos(angle) * CONFIG.passMaxPower * power, Math.sin(angle) * CONFIG.passMaxPower * power, 50);
+                            player.hasBall = false; ball.owner = null; player.state = 'PASS'; audio.playPass();
+                        }
+                    } else { player.targetX = goalX; player.targetY = 0; player.state = 'DRIBBLE'; }
+                } else {
+                    const distToBall = Math.hypot(player.x - ball.x, player.y - ball.y);
+                    if (distToBall < CONFIG.aiPressureRange && !ball.isPossessed()) { player.state = 'PRESS'; player.targetX = ball.x; player.targetY = ball.y; }
+                    else if (distToBall < CONFIG.aiPressureRange && ball.owner && ball.owner.team !== player.team) {
+                        player.state = 'PRESS'; player.targetX = ball.owner.x; player.targetY = ball.owner.y;
+                        if (distToBall < CONFIG.dashTackleRange && player.sprint >= CONFIG.dashTackleSprintCost && player.dashCooldown <= 0 && Math.random() < 0.7) {
+                            const angle = Math.atan2(ball.owner.y - player.y, ball.owner.x - player.x);
+                            player.startDash(angle); audio.playTackle();
+                        }
+                    } else { player.state = 'SUPPORT'; player.targetX = player.homePositionX + (ball.x - player.homePositionX) * 0.1; player.targetY = player.homePositionY + (ball.y - player.homePositionY) * 0.1; }
+                }
+            }
+        }
+
+        // ==================== JUEGO PRINCIPAL ====================
+        class Game {
+            constructor(canvas, inputHandler) {
+                Game.instance = this;
+                this.canvas = canvas;
+                this.ctx = canvas.getContext('2d');
+                this.eventBus = new EventBus();
+                this.input = inputHandler;
+                this.input.init(canvas);
+                this.audio = new AudioService(); this.audio.init();
+
+                this.players = [];
+                const homeData = [
+                    { role:'defensa', stats:{ speed:150, pass:70, shot:50, control:65, defense:75, agility:50, stamina:100 }, pos:[-400,200] },
+                    { role:'defensa', stats:{ speed:145, pass:65, shot:45, control:60, defense:80, agility:45, stamina:100 }, pos:[-400,-200] },
+                    { role:'medio', stats:{ speed:160, pass:80, shot:70, control:75, defense:55, agility:65, stamina:100 }, pos:[-200,0] },
+                    { role:'delantero', stats:{ speed:170, pass:75, shot:85, control:70, defense:40, agility:70, stamina:100 }, pos:[-100,0] }
+                ];
+                const awayData = [
+                    { role:'defensa', stats:{ speed:150, pass:68, shot:48, control:62, defense:78, agility:48, stamina:100 }, pos:[400,-200] },
+                    { role:'defensa', stats:{ speed:148, pass:66, shot:46, control:63, defense:76, agility:47, stamina:100 }, pos:[400,200] },
+                    { role:'medio', stats:{ speed:158, pass:78, shot:68, control:72, defense:58, agility:62, stamina:100 }, pos:[200,0] },
+                    { role:'delantero', stats:{ speed:165, pass:72, shot:82, control:68, defense:42, agility:68, stamina:100 }, pos:[100,0] }
+                ];
+                homeData.forEach(d => { const p = new FootballPlayer(d.pos[0], d.pos[1], 'home', d.role, d.stats, true); p.setHomePosition(d.pos[0], d.pos[1]); this.players.push(p); });
+                awayData.forEach(d => { const p = new FootballPlayer(d.pos[0], d.pos[1], 'away', d.role, d.stats, false); p.setHomePosition(d.pos[0], d.pos[1]); this.players.push(p); });
+                this.homeGoalkeeper = new FootballPlayer(CONFIG.fieldWidth/2 - CONFIG.goalDepth/2, 0, 'home', 'goalkeeper', { agility:CONFIG.goalkeeperAgility, reflexes:CONFIG.goalkeeperReflexes });
+                this.awayGoalkeeper = new FootballPlayer(-CONFIG.fieldWidth/2 + CONFIG.goalDepth/2, 0, 'away', 'goalkeeper', { agility:CONFIG.goalkeeperAgility, reflexes:CONFIG.goalkeeperReflexes });
+                this.players.push(this.homeGoalkeeper, this.awayGoalkeeper);
+                this.homeTeam = this.players.filter(p => p.team === 'home');
+                this.awayTeam = this.players.filter(p => p.team === 'away');
+
+                this.controlledPlayer = this.homeTeam.find(p => p.isHuman && p.role === 'delantero');
+                this.controlledPlayer.controlled = true;
+                this.ball = new Ball(0, 0);
+                this.ball.owner = this.controlledPlayer;
+                this.controlledPlayer.hasBall = true;
+                this.scoreHome = 0; this.scoreAway = 0;
+                this.state = 'PLAYING';
+                this.foulInfo = null; this.freeKickTeam = null;
+                this.showZones = true; this.showHitboxes = false;
+                this.powerActive = false; this.powerValue = 0; this.powerDirection = 1;
+                this.actionType = null;
+                this.camera = { x:0, y:0 };
+                this.lastTime = performance.now();
+
+                this._closestCandidate = this.controlledPlayer;
+                this._closestCandidateTime = 0;
+
+                this.sideMenu = document.getElementById('side-menu');
+                this._initSideMenu();
+                this._setupPauseMenu();
+                this._setupEvents();
+                this._updateControlsUI();
+                requestAnimationFrame(t => this.loop(t));
+            }
+
+            // Menú lateral
+            _initSideMenu() {
+                this.tabButtons = document.querySelectorAll('#side-menu .tab-buttons button');
+                this.tabContents = {
+                    formation: document.getElementById('tab-formation'),
+                    players: document.getElementById('tab-players'),
+                    stats: document.getElementById('tab-stats'),
+                    architect: document.getElementById('tab-architect'),
+                    controls: document.getElementById('tab-controls')
+                };
+                this.formationCanvas = document.getElementById('formationCanvas');
+                this.formationCtx = this.formationCanvas.getContext('2d');
+                this.draggingPlayer = null;
+                this.tabButtons.forEach(btn => btn.addEventListener('click', () => this._switchSideTab(btn.dataset.tab)));
+                document.getElementById('menu-close').addEventListener('click', () => this.sideMenu.style.display = 'none');
+                document.getElementById('show-zones').addEventListener('change', e => this.showZones = e.target.checked);
+                document.getElementById('show-hitboxes').addEventListener('change', e => this.showHitboxes = e.target.checked);
+                document.getElementById('zone-radius').addEventListener('input', e => {
+                    CONFIG.zoneRadius = parseInt(e.target.value);
+                    document.getElementById('val-zone-radius').textContent = e.target.value;
+                });
+                document.getElementById('reset-formation').addEventListener('click', () => {
+                    this.homeTeam.filter(p=>p.role!=='goalkeeper').forEach((p,i) => {
+                        const orig = [[-400,200],[-400,-200],[-200,0],[-100,0]][i];
+                        p.setHomePosition(orig[0], orig[1]);
+                        p.x = orig[0]; p.y = orig[1];
+                    });
+                    this._drawFormationCanvas();
+                });
+                document.getElementById('apply-globals').addEventListener('click', () => {
+                    CONFIG.gravity = parseInt(document.getElementById('global-gravity').value);
+                    CONFIG.ballFriction = parseFloat(document.getElementById('ball-friction').value);
+                    CONFIG.autoSwitchMode = document.getElementById('autoSwitchMode').value;
+                    CONFIG.autoSwitchDelay = parseFloat(document.getElementById('autoSwitchDelay').value);
+                    document.getElementById('val-gravity').textContent = CONFIG.gravity;
+                    document.getElementById('val-friction').textContent = CONFIG.ballFriction;
+                    document.getElementById('val-autoSwitchDelay').textContent = CONFIG.autoSwitchDelay;
+                });
+                document.getElementById('autoSwitchDelay').addEventListener('input', e => {
+                    document.getElementById('val-autoSwitchDelay').textContent = e.target.value;
+                });
+                this.formationCanvas.addEventListener('mousedown', e => this._onFormationMouseDown(e));
+                this.formationCanvas.addEventListener('mousemove', e => this._onFormationMouseMove(e));
+                this.formationCanvas.addEventListener('mouseup', () => this.draggingPlayer = null);
+                this.formationCanvas.addEventListener('mouseleave', () => this.draggingPlayer = null);
+                document.getElementById('reset-bindings').addEventListener('click', () => {
+                    this.input.bindings = this.input.getDefaultBindings();
+                    localStorage.setItem('football4v4_bindings', JSON.stringify(this.input.bindings));
+                    this._updateControlsUI();
+                    this._updateHintDisplay();
+                });
+                this._buildControlsTab();
+            }
+            _switchSideTab(id) {
+                this.tabButtons.forEach(b => b.classList.remove('active'));
+                document.querySelector(`[data-tab="${id}"]`).classList.add('active');
+                Object.values(this.tabContents).forEach(d => d.classList.remove('active'));
+                this.tabContents[id].classList.add('active');
+                if (id === 'formation') this._drawFormationCanvas();
+                if (id === 'players') this._updatePlayersList();
+                if (id === 'stats') this._updateMatchStats();
+                if (id === 'controls') this._updateControlsUI();
+            }
+            _drawFormationCanvas() {
+                const ctx = this.formationCtx, w = this.formationCanvas.width, h = this.formationCanvas.height;
+                ctx.clearRect(0,0,w,h); ctx.fillStyle = '#2d5a27'; ctx.fillRect(0,0,w,h);
+                ctx.strokeStyle = '#fff'; ctx.lineWidth = 1; ctx.strokeRect(0,0,w,h);
+                ctx.beginPath(); ctx.moveTo(w/2,0); ctx.lineTo(w/2,h); ctx.stroke();
+                ctx.beginPath(); ctx.arc(w/2, h/2, 20, 0, Math.PI*2); ctx.stroke();
+                const scaleX = w / CONFIG.fieldWidth, scaleY = h / CONFIG.fieldHeight;
+                this.homeTeam.filter(p=>p.role!=='goalkeeper').forEach(p => {
+                    const sx = (p.homePositionX + CONFIG.fieldWidth/2) * scaleX;
+                    const sy = (p.homePositionY + CONFIG.fieldHeight/2) * scaleY;
+                    ctx.beginPath(); ctx.arc(sx, sy, 8, 0, Math.PI*2);
+                    ctx.fillStyle = '#ff0'; ctx.fill();
+                    ctx.fillStyle = '#000'; ctx.font = '10px monospace'; ctx.textAlign = 'center';
+                    ctx.fillText(p.role[0].toUpperCase(), sx, sy+4);
+                });
+            }
+            _onFormationMouseDown(e) {
+                const rect = this.formationCanvas.getBoundingClientRect();
+                const mx = (e.clientX - rect.left) * (this.formationCanvas.width / rect.width);
+                const my = (e.clientY - rect.top) * (this.formationCanvas.height / rect.height);
+                const scaleX = this.formationCanvas.width / CONFIG.fieldWidth, scaleY = this.formationCanvas.height / CONFIG.fieldHeight;
+                this.homeTeam.filter(p=>p.role!=='goalkeeper').forEach(p => {
+                    const sx = (p.homePositionX + CONFIG.fieldWidth/2) * scaleX;
+                    const sy = (p.homePositionY + CONFIG.fieldHeight/2) * scaleY;
+                    if (Math.hypot(mx - sx, my - sy) < 10) { this.draggingPlayer = p; this.dragOffsetX = sx - mx; this.dragOffsetY = sy - my; }
+                });
+            }
+            _onFormationMouseMove(e) {
+                if (!this.draggingPlayer) return;
+                const rect = this.formationCanvas.getBoundingClientRect();
+                const mx = (e.clientX - rect.left) * (this.formationCanvas.width / rect.width);
+                const my = (e.clientY - rect.top) * (this.formationCanvas.height / rect.height);
+                const scaleX = CONFIG.fieldWidth / this.formationCanvas.width, scaleY = CONFIG.fieldHeight / this.formationCanvas.height;
+                const worldX = (mx + this.dragOffsetX) * scaleX - CONFIG.fieldWidth/2;
+                const worldY = (my + this.dragOffsetY) * scaleY - CONFIG.fieldHeight/2;
+                this.draggingPlayer.setHomePosition(
+                    Math.max(-CONFIG.fieldWidth/2+20, Math.min(CONFIG.fieldWidth/2-20, worldX)),
+                    Math.max(-CONFIG.fieldHeight/2+20, Math.min(CONFIG.fieldHeight/2-20, worldY))
+                );
+                this._drawFormationCanvas();
+            }
+            _updatePlayersList() {
+                const div = document.getElementById('players-list');
+                let html = '<h4>Jugadores locales</h4>';
+                this.homeTeam.forEach((p, idx) => {
+                    html += `<div style="margin-bottom:8px; border-bottom:1px solid #444;">
+                        <strong>${p.role} (${p.isHuman?'Humano':'IA'})</strong><br>
+                        <label>Vel: <input type="range" min="50" max="200" value="${p.stats.speed}" oninput="window.game._updatePlayerStat(${idx},'speed',this.value)"></label>
+                        <label>Pas: <input type="range" min="30" max="100" value="${p.stats.pass}" oninput="window.game._updatePlayerStat(${idx},'pass',this.value)"></label>
+                        <label>Tir: <input type="range" min="30" max="100" value="${p.stats.shot}" oninput="window.game._updatePlayerStat(${idx},'shot',this.value)"></label>
+                        <label>Con: <input type="range" min="30" max="100" value="${p.stats.control}" oninput="window.game._updatePlayerStat(${idx},'control',this.value)"></label>
+                        <label>Def: <input type="range" min="30" max="100" value="${p.stats.defense}" oninput="window.game._updatePlayerStat(${idx},'defense',this.value)"></label>
+                        <label>Agi: <input type="range" min="30" max="100" value="${p.stats.agility}" oninput="window.game._updatePlayerStat(${idx},'agility',this.value)"></label>
+                        <label>Res: <input type="range" min="50" max="150" value="${p.stats.stamina}" oninput="window.game._updatePlayerStat(${idx},'stamina',this.value)"></label>
+                    </div>`;
+                });
+                div.innerHTML = html;
+            }
+            _updatePlayerStat(idx, stat, value) { const p = this.homeTeam[idx]; if(p) p.stats[stat] = parseInt(value); }
+            _updateMatchStats() {
+                document.getElementById('match-stats').innerHTML = `
+                    <p>Posesión: ${this.ball.owner ? (this.ball.owner.team==='home'?'Local':'Visitante') : 'Suelto'}</p>
+                    <p>Goles Local: ${this.scoreHome} | Visitante: ${this.scoreAway}</p>
+                `;
+            }
+
+            // Controles y reasignación
+            _buildControlsTab() {
+                const container = document.getElementById('controls-tab');
+                container.innerHTML = '';
+                const actions = [
+                    { id: 'moveUp', desc: 'Arriba' },
+                    { id: 'moveDown', desc: 'Abajo' },
+                    { id: 'moveLeft', desc: 'Izquierda' },
+                    { id: 'moveRight', desc: 'Derecha' },
+                    { id: 'sprint', desc: 'Sprint' },
+                    { id: 'pass', desc: 'Pase' },
+                    { id: 'shoot', desc: 'Tiro' },
+                    { id: 'action', desc: 'Acción (regate/entrada)' },
+                    { id: 'switchPlayer', desc: 'Cambiar jugador' },
+                    { id: 'pressure', desc: 'Presión' },
+                    { id: 'menu', desc: 'Menú lateral' },
+                    { id: 'pause', desc: 'Pausa' }
+                ];
+                actions.forEach(a => {
+                    const row = document.createElement('div');
+                    row.className = 'keybind-row';
+                    const descSpan = document.createElement('span');
+                    descSpan.textContent = a.desc;
+                    const keyBtn = document.createElement('button');
+                    keyBtn.className = 'key-btn';
+                    keyBtn.textContent = this.input.bindings[a.id] || '?';
+                    keyBtn.dataset.action = a.id;
+                    const rebindBtn = document.createElement('button');
+                    rebindBtn.className = 'rebind-btn';
+                    rebindBtn.textContent = 'Cambiar';
+                    rebindBtn.addEventListener('click', () => this._startRebind(a.id, keyBtn));
+                    row.appendChild(descSpan);
+                    row.appendChild(keyBtn);
+                    row.appendChild(rebindBtn);
+                    container.appendChild(row);
+                });
+            }
+            _updateControlsUI() {
+                const keyBtns = document.querySelectorAll('#controls-tab .key-btn');
+                keyBtns.forEach(btn => {
+                    const action = btn.dataset.action;
+                    if (action && this.input.bindings[action]) btn.textContent = this.input.bindings[action];
+                });
+                this._updateHintDisplay();
+            }
+            _startRebind(actionId, keyBtn) {
+                keyBtn.textContent = '...';
+                keyBtn.style.background = '#ff4444';
+                const handler = (e) => {
+                    const newKey = e.key.toLowerCase();
+                    if (newKey === 'escape') { keyBtn.textContent = this.input.bindings[actionId]; }
+                    else {
+                        this.input.bindings[actionId] = newKey;
+                        localStorage.setItem('football4v4_bindings', JSON.stringify(this.input.bindings));
+                        this._updateControlsUI();
+                    }
+                    keyBtn.style.background = '#333';
+                    window.removeEventListener('keydown', handler);
+                };
+                window.addEventListener('keydown', handler, { once: false });
+            }
+
+            // Pausa
+            _setupPauseMenu() {
+                document.getElementById('resume-btn').addEventListener('click', () => this.togglePause());
+                document.getElementById('apply-stats').addEventListener('click', () => this.applyStatsFromMenu());
+                ['speed','pass','shot','control','defense','agility','stamina'].forEach(s => {
+                    document.getElementById(`stat-${s}`).addEventListener('input', e => {
+                        document.getElementById(`val-${s}`).textContent = e.target.value;
+                    });
+                });
+            }
+            togglePause() {
+                if (this.state === 'PAUSED') { this.state = 'PLAYING'; document.getElementById('pause-menu').style.display = 'none'; }
+                else if (this.state !== 'GOAL' && this.state !== 'FOUL') {
+                    this.state = 'PAUSED'; this.updateStatsSliders(); document.getElementById('pause-menu').style.display = 'flex';
+                }
+            }
+            updateStatsSliders() {
+                const st = this.controlledPlayer.stats;
+                document.getElementById('stat-speed').value = st.speed; document.getElementById('val-speed').textContent = st.speed;
+                document.getElementById('stat-pass').value = st.pass; document.getElementById('val-pass').textContent = st.pass;
+                document.getElementById('stat-shot').value = st.shot; document.getElementById('val-shot').textContent = st.shot;
+                document.getElementById('stat-control').value = st.control; document.getElementById('val-control').textContent = st.control;
+                document.getElementById('stat-defense').value = st.defense; document.getElementById('val-defense').textContent = st.defense;
+                document.getElementById('stat-agility').value = st.agility; document.getElementById('val-agility').textContent = st.agility;
+                document.getElementById('stat-stamina').value = st.stamina; document.getElementById('val-stamina').textContent = st.stamina;
+            }
+            applyStatsFromMenu() {
+                const st = this.controlledPlayer.stats;
+                st.speed = parseInt(document.getElementById('stat-speed').value);
+                st.pass = parseInt(document.getElementById('stat-pass').value);
+                st.shot = parseInt(document.getElementById('stat-shot').value);
+                st.control = parseInt(document.getElementById('stat-control').value);
+                st.defense = parseInt(document.getElementById('stat-defense').value);
+                st.agility = parseInt(document.getElementById('stat-agility').value);
+                st.stamina = parseInt(document.getElementById('stat-stamina').value);
+            }
+
+            // Eventos de gol/falta
+            _setupEvents() {
+                this.eventBus.on('foul', ({ player, position }) => {
+                    this.state = 'FOUL'; this.foulInfo = { player, position };
+                    this.freeKickTeam = (player.team === 'home') ? 'away' : 'home';
+                    this.showMessage('FALTA', '#ff4444'); this.audio.playFoul();
+                    setTimeout(() => this.resumeFromFoul(), 1500);
+                });
+                this.eventBus.on('goal', (side) => {
+                    this.state = 'GOAL';
+                    if (side === 'home') this.scoreHome++; else this.scoreAway++;
+                    this.showMessage('¡GOL!', '#ffff00'); this.audio.playGoal();
+                    setTimeout(() => this.resetAfterGoal(side), 2000);
+                });
+            }
+            showMessage(text, color) {
+                const msgDiv = document.getElementById('message');
+                msgDiv.textContent = text; msgDiv.style.color = color; msgDiv.style.opacity = '1';
+                setTimeout(() => { msgDiv.style.opacity = '0'; }, CONFIG.messageDuration * 1000);
+            }
+            showDynamicMessage(text) {
+                const dyn = document.getElementById('dynamic-message');
+                dyn.textContent = text; dyn.style.opacity = '1';
+                setTimeout(() => { dyn.style.opacity = '0'; }, CONFIG.dynamicMessageDuration * 1000);
+            }
+            resumeFromFoul() {
+                this.ball.reset(this.foulInfo.position.x, this.foulInfo.position.y);
+                const freePlayers = this.players.filter(p => p.team === this.freeKickTeam);
+                if (freePlayers.length > 0) {
+                    const closest = freePlayers.reduce((a,b) => Math.hypot(a.x-this.ball.x, a.y-this.ball.y) < Math.hypot(b.x-this.ball.x, b.y-this.ball.y) ? a : b);
+                    this.ball.owner = closest; closest.hasBall = true;
+                }
+                this.state = 'PLAYING'; this.foulInfo = null;
+            }
+            resetAfterGoal(scoringSide) {
+                this.ball.reset(0, 0);
+                this.players.forEach(p => { p.hasBall = false; });
+                const kickingTeam = scoringSide === 'home' ? 'away' : 'home';
+                const kicker = this.players.filter(p => p.team === kickingTeam && p.role !== 'goalkeeper')
+                    .reduce((a, b) => Math.hypot(a.x, a.y) < Math.hypot(b.x, b.y) ? a : b);
+                if (kicker) {
+                    this.ball.owner = kicker; kicker.hasBall = true;
+                    if (kickingTeam === 'home' && kicker.isHuman) this.switchToPlayer(kicker);
+                }
+                this.players.forEach(p => { p.x = p.homePositionX; p.y = p.homePositionY; });
+                this.state = 'PLAYING';
+            }
+
+            // Cambio de jugador
+            switchToPlayer(newPlayer) {
+                if (!newPlayer || newPlayer === this.controlledPlayer || !newPlayer.isHuman) return;
+                this.controlledPlayer.controlled = false;
+                newPlayer.controlled = true;
+                this.controlledPlayer = newPlayer;
+                this._closestCandidate = newPlayer;
+                this._closestCandidateTime = 0;
+            }
+            _updateAutoControl(dt) {
+                if (this.state !== 'PLAYING') return;
+                if (CONFIG.autoSwitchMode === 'manual') return;
+                const candidates = this.homeTeam.filter(p => p.isHuman && p.role !== 'goalkeeper');
+                if (candidates.length === 0) return;
+                let closest = candidates[0];
+                let minDist = Math.hypot(closest.x - this.ball.x, closest.y - this.ball.y);
+                for (let i = 1; i < candidates.length; i++) {
+                    const d = Math.hypot(candidates[i].x - this.ball.x, candidates[i].y - this.ball.y);
+                    if (d < minDist) { minDist = d; closest = candidates[i]; }
+                }
+                if (closest !== this._closestCandidate) {
+                    this._closestCandidate = closest;
+                    this._closestCandidateTime = 0;
+                } else {
+                    this._closestCandidateTime += dt;
+                }
+                // Si un compañero humano recibe el balón, cambia inmediatamente
+                if (this.ball.owner && this.ball.owner.isHuman && this.ball.owner.team === 'home' && this.ball.owner.role !== 'goalkeeper' && this.ball.owner !== this.controlledPlayer) {
+                    this.switchToPlayer(this.ball.owner);
+                }
+                // Cambio automático según el modo
+                else if (CONFIG.autoSwitchMode === 'immediate' && closest !== this.controlledPlayer) {
+                    this.switchToPlayer(closest);
+                } else if (CONFIG.autoSwitchMode === 'delay' && this._closestCandidateTime >= CONFIG.autoSwitchDelay && closest !== this.controlledPlayer) {
+                    this.switchToPlayer(closest);
+                }
+            }
+
+            // Acciones de juego
+            attemptAction() {
+                const p = this.controlledPlayer;
+                if (p.hasBall) {
+                    if (p.dribbleActive || p.dribbleCooldown > 0 || p.sprint < CONFIG.dribbleDashSprintCost) return;
+                    if (p.startDribble(p.facingAngle)) this.audio.playDribble();
+                } else {
+                    if (p.dashActive || p.dashCooldown > 0 || p.sprint < CONFIG.dashTackleSprintCost) return;
+                    const angle = this.input.getAimAngle(p.x - this.camera.x + this.canvas.width/2, p.y - this.camera.y + this.canvas.height/2);
+                    if (p.startDash(angle)) this.audio.playTackle();
+                }
+            }
+            startPowerAction(type) {
+                if (this.powerActive || !this.controlledPlayer.hasBall) return;
+                this.powerActive = true; this.actionType = type; this.powerValue = 0; this.powerDirection = 1;
+            }
+            executeAction() {
+                if (!this.powerActive || !this.controlledPlayer.hasBall) return;
+                const p = this.controlledPlayer;
+                const power = this.powerValue / 100;
+                if (this.actionType === 'pass') {
+                    const angle = p.facingAngle;
+                    const finalSpeed = 200 + power * CONFIG.passMaxPower * 0.5;
+                    const vx = Math.cos(angle) * finalSpeed;
+                    const vy = Math.sin(angle) * finalSpeed;
+                    this.ball.launch(vx, vy, 20 + power * 80);
+                    this.audio.playPass();
+                } else if (this.actionType === 'shoot') {
+                    const goalX = p.team === 'home' ? CONFIG.fieldWidth/2 : -CONFIG.fieldWidth/2;
+                    const angle = Math.atan2(-p.y, goalX - p.x);
+                    const speed = power * CONFIG.shotMaxPower;
+                    const vx = Math.cos(angle) * speed;
+                    const vy = Math.sin(angle) * speed;
+                    const vz = 150 + power * 300;
+                    this.ball.launch(vx, vy, vz);
+                    this.audio.playShoot();
+                }
+                p.hasBall = false; this.ball.owner = null;
+                this.powerActive = false; this.actionType = null;
+                if (p.role === 'goalkeeper') {
+                    const outfield = this.homeTeam.find(pl => pl.isHuman && pl.role !== 'goalkeeper');
+                    if (outfield) this.switchToPlayer(outfield);
+                }
+            }
+            updateDashCollisions() {
+                for (const p of this.players) {
+                    if (!p.dashActive || !p.dashHitbox || p.role === 'goalkeeper') continue;
+                    const carrier = this.ball.owner;
+                    if (!carrier || carrier === p || carrier.team === p.team) continue;
+                    const hb = p.dashHitbox;
+                    const dx = carrier.x - hb.x, dy = carrier.y - hb.y, angle = -hb.angle;
+                    const localX = dx * Math.cos(angle) - dy * Math.sin(angle);
+                    const localY = dx * Math.sin(angle) + dy * Math.cos(angle);
+                    if (Math.abs(localX) < hb.width/2 && Math.abs(localY) < hb.height/2) {
+                        p.dashActive = false; p.dashHitbox = null;
+                        const carrierAngle = carrier.facingAngle;
+                        let angleDiff = Math.atan2(carrier.y - p.y, carrier.x - p.x) - carrierAngle;
+                        while (angleDiff < -Math.PI) angleDiff += 2*Math.PI;
+                        while (angleDiff > Math.PI) angleDiff -= 2*Math.PI;
+                        let foulProb = CONFIG.foulProbability;
+                        if (Math.abs(angleDiff) < Math.PI/3) foulProb = CONFIG.foulProbabilityFront;
+                        else if (Math.abs(angleDiff) > 2*Math.PI/3) foulProb = CONFIG.foulProbabilityFromBehind;
+                        else foulProb = CONFIG.foulProbabilitySide;
+                        const success = Math.random() * 100 < (CONFIG.tackleSuccessBase + (p.stats.defense - carrier.stats.agility) * 0.5);
+                        if (success) {
+                            this.ball.owner = p; p.hasBall = true; carrier.hasBall = false;
+                            this.ball.vx = 0; this.ball.vy = 0; this.ball.vz = 0; this.ball.z = 0; this.ball.state = 'stopped';
+                        } else if (Math.random() < foulProb) {
+                            this.eventBus.emit('foul', { player: p, position: { x: carrier.x, y: carrier.y } });
+                        }
+                        break;
+                    }
+                }
+            }
+
+            // Bucle principal
+            update(dt) {
+                this.input.update();
+                if (this.input.isPausePressed()) this.togglePause();
+                if (this.state === 'PAUSED') { this.lastTime = performance.now(); return; }
+                if (this.state === 'GOAL' || this.state === 'FOUL') return;
+
+                if (this.input.isMenuTogglePressed()) {
+                    this.sideMenu.style.display = (this.sideMenu.style.display === 'block') ? 'none' : 'block';
+                    if (this.sideMenu.style.display === 'block') this._switchSideTab('formation');
+                }
+                if (this.sideMenu.style.display === 'block') return;
+
+                if (this.input.isSwitchPlayerPressed()) {
+                    const sorted = this.homeTeam.filter(p => p.isHuman && p.role !== 'goalkeeper').sort((a,b) => Math.hypot(a.x-this.ball.x, a.y-this.ball.y) - Math.hypot(b.x-this.ball.x, b.y-this.ball.y));
+                    if (sorted.length > 1) {
+                        const curIdx = sorted.indexOf(this.controlledPlayer);
+                        const next = sorted[(curIdx + 1) % sorted.length];
+                        this.switchToPlayer(next);
+                    }
+                }
+                if (this.input.isActionPressed()) this.attemptAction();
+
+                const hasBall = this.controlledPlayer.hasBall;
+                if (hasBall && !this.powerActive) {
+                    if (this.input.isPassStart()) this.startPowerAction('pass');
+                    else if (this.input.isShootStart()) this.startPowerAction('shoot');
+                } else if (this.powerActive) {
+                    this.powerValue += 300 * dt * this.powerDirection;
+                    if (this.powerValue >= 100) { this.powerValue = 100; this.powerDirection = -1; }
+                    if (this.powerValue <= 0) { this.powerValue = 0; this.powerDirection = 1; }
+                    if ((this.actionType === 'pass' && this.input.isPassReleased()) ||
+                        (this.actionType === 'shoot' && this.input.isShootReleased())) {
+                        this.executeAction();
+                    }
+                }
+
+                for (const p of this.players) {
+                    if (p.role === 'goalkeeper') {
+                        if (!(p.isHuman && p.controlled)) AIController.updateGoalkeeper(p, this.ball, dt, this.audio);
+                    } else {
+                        p.update(dt, this.ball, this.players);
+                    }
+                }
+                AIController.updateAll(this.players, this.ball, dt, this.audio);
+                this.ball.update(dt);
+                this.updateDashCollisions();
+
+                if (this.ball.state === 'goal') {
+                    this.eventBus.emit('goal', this.ball._goalSide);
+                    this.ball.state = 'stopped';
+                }
+
+                if (!this.ball.isPossessed() && (this.ball.state === 'rolling' || this.ball.state === 'stopped')) {
+                    for (const p of this.players) {
+                        if (Math.hypot(p.x - this.ball.x, p.y - this.ball.y) < p.radius + CONFIG.ballRadius + 6) {
+                            this.ball.owner = p; p.hasBall = true;
+                            this.ball.vx = 0; this.ball.vy = 0; this.ball.vz = 0; this.ball.state = 'stopped';
+                            if (p.isHuman && p.role !== 'goalkeeper' && p.team === 'home') this.switchToPlayer(p);
+                            if (p.role === 'goalkeeper' && p.team === 'home' && p.isHuman) this.switchToPlayer(p);
+                            break;
+                        }
+                    }
+                }
+
+                if (this.controlledPlayer.role === 'goalkeeper' && !this.controlledPlayer.hasBall) {
+                    const outfield = this.homeTeam.find(p => p.isHuman && p.role !== 'goalkeeper');
+                    if (outfield) this.switchToPlayer(outfield);
+                }
+
+                this._updateAutoControl(dt);
+
+                this.camera.x += (this.ball.x - this.camera.x) * 0.1;
+                this.camera.y += (this.ball.y - this.camera.y) * 0.1;
+                document.getElementById('score').textContent = `${this.scoreHome} - ${this.scoreAway}`;
+                document.getElementById('controlledPlayer').textContent = this.controlledPlayer.role;
+                document.getElementById('sprintBar').textContent = `Sprint: ${Math.round(this.controlledPlayer.sprint)}%`;
+            }
+
+            draw() {
+                const ctx = this.ctx;
+                ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+                ctx.save();
+                ctx.translate(this.canvas.width/2 - this.camera.x, this.canvas.height/2 - this.camera.y);
+                ctx.fillStyle = '#2d5a27'; ctx.fillRect(-CONFIG.fieldWidth/2, -CONFIG.fieldHeight/2, CONFIG.fieldWidth, CONFIG.fieldHeight);
+                ctx.strokeStyle = '#fff'; ctx.lineWidth = 2; ctx.strokeRect(-CONFIG.fieldWidth/2, -CONFIG.fieldHeight/2, CONFIG.fieldWidth, CONFIG.fieldHeight);
+                ctx.beginPath(); ctx.moveTo(0, -CONFIG.fieldHeight/2); ctx.lineTo(0, CONFIG.fieldHeight/2); ctx.stroke();
+                ctx.beginPath(); ctx.arc(0, 0, 60, 0, Math.PI*2); ctx.stroke();
+                ctx.fillStyle = '#fff'; ctx.fillRect(CONFIG.fieldWidth/2, -CONFIG.goalWidth/2, CONFIG.goalDepth, CONFIG.goalWidth);
+                ctx.fillRect(-CONFIG.fieldWidth/2 - CONFIG.goalDepth, -CONFIG.goalWidth/2, CONFIG.goalDepth, CONFIG.goalWidth);
+
+                if (this.showZones) {
+                    this.players.forEach(p => {
+                        ctx.beginPath(); ctx.arc(p.homePositionX, p.homePositionY, CONFIG.zoneRadius, 0, Math.PI*2);
+                        ctx.fillStyle = p.team === 'home' ? 'rgba(255,255,0,0.1)' : 'rgba(255,0,0,0.1)'; ctx.fill();
+                    });
+                }
+                this.players.forEach(p => {
+                    ctx.beginPath(); ctx.arc(p.x, p.y, p.radius, 0, Math.PI*2);
+                    let color = p.team === 'home' ? '#ff0' : '#f44';
+                    if (p.role === 'goalkeeper') color = p.team === 'home' ? '#0f0' : '#f88';
+                    // Indicador de fatiga para todos los jugadores (controlado y NPCs)
+                    if (p.sprint < CONFIG.fatigueColorThreshold) {
+                        color = (p.team === 'home') ? '#ff8844' : '#ff6666';
+                    }
+                    if (p === this.controlledPlayer) { ctx.strokeStyle = '#0f0'; ctx.lineWidth = 3; ctx.stroke(); }
+                    ctx.fillStyle = color; ctx.fill();
+                    ctx.fillStyle = '#000'; ctx.font = '12px monospace'; ctx.textAlign = 'center';
+                    ctx.fillText(p.role === 'goalkeeper' ? 'P' : (p.role==='delantero'?'D':(p.role==='medio'?'M':'Z')), p.x, p.y+4);
+                    if (p.dashActive && p.dashHitbox && this.showHitboxes) { ctx.save(); ctx.translate(p.dashHitbox.x, p.dashHitbox.y); ctx.rotate(p.dashHitbox.angle); ctx.strokeStyle = '#ff0'; ctx.lineWidth = 2; ctx.strokeRect(-p.dashHitbox.width/2, -p.dashHitbox.height/2, p.dashHitbox.width, p.dashHitbox.height); ctx.restore(); }
+                    if (p.dribbleActive && this.showHitboxes) { ctx.beginPath(); ctx.arc(p.x, p.y, p.radius + 6, 0, Math.PI*2); ctx.strokeStyle = '#0ff'; ctx.lineWidth = 2; ctx.stroke(); }
+                    if (p.controlled && p.sprint < CONFIG.maxSprint) { ctx.fillStyle = '#000'; ctx.fillRect(p.x - 10, p.y - 25, 20, 4); ctx.fillStyle = '#0f0'; ctx.fillRect(p.x - 10, p.y - 25, 20 * (p.sprint / CONFIG.maxSprint), 4); }
+                });
+                if (!this.ball.isPossessed() || this.ball.state === 'flying' || this.ball.state === 'rolling') { ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(this.ball.x, this.ball.y, CONFIG.ballRadius, 0, Math.PI*2); ctx.fill(); }
+                else if (this.ball.owner) { ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(this.ball.x, this.ball.y, CONFIG.ballRadius, 0, Math.PI*2); ctx.fill(); }
+                if (this.powerActive) {
+                    const px = this.controlledPlayer.x, py = this.controlledPlayer.y + CONFIG.gaugeYOffset;
+                    ctx.fillStyle = '#333'; ctx.fillRect(px - CONFIG.gaugeWidth/2, py, CONFIG.gaugeWidth, CONFIG.gaugeHeight);
+                    ctx.fillStyle = '#0f0'; ctx.fillRect(px - CONFIG.gaugeWidth/2, py, CONFIG.gaugeWidth * (this.powerValue/100), CONFIG.gaugeHeight);
+                    ctx.strokeStyle = '#fff'; ctx.strokeRect(px - CONFIG.gaugeWidth/2, py, CONFIG.gaugeWidth, CONFIG.gaugeHeight);
+                    ctx.fillStyle = '#fff'; ctx.font = '10px monospace'; ctx.textAlign = 'center';
+                    ctx.fillText(`${this.actionType.toUpperCase()} ${Math.round(this.powerValue)}%`, px, py - 4);
+                }
+                ctx.restore();
+            }
+
+            _updateHintDisplay() {
+                const b = this.input.bindings;
+                document.getElementById('hintDisplay').textContent = `🛡️ Pase:${b.pass} | Tiro:${b.shoot} | Acción:${b.action} | Cambiar:${b.switchPlayer} | Presión:${b.pressure}`;
+            }
+
+            loop(timestamp) {
+                const dt = Math.min((timestamp - this.lastTime) / 1000, 0.1);
+                this.lastTime = timestamp;
+                this.update(dt);
+                this.draw();
+                requestAnimationFrame(t => this.loop(t));
+            }
+        }
+
+        // ==================== INICIO ====================
+        window.addEventListener('DOMContentLoaded', () => {
+            const savedBindings = localStorage.getItem('football4v4_bindings');
+            let bindings = null;
+            if (savedBindings) {
+                try { bindings = JSON.parse(savedBindings); } catch(e) { bindings = null; }
+            }
+            const input = new KeyboardHandler(bindings);
+            const canvas = document.getElementById('gameCanvas');
+            canvas.width = 1000; canvas.height = 600;
+            const game = new Game(canvas, input);
+            window.game = game;
+        });
+    </script>
+</body>
+</html>
