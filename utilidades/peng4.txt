@@ -1,0 +1,105 @@
+# 🎮 Peng — Arcade Pang + Arkanoid con Arquitectura Hexagonal
+
+**Peng** es un juego de acción arcade que fusiona la mecánica clásica de *Pang* (disparar arpones para dividir bolas) con elementos de *Arkanoid* (rebotes, plataformas destructibles y físicas caóticas). Controlas un cañón en la parte inferior de la pantalla, destruyes bolas antes de que escapen y sobrevives a oleadas cada vez más intensas.
+
+Desarrollado con **JavaScript puro**, **HTML5 Canvas** y una **arquitectura hexagonal modular** basada en puertos, adaptadores y un bus de eventos. Totalmente configurable en caliente desde un menú de arquitecto integrado.
+
+---
+
+## 🕹️ Controles
+
+| Acción          | Teclado / Ratón               |
+|-----------------|-------------------------------|
+| Moverse         | `←` `→` o `A` `D`            |
+| Disparar        | `Espacio` o clic izquierdo    |
+| Menú Arquitecto | `Tab`                         |
+
+En móvil, usa los controles táctiles sobre el canvas.
+
+---
+
+## 🧩 Características principales
+
+- **Física de rebotes** – Las bolas rebotan en paredes, techo y en tu propio cañón (sin hacerte daño). Solo pierdes una vida si una bola se escapa por la parte inferior.
+- **División en cadena** – Una bola grande se divide en dos medianas, y cada mediana en dos pequeñas. Las pequeñas pueden mutar aleatoriamente y volver a crecer.
+- **Power‑ups** – Recoge mejoras temporales como triple disparo, láser, escudo, ralentización, crecimiento permanente del cañón, disparo demoledor, etc.
+- **Plataformas destructibles** – Aparecen obstáculos que solo interactúan con las bolas; al ser golpeadas, se rompen (algunas requieren varios impactos).
+- **Modo Arquitecto** – Pausa el juego con `Tab` y modifica en tiempo real: velocidades, radios, probabilidad de mutación, duración de las fases… ¡Sin recargar!
+- **Sistema de récords** – Cada 10 fases se registra tu tiempo. Si bates la marca, introduces tu nombre con un selector arcade de 3 letras.
+- **Fondos temáticos** – El escenario cambia cada 10 fases: ciudad nocturna, bosque alienígena, espacio profundo, fondo abisal y volcánico.
+- **Barra de progreso** – Muestra cuánto queda para completar la fase (basada en el límite de divisiones).
+- **Tienda entre fases** – Gasta los puntos conseguidos en vidas extra, munición o power‑ups para la siguiente oleada.
+
+---
+
+## 🏗️ Arquitectura del código
+
+El proyecto sigue una **arquitectura hexagonal (puertos y adaptadores)** con comunicación mediante un bus de eventos:
+
+- **Puertos (interfaces):** `InputPort`, `RendererPort`, `PersistencePort`, `AudioPort`
+- **Adaptadores concretos:** `WebInputAdapter`, `CanvasRenderer`, `LocalStorageAdapter`, `WebAudioAdapter`
+- **Núcleo de dominio:** entidades como `Ball`, `Harpoon`, `Player`, `BreakablePlatform`, `PowerUp`
+- **Servicios de lógica:** `PhysicsService`, `PlatformService`, `BackgroundService`, `RecordService`
+- **EventBus:** desacopla completamente los módulos. Por ejemplo, `BALL_HIT`, `BALL_SPLIT`, `POWERUP_COLLECTED`, `PLAYER_DAMAGED`, etc.
+
+Esto permite probar, modificar o reemplazar cualquier componente sin afectar al resto. El juego se puede extender con nuevos power‑ups, temas o mecánicas simplemente añadiendo servicios que escuchen los eventos adecuados.
+
+---
+
+## 🚀 Cómo ejecutar
+
+1. Clona el repositorio o descarga el archivo `index.html`.
+2. Ábrelo en cualquier navegador moderno (Chrome, Firefox, Edge).
+3. ¡A jugar!
+
+No requiere instalación, dependencias ni servidor.
+
+---
+
+## 🛠️ Configuración en caliente
+
+Pulsa `Tab` para abrir el menú **Arquitecto**. Desde allí puedes ajustar:
+
+- Velocidad de las bolas (grandes, medianas, pequeñas)
+- Altura de salto al dividirse
+- Probabilidad de mutación RNG
+- Límite de divisiones por fase
+- Tiempo base de cada fase
+- Activar power‑ups manualmente
+- Añadir bolas o plataformas para pruebas
+
+También hay una pestaña **Tienda** para gastar puntos en mejoras durante la partida.
+
+---
+
+## 📁 Estructura del proyecto
+peng/
+├── index.html # Todo el juego (HTML + CSS + JS)
+└── README.md
+
+text
+
+El código está completamente autocontenido en un único archivo para facilitar la distribución y la experimentación.
+
+---
+
+## 🧪 Inspiración y estado del arte
+
+Peng bebe de clásicos como **Pang** (1990), **Super Pang**, **Arkanoid** y **Breakout**, pero añade:
+
+- Mutaciones impredecibles que alargan las fases
+- Crecimiento permanente del jugador como recompensa
+- Récords con iniciales al estilo arcade
+- Una arquitectura modular que permite iterar rapidísimo
+
+El resultado es un prototipo sorprendentemente completo y rejugable, desarrollado con una disciplina de diseño poco habitual en proyectos de este tamaño.
+
+---
+
+## 📝 Licencia
+
+Este proyecto es de código abierto. Puedes usarlo, modificarlo y compartirlo libremente. Si creas algo interesante, ¡me encantaría verlo!
+
+---
+
+¿Preguntas, sugerencias o ideas locas? ¡Abre un issue o un pull request!
