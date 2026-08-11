@@ -1,0 +1,784 @@
+<!DOCTYPE html>
+<html lang="gl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Galicia: Subsistencia Rizomática · Con Provincias</title>
+    <style>
+        :root {
+            --bg: #1a2f1d;
+            --panel: #2e4a2e;
+            --text: #e0e0c0;
+            --accent: #c0a060;
+            --danger: #b05040;
+            --success: #60a060;
+            --border: #5a7050;
+            --warning: #d4a017;
+        }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: 'Segoe UI', 'Georgia', sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            padding: 1rem;
+        }
+        #app {
+            max-width: 800px;
+            width: 100%;
+            background: var(--panel);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 1.5rem;
+            box-shadow: 0 0 20px rgba(0,0,0,0.5);
+        }
+        h1, h2, h3 { color: var(--accent); margin-bottom: 0.8rem; }
+        .panel {
+            background: rgba(0,0,0,0.2);
+            padding: 1rem;
+            margin: 1rem 0;
+            border-radius: 6px;
+            border-left: 4px solid var(--accent);
+        }
+        .flex-row { display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap; }
+        .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 0.8rem; }
+        .grid-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 0.5rem; }
+        @media (max-width: 600px) { .grid-4 { grid-template-columns: repeat(2,1fr); } .grid-2 { grid-template-columns: 1fr; } }
+        .recurso {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 0.3rem;
+        }
+        .recurso label { font-size: 0.9rem; color: var(--accent); }
+        .barra {
+            width: 90px;
+            height: 10px;
+            background: #333;
+            border-radius: 5px;
+            overflow: hidden;
+        }
+        .barra-relleno {
+            height: 100%;
+            background: var(--success);
+            transition: width 0.3s;
+        }
+        .mensajes {
+            font-style: italic;
+            color: var(--accent);
+            min-height: 2rem;
+            margin-top: 0.5rem;
+        }
+        button {
+            background: var(--border);
+            color: var(--text);
+            border: 1px solid var(--accent);
+            padding: 0.5rem 0.8rem;
+            margin: 0.2rem;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 0.85rem;
+            transition: background 0.2s;
+        }
+        button:hover:not(:disabled) {
+            background: var(--accent);
+            color: #1a1a1a;
+        }
+        button:disabled { opacity: 0.5; cursor: not-allowed; }
+        .btn-finalizar { background: var(--danger); border-color: var(--danger); font-weight: bold; }
+        .oculto { display: none; }
+        .tarjeta-provincia {
+            background: rgba(0,0,0,0.3);
+            padding: 0.8rem;
+            border-radius: 6px;
+            text-align: center;
+            border-top: 3px solid var(--accent);
+        }
+        .tarjeta-provincia.en-risco { border-top-color: var(--danger); }
+        .tarjeta-provincia h4 { margin-bottom: 0.3rem; }
+        .acciones-provincia { display: flex; flex-direction: column; gap: 0.2rem; margin-top: 0.5rem; }
+        .progreso-proyecto {
+            display: flex;
+            justify-content: space-between;
+            background: rgba(255,255,255,0.1);
+            padding: 0.3rem 0.5rem;
+            border-radius: 4px;
+            margin-bottom: 0.2rem;
+        }
+    </style>
+</head>
+<body>
+    <div id="app">
+        <h1>🌿 Galicia: Subsistencia Rizomática</h1>
+        <div id="panel-estado" class="panel">
+            <div><strong>Turno:</strong> <span id="turno">0</span>/50</div>
+            <div class="grid-2" id="recursos-container"></div>
+            <div class="mensajes" id="mensaje-estado"></div>
+        </div>
+        <div id="panel-evento" class="panel oculto">
+            <h3 id="evento-nombre"></h3>
+            <p id="evento-descripcion"></p>
+            <div id="opciones-container"></div>
+        </div>
+        <div id="panel-provincias" class="panel">
+            <h3>🗺️ Provincias</h3>
+            <div class="grid-4" id="provincias-container"></div>
+        </div>
+        <div id="panel-proyectos" class="panel oculto">
+            <h3>⏳ Proxectos en marcha</h3>
+            <div id="proyectos-lista"></div>
+        </div>
+        <div id="panel-acciones" class="panel oculto">
+            <h3>Accións do ano (<span id="acciones-restantes">3</span> restantes)</h3>
+            <div id="acciones-container"></div>
+            <button id="btn-finalizar-turno" class="btn-finalizar">Finalizar turno</button>
+        </div>
+    </div>
+
+    <script>
+    // ============================================================
+    // EVENT BUS (Pub/Sub) - Desacopla motor y UI
+    // ============================================================
+    class EventBus {
+        constructor() {
+            this._listeners = {};
+        }
+        on(evento, callback) {
+            if (!this._listeners[evento]) this._listeners[evento] = [];
+            this._listeners[evento].push(callback);
+        }
+        emit(evento, datos) {
+            (this._listeners[evento] || []).forEach(cb => cb(datos));
+        }
+    }
+
+    // ============================================================
+    // CONFIGURACIÓN Y DATOS DECLARATIVOS
+    // ============================================================
+    const GAME_CONFIG = {
+        turnosTotales: 50,
+        accionesPorTurno: 3,
+        modules: {
+            provincias: true,
+            tendencias: true,
+            proyectosLargaDuracion: true
+        }
+    };
+
+    // Recursos nacionales iniciales
+    const RECURSOS_INICIALES = {
+        cohesion_social: 70,
+        soberania_energetica: 50,
+        relacion_madrid: 50,
+        tejido_economico: 60,
+        lingua_galega: 80
+    };
+
+    // Provincias gallegas con especialidades y diáspora asociada
+    const PROVINCIAS_DATA = {
+        coruna: {
+            nombre: 'A Coruña',
+            especialidad: 'software',
+            estabilidad: 75,
+            diaspora: 'argentina',
+            descripcion: 'Hub tecnológico atlántico',
+            riesgo_incendio: 0.1  // probabilidad base de incendio
+        },
+        lugo: {
+            nombre: 'Lugo',
+            especialidad: 'canamo',
+            estabilidad: 65,
+            diaspora: 'cuba',
+            descripcion: 'Reserva da biosfera e cáñamo',
+            riesgo_incendio: 0.3
+        },
+        ourense: {
+            nombre: 'Ourense',
+            especialidad: 'litio',
+            estabilidad: 60,
+            diaspora: 'venezuela',
+            descripcion: 'Ouro branco e termalismo',
+            riesgo_incendio: 0.4
+        },
+        pontevedra: {
+            nombre: 'Pontevedra',
+            especialidad: 'turismo',
+            estabilidad: 70,
+            diaspora: 'suiza',
+            descripcion: 'Rías e industria conserveira',
+            riesgo_incendio: 0.2
+        }
+    };
+
+    // Acciones genéricas (se pueden ejecutar sin provincia)
+    const ACCIONES_GENERICAS = [
+        { texto: 'Fomentar cooperativas enerxéticas', efecto: { soberania_energetica: 10, cohesion_social: 5 } },
+        { texto: 'Subvencionar música galega nas escolas', efecto: { lingua_galega: 15, cohesion_social: 10 } },
+        { texto: 'Exportar software P2P a Euskadi', efecto: { tejido_economico: 10, relacion_madrid: -5 } },
+        { texto: 'Crear axencia de noticias en galego', efecto: { lingua_galega: 20, cohesion_social: 5 } },
+        { texto: 'Negociar estatuto especial con Madrid', efecto: { relacion_madrid: 20, soberania_energetica: -10 } },
+        { texto: 'Invertir en I+D do cáñamo', efecto: { soberania_energetica: 15, tejido_economico: 5 } }
+    ];
+
+    // Acciones específicas por provincia (requieren seleccionar provincia)
+    const ACCIONES_PROVINCIA = {
+        software: { texto: 'Crear viveiro de startups', efecto: { tejido_economico: 12 }, coste: 15, duracion: 0 },
+        canamo: { texto: 'Ampliar cultivo de cáñamo', efecto: { soberania_energetica: 10, tejido_economico: 5 }, coste: 10, duracion: 0 },
+        litio: { texto: 'Nacionalizar mina de litio', efecto: { soberania_energetica: 15, tejido_economico: 10 }, coste: 20, duracion: 2 },
+        turismo: { texto: 'Promover turismo sostible', efecto: { tejido_economico: 8, cohesion_social: 5 }, coste: 8, duracion: 0 }
+    };
+
+    // Proyectos de larga duración (pueden ser genéricos o provinciales)
+    const PROYECTOS_DISPONIBLES = [
+        { id: 'plan_hidrogeno', texto: 'Plan de hidróxeno verde', duracion: 3, efecto_por_turno: { soberania_energetica: 2 }, efecto_final: { soberania_energetica: 20, tejido_economico: 10 }, coste_inicial: 25 },
+        { id: 'reconversion_naval', texto: 'Reconversión do naval', duracion: 4, efecto_por_turno: { tejido_economico: -3 }, efecto_final: { tejido_economico: 25, cohesion_social: 10 }, coste_inicial: 30 },
+        { id: 'plan_forestal', texto: 'Plan forestal integral', duracion: 3, efecto_por_turno: { cohesion_social: 1 }, efecto_final: { cohesion_social: 10, soberania_energetica: 5 }, coste_inicial: 20,
+            al_completar: (engine) => { engine.flags['plan_forestal_completado'] = true; } }
+    ];
+
+    // Patrones desbloqueables
+    const PATRONES = {
+        'Cáñamo Multiuso': { requisitos: { soberania_energetica: 60 }, efecto: { tejido_economico: 5, soberania_energetica: 10 } },
+        'Rede Comunitaria': { requisitos: { cohesion_social: 70 }, efecto: { soberania_energetica: 15, cohesion_social: 5 } },
+        'Economía do Ben Común': { requisitos: { cohesion_social: 80, tejido_economico: 50 }, efecto: { cohesion_social: 10, lingua_galega: 5 } },
+        'IA Tribal': { requisitos: { soberania_energetica: 80, lingua_galega: 70 }, efecto: { cohesion_social: 10, tejido_economico: 10 } }
+    };
+
+    // Eventos con precondiciones, flags y localización provincial
+    const EVENTOS = [
+        {
+            id: 'algas_toxicas',
+            nome: 'Algas tóxicas nas rías',
+            efecto: { tejido_economico: -15, cohesion_social: -10 },
+            requiere: {},
+            provincia_afectada: 'pontevedra', // puede ser null para evento global
+            opciones: [
+                { texto: 'Investigar con cáñamo bioremediador', efecto: { tejido_economico: 5, soberania_energetica: 10 }, mensaxe: 'Desbloquea patrón "Cáñamo Multiuso"' },
+                { texto: 'Pedir axuda á UE', efecto: { relacion_madrid: -10, soberania_energetica: -5 }, mensaxe: 'Dependencia externa aumenta' },
+                { texto: 'Ignorar e seguir', efecto: { cohesion_social: -20 }, mensaxe: 'Protestas sociais' }
+            ]
+        },
+        {
+            id: 'ciberataque',
+            nome: 'Ciberataque á rede eléctrica peninsular',
+            efecto: { soberania_energetica: -25 },
+            requiere: {},
+            provincia_afectada: null,
+            opciones: [
+                { texto: 'Activar rede P2P local', efecto: { soberania_energetica: 20, tejido_economico: 10 }, mensaxe: 'Desbloquea "Rede Comunitaria"', activa_flag: 'red_p2p_activada' },
+                { texto: 'Aceptar axuda técnica rusa', efecto: { relacion_madrid: -30, soberania_energetica: 15 }, mensaxe: 'Xeorriscos aumentan' },
+                { texto: 'Facer pacto con Portugal', efecto: { relacion_madrid: -5, soberania_energetica: 10 }, mensaxe: 'Alianza ibérica fortalécese' }
+            ]
+        },
+        {
+            id: 'multinacional_costa',
+            nome: 'Multinacional quere comprar kilómetros de costa',
+            efecto: { cohesion_social: -15, lingua_galega: -5 },
+            requiere: { flag: 'turismo_masivo' }, // solo si se activó antes el turismo masivo
+            provincia_afectada: 'pontevedra',
+            opciones: [
+                { texto: 'Rexeitar e declarar costa ben común', efecto: { cohesion_social: 20, tejido_economico: -10 }, mensaxe: 'Desbloquea "Economía do Ben Común"' },
+                { texto: 'Aceptar con condicións ecolóxicas', efecto: { tejido_economico: 25, cohesion_social: -10 }, mensaxe: 'Turismo masivo comeza', activa_flag: 'turismo_masivo' },
+                { texto: 'Consultar á diáspora', efecto: (engine) => {
+                    const total = Object.values(engine.diaspora).reduce((a, b) => a + b, 0);
+                    return { cohesion_social: Math.floor(total / 10), tejido_economico: Math.floor(total / 20) };
+                }, mensaxe: 'A diáspora move influencias' }
+            ]
+        },
+        {
+            id: 'incendio_provincial',
+            nome: 'Vaga de incendios no interior',
+            efecto: (engine, provincia) => {
+                // Solo salta si la provincia tiene riesgo alto y no se ha prevenido
+                if (!provincia || provincia.riesgo_incendio < 0.25) return {};
+                provincia.estabilidad -= 15;
+                engine.recursos.tejido_economico -= 10;
+                return { tejido_economico: -10, cohesion_social: -5 };
+            },
+            requiere: { cualquier_provincia_con_riesgo: true },
+            provincia_afectada: null, // se asigna dinámicamente
+            opciones: [
+                { texto: 'Enviar brigadas antiincendios', efecto: { tejido_economico: -5, cohesion_social: 5 }, mensaxe: 'Controlado con danos menores' },
+                { texto: 'Pedir axuda á UE', efecto: { relacion_madrid: -5, tejido_economico: -15 }, mensaxe: 'Dependencia externa, custe elevado' },
+                { texto: 'Deixar que arda', efecto: { cohesion_social: -20, tejido_economico: -20 }, mensaxe: 'Desastre ecolóxico' }
+            ]
+        }
+    ];
+
+    // ============================================================
+    // NÚCLEO DEL JUEGO (Game Engine) - Pura lógica, sin DOM
+    // ============================================================
+    class RizomaEngine {
+        constructor(bus) {
+            this.bus = bus;
+            this.turno = 0;
+            this.recursos = { ...RECURSOS_INICIALES };
+            this.patrones_desbloqueados = [];
+            this.diaspora = { argentina: 30, cuba: 20, suiza: 10, venezuela: 5 };
+            this.provincias = {};       // objeto con las provincias (inicializado en start)
+            this.flags = {};            // para árboles de eventos
+            this.proyectos_activos = []; // proyectos en curso
+            this.acciones_restantes = 3;
+            this.evento_activo = null;
+            this.fase = 'inicio'; // 'inicio' | 'evento' | 'acciones' | 'fin'
+
+            // Vincular eventos del bus
+            this.bus.on('usuario:elegir_opcion_evento', (indice) => this.elegirOpcionEvento(indice));
+            this.bus.on('usuario:ejecutar_accion', (indice) => this.ejecutarAccion(indice));
+            this.bus.on('usuario:ejecutar_accion_provincia', ({ provinciaKey, accionKey }) => this.ejecutarAccionProvincia(provinciaKey, accionKey));
+            this.bus.on('usuario:iniciar_proyecto', (proyectoId) => this.iniciarProyecto(proyectoId));
+            this.bus.on('usuario:finalizar_acciones', () => this.finalizarAcciones());
+        }
+
+        // --- Inicio de partida ---
+        start() {
+            this.turno = 0;
+            // Inicializar provincias
+            for (let key in PROVINCIAS_DATA) {
+                this.provincias[key] = { ...PROVINCIAS_DATA[key] };
+            }
+            this.bus.emit('estado:actualizado', this.getEstado());
+            this.nuevoTurno();
+        }
+
+        // --- Comienza un nuevo turno ---
+        nuevoTurno() {
+            this.acciones_restantes = GAME_CONFIG.accionesPorTurno;
+            this.procesarProyectos(); // efectos parciales de proyectos en curso
+            this.actualizarProvincias(); // estabilidad, riesgo incendio, etc.
+            this.comprobarPatrones();
+
+            if (this.verificarFin()) return;
+
+            // Elegir evento aleatorio que cumpla precondiciones
+            const eventoElegido = this.seleccionarEvento();
+            if (eventoElegido) {
+                this.evento_activo = eventoElegido;
+                // Aplicar efecto inicial
+                this._aplicarEfecto(eventoElegido.efecto);
+                this.fase = 'evento';
+                this.bus.emit('estado:actualizado', this.getEstado());
+                this.bus.emit('evento:mostrar', this.evento_activo);
+            } else {
+                // Si no hay evento aplicable, pasar directamente a acciones
+                this.fase = 'acciones';
+                this.bus.emit('acciones:disponibles', { restantes: this.acciones_restantes });
+                this.bus.emit('estado:actualizado', this.getEstado());
+            }
+        }
+
+        // --- Selecciona un evento que cumpla precondiciones ---
+        seleccionarEvento() {
+            const candidatos = EVENTOS.filter(ev => this.cumplePrecondiciones(ev));
+            if (candidatos.length === 0) return null;
+            // Si hay eventos con provincia_afectada, priorizar aquellos cuya provincia tenga riesgo
+            const conProvincia = candidatos.filter(ev => ev.provincia_afectada && this.provincias[ev.provincia_afectada]?.estabilidad < 50);
+            const pool = conProvincia.length > 0 ? conProvincia : candidatos;
+            return pool[Math.floor(Math.random() * pool.length)];
+        }
+
+        // --- Verifica si un evento se puede activar según sus precondiciones ---
+        cumplePrecondiciones(evento) {
+            const req = evento.requiere || {};
+            // Comprobar flags
+            if (req.flag && !this.flags[req.flag]) return false;
+            if (req.flag_negado && this.flags[req.flag_negado]) return false;
+            // Comprobar recursos
+            if (req.recursos) {
+                for (let [recurso, rango] of Object.entries(req.recursos)) {
+                    if (rango.min && this.recursos[recurso] < rango.min) return false;
+                    if (rango.max && this.recursos[recurso] > rango.max) return false;
+                }
+            }
+            // Comprobar provincia con riesgo (para incendios)
+            if (req.cualquier_provincia_con_riesgo) {
+                const alguna = Object.values(this.provincias).some(p => p.riesgo_incendio > 0.25 && p.estabilidad > 30);
+                if (!alguna) return false;
+            }
+            return true;
+        }
+
+        // --- El jugador elige una opción del evento ---
+        elegirOpcionEvento(indice) {
+            if (this.fase !== 'evento' || !this.evento_activo) return;
+            const opcion = this.evento_activo.opciones[indice];
+            if (!opcion) return;
+            let efecto = opcion.efecto;
+            if (typeof efecto === 'function') {
+                // Pasar motor y posible provincia afectada
+                const provincia = this.evento_activo.provincia_afectada ? this.provincias[this.evento_activo.provincia_afectada] : null;
+                efecto = efecto(this, provincia);
+            }
+            this._aplicarEfecto(efecto);
+            if (opcion.activa_flag) {
+                this.flags[opcion.activa_flag] = true;
+                this.bus.emit('mensaje', `✨ Novo fito: ${opcion.activa_flag}`);
+            }
+            this.bus.emit('mensaje', opcion.mensaxe || '');
+            this.fase = 'acciones';
+            this.bus.emit('acciones:disponibles', { restantes: this.acciones_restantes });
+            this.bus.emit('estado:actualizado', this.getEstado());
+        }
+
+        // --- Ejecutar acción genérica ---
+        ejecutarAccion(indice) {
+            if (this.fase !== 'acciones' || this.acciones_restantes <= 0) return;
+            const accion = ACCIONES_GENERICAS[indice];
+            if (!accion) return;
+            this._aplicarEfecto(accion.efecto);
+            this.acciones_restantes--;
+            this.bus.emit('estado:actualizado', this.getEstado());
+            this.bus.emit('acciones:disponibles', { restantes: this.acciones_restantes });
+            if (this.acciones_restantes === 0) this.finalizarAcciones();
+        }
+
+        // --- Ejecutar acción específica de provincia ---
+        ejecutarAccionProvincia(provinciaKey, accionKey) {
+            if (this.fase !== 'acciones' || this.acciones_restantes <= 0) return;
+            const provincia = this.provincias[provinciaKey];
+            const accion = ACCIONES_PROVINCIA[accionKey];
+            if (!provincia || !accion) return;
+            if (this.recursos.oro !== undefined && accion.coste > 0) {
+                if ((this.recursos.oro || 0) < accion.coste) {
+                    this.bus.emit('mensaje', '⚠️ Ouro insuficiente');
+                    return;
+                }
+                this.recursos.oro -= accion.coste;
+            }
+            this._aplicarEfecto(accion.efecto);
+            // Mejorar estabilidad provincial
+            provincia.estabilidad = Math.min(100, provincia.estabilidad + 5);
+            this.acciones_restantes--;
+            this.bus.emit('estado:actualizado', this.getEstado());
+            this.bus.emit('acciones:disponibles', { restantes: this.acciones_restantes });
+            if (this.acciones_restantes === 0) this.finalizarAcciones();
+        }
+
+        // --- Iniciar un proyecto de larga duración ---
+        iniciarProyecto(proyectoId) {
+            const proyecto = PROYECTOS_DISPONIBLES.find(p => p.id === proyectoId);
+            if (!proyecto) return;
+            if ((this.recursos.oro || 0) < (proyecto.coste_inicial || 0)) {
+                this.bus.emit('mensaje', '⚠️ Ouro insuficiente para iniciar o proxecto');
+                return;
+            }
+            this.recursos.oro -= proyecto.coste_inicial || 0;
+            this.proyectos_activos.push({
+                id: proyecto.id,
+                texto: proyecto.texto,
+                duracion_restante: proyecto.duracion,
+                efecto_por_turno: proyecto.efecto_por_turno,
+                efecto_final: proyecto.efecto_final,
+                al_completar: proyecto.al_completar || null
+            });
+            this.bus.emit('mensaje', `🏗️ Iniciado: ${proyecto.texto}`);
+            this.bus.emit('proyectos:actualizados', this.proyectos_activos);
+        }
+
+        // --- Procesa los proyectos en curso (resta turno, aplica efectos por turno, finaliza si toca) ---
+        procesarProyectos() {
+            for (let i = this.proyectos_activos.length - 1; i >= 0; i--) {
+                const p = this.proyectos_activos[i];
+                if (p.efecto_por_turno) {
+                    this._aplicarEfecto(p.efecto_por_turno);
+                }
+                p.duracion_restante--;
+                if (p.duracion_restante <= 0) {
+                    this._aplicarEfecto(p.efecto_final);
+                    if (p.al_completar) p.al_completar(this);
+                    this.bus.emit('mensaje', `✅ Completado: ${p.texto}`);
+                    this.proyectos_activos.splice(i, 1);
+                }
+            }
+            this.bus.emit('proyectos:actualizados', this.proyectos_activos);
+        }
+
+        // --- Actualiza el estado de las provincias (estabilidad, riesgo incendio) ---
+        actualizarProvincias() {
+            for (let key in this.provincias) {
+                const p = this.provincias[key];
+                // Reducir estabilidad si no se ha invertido (simulación simple)
+                // En un juego completo, llevaría contador de turnos sin inversión.
+                // Aquí asumimos que si no hay acciones recientes, la estabilidad baja 1-2.
+                p.estabilidad = Math.max(0, p.estabilidad - 1);
+                // Si la estabilidad es baja, aumenta riesgo de incendio
+                if (p.estabilidad < 40) p.riesgo_incendio = Math.min(0.8, p.riesgo_incendio + 0.05);
+                else p.riesgo_incendio = Math.max(0.05, p.riesgo_incendio - 0.02);
+                // Si estabilidad muy baja (<20), puede aparecer evento de secesión (gestionado en eventos)
+                if (p.estabilidad < 20 && !this.flags[`secesion_${key}_activa`]) {
+                    this.bus.emit('mensaje', `⚠️ ${p.nombre} ao borde da secesión!`);
+                    // Se podría disparar un evento específico de secesión, pero por simplicidad lo avisamos.
+                }
+            }
+        }
+
+        // --- Aplica un diccionario de cambios a los recursos, acotando ---
+        _aplicarEfecto(cambios) {
+            if (!cambios) return;
+            // Si es función, ya se evaluó fuera
+            for (const [recurso, delta] of Object.entries(cambios)) {
+                if (this.recursos.hasOwnProperty(recurso)) {
+                    let nuevo = this.recursos[recurso] + delta;
+                    if (recurso === 'relacion_madrid') {
+                        nuevo = Math.max(-100, Math.min(100, nuevo));
+                    } else {
+                        nuevo = Math.max(0, Math.min(100, nuevo));
+                    }
+                    this.recursos[recurso] = nuevo;
+                }
+            }
+        }
+
+        // --- Comprueba patrones desbloqueables ---
+        comprobarPatrones() {
+            for (const [nombre, datos] of Object.entries(PATRONES)) {
+                if (this.patrones_desbloqueados.includes(nombre)) continue;
+                const cumple = Object.entries(datos.requisitos).every(([k, v]) => this.recursos[k] >= v);
+                if (cumple) {
+                    this.patrones_desbloqueados.push(nombre);
+                    this._aplicarEfecto(datos.efecto);
+                    this.bus.emit('mensaje', `🎉 DESBLOQUEADO: ${nombre}!`);
+                    this.bus.emit('patron:desbloqueado', nombre);
+                }
+            }
+        }
+
+        // --- Verifica condiciones de fin de partida ---
+        verificarFin() {
+            if (Object.values(this.recursos).some(v => v <= 0)) {
+                this.bus.emit('juego:perdido', '💀 COLAPSO: Galicia perdeu un pilar fundamental.');
+                return true;
+            }
+            if (this.recursos.relacion_madrid <= -80) {
+                this.bus.emit('juego:perdido', '⚖️ INTERVENCIÓN: Madrid suspende a autonomía.');
+                return true;
+            }
+            if (this.turno >= GAME_CONFIG.turnosTotales) {
+                let mensaje = '🏆 SUBSISTENCIA DIGNA: Galicia sobreviveu 50 anos!';
+                if (this.patrones_desbloqueados.length >= 3) {
+                    mensaje += ' ✳️ LOGRO EXTRA: Convertícheste en referente en resiliencia posnacional.';
+                }
+                this.bus.emit('juego:ganado', mensaje);
+                return true;
+            }
+            return false;
+        }
+
+        // --- Finaliza la fase de acciones ---
+        finalizarAcciones() {
+            if (this.fase !== 'acciones') return;
+            this.fase = 'fin';
+            this.turno++;
+            this.aumentarDiaspora();
+            this.bus.emit('estado:actualizado', this.getEstado());
+            this.nuevoTurno();
+        }
+
+        // --- Aumenta influencia de la diáspora aleatoriamente ---
+        aumentarDiaspora() {
+            for (const pais of Object.keys(this.diaspora)) {
+                if (Math.random() > 0.7) {
+                    this.diaspora[pais] = Math.min(100, this.diaspora[pais] + Math.floor(Math.random() * 5) + 1);
+                }
+            }
+        }
+
+        // --- Devuelve snapshot del estado (solo lectura) ---
+        getEstado() {
+            return {
+                turno: this.turno,
+                recursos: { ...this.recursos },
+                patrones: [...this.patrones_desbloqueados],
+                diaspora: { ...this.diaspora },
+                provincias: JSON.parse(JSON.stringify(this.provincias)),
+                proyectos_activos: [...this.proyectos_activos],
+                fase: this.fase,
+                accionesRestantes: this.acciones_restantes
+            };
+        }
+    }
+
+    // ============================================================
+    // CAPA DE PRESENTACIÓN (UI) - Reacciona a eventos del bus
+    // ============================================================
+    document.addEventListener('DOMContentLoaded', () => {
+        const bus = new EventBus();
+        const engine = new RizomaEngine(bus);
+
+        // Referencias DOM
+        const elTurno = document.getElementById('turno');
+        const elRecursosContainer = document.getElementById('recursos-container');
+        const elMensajeEstado = document.getElementById('mensaje-estado');
+        const panelEvento = document.getElementById('panel-evento');
+        const elEventoNombre = document.getElementById('evento-nombre');
+        const elEventoDescripcion = document.getElementById('evento-descripcion');
+        const elOpcionesContainer = document.getElementById('opciones-container');
+        const panelProvincias = document.getElementById('panel-provincias');
+        const elProvinciasContainer = document.getElementById('provincias-container');
+        const panelProyectos = document.getElementById('panel-proyectos');
+        const elProyectosLista = document.getElementById('proyectos-lista');
+        const panelAcciones = document.getElementById('panel-acciones');
+        const elAccionesRestantes = document.getElementById('acciones-restantes');
+        const elAccionesContainer = document.getElementById('acciones-container');
+        const btnFinalizarTurno = document.getElementById('btn-finalizar-turno');
+
+        // --- Renderizar recursos como barras ---
+        function renderRecursos(recursos) {
+            const nombres = {
+                cohesion_social: 'Cohesión social',
+                soberania_energetica: 'Soberanía enerxética',
+                relacion_madrid: 'Relación Madrid',
+                tejido_economico: 'Tecido económico',
+                lingua_galega: 'Lingua galega'
+            };
+            let html = '';
+            for (const [key, valor] of Object.entries(recursos)) {
+                const nombre = nombres[key] || key;
+                const color = key === 'relacion_madrid' ? (valor < 0 ? '#b05040' : '#60a060') : '#60a060';
+                html += `
+                    <div class="recurso">
+                        <label>${nombre}</label>
+                        <div class="barra">
+                            <div class="barra-relleno" style="width:${Math.abs(valor)}%; background:${color};"></div>
+                        </div>
+                        <span>${valor}</span>
+                    </div>`;
+            }
+            elRecursosContainer.innerHTML = html;
+        }
+
+        // --- Renderizar provincias como tarjetas ---
+        function renderProvincias(provincias) {
+            let html = '';
+            for (let key in provincias) {
+                const p = provincias[key];
+                const claseRiesgo = p.estabilidad < 40 ? 'en-risco' : '';
+                html += `
+                    <div class="tarjeta-provincia ${claseRiesgo}">
+                        <h4>${p.nombre}</h4>
+                        <p>${p.descripcion}</p>
+                        <p>Estabilidade: ${p.estabilidad}%</p>
+                        <p>Especialidade: ${p.especialidad}</p>
+                        <p>Incendio: ${Math.round(p.riesgo_incendio*100)}%</p>
+                        <div class="acciones-provincia">
+                            ${Object.entries(ACCIONES_PROVINCIA).map(([accKey, acc]) =>
+                                `<button class="btn-accion-prov" data-prov="${key}" data-accion="${accKey}">${acc.texto} (${acc.coste||0} o)</button>`
+                            ).join('')}
+                        </div>
+                    </div>`;
+            }
+            elProvinciasContainer.innerHTML = html;
+            // Asignar eventos a botones de provincia
+            document.querySelectorAll('.btn-accion-prov').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    const prov = e.target.dataset.prov;
+                    const accion = e.target.dataset.accion;
+                    bus.emit('usuario:ejecutar_accion_provincia', { provinciaKey: prov, accionKey: accion });
+                });
+            });
+        }
+
+        // --- Renderizar proyectos en curso ---
+        function renderProyectos(proyectos) {
+            if (proyectos.length === 0) {
+                panelProyectos.classList.add('oculto');
+                return;
+            }
+            panelProyectos.classList.remove('oculto');
+            let html = '';
+            proyectos.forEach(p => {
+                html += `<div class="progreso-proyecto"><span>${p.texto}</span><span>${p.duracion_restante} turnos rest.</span></div>`;
+            });
+            elProyectosLista.innerHTML = html;
+        }
+
+        // --- Mostrar evento ---
+        function mostrarEvento(evento) {
+            elEventoNombre.textContent = '⚡ ' + evento.nome;
+            elEventoDescripcion.textContent = evento.provincia_afectada ?
+                `Afecta a: ${PROVINCIAS_DATA[evento.provincia_afectada]?.nombre || evento.provincia_afectada}` : '';
+            let opcionesHtml = '';
+            evento.opciones.forEach((op, idx) => {
+                opcionesHtml += `<button class="btn-opcion" data-indice="${idx}">${op.texto}</button> `;
+            });
+            elOpcionesContainer.innerHTML = opcionesHtml;
+            panelEvento.classList.remove('oculto');
+            panelAcciones.classList.add('oculto');
+            // Bindear eventos
+            document.querySelectorAll('.btn-opcion').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    const indice = parseInt(e.target.dataset.indice);
+                    bus.emit('usuario:elegir_opcion_evento', indice);
+                });
+            });
+        }
+
+        // --- Mostrar panel de acciones genéricas ---
+        function mostrarAcciones(restantes) {
+            elAccionesRestantes.textContent = restantes;
+            let html = '<div class="flex-row">';
+            ACCIONES_GENERICAS.forEach((acc, idx) => {
+                html += `<button class="btn-accion" data-indice="${idx}">${acc.texto}</button>`;
+            });
+            // Iniciar proyectos
+            html += '</div><hr><h4>Proxectos estratéxicos</h4><div class="flex-row">';
+            PROYECTOS_DISPONIBLES.forEach(p => {
+                html += `<button class="btn-proyecto" data-id="${p.id}">${p.texto} (${p.duracion} turnos, ${p.coste_inicial} o)</button>`;
+            });
+            html += '</div>';
+            elAccionesContainer.innerHTML = html;
+            panelAcciones.classList.remove('oculto');
+            panelEvento.classList.add('oculto');
+
+            document.querySelectorAll('.btn-accion').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    const indice = parseInt(e.target.dataset.indice);
+                    bus.emit('usuario:ejecutar_accion', indice);
+                });
+            });
+            document.querySelectorAll('.btn-proyecto').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    bus.emit('usuario:iniciar_proyecto', e.target.dataset.id);
+                });
+            });
+            btnFinalizarTurno.onclick = () => bus.emit('usuario:finalizar_acciones');
+        }
+
+        // --- Mostrar mensaje temporal ---
+        function mostrarMensaje(texto) {
+            elMensajeEstado.textContent = texto;
+            setTimeout(() => { elMensajeEstado.textContent = ''; }, 5000);
+        }
+
+        // --- Fin de juego ---
+        function finDeJuego(mensaje, esVictoria) {
+            panelEvento.classList.add('oculto');
+            panelAcciones.classList.add('oculto');
+            elMensajeEstado.textContent = mensaje;
+            elMensajeEstado.style.color = esVictoria ? '#60a060' : '#b05040';
+            document.querySelectorAll('button').forEach(b => b.disabled = true);
+        }
+
+        // --- Suscripciones al bus ---
+        bus.on('estado:actualizado', (estado) => {
+            elTurno.textContent = estado.turno;
+            renderRecursos(estado.recursos);
+            renderProvincias(estado.provincias);
+            renderProyectos(estado.proyectos_activos);
+        });
+        bus.on('evento:mostrar', (evento) => mostrarEvento(evento));
+        bus.on('acciones:disponibles', ({ restantes }) => mostrarAcciones(restantes));
+        bus.on('proyectos:actualizados', (proyectos) => renderProyectos(proyectos));
+        bus.on('mensaje', (msg) => mostrarMensaje(msg));
+        bus.on('juego:perdido', (msg) => finDeJuego(msg, false));
+        bus.on('juego:ganado', (msg) => finDeJuego(msg, true));
+
+        // Iniciar partida
+        engine.start();
+    });
+    </script>
+</body>
+</html>
