@@ -1,0 +1,121 @@
+Torre Oscura – Árbol de Personaje v9 (Feedback Visual + Atributos)
+1. ¿Qué es?
+Este prototipo es un simulador de progresión de personaje para un juego de rol (RPG) con un sistema de sinergias emergentes. El jugador controla a un personaje que genera nodos de habilidad de forma procedural (basados en afinidades) y los va desbloqueando y mejorando a lo largo de una constelación jerárquica. El objetivo es probar la lógica de progresión y el equilibrio de un sistema donde las decisiones del jugador (qué habilidades usa, en qué atributos invierte) moldean su build de forma orgánica.
+
+El prototipo está diseñado para ser autocontenido (un solo HTML) y modular (basado en eventos), preparado para futura integración en una arquitectura hexagonal. No incluye combate real ni historia; es un banco de pruebas para la mecánica de crecimiento del personaje.
+
+2. ¿Qué hace?
+2.1. Gestión del personaje
+Nivel, Puntos de habilidad y Poder (PowerRank): El personaje sube de nivel (ganando +1 punto) y, cada 5 niveles, alcanza un hito que genera una ruleta con 3 nodos candidatos a desbloquear.
+
+Estadísticas completas: Vida, maná, daño, defensa, velocidad, daños elementales (fuego, hielo, rayo, caos, veneno), resistencias, robo de vida, evasión, crítico, etc. Todas se actualizan dinámicamente al desbloquear nodos o mejorar atributos base.
+
+Atributos Base: El jugador puede gastar puntos para mejorar permanentemente Vida (+5 HP), Maná (+3 MP), Daño (+1), Defensa (+1) o Velocidad (+2). Esto da utilidad a los puntos entre hitos.
+
+2.2. Sistema de nodos (habilidades) generados proceduralmente
+Generación por afinidades: Cada nodo se genera a partir de una plantilla base (ej. "Vitalidad", "Fuerza") y uno o dos tags (ej. "fuego", "hielo") seleccionados según las afinidades actuales del personaje.
+
+Efectos combinados: La plantilla aporta un efecto base (ej. +20 de vida por nivel), y el tag añade efectos adicionales (ej. +10% daño de fuego). La rareza del nodo (común, raro, épico, legendario) escala con el PowerRank.
+
+Nombres generados: Usa prefijos y sufijos de cada tag para crear nombres únicos (ej. "Ígneo Vitalidad" para fuego + Vitalidad).
+
+Mejora por niveles: Cada nodo se puede mejorar gastando puntos, aumentando su nivel interno (hasta un máximo). Los efectos escalan con el nivel interno y el PowerRank (crecimiento logarítmico).
+
+2.3. Sistema de afinidades
+Las afinidades son valores numéricos asociados a cada tag (fuego, hielo, sangre, magia, etc.). El jugador puede entrenar una afinidad haciendo clic en el botón "+" junto a cada barra, ganando entre 2 y 6 puntos aleatorios.
+
+Las afinidades influyen en la ruleta de hitos: los tags con mayor afinidad tienen más probabilidad de aparecer en las opciones generadas.
+
+2.4. Sinergias y combos
+Sinergias: Se activan automáticamente al tener nodos con ciertas combinaciones de tags (ej. tener al menos un nodo de fuego y uno de hielo activa "Cambio Térmico").
+
+Combos: Se activan al alcanzar un número mínimo de nodos de un mismo tag (ej. 3 nodos de fuego → "Inferno").
+
+2.5. Misiones
+Misiones con condiciones (ej. "Desbloquea 3 nodos con tag fuego") que otorgan recompensas (puntos y afinidad). Se completan automáticamente al cumplir la condición.
+
+2.6. Feedback visual
+Colores por rareza: Cada nodo en la constelación, ruleta y catálogo tiene un color distintivo según su rareza (común=azul grisáceo, raro=azul, épico=morado, legendario=dorado).
+
+Indicadores de estado: Los nodos desbloqueados tienen borde verde; los que están al máximo nivel (MAX) muestran una estrella dorada y borde doble; los disponibles (pero no desbloqueados) parpadean en naranja.
+
+Constelación jerárquica: Los nodos se organizan en filas horizontales según su nivel (0=base, 4=despertar), con líneas que muestran requisitos previos.
+
+2.7. Persistencia
+Todo el progreso (nodos desbloqueados, niveles, afinidades, atributos) se guarda automáticamente en localStorage al realizar cualquier acción, y se carga al recargar la página.
+
+3. ¿Cómo lo hace?
+3.1. Arquitectura general
+Event Bus (Patrón Publicador/Suscriptor): Centraliza la comunicación entre módulos. Cada cambio en el estado (stateProxy) emite eventos (StatsActualizados, NodosActualizados, etc.) que la UI escucha para re-renderizar solo lo necesario.
+
+Estado observable con Proxy: El objeto state está envuelto en un Proxy que intercepta cualquier modificación de propiedades clave y dispara los eventos correspondientes. Esto desacopla la lógica de negocio de la interfaz.
+
+Persistencia: Cada vez que se modifica el estado, se serializa y guarda en localStorage. Al cargar, se restaura el estado guardado.
+
+3.2. Lógica de generación de nodos
+Selección de tags: En cada hito (nivel múltiplo de 5), se eligen 3 tags: el principal (mayor afinidad), un secundario (segunda mayor afinidad, o aleatorio) y uno sorpresa (aleatorio).
+
+Selección de plantilla: Se elige aleatoriamente una plantilla base de entre las que están disponibles según el nivel de poder del personaje.
+
+Combinación de efectos: Se copian los efectos de la plantilla y se suman los efectos del tag (según TAG_DATA).
+
+Cálculo de rareza: Se escala según el PowerRank del personaje (sube cada 3 nodos desbloqueados).
+
+Generación de nombre: Se usa un prefijo del tag principal y, si hay dos tags, un prefijo del segundo.
+
+Asignación de ID único: Se genera un ID con timestamp y random para evitar colisiones.
+
+3.3. Escalado de poder (logarítmico)
+La fórmula para los efectos de un nodo es:
+
+text
+efecto_final = efecto_base * nivel_interno * (1 + log2(PowerRank + 1) * 0.15)
+Esto garantiza que las primeras mejoras sean notables y las últimas más sutiles, evitando picos de poder.
+
+3.4. Sistema de atributos base
+El jugador gasta 1 punto para aumentar en 1 un atributo base (Vida, Maná, Daño, Defensa, Velocidad).
+
+Cada punto de atributo se traduce en una mejora fija (ej. +5 de vida por punto de Vida).
+
+Los atributos base se suman a las estadísticas finales junto con los efectos de los nodos.
+
+3.5. UI reactiva
+Cada panel se renderiza por separado escuchando eventos específicos.
+
+La constelación se dibuja con SVG, posicionando los nodos en filas según su nivel (0-4) y dibujando líneas entre ellos cuando comparten requisitos.
+
+La ruleta muestra las opciones generadas en el hito, con botones para desbloquear/mejorar.
+
+3.6. Integración con el sistema de afinidades
+El entrenamiento de afinidades (botón "+") incrementa el valor de un tag de forma aleatoria.
+
+Las afinidades se usan para ponderar la selección de tags en la ruleta, pero no afectan directamente a las estadísticas (eso lo hacen los nodos generados).
+
+4. Tecnologías y patrones utilizados
+HTML5 + CSS3: Interfaz responsive con tema oscuro y variables CSS para colores de rareza.
+
+JavaScript ES6: Programación orientada a objetos, Proxy, localStorage, EventBus personalizado.
+
+SVG: Dibujo de la constelación con nodos y líneas.
+
+Patrones: Event-driven architecture, Observer, Proxy, Singleton (implícito en el estado global).
+
+Principios SOLID: Separación de responsabilidades entre dominio (lógica de negocio) e infraestructura (UI, persistencia).
+
+5. Estado actual y próximos pasos
+Estado: Prototipo funcional y jugable. Todas las mecánicas principales (generación de nodos, mejora, atributos, sinergias, misiones, persistencia) están implementadas y probadas.
+
+Próximos pasos (según iteraciones futuras):
+
+Conexión con el módulo de habilidades real (generación de habilidades con tags aleatorios y mutadores).
+
+Sistema de combate real (enemigos, turnos, uso de habilidades).
+
+Sistema de inventario y equipo.
+
+Narrativa y lore (pruebas de dioses, eventos de jefes).
+
+Balance de números (ajuste de costes, rarezas, escalados).
+
+6. Conclusión
+Este prototipo es un banco de pruebas completo para la progresión emergente de un personaje en un RPG. Permite validar la mecánica de generación procedural de nodos, la gestión de afinidades y la retroalimentación visual, todo ello con una arquitectura limpia y preparada para escalar. Es el núcleo sobre el que se construirá el resto del juego.
