@@ -1,0 +1,1499 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Torre Oscura – Progresión Refactorizada</title>
+    <style>
+        /* ===== ESTILOS (ligeramente mejorados) ===== */
+        :root {
+            --bg: #1a1a2e;
+            --panel: #16213e;
+            --accent: #e94560;
+            --text: #eee;
+            --muted: #aaa;
+            --border: #2a2a4a;
+            --good: #4ecca3;
+            --bad: #ff6b6b;
+            --warn: #f9ca24;
+            --chaos: #c084fc;
+            --hp: #ff6b6b;
+            --stamina: #4ecca3;
+        }
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+        body {
+            font-family: 'Segoe UI', system-ui, sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 1rem;
+        }
+        h1 {
+            margin-bottom: 1rem;
+            font-size: 1.8rem;
+            color: var(--accent);
+        }
+        .main-container {
+            display: flex;
+            gap: 1rem;
+            width: 100%;
+            max-width: 1400px;
+            flex-wrap: wrap;
+        }
+        .panel {
+            background: var(--panel);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 1rem;
+            flex: 1 1 280px;
+            max-height: 80vh;
+            overflow-y: auto;
+        }
+        .panel h2 {
+            font-size: 1.2rem;
+            margin-bottom: 0.8rem;
+            border-bottom: 1px solid var(--border);
+            padding-bottom: 0.4rem;
+        }
+        .skills-list,
+        .offers-list,
+        .affinity-list,
+        .traits-list,
+        .log-list {
+            display: flex;
+            flex-direction: column;
+            gap: 0.6rem;
+        }
+        .skill-card,
+        .offer-card,
+        .trait-card,
+        .log-entry {
+            background: #1f2a44;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 0.6rem 0.8rem;
+            transition: all 0.2s;
+        }
+        .skill-card {
+            cursor: pointer;
+        }
+        .skill-card:hover {
+            border-color: var(--accent);
+        }
+        .skill-card.selected {
+            border-color: var(--good);
+            box-shadow: 0 0 8px rgba(78, 204, 163, 0.5);
+        }
+        .skill-card.fusion-slot {
+            border-color: var(--warn);
+            box-shadow: 0 0 8px rgba(249, 202, 36, 0.5);
+        }
+        .skill-card .tags {
+            font-size: 0.8rem;
+            color: var(--muted);
+            margin: 0.2rem 0;
+        }
+        .stat-row {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.3rem;
+            font-size: 0.8rem;
+        }
+        .stat {
+            background: #16213e;
+            padding: 0.2rem 0.5rem;
+            border-radius: 4px;
+        }
+        .action-btn {
+            margin-top: 0.3rem;
+            padding: 0.2rem 0.6rem;
+            background: var(--accent);
+            border: none;
+            border-radius: 4px;
+            color: white;
+            cursor: pointer;
+            font-weight: bold;
+            font-size: 0.75rem;
+        }
+        .action-btn:hover {
+            background: #c0392b;
+        }
+        .action-btn.secondary {
+            background: #2d6a9f;
+        }
+        .action-btn.secondary:hover {
+            background: #1f4a7a;
+        }
+        .apply-btn {
+            margin-top: 0.5rem;
+            padding: 0.3rem 0.8rem;
+            background: var(--accent);
+            border: none;
+            border-radius: 4px;
+            color: white;
+            cursor: pointer;
+            font-weight: bold;
+            font-size: 0.8rem;
+        }
+        .apply-btn:hover {
+            background: #c0392b;
+        }
+        .affinity-tag {
+            background: #0f3460;
+            border-radius: 20px;
+            padding: 0.3rem 0.8rem;
+            font-size: 0.8rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .affinity-value {
+            font-weight: bold;
+            color: var(--good);
+        }
+        .affinity-bar {
+            width: 80px;
+            height: 8px;
+            background: #333;
+            border-radius: 4px;
+            overflow: hidden;
+            display: inline-block;
+        }
+        .affinity-bar-fill {
+            height: 100%;
+            background: var(--good);
+            transition: width 0.3s;
+        }
+        .button {
+            background: var(--accent);
+            color: white;
+            border: none;
+            padding: 0.6rem 1.2rem;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: bold;
+            margin: 0.5rem 0;
+            width: 100%;
+        }
+        .button:hover {
+            background: #c0392b;
+        }
+        .info-text {
+            font-size: 0.85rem;
+            color: var(--muted);
+            margin: 0.5rem 0;
+        }
+        .message {
+            min-height: 1.5rem;
+            font-style: italic;
+            color: var(--warn);
+        }
+        .hp-bar,
+        .stability-bar {
+            width: 100%;
+            height: 20px;
+            background: #333;
+            border-radius: 10px;
+            overflow: hidden;
+            margin: 0.3rem 0;
+        }
+        .hp-fill {
+            height: 100%;
+            background: var(--hp);
+            transition: width 0.3s;
+        }
+        .stability-fill {
+            height: 100%;
+            background: var(--stamina);
+            transition: width 0.3s;
+        }
+        .fuse-area {
+            display: flex;
+            gap: 0.5rem;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+        .fuse-slot {
+            background: #0f3460;
+            border-radius: 8px;
+            padding: 0.5rem;
+            min-width: 120px;
+            text-align: center;
+            border: 1px dashed var(--border);
+        }
+        .fuse-slot.filled {
+            border-color: var(--good);
+        }
+        .tabs {
+            display: flex;
+            gap: 0.5rem;
+            margin-bottom: 0.5rem;
+            flex-wrap: wrap;
+        }
+        .tab-btn {
+            background: var(--panel);
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            padding: 0.4rem 1rem;
+            color: var(--text);
+            cursor: pointer;
+            font-weight: bold;
+        }
+        .tab-btn.active {
+            background: var(--good);
+            color: #000;
+            border-color: var(--good);
+        }
+        .tab-btn:hover {
+            background: var(--accent);
+        }
+        .log-entry {
+            font-size: 0.8rem;
+            color: var(--muted);
+        }
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.7);
+            display: none;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+        }
+        .modal-content {
+            background: var(--panel);
+            border: 2px solid var(--accent);
+            border-radius: 12px;
+            padding: 1.5rem;
+            max-width: 700px;
+            width: 90%;
+            max-height: 80vh;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+        .fusion-options {
+            display: flex;
+            gap: 1rem;
+            flex-wrap: wrap;
+        }
+        .fusion-option {
+            flex: 1;
+            min-width: 200px;
+            background: #1f2a44;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 0.8rem;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .fusion-option:hover {
+            border-color: var(--good);
+        }
+        #combatLog {
+            max-height: 120px;
+            overflow-y: auto;
+            font-size: 0.85rem;
+            margin-top: 0.5rem;
+            background: #0a0a1a;
+            border-radius: 6px;
+            padding: 0.5rem;
+        }
+        .enemy-hp-bar {
+            width: 100%;
+            height: 16px;
+            background: #333;
+            border-radius: 8px;
+            overflow: hidden;
+            margin: 0.3rem 0;
+        }
+        .enemy-hp-fill {
+            height: 100%;
+            background: var(--bad);
+            transition: width 0.3s;
+        }
+        .inventory-list {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.4rem;
+        }
+        .inventory-item {
+            background: #2d6a9f;
+            border-radius: 12px;
+            padding: 0.2rem 0.6rem;
+            font-size: 0.8rem;
+            display: flex;
+            align-items: center;
+            gap: 0.3rem;
+        }
+        .inventory-item button {
+            background: var(--accent);
+            border: none;
+            border-radius: 4px;
+            color: white;
+            cursor: pointer;
+            font-size: 0.7rem;
+            padding: 0.1rem 0.4rem;
+        }
+        .inventory-item button:hover {
+            background: #c0392b;
+        }
+        .affinity-progress {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            width: 100%;
+        }
+        .affinity-progress span {
+            min-width: 50px;
+        }
+        .affinity-progress .bar {
+            flex: 1;
+            height: 6px;
+            background: #333;
+            border-radius: 3px;
+            overflow: hidden;
+        }
+        .affinity-progress .bar .fill {
+            height: 100%;
+            background: var(--good);
+            transition: width 0.2s;
+        }
+        .affinity-progress .value {
+            min-width: 30px;
+            text-align: right;
+            font-weight: bold;
+            color: var(--good);
+        }
+        .resource-row {
+            display: flex;
+            justify-content: space-between;
+            gap: 1rem;
+            flex-wrap: wrap;
+        }
+        .resource-item {
+            display: flex;
+            align-items: center;
+            gap: 0.3rem;
+        }
+        .new-skill {
+            border-color: var(--highlight);
+            box-shadow: 0 0 16px rgba(78, 204, 163, 0.9);
+            animation: pulse 1s ease-in-out 2;
+        }
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.03); }
+            100% { transform: scale(1); }
+        }
+    </style>
+</head>
+<body>
+    <h1>⚔️ Torre Oscura – Progresión Refactorizada</h1>
+    <div class="main-container">
+        <!-- Panel Izquierdo: Habilidades -->
+        <div class="panel" id="panel-habilidades">
+            <h2>Habilidades</h2>
+            <div class="skills-list" id="skillsList"></div>
+            <button class="button" id="btnNuevaHabilidad">🃏 Generar Habilidad (30 XP)</button>
+            <button class="button" id="btnReset">🔄 Reiniciar</button>
+            <div class="message" id="message"></div>
+        </div>
+
+        <!-- Panel Central: Tabs (Mutadores / Fusión / Combate / Inventario) -->
+        <div class="panel" id="panel-central">
+            <div class="tabs">
+                <button class="tab-btn active" id="tabMutadores">Mutadores</button>
+                <button class="tab-btn" id="tabFusion">Fusión</button>
+                <button class="tab-btn" id="tabCombate">⚔️ Combate</button>
+                <button class="tab-btn" id="tabInventario">🎒 Inventario</button>
+            </div>
+            <!-- Mutadores -->
+            <div id="tabContentMutadores">
+                <h2>Mutadores Ofrecidos</h2>
+                <div class="offers-list" id="offersList"></div>
+                <p class="info-text">Selecciona una habilidad (clic en tarjeta) y aplica un mutador.</p>
+            </div>
+            <!-- Fusión -->
+            <div id="tabContentFusion" style="display:none;">
+                <h2>Fusión de Habilidades</h2>
+                <div class="fuse-area">
+                    <div class="fuse-slot" id="fuseSlot1">Habilidad A</div>
+                    <span>+</span>
+                    <div class="fuse-slot" id="fuseSlot2">Habilidad B</div>
+                </div>
+                <button class="button" id="btnFusion">🔮 Fusionar</button>
+                <p class="info-text">Coste: 50 XP, 1 catalizador, 10 estabilidad.</p>
+                <div><strong>Catalizadores:</strong> <span id="catalizadores">2</span></div>
+            </div>
+            <!-- Combate -->
+            <div id="tabContentCombate" style="display:none;">
+                <h2>⚔️ Combate</h2>
+                <div id="enemyPanel">
+                    <p><strong>Enemigo:</strong> <span id="enemyName">—</span> (Nv. <span id="enemyLevel">0</span>)</p>
+                    <div class="enemy-hp-bar">
+                        <div class="enemy-hp-fill" id="enemyHpFill" style="width:100%"></div>
+                    </div>
+                    <p>Vida: <span id="enemyHp">0</span>/<span id="enemyMaxHp">0</span></p>
+                    <p>Resistencias: <span id="enemyResistances">ninguna</span></p>
+                </div>
+                <button class="button" id="attackBtn">⚡ Atacar con seleccionada</button>
+                <button class="button" id="autoBtn">🤖 Auto-combate</button>
+                <div id="combatLog"></div>
+            </div>
+            <!-- Inventario -->
+            <div id="tabContentInventario" style="display:none;">
+                <h2>🎒 Inventario</h2>
+                <div class="inventory-list" id="inventoryList"></div>
+                <p class="info-text">Usa consumibles para restaurar vida o estabilidad.</p>
+            </div>
+        </div>
+
+        <!-- Panel Derecho: Personaje, Afinidades, Rasgos -->
+        <div class="panel" id="panel-personaje">
+            <h2>Personaje</h2>
+            <div class="resource-row">
+                <span>Nivel: <strong id="level">1</strong></span>
+                <span>XP: <strong id="xp">0</strong>/<span id="xpToNext">20</span></span>
+            </div>
+            <div class="resource-row">
+                <span>❤️ Vida: <strong id="hp">100</strong>/<span id="maxHp">100</span></span>
+                <span>⚡ Estab.: <strong id="stability">50</strong>/<span id="maxStability">100</span></span>
+            </div>
+            <div class="hp-bar"><div class="hp-fill" id="hpFill" style="width:100%"></div></div>
+            <div class="stability-bar"><div class="stability-fill" id="stabilityFill" style="width:50%"></div></div>
+            <button class="button" id="btnDescansar">🛌 Descansar (20 XP → +10 vida y estabilidad)</button>
+            <h3>Afinidades <span style="font-size:0.8rem;color:var(--muted)">(total <span id="totalAffinity">0</span>/<span id="maxAffinity">50</span>)</span></h3>
+            <div class="affinity-list" id="affinityList"></div>
+            <h3>Rasgos</h3>
+            <div class="traits-list" id="traitsList"></div>
+            <h3>Registro</h3>
+            <div class="log-list" id="logList"></div>
+        </div>
+    </div>
+
+    <!-- Modal Fusión -->
+    <div id="fusionModal" class="modal-overlay">
+        <div class="modal-content">
+            <h2>Elige el resultado de la fusión</h2>
+            <div class="fusion-options" id="fusionOptions"></div>
+            <button class="button" id="btnCancelFusion">Cancelar</button>
+        </div>
+    </div>
+
+    <script>
+        // ================================================================
+        //  TORRE OSCURA – MÓDULO DE PROGRESIÓN REFACTORIZADO
+        //  Arquitectura por eventos, estado observable, preparado para
+        //  migrar a hexagonal. Incluye:
+        //    - Afinidades con máximo global progresivo
+        //    - Ponderación por tags (1.0, 0.6, 0.3, 0.15)
+        //    - Ganancia relativa al valor actual (catch-up natural)
+        //    - Vida y Estabilidad separadas
+        //    - Enemigos con resistencias
+        //    - Loot (pociones de vida y estabilidad)
+        //    - Mutadores, fusión, rasgos
+        // ================================================================
+
+        // ---------- 1. INFRAESTRUCTURA: EVENT BUS ----------
+        class EventBus {
+            constructor() { this.listeners = {}; }
+            on(event, cb) { if (!this.listeners[event]) this.listeners[event] = []; this.listeners[event].push(cb); }
+            emit(event, data) { (this.listeners[event] || []).forEach(cb => cb(data)); }
+        }
+        const eventBus = new EventBus();
+
+        // ---------- 2. INFRAESTRUCTURA: RNG ----------
+        const Rng = {
+            int(min, max) { return Math.floor(Math.random() * (max - min + 1)) + min; },
+            pick(arr) { return arr[Math.floor(Math.random() * arr.length)]; },
+            chance(p) { return Math.random() < p; }
+        };
+
+        // ---------- 3. DOMINIO: TAGS Y GRAFO ----------
+        const AllTags = ['fuego', 'agua', 'hielo', 'rayo', 'tierra', 'naturaleza', 'aire', 'veneno', 'fisico', 'sangre',
+            'melee', 'proyectil', 'magia', 'tecnica', 'luz', 'sombra', 'caos'
+        ];
+        const Graph = {
+            fuego: ['magia', 'fisico', 'aire'],
+            agua: ['hielo', 'naturaleza', 'aire'],
+            hielo: ['agua', 'magia'],
+            rayo: ['magia', 'proyectil', 'aire'],
+            tierra: ['fisico', 'naturaleza'],
+            naturaleza: ['agua', 'tierra', 'veneno'],
+            aire: ['fuego', 'agua', 'rayo', 'proyectil'],
+            veneno: ['naturaleza', 'sangre', 'sombra'],
+            fisico: ['fuego', 'tierra', 'melee', 'sangre'],
+            sangre: ['fisico', 'veneno', 'melee'],
+            melee: ['fisico', 'sangre', 'tecnica'],
+            proyectil: ['rayo', 'aire', 'tecnica'],
+            magia: ['fuego', 'hielo', 'rayo', 'luz', 'sombra'],
+            tecnica: ['melee', 'proyectil'],
+            luz: ['magia'],
+            sombra: ['magia', 'veneno', 'caos'],
+            caos: ['sombra']
+        };
+
+        function tagDistance(tagA, tagB) {
+            if (tagA === tagB) return 0;
+            const queue = [
+                [tagA, 0]
+            ];
+            const visited = new Set([tagA]);
+            while (queue.length) {
+                const [current, dist] = queue.shift();
+                for (const n of (Graph[current] || [])) {
+                    if (n === tagB) return dist + 1;
+                    if (!visited.has(n)) { visited.add(n);
+                        queue.push([n, dist + 1]); }
+                }
+            }
+            return Infinity;
+        }
+
+        // ---------- 4. DOMINIO: HABILIDADES Y MUTADORES ----------
+        class Habilidad {
+            constructor(id, name, tags, base) {
+                this.id = id;
+                this.name = name;
+                this.tags = [...tags];
+                this.base = { ...base };
+                this.appliedMutators = [];
+                this.uses = 0;
+                this.impregnation = {};
+            }
+            computeStats() {
+                let stats = { ...this.base };
+                for (const mutId of this.appliedMutators) {
+                    const mut = Mutators.find(m => m.id === mutId);
+                    if (mut) stats = mut.apply(stats, this);
+                }
+                return stats;
+            }
+            applyMutator(mutId) {
+                const mut = Mutators.find(m => m.id === mutId);
+                if (!mut) return;
+                this.appliedMutators.push(mutId);
+                if (mut.tag) {
+                    this.impregnation[mut.tag] = (this.impregnation[mut.tag] || 0) + 1;
+                    if (this.impregnation[mut.tag] >= 3 && !this.tags.includes(mut.tag)) {
+                        this.tags.push(mut.tag);
+                        eventBus.emit('HabilidadImpregnada', { skill: this, tag: mut.tag });
+                    }
+                }
+            }
+        }
+
+        const Mutators = [{
+            id: 'split',
+            name: 'Dividir',
+            tag: 'proyectil',
+            description: '+1 proyectil, -20% daño',
+            apply: (s) => ({ ...s, projectileCount: (s.projectileCount || 0) + 1, damage: Math.round(s.damage * 0.8) })
+        }, {
+            id: 'sangre',
+            name: 'Sangre',
+            tag: 'sangre',
+            description: 'Coste a vida, +30% daño',
+            apply: (s) => ({ ...s, costType: 'vida', costAmount: Math.round((s.costAmount || 0) * 1.2), damage: Math
+                    .round((s.damage || 0) * 1.3) })
+        }, {
+            id: 'veloz',
+            name: 'Veloz',
+            tag: 'rayo',
+            description: '+50% vel, -10% daño',
+            apply: (s) => ({ ...s, speed: Math.round((s.speed || 0) * 1.5), damage: Math.round((s.damage || 0) * 0.9) })
+        }, {
+            id: 'gigante',
+            name: 'Gigante',
+            tag: 'fisico',
+            description: '+50% daño, -30% vel',
+            apply: (s) => ({ ...s, damage: Math.round((s.damage || 0) * 1.5), speed: Math.round((s.speed || 0) * 0.7) })
+        }, {
+            id: 'arcano',
+            name: 'Arcano',
+            tag: 'magia',
+            description: '+40% daño si mágica, +15% si no',
+            apply: (s, skill) => ({ ...s, damage: Math.round((s.damage || 0) * (skill.tags.includes('magia') ? 1.4 :
+                    1.15)) })
+        }, {
+            id: 'toxina',
+            name: 'Toxina',
+            tag: 'veneno',
+            description: 'Añade veneno (DoT)',
+            apply: (s) => ({ ...s, poison: (s.poison || 0) + 1 })
+        }, {
+            id: 'aereo',
+            name: 'Aéreo',
+            tag: 'aire',
+            description: '+20% vel y empuje',
+            apply: (s) => ({ ...s, speed: Math.round((s.speed || 0) * 1.2), knockback: Math.round(((s.knockback || 0) +
+                    0.5) * 10) / 10 })
+        }];
+
+        const BaseSkills = [{
+            id: 'bola_fuego',
+            name: 'Bola de Fuego',
+            tags: ['fuego', 'magia', 'proyectil'],
+            base: { damage: 20, costType: 'maná', costAmount: 10, speed: 5, projectileCount: 1, area: 0,
+                penetration: 1, knockback: 0, duration: 0, range: 20, crit: 0.05 }
+        }, {
+            id: 'descarga_hielo',
+            name: 'Descarga de Hielo',
+            tags: ['hielo', 'magia', 'proyectil'],
+            base: { damage: 15, costType: 'maná', costAmount: 8, speed: 4, projectileCount: 1, area: 0,
+                penetration: 1, knockback: 0, duration: 0, range: 25, crit: 0.05 }
+        }, {
+            id: 'golpe_brutal',
+            name: 'Golpe Brutal',
+            tags: ['fisico', 'melee'],
+            base: { damage: 25, costType: 'aguante', costAmount: 5, speed: 2, projectileCount: 1, area: 0,
+                penetration: 1, knockback: 2, duration: 0, range: 3, crit: 0.10 }
+        }, {
+            id: 'cuchillo_sangriento',
+            name: 'Cuchillo Sangriento',
+            tags: ['sangre', 'fisico', 'melee'],
+            base: { damage: 18, costType: 'vida', costAmount: 5, speed: 3, projectileCount: 1, area: 0,
+                penetration: 1, knockback: 1, duration: 0, range: 2, crit: 0.15 }
+        }, {
+            id: 'rayo',
+            name: 'Rayo',
+            tags: ['rayo', 'magia', 'proyectil'],
+            base: { damage: 22, costType: 'maná', costAmount: 12, speed: 8, projectileCount: 1, area: 0,
+                penetration: 1, knockback: 0, duration: 0, range: 30, crit: 0.08 }
+        }, {
+            id: 'enredadera',
+            name: 'Enredadera',
+            tags: ['naturaleza', 'magia', 'proyectil'],
+            base: { damage: 10, costType: 'maná', costAmount: 6, speed: 3, projectileCount: 1, area: 1,
+                penetration: 1, knockback: 0, duration: 2, range: 15, crit: 0.05 }
+        }, {
+            id: 'vapulear',
+            name: 'Vapulear',
+            tags: ['aire', 'fisico', 'melee'],
+            base: { damage: 16, costType: 'aguante', costAmount: 6, speed: 4, projectileCount: 1, area: 2,
+                penetration: 1, knockback: 3, duration: 0, range: 3, crit: 0.10 }
+        }, {
+            id: 'nube_toxica',
+            name: 'Nube Tóxica',
+            tags: ['veneno', 'magia', 'proyectil'],
+            base: { damage: 12, costType: 'maná', costAmount: 9, speed: 2, projectileCount: 1, area: 3,
+                penetration: 1, knockback: 0, duration: 3, range: 10, crit: 0.05 }
+        }];
+
+        // ---------- 5. DOMINIO: RASGOS ----------
+        const Traits = [{
+            id: 'llamas_arcanas',
+            name: 'Llamas Arcanas',
+            condition: (aff) => aff.fuego >= 40 && aff.magia >= 40,
+            description: 'Habilidades de Fuego +15% quemadura.',
+            apply: (skill, stats) => { if (skill.tags.includes('fuego')) stats.burnChance = (stats.burnChance || 0) +
+                    0.15; return stats; }
+        }, {
+            id: 'frenesi',
+            name: 'Frenesí',
+            condition: (aff) => aff.sangre >= 50 && aff.fisico >= 30,
+            description: 'Melee/Sangre +30% daño condicional.',
+            apply: (skill, stats) => { if (skill.tags.includes('melee') || skill.tags.includes('sangre')) stats
+                    .conditionalDamageBonus = (stats.conditionalDamageBonus || 0) + 0.3; return stats; }
+        }, {
+            id: 'conductividad',
+            name: 'Conductividad',
+            condition: (aff) => aff.hielo >= 40 && aff.rayo >= 40,
+            description: 'Hielo deja charco que electrocuta.',
+            apply: (skill, stats) => { if (skill.tags.includes('hielo')) stats.electrocuteOnWet = true; return stats; }
+        }, {
+            id: 'corrosion',
+            name: 'Corrosión',
+            condition: (aff) => aff.veneno >= 40 && aff.sangre >= 30,
+            description: 'Veneno/Sangre roban vida extra.',
+            apply: (skill, stats) => { if (skill.tags.includes('veneno') || skill.tags.includes('sangre')) stats
+                    .lifeSteal = (stats.lifeSteal || 0) + 0.1; return stats; }
+        }];
+
+        // ---------- 6. ESTADO OBSERVABLE ----------
+        const CharacterState = {
+            level: 1,
+            xp: 0,
+            xpToNext: 20,
+            hp: 100,
+            maxHp: 100,
+            stability: 50,
+            maxStability: 100,
+            affinities: {},
+            skills: [],
+            offers: [],
+            traits: [],
+            catalizadores: 2,
+            catalystTypes: [],
+            trainingCounters: {},
+            selectedSkillIndex: null,
+            fusionSelections: [null, null],
+            inventory: [],
+        };
+        AllTags.forEach(tag => CharacterState.affinities[tag] = 0);
+
+        // Máximo global de afinidad = 20 + nivel * 5
+        function getMaxAffinity() { return 20 + CharacterState.level * 5; }
+
+        const stateProxy = new Proxy(CharacterState, {
+            set(target, prop, value) {
+                target[prop] = value;
+                const events = {
+                    skills: 'HabilidadesActualizadas',
+                    selectedSkillIndex: 'HabilidadesActualizadas',
+                    offers: 'OfertasActualizadas',
+                    affinities: 'AfinidadesActualizadas',
+                    traits: 'RasgosActualizados',
+                    hp: 'StatsActualizados',
+                    maxHp: 'StatsActualizados',
+                    stability: 'StatsActualizados',
+                    maxStability: 'StatsActualizados',
+                    level: 'StatsActualizados',
+                    xp: 'StatsActualizados',
+                    xpToNext: 'StatsActualizados',
+                    catalizadores: 'CatalizadoresActualizados',
+                    catalystTypes: 'CatalizadoresActualizados',
+                    fusionSelections: 'FusionSeleccionActualizada',
+                    inventory: 'InventarioActualizado'
+                };
+                if (events[prop]) eventBus.emit(events[prop], {});
+                return true;
+            }
+        });
+
+        // ---------- 7. GESTIÓN DE AFINIDADES (NUEVA LÓGICA) ----------
+        const AffinityManager = {
+            // Pesos para cada tag en orden de aparición (1.0, 0.6, 0.3, 0.15)
+            weights: [1.0, 0.6, 0.3, 0.15],
+
+            train(skill) {
+                const gains = {};
+                const maxAff = getMaxAffinity();
+                // Recorrer tags de la habilidad con sus pesos
+                const tags = skill.tags;
+                const uses = stateProxy.trainingCounters[skill.id] || 0;
+                const baseMult = uses < 5 ? 1.0 : uses < 10 ? 0.75 : uses < 15 ? 0.5 : 0.25;
+
+                for (let i = 0; i < tags.length && i < this.weights.length; i++) {
+                    const tag = tags[i];
+                    const weight = this.weights[i];
+                    const current = stateProxy.affinities[tag] || 0;
+                    // Ganancia relativa al tope (catch-up)
+                    const relative = (maxAff - current) / maxAff; // 1 si está a 0, 0 si está en tope
+                    const rawGain = baseMult * weight * relative * 0.8; // 0.8 factor base
+                    // Redondear a 2 decimales
+                    let gain = Math.round(rawGain * 100) / 100;
+                    // No permitir que supere el máximo global
+                    const newValue = Math.min(maxAff, current + gain);
+                    gain = newValue - current;
+                    if (gain > 0) {
+                        stateProxy.affinities[tag] = newValue;
+                        gains[tag] = (gains[tag] || 0) + gain;
+                    }
+                }
+                stateProxy.trainingCounters[skill.id] = uses + 1;
+                eventBus.emit('AfinidadesActualizadas', { gains });
+                // Comprobar rasgos después de cada entrenamiento
+                checkTraits();
+                return gains;
+            }
+        };
+
+        // ---------- 8. RASGOS (comprobación automática) ----------
+        function checkTraits() {
+            const unlocked = [];
+            Traits.forEach(trait => {
+                if (trait.condition(stateProxy.affinities) && !stateProxy.traits.includes(trait.id)) {
+                    stateProxy.traits.push(trait.id);
+                    unlocked.push(trait);
+                }
+            });
+            if (unlocked.length) eventBus.emit('RasgoDesbloqueado', { traits: unlocked });
+        }
+
+        // ---------- 9. MUTADORES Y OFERTAS ----------
+        function generateOffers() {
+            const shuffled = [...Mutators].sort(() => Math.random() - 0.5);
+            stateProxy.offers = shuffled.slice(0, 3).map(m => m.id);
+            // Catalizadores tipos (2 aleatorios)
+            const pool = ['fuego', 'agua', 'hielo', 'rayo', 'tierra', 'naturaleza', 'aire', 'veneno', 'fisico', 'sangre',
+                'melee', 'proyectil', 'magia', 'tecnica', 'luz', 'sombra', 'caos'
+            ];
+            const types = [];
+            for (let i = 0; i < 2; i++) {
+                const t = Rng.pick(pool);
+                if (!types.includes(t)) types.push(t);
+            }
+            stateProxy.catalystTypes = types;
+        }
+
+        function applyMutatorToSkill(mutId, skillIndex) {
+            const skill = stateProxy.skills[skillIndex];
+            if (!skill || !stateProxy.offers.includes(mutId)) return;
+            const mut = Mutators.find(m => m.id === mutId);
+            if (!mut) return;
+            // Estabilidad solo se ve afectada si la distancia es grande (soft penalty)
+            const dist = tagDistance(skill.tags[0] || '', mut.tag || '');
+            if (dist >= 4) stateProxy.stability = Math.max(0, stateProxy.stability - 5);
+            else if (dist === 1) stateProxy.stability = Math.min(stateProxy.maxStability, stateProxy.stability + 2);
+            skill.applyMutator(mutId);
+            stateProxy.offers = stateProxy.offers.filter(id => id !== mutId);
+            stateProxy.selectedSkillIndex = null;
+            eventBus.emit('MutadorAplicado', { skill, mut, distance: dist });
+            eventBus.emit('Log', { text: `Aplicado ${mut.name} a ${skill.name}` });
+            eventBus.emit('HabilidadesActualizadas', {});
+            eventBus.emit('OfertasActualizadas', {});
+        }
+
+        // ---------- 10. FUSIÓN ----------
+        let pendingFusion = null;
+
+        function generateFusionOptions(skillA, skillB) {
+            const combinedTags = [...new Set([...skillA.tags, ...skillB.tags])];
+            const createCandidate = () => {
+                let tags = combinedTags;
+                if (tags.length > 4) tags = [...tags].sort(() => Math.random() - 0.5).slice(0, 4);
+                const baseA = skillA.base,
+                    baseB = skillB.base;
+                const hybridBase = {};
+                const keys = new Set([...Object.keys(baseA), ...Object.keys(baseB)]);
+                keys.forEach(key => {
+                    const va = baseA[key] || 0,
+                        vb = baseB[key] || 0;
+                    hybridBase[key] = (typeof va === 'number' && typeof vb === 'number') ? Math.round((va + vb) /
+                        2) : (va || vb);
+                });
+                const newSkill = new Habilidad(
+                    `fusion_${Date.now()}_${Math.random().toString(36).substr(2,5)}`,
+                    'Fusión',
+                    tags,
+                    hybridBase
+                );
+                const allMutIds = [...new Set([...skillA.appliedMutators, ...skillB.appliedMutators])];
+                const compatible = allMutIds.filter(mid => {
+                    const m = Mutators.find(mm => mm.id === mid);
+                    return m && tags.includes(m.tag);
+                });
+                const transfer = Math.min(2, compatible.length);
+                if (transfer > 0) {
+                    const shuffled = [...compatible].sort(() => Math.random() - 0.5).slice(0, transfer);
+                    newSkill.appliedMutators.push(...shuffled);
+                }
+                return newSkill;
+            };
+            const opt1 = createCandidate();
+            let opt2 = createCandidate();
+            let attempts = 0;
+            while (JSON.stringify(opt1.tags) === JSON.stringify(opt2.tags) && attempts < 10) {
+                opt2 = createCandidate();
+                attempts++;
+            }
+            return [opt1, opt2];
+        }
+
+        function initiateFusion(idxA, idxB) {
+            if (idxA === idxB) return;
+            if (stateProxy.xp < 50) { eventBus.emit('Mensaje', { text: 'Necesitas 50 XP.' }); return; }
+            if (stateProxy.catalizadores <= 0) { eventBus.emit('Mensaje', { text: 'Sin catalizadores.' }); return; }
+            const skillA = stateProxy.skills[idxA],
+                skillB = stateProxy.skills[idxB];
+            if (!skillA || !skillB) return;
+            const options = generateFusionOptions(skillA, skillB);
+            pendingFusion = { skillA, skillB, idxA, idxB, options };
+            showFusionModal(options);
+        }
+
+        function completeFusion(optionIndex) {
+            if (!pendingFusion) return;
+            const { skillA, skillB, idxA, idxB, options } = pendingFusion;
+            const newSkill = options[optionIndex];
+            stateProxy.xp -= 50;
+            stateProxy.catalizadores--;
+            stateProxy.stability = Math.max(0, stateProxy.stability - 10);
+            const roll = Rng.int(1, 3);
+            let removeA = false,
+                removeB = false;
+            if (roll === 2) { const d2 = Rng.int(0, 1); if (d2 === 0) removeA = true;
+                else removeB = true; } else if (roll === 3) { removeA = true;
+                removeB = true; }
+            stateProxy.skills.push(newSkill);
+            if (removeA && removeB) stateProxy.skills = stateProxy.skills.filter((_, i) => i !== idxA && i !== idxB);
+            else if (removeA) stateProxy.skills = stateProxy.skills.filter((_, i) => i !== idxA);
+            else if (removeB) stateProxy.skills = stateProxy.skills.filter((_, i) => i !== idxB);
+            stateProxy.fusionSelections = [null, null];
+            hideFusionModal();
+            UI.highlightNewSkill(newSkill.id);
+            eventBus.emit('FusionCompletada', { newSkill, roll, removeA, removeB });
+            eventBus.emit('Log', { text: `Fusión: ${newSkill.name}. d3: ${roll}.` });
+            eventBus.emit('HabilidadesActualizadas', {});
+            pendingFusion = null;
+        }
+
+        // ---------- 11. COMBATE, ENEMIGOS Y RESISTENCIAS ----------
+        const combatState = {
+            enemy: null,
+            autoInterval: null,
+            isAuto: false
+        };
+
+        function spawnEnemy(level) {
+            const names = ['Goblin', 'Orco', 'Esqueleto', 'Demonio', 'Araña', 'Espectro'];
+            const isBoss = level % 5 === 0;
+            const baseHp = isBoss ? 50 + level * 10 : 20 + level * 5;
+            // Asignar 1-2 resistencias aleatorias (tags)
+            const resistCount = Rng.int(1, 2);
+            const resistances = [];
+            const pool = AllTags.filter(t => !['fisico', 'magia', 'tecnica'].includes(t)); // evitar tags muy genéricos
+            for (let i = 0; i < resistCount; i++) {
+                const r = Rng.pick(pool);
+                if (!resistances.includes(r)) resistances.push(r);
+            }
+            combatState.enemy = {
+                name: isBoss ? `Jefe ${names[level % names.length]}` : names[level % names.length],
+                hp: baseHp,
+                maxHp: baseHp,
+                level: level,
+                isBoss: isBoss,
+                damage: isBoss ? 10 + level : 5 + level,
+                resistances: resistances
+            };
+            updateEnemyUI();
+            addCombatLog(`⚠️ Aparece ${combatState.enemy.name} (Nv. ${level})`);
+            if (resistances.length) {
+                addCombatLog(`🛡️ Resistencias: ${resistances.join(', ')}`);
+            }
+        }
+
+        function attackEnemy(skillIndex) {
+            const skill = stateProxy.skills[skillIndex];
+            if (!skill) return;
+            const stats = skill.computeStats();
+            let damage = stats.damage || 10;
+            const enemy = combatState.enemy;
+            if (!enemy || enemy.hp <= 0) {
+                addCombatLog('No hay enemigo o ya está muerto.');
+                return;
+            }
+            // Aplicar resistencias: si el enemigo tiene alguna tag que coincida con las de la habilidad, reduce daño 30%
+            const hasResistance = skill.tags.some(t => enemy.resistances.includes(t));
+            if (hasResistance) {
+                damage = Math.round(damage * 0.7);
+                addCombatLog(`🛡️ Resistencia: daño reducido a ${damage}.`);
+            }
+            // Aplicar daño
+            enemy.hp = Math.max(0, enemy.hp - damage);
+            updateEnemyUI();
+            addCombatLog(`⚡ Usaste ${skill.name} → ${damage} de daño.`);
+
+            // Entrenar afinidad al atacar (¡esto es clave!)
+            const gains = AffinityManager.train(skill);
+            eventBus.emit('Log', { text: `+${Object.values(gains).reduce((a,b)=>a+b,0).toFixed(2)} afinidad.` });
+
+            if (enemy.hp <= 0) {
+                addCombatLog(`💀 ¡${enemy.name} derrotado!`);
+                const xpGain = 10 + enemy.level * 2;
+                gainXP(xpGain);
+                // Loot: 30% poción de vida, 20% poción de estabilidad
+                if (Rng.chance(0.3)) {
+                    const pot = { id: `pocion_vida_${Date.now()}`, name: 'Poción de Vida', type: 'consumable',
+                        effect: 'heal_hp', value: 20 };
+                    stateProxy.inventory.push(pot);
+                    addCombatLog(`🧪 Recibes ${pot.name} (+${pot.value} vida)`);
+                }
+                if (Rng.chance(0.2)) {
+                    const pot = { id: `pocion_estab_${Date.now()}`, name: 'Poción de Estabilidad', type: 'consumable',
+                        effect: 'heal_stability', value: 15 };
+                    stateProxy.inventory.push(pot);
+                    addCombatLog(`🧪 Recibes ${pot.name} (+${pot.value} estabilidad)`);
+                }
+                eventBus.emit('InventarioActualizado', {});
+                spawnEnemy(stateProxy.level);
+                return;
+            }
+            // Contraataque
+            const enemyDamage = enemy.damage;
+            stateProxy.hp = Math.max(0, stateProxy.hp - enemyDamage * 0.5);
+            addCombatLog(`💢 ${enemy.name} contraataca (${Math.round(enemyDamage*0.5)} daño).`);
+            eventBus.emit('StatsActualizados', {});
+        }
+
+        function gainXP(amount) {
+            stateProxy.xp += amount;
+            while (stateProxy.xp >= stateProxy.xpToNext) {
+                stateProxy.xp -= stateProxy.xpToNext;
+                stateProxy.level++;
+                stateProxy.xpToNext = Math.floor(stateProxy.xpToNext * 1.5);
+                // Subir de nivel aumenta vida máxima y estabilidad máxima ligeramente
+                stateProxy.maxHp = Math.floor(100 + stateProxy.level * 5);
+                stateProxy.maxStability = Math.floor(100 + stateProxy.level * 3);
+                stateProxy.hp = Math.min(stateProxy.hp + 20, stateProxy.maxHp);
+                stateProxy.stability = Math.min(stateProxy.stability + 10, stateProxy.maxStability);
+                generateOffers();
+                eventBus.emit('NivelSubido', { level: stateProxy.level });
+                eventBus.emit('Log', { text: `¡Subiste al nivel ${stateProxy.level}!` });
+            }
+            eventBus.emit('StatsActualizados', {});
+        }
+
+        function updateEnemyUI() {
+            const e = combatState.enemy;
+            if (e) {
+                document.getElementById('enemyName').textContent = e.name;
+                document.getElementById('enemyLevel').textContent = e.level;
+                document.getElementById('enemyHp').textContent = Math.round(e.hp);
+                document.getElementById('enemyMaxHp').textContent = Math.round(e.maxHp);
+                const pct = (e.hp / e.maxHp) * 100;
+                document.getElementById('enemyHpFill').style.width = Math.max(0, pct) + '%';
+                document.getElementById('enemyResistances').textContent = e.resistances.length ? e.resistances.join(', ') :
+                    'ninguna';
+            }
+        }
+
+        function addCombatLog(msg) {
+            const log = document.getElementById('combatLog');
+            const entry = document.createElement('div');
+            entry.textContent = msg;
+            log.prepend(entry);
+            while (log.children.length > 20) log.removeChild(log.lastChild);
+        }
+
+        // ---------- 12. UI ----------
+        const UI = {
+            init() {
+                this.skillsList = document.getElementById('skillsList');
+                this.offersList = document.getElementById('offersList');
+                this.affinityList = document.getElementById('affinityList');
+                this.traitsList = document.getElementById('traitsList');
+                this.message = document.getElementById('message');
+                this.level = document.getElementById('level');
+                this.xp = document.getElementById('xp');
+                this.xpToNext = document.getElementById('xpToNext');
+                this.hp = document.getElementById('hp');
+                this.maxHp = document.getElementById('maxHp');
+                this.hpFill = document.getElementById('hpFill');
+                this.stability = document.getElementById('stability');
+                this.maxStability = document.getElementById('maxStability');
+                this.stabilityFill = document.getElementById('stabilityFill');
+                this.fuseSlot1 = document.getElementById('fuseSlot1');
+                this.fuseSlot2 = document.getElementById('fuseSlot2');
+                this.catalizadoresSpan = document.getElementById('catalizadores');
+                this.logList = document.getElementById('logList');
+                this.inventoryList = document.getElementById('inventoryList');
+                this.totalAffinity = document.getElementById('totalAffinity');
+                this.maxAffinity = document.getElementById('maxAffinity');
+
+                // Botones
+                document.getElementById('btnNuevaHabilidad').addEventListener('click', () => {
+                    if (stateProxy.xp >= 30) {
+                        const template = Rng.pick(BaseSkills);
+                        const newSkill = new Habilidad(`${template.id}_${Date.now()}`, template.name, [...template
+                            .tags
+                        ], { ...template.base });
+                        stateProxy.skills.push(newSkill);
+                        stateProxy.xp -= 30;
+                        eventBus.emit('Log', { text: `Nueva habilidad: ${newSkill.name}` });
+                        eventBus.emit('HabilidadesActualizadas', {});
+                    } else {
+                        eventBus.emit('Mensaje', { text: 'Necesitas 30 XP.' });
+                    }
+                });
+
+                document.getElementById('btnReset').addEventListener('click', () => {
+                    if (confirm('¿Reiniciar personaje?')) resetGame();
+                });
+
+                document.getElementById('btnDescansar').addEventListener('click', () => {
+                    if (stateProxy.xp >= 20) {
+                        stateProxy.xp -= 20;
+                        stateProxy.hp = Math.min(stateProxy.maxHp, stateProxy.hp + 10);
+                        stateProxy.stability = Math.min(stateProxy.maxStability, stateProxy.stability + 10);
+                        eventBus.emit('Log', { text: 'Descansaste. +10 vida y +10 estabilidad.' });
+                        eventBus.emit('StatsActualizados', {});
+                    } else {
+                        eventBus.emit('Mensaje', { text: 'Necesitas 20 XP.' });
+                    }
+                });
+
+                document.getElementById('btnFusion').addEventListener('click', () => {
+                    const [a, b] = stateProxy.fusionSelections;
+                    if (a !== null && b !== null) initiateFusion(a, b);
+                    else eventBus.emit('Mensaje', { text: 'Selecciona dos habilidades.' });
+                });
+
+                document.getElementById('btnCancelFusion').addEventListener('click', () => {
+                    hideFusionModal();
+                    pendingFusion = null;
+                });
+
+                document.getElementById('attackBtn').addEventListener('click', () => {
+                    const idx = stateProxy.selectedSkillIndex;
+                    if (idx === null || idx >= stateProxy.skills.length) {
+                        eventBus.emit('Mensaje', { text: 'Selecciona una habilidad (clic en tarjeta).' });
+                        return;
+                    }
+                    attackEnemy(idx);
+                });
+
+                document.getElementById('autoBtn').addEventListener('click', () => {
+                    if (combatState.isAuto) {
+                        clearInterval(combatState.autoInterval);
+                        combatState.isAuto = false;
+                        document.getElementById('autoBtn').textContent = '🤖 Auto-combate';
+                        return;
+                    }
+                    combatState.isAuto = true;
+                    document.getElementById('autoBtn').textContent = '⏹️ Detener';
+                    combatState.autoInterval = setInterval(() => {
+                        if (stateProxy.skills.length === 0) return;
+                        const randIdx = Math.floor(Math.random() * stateProxy.skills.length);
+                        attackEnemy(randIdx);
+                    }, 1500);
+                });
+
+                // Tabs
+                const tabs = ['Mutadores', 'Fusion', 'Combate', 'Inventario'];
+                tabs.forEach(tab => {
+                    document.getElementById(`tab${tab}`).addEventListener('click', () => {
+                        document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+                        document.getElementById(`tab${tab}`).classList.add('active');
+                        document.querySelectorAll('[id^="tabContent"]').forEach(el => el.style.display =
+                        'none');
+                        document.getElementById(`tabContent${tab}`).style.display = 'block';
+                    });
+                });
+
+                // Eventos
+                eventBus.on('HabilidadesActualizadas', () => this.renderSkills());
+                eventBus.on('OfertasActualizadas', () => this.renderOffers());
+                eventBus.on('AfinidadesActualizadas', () => this.renderAfinities());
+                eventBus.on('RasgosActualizados', () => this.renderTraits());
+                eventBus.on('StatsActualizados', () => this.renderCharacterInfo());
+                eventBus.on('CatalizadoresActualizados', () => this.renderCatalizadores());
+                eventBus.on('FusionSeleccionActualizada', () => this.updateFusionSlots());
+                eventBus.on('InventarioActualizado', () => this.renderInventory());
+                eventBus.on('Mensaje', (data) => this.showMessage(data.text));
+                eventBus.on('Log', (data) => this.addLog(data.text));
+                eventBus.on('HabilidadImpregnada', (data) => {
+                    this.addLog(`${data.skill.name} ganó la etiqueta ${data.tag}!`);
+                    this.renderSkills();
+                });
+                eventBus.on('MutadorAplicado', () => { this.renderSkills();
+                    this.renderOffers(); });
+                eventBus.on('NivelSubido', () => {
+                    this.renderCharacterInfo();
+                    this.renderAfinities();
+                });
+
+                this.renderAll();
+                spawnEnemy(1);
+            },
+
+            renderAll() {
+                this.renderSkills();
+                this.renderOffers();
+                this.renderAfinities();
+                this.renderTraits();
+                this.renderCharacterInfo();
+                this.renderCatalizadores();
+                this.updateFusionSlots();
+                this.renderInventory();
+            },
+
+            renderSkills() {
+                this.skillsList.innerHTML = '';
+                stateProxy.skills.forEach((skill, idx) => {
+                    const stats = skill.computeStats();
+                    const card = document.createElement('div');
+                    card.className = 'skill-card';
+                    if (stateProxy.selectedSkillIndex === idx) card.classList.add('selected');
+                    if (stateProxy.fusionSelections.includes(idx)) card.classList.add('fusion-slot');
+                    card.dataset.index = idx;
+                    card.dataset.skillId = skill.id;
+                    card.innerHTML = `
+                        <strong>${skill.name}</strong>
+                        <div class="tags">${skill.tags.map(t => `#${t}`).join(' ')}</div>
+                        <div class="stat-row">
+                            <span class="stat">💥 ${stats.damage}</span>
+                            <span class="stat">🔋 ${stats.costAmount} ${stats.costType}</span>
+                            <span class="stat">⚡ ${stats.speed}</span>
+                            <span class="stat">🔢 ${stats.projectileCount}</span>
+                            <span class="stat">📏 ${stats.range}</span>
+                            ${stats.area > 0 ? `<span class="stat">🌍 ${stats.area}</span>` : ''}
+                            ${stats.crit ? `<span class="stat">🎯 ${Math.round(stats.crit*100)}%</span>` : ''}
+                        </div>
+                        ${skill.appliedMutators.length ? `<div style="font-size:0.75rem;color:var(--accent)">Mutado: ${skill.appliedMutators.join(', ')}</div>` : ''}
+                        <div style="display:flex; gap:0.3rem; margin-top:0.4rem;">
+                            <button class="action-btn" data-action="entrenar" data-index="${idx}">📈 Entrenar</button>
+                            <button class="action-btn secondary" data-action="fusion" data-index="${idx}">➕ Fusion</button>
+                        </div>
+                    `;
+                    card.addEventListener('click', (e) => {
+                        if (e.target.tagName === 'BUTTON') return;
+                        stateProxy.selectedSkillIndex = (stateProxy.selectedSkillIndex === idx) ? null : idx;
+                        this.renderSkills();
+                    });
+                    card.querySelector('[data-action="entrenar"]').addEventListener('click', (e) => {
+                        e.stopPropagation();
+                        const gains = AffinityManager.train(skill);
+                        gainXP(5); // entrenar también da XP
+                        eventBus.emit('Log', { text: `Entrenaste ${skill.name}. Afinidad +${Object.values(gains).reduce((a,b)=>a+b,0).toFixed(2)}` });
+                        eventBus.emit('HabilidadesActualizadas', {});
+                        eventBus.emit('StatsActualizados', {});
+                    });
+                    card.querySelector('[data-action="fusion"]').addEventListener('click', (e) => {
+                        e.stopPropagation();
+                        this.toggleFusionSelection(idx);
+                    });
+                    this.skillsList.appendChild(card);
+                });
+                if (!stateProxy.skills.length) this.skillsList.innerHTML = '<p class="info-text">Sin habilidades. Genera una.</p>';
+            },
+
+            toggleFusionSelection(idx) {
+                const pos = stateProxy.fusionSelections.indexOf(idx);
+                if (pos !== -1) stateProxy.fusionSelections[pos] = null;
+                else {
+                    const empty = stateProxy.fusionSelections.indexOf(null);
+                    if (empty !== -1) stateProxy.fusionSelections[empty] = idx;
+                    else { stateProxy.fusionSelections[0] = idx;
+                        stateProxy.fusionSelections[1] = null; }
+                }
+                eventBus.emit('FusionSeleccionActualizada', {});
+                this.renderSkills();
+            },
+
+            updateFusionSlots() {
+                const [a, b] = stateProxy.fusionSelections;
+                this.fuseSlot1.textContent = a !== null ? stateProxy.skills[a]?.name || 'Habilidad A' : 'Habilidad A';
+                this.fuseSlot2.textContent = b !== null ? stateProxy.skills[b]?.name || 'Habilidad B' : 'Habilidad B';
+                this.fuseSlot1.classList.toggle('filled', a !== null);
+                this.fuseSlot2.classList.toggle('filled', b !== null);
+            },
+
+            renderOffers() {
+                this.offersList.innerHTML = '';
+                if (!stateProxy.offers.length) {
+                    this.offersList.innerHTML = '<p class="info-text">Sin ofertas. Sube de nivel.</p>';
+                    return;
+                }
+                stateProxy.offers.forEach(mutId => {
+                    const mut = Mutators.find(m => m.id === mutId);
+                    const card = document.createElement('div');
+                    card.className = 'offer-card';
+                    card.innerHTML = `
+                        <strong>${mut.name}</strong> <span style="font-size:0.8rem;color:var(--muted)">[${mut.tag}]</span>
+                        <div style="font-size:0.85rem;">${mut.description}</div>
+                        <button class="apply-btn" data-mutator-id="${mut.id}">Aplicar</button>
+                    `;
+                    card.querySelector('.apply-btn').addEventListener('click', (e) => {
+                        e.stopPropagation();
+                        const idx = stateProxy.selectedSkillIndex;
+                        if (idx !== null && idx < stateProxy.skills.length) {
+                            if (confirm(`¿Aplicar ${mut.name} a ${stateProxy.skills[idx].name}?`)) {
+                                applyMutatorToSkill(mut.id, idx);
+                            }
+                        } else {
+                            eventBus.emit('Mensaje', { text: 'Selecciona una habilidad.' });
+                        }
+                    });
+                    this.offersList.appendChild(card);
+                });
+            },
+
+            renderAfinities() {
+                this.affinityList.innerHTML = '';
+                const maxAff = getMaxAffinity();
+                let total = 0;
+                AllTags.forEach(tag => {
+                    const val = stateProxy.affinities[tag] || 0;
+                    total += val;
+                    const pct = maxAff > 0 ? (val / maxAff) * 100 : 0;
+                    const div = document.createElement('div');
+                    div.className = 'affinity-tag';
+                    div.innerHTML = `
+                        <span>${tag}</span>
+                        <div class="affinity-progress">
+                            <div class="bar"><div class="fill" style="width:${Math.min(100,pct)}%"></div></div>
+                            <span class="value">${Math.round(val)}</span>
+                        </div>
+                    `;
+                    this.affinityList.appendChild(div);
+                });
+                this.totalAffinity.textContent = Math.round(total);
+                this.maxAffinity.textContent = maxAff;
+            },
+
+            renderTraits() {
+                this.traitsList.innerHTML = '';
+                if (!stateProxy.traits.length) {
+                    this.traitsList.innerHTML = '<p class="info-text">Sin rasgos.</p>';
+                    return;
+                }
+                stateProxy.traits.forEach(tid => {
+                    const trait = Traits.find(t => t.id === tid);
+                    if (trait) {
+                        const card = document.createElement('div');
+                        card.className = 'trait-card';
+                        card.innerHTML = `<strong>${trait.name}</strong><div style="font-size:0.85rem;">${trait.description}</div>`;
+                        this.traitsList.appendChild(card);
+                    }
+                });
+            },
+
+            renderCharacterInfo() {
+                this.level.textContent = stateProxy.level;
+                this.xp.textContent = stateProxy.xp;
+                this.xpToNext.textContent = stateProxy.xpToNext;
+                this.hp.textContent = Math.round(stateProxy.hp);
+                this.maxHp.textContent = Math.round(stateProxy.maxHp);
+                this.hpFill.style.width = (stateProxy.maxHp > 0) ? (stateProxy.hp / stateProxy.maxHp) * 100 + '%' : '0%';
+                this.stability.textContent = Math.round(stateProxy.stability);
+                this.maxStability.textContent = Math.round(stateProxy.maxStability);
+                this.stabilityFill.style.width = (stateProxy.maxStability > 0) ? (stateProxy.stability / stateProxy
+                    .maxStability) * 100 + '%' : '0%';
+            },
+
+            renderCatalizadores() {
+                this.catalizadoresSpan.textContent = stateProxy.catalizadores;
+            },
+
+            renderInventory() {
+                this.inventoryList.innerHTML = '';
+                if (!stateProxy.inventory.length) {
+                    this.inventoryList.innerHTML = '<p class="info-text">Inventario vacío.</p>';
+                    return;
+                }
+                stateProxy.inventory.forEach((item, idx) => {
+                    const div = document.createElement('div');
+                    div.className = 'inventory-item';
+                    div.innerHTML = `${item.name} `;
+                    if (item.type === 'consumable') {
+                        const btn = document.createElement('button');
+                        btn.textContent = 'Usar';
+                        btn.addEventListener('click', () => {
+                            if (item.effect === 'heal_hp') {
+                                stateProxy.hp = Math.min(stateProxy.maxHp, stateProxy.hp + item.value);
+                            } else if (item.effect === 'heal_stability') {
+                                stateProxy.stability = Math.min(stateProxy.maxStability, stateProxy
+                                    .stability + item.value);
+                            }
+                            stateProxy.inventory.splice(idx, 1);
+                            eventBus.emit('StatsActualizados', {});
+                            eventBus.emit('InventarioActualizado', {});
+                            eventBus.emit('Log', { text: `Usaste ${item.name}.` });
+                            this.renderInventory();
+                        });
+                        div.appendChild(btn);
+                    }
+                    this.inventoryList.appendChild(div);
+                });
+            },
+
+            showMessage(text) {
+                this.message.textContent = text;
+                setTimeout(() => this.message.textContent = '', 3000);
+            },
+
+            addLog(text) {
+                const entry = document.createElement('div');
+                entry.className = 'log-entry';
+                entry.textContent = text;
+                this.logList.prepend(entry);
+                while (this.logList.children.length > 50) this.logList.removeChild(this.logList.lastChild);
+            },
+
+            highlightNewSkill(skillId) {
+                const cards = this.skillsList.querySelectorAll('.skill-card');
+                cards.forEach(card => {
+                    if (card.dataset.skillId === skillId) {
+                        card.classList.add('new-skill');
+                        setTimeout(() => card.classList.remove('new-skill'), 2000);
+                    }
+                });
+            }
+        };
+
+        // ---------- MODALES ----------
+        function showFusionModal(options) {
+            const modal = document.getElementById('fusionModal');
+            const container = document.getElementById('fusionOptions');
+            container.innerHTML = '';
+            options.forEach((opt, idx) => {
+                const stats = opt.computeStats();
+                const card = document.createElement('div');
+                card.className = 'fusion-option';
+                card.innerHTML = `
+                    <h4>Opción ${idx+1}</h4>
+                    <div class="tags">${opt.tags.map(t => `#${t}`).join(' ')}</div>
+                    <div class="stat-row">
+                        <span class="stat">💥 ${stats.damage}</span>
+                        <span class="stat">🔋 ${stats.costAmount} ${stats.costType}</span>
+                        <span class="stat">⚡ ${stats.speed}</span>
+                        <span class="stat">🔢 ${stats.projectileCount}</span>
+                        <span class="stat">📏 ${stats.range}</span>
+                        ${stats.area > 0 ? `<span class="stat">🌍 ${stats.area}</span>` : ''}
+                        ${stats.crit ? `<span class="stat">🎯 ${Math.round(stats.crit*100)}%</span>` : ''}
+                    </div>
+                    ${opt.appliedMutators.length ? `<div style="font-size:0.75rem;color:var(--accent)">Mutadores: ${opt.appliedMutators.join(', ')}</div>` : ''}
+                `;
+                card.addEventListener('click', () => completeFusion(idx));
+                container.appendChild(card);
+            });
+            modal.style.display = 'flex';
+        }
+
+        function hideFusionModal() {
+            document.getElementById('fusionModal').style.display = 'none';
+        }
+
+        // ---------- RESET ----------
+        function resetGame() {
+            stateProxy.level = 1;
+            stateProxy.xp = 0;
+            stateProxy.xpToNext = 20;
+            stateProxy.hp = 100;
+            stateProxy.maxHp = 100;
+            stateProxy.stability = 50;
+            stateProxy.maxStability = 100;
+            stateProxy.catalizadores = 2;
+            stateProxy.traits = [];
+            stateProxy.offers = [];
+            stateProxy.trainingCounters = {};
+            stateProxy.fusionSelections = [null, null];
+            stateProxy.selectedSkillIndex = null;
+            stateProxy.inventory = [];
+            AllTags.forEach(tag => stateProxy.affinities[tag] = 0);
+            const shuffled = [...BaseSkills].sort(() => Math.random() - 0.5);
+            stateProxy.skills = shuffled.slice(0, 3).map(s => new Habilidad(s.id, s.name, [...s.tags], { ...s.base }));
+            generateOffers();
+            UI.renderAll();
+            UI.logList.innerHTML = '';
+            spawnEnemy(1);
+            eventBus.emit('Log', { text: 'Personaje reiniciado.' });
+        }
+
+        // ---------- INICIO ----------
+        window.onload = () => {
+            const shuffled = [...BaseSkills].sort(() => Math.random() - 0.5);
+            stateProxy.skills = shuffled.slice(0, 3).map(s => new Habilidad(s.id, s.name, [...s.tags], { ...s.base }));
+            generateOffers();
+            UI.init();
+            UI.renderAll();
+            spawnEnemy(1);
+            eventBus.emit('Log', { text: 'Bienvenido a la Torre Oscura. ¡Progresión renovada!' });
+        };
+    </script>
+</body>
+</html>
