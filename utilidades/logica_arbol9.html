@@ -1,0 +1,1872 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Torre Oscura – Árbol de Personaje v9 (Feedback Visual + Atributos)</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:opsz@14..32&family=Orbitron:wght@400;700&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" />
+    <style>
+        :root {
+            --bg-primary: #0b0b1a;
+            --bg-panel: rgba(22, 33, 62, 0.92);
+            --accent: #e94560;
+            --accent-hover: #c0392b;
+            --text-primary: #eee;
+            --text-muted: #aaa;
+            --border-subtle: rgba(255, 255, 255, 0.08);
+            --shadow-panel: 0 8px 32px rgba(0, 0, 0, 0.6);
+            --radius-panel: 16px;
+            --radius-card: 12px;
+            --transition: 0.25s ease;
+            --good: #4ecca3;
+            --warn: #f9ca24;
+            /* Rareza colores */
+            --color-common: #5a7a9a;
+            --color-rare: #4a9eff;
+            --color-epic: #b44aff;
+            --color-legendary: #ffaa00;
+            --color-max: #ffd700;
+            --color-unlockable: #f39c12;
+        }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: 'Inter', system-ui, sans-serif;
+            background: radial-gradient(ellipse at 20% 20%, #0f0c29, #302b63, #24243e);
+            color: var(--text-primary);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 1.5rem 1rem;
+        }
+        h1 {
+            font-family: 'Orbitron', monospace;
+            font-size: 2rem;
+            background: linear-gradient(135deg, var(--accent), #f9ca24);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            margin-bottom: 1.2rem;
+            letter-spacing: 0.05em;
+        }
+        .main-container {
+            display: flex;
+            gap: 1.2rem;
+            width: 100%;
+            max-width: 1800px;
+            flex-wrap: wrap;
+        }
+        .panel {
+            background: var(--bg-panel);
+            backdrop-filter: blur(8px);
+            border: 1px solid var(--border-subtle);
+            border-radius: var(--radius-panel);
+            padding: 1.2rem 1.4rem;
+            flex: 1 1 280px;
+            max-height: 92vh;
+            overflow-y: auto;
+            box-shadow: var(--shadow-panel);
+            transition: box-shadow var(--transition);
+        }
+        .panel:hover { box-shadow: 0 8px 40px rgba(0, 0, 0, 0.7); }
+        .panel h2 {
+            font-family: 'Orbitron', monospace;
+            font-size: 1.1rem;
+            margin-bottom: 0.8rem;
+            border-bottom: 1px solid var(--border-subtle);
+            padding-bottom: 0.5rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            letter-spacing: 0.03em;
+        }
+        .panel h2 i { color: var(--accent); font-size: 1.1rem; }
+        .stat-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 0.3rem 0.8rem;
+            font-size: 0.82rem;
+            margin: 0.4rem 0;
+        }
+        .stat-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 0.05rem 0.2rem;
+            border-radius: 4px;
+            background: rgba(255, 255, 255, 0.02);
+        }
+        .stat-item .value {
+            font-weight: bold;
+            font-family: 'Orbitron', monospace;
+            font-size: 0.78rem;
+        }
+        .stat-group-title {
+            font-size: 0.7rem;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            color: var(--text-muted);
+            border-bottom: 1px solid var(--border-subtle);
+            padding-bottom: 0.2rem;
+            margin: 0.4rem 0 0.2rem 0;
+        }
+        .stat-group { margin: 0.2rem 0; }
+        .affinity-bar {
+            display: flex;
+            flex-direction: column;
+            gap: 0.2rem;
+            margin: 0.3rem 0;
+            max-height: 150px;
+            overflow-y: auto;
+            padding-right: 0.2rem;
+        }
+        .affinity-row {
+            display: flex;
+            align-items: center;
+            gap: 0.4rem;
+            font-size: 0.72rem;
+            border-radius: 4px;
+            padding: 0.05rem 0.2rem;
+        }
+        .affinity-row .tag-label { width: 70px; flex-shrink: 0; color: var(--text-muted); text-transform: capitalize; }
+        .affinity-track { flex: 1; height: 5px; background: rgba(255,255,255,0.08); border-radius: 4px; overflow: hidden; }
+        .affinity-fill { height: 100%; border-radius: 4px; width: 0%; transition: width 0.4s ease; }
+        .affinity-row .affinity-value {
+            font-family: 'Orbitron', monospace;
+            font-size: 0.7rem;
+            color: var(--text-primary);
+            width: 28px;
+            text-align: right;
+        }
+        .affinity-train-btn {
+            background: var(--warn);
+            border: none;
+            border-radius: 12px;
+            color: #000;
+            font-size: 0.55rem;
+            padding: 0.05rem 0.5rem;
+            cursor: pointer;
+            font-weight: 600;
+            transition: all 0.2s;
+            opacity: 0;
+            pointer-events: none;
+        }
+        .affinity-row:hover .affinity-train-btn { opacity: 1; pointer-events: auto; }
+        .affinity-train-btn:hover { transform: scale(1.1); }
+        .affinity-train-btn:disabled { opacity: 0.3; cursor: not-allowed; }
+        .button {
+            background: var(--accent);
+            color: #fff;
+            border: none;
+            padding: 0.5rem 1rem;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 0.85rem;
+            transition: all var(--transition);
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.4rem;
+            width: 100%;
+            margin: 0.25rem 0;
+            font-family: 'Inter', sans-serif;
+        }
+        .button:hover { background: var(--accent-hover); transform: scale(1.02); box-shadow: 0 4px 16px rgba(233,69,96,0.4); }
+        .button.secondary { background: #2d6a9f; }
+        .button.secondary:hover { background: #1f4a7a; }
+        .button.good { background: var(--good); color: #000; }
+        .button.good:hover { background: #3ab88a; }
+        .button.warn { background: var(--warn); color: #000; }
+        .button.warn:hover { background: #e6b800; }
+        .button.attr { background: #4a6a8a; color: #fff; width: auto; padding: 0.2rem 0.8rem; font-size: 0.75rem; margin: 0.1rem 0; }
+        .button.attr:hover { background: #5a8aaa; }
+        .flex-row {
+            display: flex;
+            gap: 0.4rem;
+            flex-wrap: wrap;
+            align-items: center;
+            margin: 0.3rem 0;
+        }
+        .flex-row .button { width: auto; flex: 1 1 auto; }
+        .stat-badge {
+            background: rgba(255,255,255,0.06);
+            padding: 0.2rem 0.7rem;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            font-family: 'Orbitron', monospace;
+            border: 1px solid var(--border-subtle);
+        }
+        .message {
+            min-height: 2.2rem;
+            font-style: italic;
+            color: var(--warn);
+            margin: 0.4rem 0;
+            padding: 0.2rem 0.6rem;
+            border-left: 3px solid var(--warn);
+            background: rgba(249,202,36,0.05);
+            border-radius: 4px;
+            font-size: 0.85rem;
+        }
+        .log-list {
+            display: flex;
+            flex-direction: column;
+            gap: 0.2rem;
+            max-height: 140px;
+            overflow-y: auto;
+            margin-top: 0.3rem;
+        }
+        .log-entry {
+            font-size: 0.75rem;
+            border-bottom: 1px solid var(--border-subtle);
+            padding: 0.2rem 0;
+            display: flex;
+            align-items: center;
+            gap: 0.4rem;
+        }
+        .log-entry i { width: 16px; font-size: 0.7rem; }
+        .log-entry.unlock { color: var(--good); }
+        .log-entry.synergy { color: var(--color-epic); }
+        .log-entry.combo { color: var(--color-legendary); }
+        .log-entry.event { color: #85c1e9; }
+        .log-entry.mission { color: #f39c12; }
+        .log-entry.attr { color: #4a9eff; }
+        .tabs {
+            display: flex;
+            gap: 0.3rem;
+            margin-bottom: 0.7rem;
+            flex-wrap: wrap;
+        }
+        .tab-btn {
+            background: transparent;
+            border: 1px solid var(--border-subtle);
+            border-radius: 8px;
+            padding: 0.3rem 1rem;
+            color: var(--text-muted);
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 0.8rem;
+            transition: all var(--transition);
+            font-family: 'Inter', sans-serif;
+        }
+        .tab-btn:hover { background: rgba(255,255,255,0.04); color: #fff; }
+        .tab-btn.active { background: var(--good); color: #000; border-color: var(--good); }
+        .constellation-container {
+            position: relative;
+            width: 100%;
+            min-height: 450px;
+            border: 1px solid var(--border-subtle);
+            border-radius: var(--radius-card);
+            background: rgba(0,0,0,0.2);
+            overflow: auto;
+            padding: 1rem;
+        }
+        .constellation-container svg {
+            display: block;
+            width: 100%;
+            height: auto;
+            min-height: 450px;
+        }
+        .node-svg {
+            cursor: pointer;
+            transition: r 0.2s, fill 0.2s, stroke-width 0.2s;
+        }
+        .node-svg:hover { r: 24; }
+        .node-svg.locked { fill: #444; stroke: #666; }
+        .node-svg.unlockable { fill: var(--color-unlockable); stroke: #fff; stroke-width: 2; animation: pulse-border 1.5s infinite; }
+        .node-svg.unlocked { fill: var(--color-common); stroke: #fff; stroke-width: 2; }
+        .node-svg.maxed { fill: var(--color-legendary); stroke: #ffd700; stroke-width: 3; }
+        .node-svg.epic { fill: var(--color-epic); }
+        .node-svg.legendary { fill: var(--color-legendary); }
+        .node-svg.rare { fill: var(--color-rare); }
+        @keyframes pulse-border {
+            0% { stroke-width: 2; stroke: #fff; }
+            50% { stroke-width: 4; stroke: var(--color-unlockable); }
+            100% { stroke-width: 2; stroke: #fff; }
+        }
+        .node-label {
+            font-size: 7px;
+            fill: #fff;
+            text-anchor: middle;
+            dominant-baseline: central;
+            pointer-events: none;
+            font-weight: 600;
+            text-shadow: 0 0 4px #000;
+        }
+        .edge-line { stroke: #555; stroke-width: 2; opacity: 0.4; }
+        .edge-line.active { stroke: var(--good); opacity: 0.8; }
+        .edge-line.ascend { stroke: var(--color-epic); opacity: 0.9; }
+        .edge-line.required { stroke: #f39c12; opacity: 0.6; stroke-dasharray: 4 4; }
+        .ruleta-container {
+            display: flex;
+            gap: 0.8rem;
+            flex-wrap: wrap;
+            margin: 0.5rem 0;
+        }
+        .ruleta-opcion {
+            flex: 1 1 160px;
+            background: rgba(31,42,68,0.7);
+            border: 2px solid var(--border-subtle);
+            border-radius: var(--radius-card);
+            padding: 0.8rem;
+            cursor: pointer;
+            transition: all var(--transition);
+            text-align: center;
+            backdrop-filter: blur(4px);
+            box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+            position: relative;
+        }
+        .ruleta-opcion:hover { border-color: var(--good); transform: translateY(-4px); }
+        .ruleta-opcion .nombre { font-weight: 700; font-size: 0.9rem; }
+        .ruleta-opcion .detalles { font-size: 0.65rem; color: var(--text-muted); }
+        .ruleta-opcion .rarity-badge {
+            display: inline-block;
+            padding: 0.05rem 0.5rem;
+            border-radius: 12px;
+            font-size: 0.55rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            margin-top: 0.2rem;
+        }
+        .rarity-common { background: var(--color-common); color: #fff; }
+        .rarity-rare { background: var(--color-rare); color: #fff; }
+        .rarity-epic { background: var(--color-epic); color: #fff; }
+        .rarity-legendary { background: var(--color-legendary); color: #000; }
+        .ruleta-opcion .btn-elegir {
+            margin-top: 0.4rem;
+            padding: 0.15rem 1rem;
+            font-size: 0.75rem;
+            border-radius: 6px;
+            background: var(--good);
+            color: #000;
+            border: none;
+            cursor: pointer;
+            font-weight: 600;
+            transition: all var(--transition);
+        }
+        .ruleta-opcion .btn-elegir:hover { transform: scale(1.05); background: #3ab88a; }
+        .ruleta-opcion .max-tag {
+            position: absolute;
+            top: -6px;
+            right: -6px;
+            background: var(--color-max);
+            color: #000;
+            font-size: 0.55rem;
+            font-weight: 700;
+            padding: 0.05rem 0.4rem;
+            border-radius: 10px;
+            border: 1px solid #fff;
+        }
+        .node-list {
+            max-height: 380px;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 0.4rem;
+            padding-right: 0.2rem;
+        }
+        .node-card {
+            background: rgba(31,42,68,0.7);
+            border: 1px solid var(--border-subtle);
+            border-radius: var(--radius-card);
+            padding: 0.5rem 0.7rem;
+            transition: all var(--transition);
+            backdrop-filter: blur(4px);
+            box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+            position: relative;
+        }
+        .node-card .name { font-weight: 700; font-size: 0.9rem; display: flex; align-items: center; gap: 0.3rem; }
+        .node-card .tags { font-size: 0.6rem; color: var(--text-muted); }
+        .node-card .rarity-badge {
+            display: inline-block;
+            padding: 0.05rem 0.4rem;
+            border-radius: 12px;
+            font-size: 0.55rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            margin: 0.1rem 0;
+        }
+        .node-card .effects { font-size: 0.65rem; color: var(--text-primary); margin-top: 0.15rem; opacity: 0.9; }
+        .node-card .reqs { font-size: 0.55rem; color: var(--text-muted); margin-top: 0.15rem; line-height: 1.3; }
+        .node-card .cost-badge {
+            background: rgba(255,255,255,0.08);
+            color: var(--text-muted);
+            font-size: 0.55rem;
+            padding: 0.05rem 0.4rem;
+            border-radius: 10px;
+            display: inline-block;
+            margin-top: 0.15rem;
+        }
+        .node-card .btn-unlock-node {
+            margin-top: 0.3rem;
+            padding: 0.1rem 0.6rem;
+            font-size: 0.7rem;
+            border-radius: 6px;
+            background: var(--good);
+            color: #000;
+            border: none;
+            cursor: pointer;
+            font-weight: 600;
+            transition: all var(--transition);
+        }
+        .node-card .btn-unlock-node:hover { transform: scale(1.05); background: #3ab88a; }
+        .node-card .max-tag {
+            position: absolute;
+            top: 4px;
+            right: 6px;
+            background: var(--color-max);
+            color: #000;
+            font-size: 0.55rem;
+            font-weight: 700;
+            padding: 0.05rem 0.4rem;
+            border-radius: 10px;
+        }
+        .toast-container {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            z-index: 999;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            max-width: 300px;
+            pointer-events: none;
+        }
+        .toast {
+            background: rgba(22,33,62,0.95);
+            backdrop-filter: blur(8px);
+            border: 1px solid var(--border-subtle);
+            border-radius: var(--radius-card);
+            padding: 0.6rem 1rem;
+            box-shadow: var(--shadow-panel);
+            color: var(--text-primary);
+            font-size: 0.85rem;
+            pointer-events: auto;
+            animation: slideIn 0.3s ease;
+            border-left: 4px solid var(--good);
+        }
+        .toast.error { border-left-color: var(--accent); }
+        .toast.warn { border-left-color: var(--warn); }
+        @keyframes slideIn { from { opacity:0; transform:translateX(40px); } to { opacity:1; transform:translateX(0); } }
+        @media (max-width: 768px) {
+            .main-container { flex-direction: column; }
+            .panel { max-height: none; flex: none; }
+            .stat-grid { grid-template-columns: 1fr 1fr; }
+            .ruleta-opcion { flex: 1 1 100%; }
+            h1 { font-size: 1.4rem; }
+        }
+        .branch-summary {
+            display: flex;
+            gap: 0.4rem;
+            flex-wrap: wrap;
+            font-size: 0.65rem;
+            margin: 0.2rem 0;
+        }
+        .branch-tag {
+            background: rgba(255,255,255,0.05);
+            padding: 0.05rem 0.5rem;
+            border-radius: 12px;
+            border: 1px solid var(--border-subtle);
+        }
+        .branch-tag .count { color: var(--good); font-weight: 700; }
+        .points-warning {
+            color: var(--warn);
+            font-weight: 700;
+            margin: 0.3rem 0;
+            font-size: 0.9rem;
+        }
+        .progress-bar-global {
+            height: 4px;
+            background: rgba(255,255,255,0.08);
+            border-radius: 2px;
+            margin: 0.4rem 0;
+            overflow: hidden;
+        }
+        .progress-bar-global .fill {
+            height: 100%;
+            background: linear-gradient(90deg, var(--accent), var(--good));
+            border-radius: 2px;
+            transition: width 0.5s ease;
+        }
+        .hito-indicator {
+            color: var(--warn);
+            font-weight: 700;
+            margin: 0.2rem 0;
+            font-size: 0.8rem;
+        }
+        .attr-panel {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.3rem 0.6rem;
+            margin: 0.3rem 0;
+        }
+        .attr-item {
+            background: rgba(255,255,255,0.04);
+            border-radius: 6px;
+            padding: 0.15rem 0.4rem;
+            display: flex;
+            align-items: center;
+            gap: 0.3rem;
+            font-size: 0.75rem;
+        }
+        .attr-item .attr-value {
+            font-weight: bold;
+            color: var(--good);
+            min-width: 20px;
+            text-align: center;
+        }
+        .attr-item .btn-attr {
+            background: #4a6a8a;
+            border: none;
+            color: #fff;
+            border-radius: 10px;
+            padding: 0.05rem 0.4rem;
+            cursor: pointer;
+            font-size: 0.6rem;
+            font-weight: bold;
+            transition: background 0.2s;
+        }
+        .attr-item .btn-attr:hover { background: #5a8aaa; }
+        .attr-item .btn-attr:disabled { opacity: 0.3; cursor: not-allowed; }
+    </style>
+</head>
+<body>
+    <h1><i class="fas fa-tower-broadcast"></i> Árbol de Personaje v9 – Feedback Visual + Atributos</h1>
+    <div class="main-container">
+        <!-- Panel izquierdo -->
+        <div class="panel">
+            <h2><i class="fas fa-chart-simple"></i> Estadísticas</h2>
+            <div id="statsContainer"></div>
+            <div class="flex-row">
+                <span class="stat-badge"><i class="fas fa-level-up-alt"></i> Nv. <strong id="levelDisplay">1</strong></span>
+                <span class="stat-badge"><i class="fas fa-coins"></i> Pts. <strong id="pointsDisplay">0</strong></span>
+                <span class="stat-badge"><i class="fas fa-gem"></i> Poder <strong id="powerRankDisplay">1</strong></span>
+            </div>
+            <div id="pointsWarning" class="points-warning" style="display:none;">⚠️ Puntos acumulados: <span id="unusedPoints">0</span></div>
+            <div id="hitoIndicator" class="hito-indicator">🎯 Próximo hito: nivel <span id="nextHito">5</span></div>
+            <div class="progress-bar-global"><div class="fill" id="progressFill" style="width:0%;"></div></div>
+            <div style="display:flex; justify-content:space-between; font-size:0.65rem; color:var(--text-muted);">
+                <span>Progreso: <span id="progressPercent">0%</span></span>
+                <span><span id="unlockedCount">0</span>/<span id="totalNodes">0</span></span>
+            </div>
+            <button class="button" id="btnLevelUp"><i class="fas fa-arrow-up"></i> Subir nivel (+1 punto)</button>
+            <button class="button good" id="btnUnlockAll"><i class="fas fa-unlock"></i> Desbloquear todo (test)</button>
+            <button class="button secondary" id="btnReset"><i class="fas fa-undo"></i> Reiniciar</button>
+
+            <h2 style="margin-top:0.8rem;"><i class="fas fa-arrow-up"></i> Atributos Base</h2>
+            <div class="attr-panel" id="attrPanel"></div>
+
+            <h2 style="margin-top:0.8rem;"><i class="fas fa-tags"></i> Afinidades</h2>
+            <div style="font-size:0.7rem; color:var(--text-muted); margin-bottom:0.3rem;">Pasa el ratón y haz clic en <span style="color:var(--warn);">+</span> para entrenar.</div>
+            <div class="affinity-bar" id="affinityBar"></div>
+
+            <h2 style="margin-top:0.8rem;"><i class="fas fa-trophy"></i> Misiones</h2>
+            <div class="log-list" id="missionList"></div>
+
+            <h2 style="margin-top:0.8rem;"><i class="fas fa-history"></i> Registro</h2>
+            <div class="log-list" id="logList"></div>
+            <div class="message" id="message"></div>
+        </div>
+
+        <!-- Panel central -->
+        <div class="panel" style="flex:2;">
+            <div class="tabs">
+                <button class="tab-btn active" id="tabTree"><i class="fas fa-star"></i> Constelación</button>
+                <button class="tab-btn" id="tabRuleta"><i class="fas fa-dice"></i> Ruleta (Hito)</button>
+            </div>
+            <div id="tabContentTree">
+                <h2><i class="fas fa-sitemap"></i> Constelación de Poder</h2>
+                <div class="constellation-container" id="constellationContainer"></div>
+                <div style="margin-top:0.5rem; display:flex; gap:0.5rem; flex-wrap:wrap; justify-content:center; font-size:0.7rem;">
+                    <span style="background:rgba(255,255,255,0.05); padding:0.1rem 0.5rem; border-radius:12px;"><span style="color:#2ecc71;">●</span> Desbloqueado</span>
+                    <span style="background:rgba(255,255,255,0.05); padding:0.1rem 0.5rem; border-radius:12px;"><span style="color:var(--color-unlockable);">●</span> Disponible</span>
+                    <span style="background:rgba(255,255,255,0.05); padding:0.1rem 0.5rem; border-radius:12px;"><span style="color:#666;">●</span> Bloqueado</span>
+                    <span style="background:rgba(255,255,255,0.05); padding:0.1rem 0.5rem; border-radius:12px;"><span style="color:var(--color-rare);">●</span> Raro</span>
+                    <span style="background:rgba(255,255,255,0.05); padding:0.1rem 0.5rem; border-radius:12px;"><span style="color:var(--color-epic);">●</span> Épico</span>
+                    <span style="background:rgba(255,255,255,0.05); padding:0.1rem 0.5rem; border-radius:12px;"><span style="color:var(--color-legendary);">●</span> Legendario</span>
+                    <span style="background:rgba(255,255,255,0.05); padding:0.1rem 0.5rem; border-radius:12px;"><span style="color:var(--color-max);">★</span> Máximo</span>
+                </div>
+            </div>
+            <div id="tabContentRuleta" style="display:none;">
+                <h2><i class="fas fa-dice-d6"></i> Ruleta de Nodos (Hito)</h2>
+                <p class="info-text" style="font-size:0.8rem;color:var(--text-muted);margin-bottom:0.5rem;">
+                    ¡Hito alcanzado! Elige un nodo para desbloquear. Las opciones se basan en tus afinidades y poder.
+                </p>
+                <div id="ruletaContainer" class="ruleta-container">
+                    <p class="info-text" style="color:var(--text-muted);">Sube de nivel hasta el siguiente hito para ver opciones.</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Panel derecho -->
+        <div class="panel">
+            <h2><i class="fas fa-book"></i> Catálogo de nodos</h2>
+            <div class="node-list" id="catalogNodes"></div>
+            <h2 style="margin-top:1rem;"><i class="fas fa-link"></i> Sinergias activas</h2>
+            <div id="synergyList" class="log-list"></div>
+            <h2 style="margin-top:1rem;"><i class="fas fa-bolt"></i> Combos</h2>
+            <div id="comboList" class="log-list"></div>
+            <h2 style="margin-top:1rem;"><i class="fas fa-layer-group"></i> Resumen de ramas</h2>
+            <div id="branchSummary" class="branch-summary"></div>
+        </div>
+    </div>
+    <div class="toast-container" id="toastContainer"></div>
+
+    <script>
+    // ================================================================
+    // 1. INFRAESTRUCTURA (EventBus, Persistence)
+    // ================================================================
+    class EventBus {
+        constructor() { this.listeners = {}; }
+        on(event, cb) { if (!this.listeners[event]) this.listeners[event] = []; this.listeners[event].push(cb); }
+        emit(event, data) { (this.listeners[event] || []).forEach(cb => cb(data)); }
+    }
+    const eventBus = new EventBus();
+
+    const Persistence = {
+        save(state) {
+            try {
+                const data = {
+                    unlockedNodes: state.unlockedNodes,
+                    nodeLevels: state.nodeLevels,
+                    generatedNodes: state.generatedNodes,
+                    synergies: state.synergies,
+                    combos: state.combos,
+                    missions: state.missions,
+                    log: state.log,
+                    stats: {
+                        level: state.stats.level,
+                        points: state.stats.points,
+                        powerRank: state.stats.powerRank,
+                        affinities: state.stats.affinities,
+                        baseStats: state.stats.baseStats
+                    }
+                };
+                localStorage.setItem('torreOscura_v9', JSON.stringify(data));
+            } catch(e) { /* ignore */ }
+        },
+        load() {
+            try {
+                const raw = localStorage.getItem('torreOscura_v9');
+                if (!raw) return null;
+                return JSON.parse(raw);
+            } catch(e) { return null; }
+        },
+        clear() { localStorage.removeItem('torreOscura_v9'); }
+    };
+
+    // ================================================================
+    // 2. DOMINIO – TABLAS DE GENERACIÓN (sin cambios)
+    // ================================================================
+    const TAG_DATA = {
+        fuego: {
+            prefixes: ['Ígneo', 'Llameante', 'Ardiente', 'Piro', 'Candente', 'Encendido'],
+            suffixes: ['de Fuego', 'de la Llama', 'Ígneo', 'del Calor', 'Piro'],
+            effects: { fireDamage: 0.1, burnChance: 0.05 }
+        },
+        hielo: {
+            prefixes: ['Gélido', 'Glacial', 'Frío', 'Cristalino', 'Escarchado', 'Níveo'],
+            suffixes: ['de Hielo', 'de la Escarcha', 'Gélido', 'del Frío', 'Glacial'],
+            effects: { iceDamage: 0.1, slowChance: 0.1 }
+        },
+        sangre: {
+            prefixes: ['Sangriento', 'Carmesí', 'Sanguinario', 'Vampírico', 'Crómico', 'Encarnado'],
+            suffixes: ['de Sangre', 'del Vampiro', 'Sangriento', 'del Torrente', 'Crómico'],
+            effects: { lifeSteal: 0.05 }
+        },
+        magia: {
+            prefixes: ['Arcano', 'Místico', 'Ethereal', 'Mágico', 'Sobrenatural', 'Enigmático'],
+            suffixes: ['de Magia', 'del Arcano', 'Místico', 'del Conocimiento', 'Ethereal'],
+            effects: { manaCostReduction: 0.05, damage: 3 }
+        },
+        fisico: {
+            prefixes: ['Férreo', 'Robusto', 'Tenaz', 'Poderoso', 'Atlético', 'Hércules'],
+            suffixes: ['Físico', 'de la Fuerza', 'del Cuerpo', 'Robusto'],
+            effects: { damage: 5, defense: 2 }
+        },
+        aire: {
+            prefixes: ['Eólico', 'Veloz', 'Céfiro', 'Ventoso', 'Raudo', 'Sutil'],
+            suffixes: ['de Aire', 'del Viento', 'Eólico', 'de la Brisa', 'Veloz'],
+            effects: { speed: 10, evasion: 0.05 }
+        },
+        tierra: {
+            prefixes: ['Pétreo', 'Sólido', 'Macizo', 'Terrestre', 'Robusto', 'Granítico'],
+            suffixes: ['de Tierra', 'del Roca', 'Pétreo', 'del Suelo', 'Sólido'],
+            effects: { defense: 8, allResist: 0.05 }
+        },
+        naturaleza: {
+            prefixes: ['Verdoso', 'Florido', 'Vital', 'Silvestre', 'Frondoso', 'Primaveral'],
+            suffixes: ['de Naturaleza', 'de la Vida', 'Vital', 'del Bosque', 'Silvestre'],
+            effects: { regenHp: 0.02, regenMana: 0.02 }
+        },
+        sombra: {
+            prefixes: ['Oscuro', 'Umbrío', 'Sombrío', 'Tenebroso', 'Nocturno', 'Espectral'],
+            suffixes: ['de Sombra', 'de la Oscuridad', 'Sombrío', 'del Sigilo', 'Tenebroso'],
+            effects: { evasion: 0.1, chaosChance: 0.05 }
+        },
+        luz: {
+            prefixes: ['Luminoso', 'Brillante', 'Radiante', 'Divino', 'Sagrado', 'Cegador'],
+            suffixes: ['de Luz', 'de la Aurora', 'Luminoso', 'del Alba', 'Radiante'],
+            effects: { healAlly: 0.05, allResist: 0.05 }
+        }
+    };
+    const TAG_LIST = Object.keys(TAG_DATA);
+    const ALL_TAGS = TAG_LIST;
+
+    // ================================================================
+    // 3. PLANTILLAS BASE (sin cambios)
+    // ================================================================
+    const TEMPLATES = [
+        { id: 'vitality', name: 'Vitalidad', baseEffect: { maxHp: 20 }, level: 0, baseRarity: 'common', cost: 1, maxLevel: 5, icon: 'fa-heart' },
+        { id: 'mana_pool', name: 'Maná', baseEffect: { maxMana: 15 }, level: 0, baseRarity: 'common', cost: 1, maxLevel: 5, icon: 'fa-bolt' },
+        { id: 'strength', name: 'Fuerza', baseEffect: { damage: 5 }, level: 0, baseRarity: 'common', cost: 1, maxLevel: 5, icon: 'fa-fist-raised' },
+        { id: 'intellect', name: 'Inteligencia', baseEffect: { damage: 5 }, level: 0, baseRarity: 'common', cost: 1, maxLevel: 5, icon: 'fa-brain' },
+        { id: 'agility', name: 'Agilidad', baseEffect: { speed: 8 }, level: 0, baseRarity: 'common', cost: 1, maxLevel: 5, icon: 'fa-wind' },
+        { id: 'guardian_base', name: 'Guardián', baseEffect: { defense: 5 }, level: 0, baseRarity: 'common', cost: 1, maxLevel: 5, icon: 'fa-shield' },
+        { id: 'fire_affinity', name: 'Afinidad Ígnea', baseEffect: { fireDamage: 0.1 }, level: 1, baseRarity: 'rare', cost: 2, maxLevel: 3, icon: 'fa-fire' },
+        { id: 'ice_affinity', name: 'Afinidad Gélida', baseEffect: { iceDamage: 0.1 }, level: 1, baseRarity: 'rare', cost: 2, maxLevel: 3, icon: 'fa-snowflake' },
+        { id: 'blood_thirst', name: 'Sed de Sangre', baseEffect: { lifeSteal: 0.05 }, level: 1, baseRarity: 'rare', cost: 2, maxLevel: 3, icon: 'fa-droplet' },
+        { id: 'swiftness', name: 'Rapidez', baseEffect: { speed: 15 }, level: 1, baseRarity: 'rare', cost: 2, maxLevel: 3, icon: 'fa-feather' },
+        { id: 'elemental_synergy', name: 'Sinergia Elemental', baseEffect: { fireDamage: 0.15, iceDamage: 0.15, lightningDamage: 0.15 }, level: 2, baseRarity: 'epic', cost: 3, maxLevel: 2, icon: 'fa-bolt' },
+        { id: 'berserker', name: 'Berserker', baseEffect: { berserkerDamage: 0.3 }, level: 2, baseRarity: 'epic', cost: 3, maxLevel: 2, icon: 'fa-axe' },
+        { id: 'arcane_mastery', name: 'Maestría Arcana', baseEffect: { manaCostReduction: 0.2 }, level: 2, baseRarity: 'epic', cost: 3, maxLevel: 2, icon: 'fa-hat-wizard' },
+        { id: 'lightning_fury', name: 'Furia Relámpago', baseEffect: { lightningDamage: 0.2, speed: 10 }, level: 2, baseRarity: 'epic', cost: 3, maxLevel: 2, icon: 'fa-cloud-bolt' },
+        { id: 'guardian_master', name: 'Guardián Épico', baseEffect: { defense: 20, allResist: 0.1 }, level: 2, baseRarity: 'epic', cost: 3, maxLevel: 2, icon: 'fa-shield' }
+    ];
+
+    // ================================================================
+    // 4. SINERGIAS, COMBOS, MISIONES (sin cambios)
+    // ================================================================
+    const SYNERGY_CATALOG = [
+        { id: 'syn_fire_ice', name: 'Cambio Térmico', desc: 'Golpe fuego → siguiente hielo +50% daño',
+            requiredTags: ['fuego','hielo'], effects: { fireDamage: 0.1, iceDamage: 0.1 } },
+        { id: 'syn_blood_berserker', name: 'Furia Sanguinaria', desc: 'Vida<30% → robo de vida +20%',
+            requiredTags: ['sangre'], effects: { lifeSteal: 0.2 } },
+        { id: 'syn_lightning_swift', name: 'Tormenta Veloz', desc: '+20% velocidad, +10% rayo',
+            requiredTags: ['rayo','aire'], effects: { speed: 20, lightningDamage: 0.1 } },
+        { id: 'syn_shadow_magic', name: 'Magia Sombra', desc: '+15% daño de sombra, +10% caos',
+            requiredTags: ['sombra','magia'], effects: { chaosDamage: 0.15 } }
+    ];
+    const COMBO_CATALOG = [
+        { id: 'combo_fire_3', name: 'Inferno', desc: '3 nodos fuego → +20% daño fuego',
+            requiredTags: { fuego: 3 }, effects: { fireDamage: 0.2 } },
+        { id: 'combo_ice_3', name: 'Glaciar', desc: '3 nodos hielo → +20% daño hielo',
+            requiredTags: { hielo: 3 }, effects: { iceDamage: 0.2 } },
+        { id: 'combo_sangre_3', name: 'Sed Insaciable', desc: '3 nodos sangre → +15% robo de vida',
+            requiredTags: { sangre: 3 }, effects: { lifeSteal: 0.15 } },
+        { id: 'combo_magia_3', name: 'Concentración Arcana', desc: '3 nodos magia → -15% coste maná',
+            requiredTags: { magia: 3 }, effects: { manaCostReduction: 0.15 } }
+    ];
+    const MISSION_CATALOG = [
+        { id: 'mission_fire_3', name: 'Aprendiz de Fuego', desc: 'Desbloquea 3 nodos con tag "fuego"',
+            condition: (state) => state.generatedNodes.filter(n => n.tags.includes('fuego')).length >= 3,
+            reward: { points: 2, affinity: { tag: 'fuego', value: 10 } } },
+        { id: 'mission_ice_3', name: 'Aprendiz de Hielo', desc: 'Desbloquea 3 nodos con tag "hielo"',
+            condition: (state) => state.generatedNodes.filter(n => n.tags.includes('hielo')).length >= 3,
+            reward: { points: 2, affinity: { tag: 'hielo', value: 10 } } },
+        { id: 'mission_level_5', name: 'Ascenso', desc: 'Alcanza el nivel 5',
+            condition: (state) => state.stats.level >= 5,
+            reward: { points: 3, affinity: { tag: 'magia', value: 15 } } },
+        { id: 'mission_ascend_1', name: 'Despertar del Poder', desc: 'Desbloquea una ascendencia (nivel ≥ 3)',
+            condition: (state) => state.generatedNodes.some(n => n.level >= 3),
+            reward: { points: 5, affinity: { tag: 'sangre', value: 10 } } }
+    ];
+
+    // ================================================================
+    // 5. ESTADO BASE Y OBSERVABLE
+    // ================================================================
+    function buildBaseStats() {
+        const stats = {
+            level: 1,
+            points: 0,
+            powerRank: 1,
+            maxHp: 100,
+            maxMana: 50,
+            damage: 10,
+            defense: 5,
+            speed: 10,
+            fireDamage: 0,
+            iceDamage: 0,
+            lightningDamage: 0,
+            lifeSteal: 0,
+            chaosChance: 0,
+            chaosDamage: 0,
+            allResist: 0,
+            manaCostReduction: 0,
+            poisonDamage: 0,
+            evasion: 0,
+            regenHp: 0,
+            regenMana: 0,
+            healAlly: 0,
+            berserkerDamage: 0,
+            slowChance: 0,
+            burnChance: 0,
+            critChance: 0,
+            critDamage: 0,
+            blockChance: 0,
+            affinities: {},
+            baseStats: { hp: 0, mana: 0, damage: 0, defense: 0, speed: 0 }
+        };
+        ALL_TAGS.forEach(t => stats.affinities[t] = 0);
+        return stats;
+    }
+
+    const saved = Persistence.load();
+    let initialState = {
+        stats: buildBaseStats(),
+        unlockedNodes: [],
+        nodeLevels: {},
+        generatedNodes: [],
+        synergies: [],
+        combos: [],
+        missions: [],
+        log: [],
+        message: '',
+        availableNodes: []
+    };
+    if (saved) {
+        try {
+            const stats = buildBaseStats();
+            stats.level = saved.stats.level || 1;
+            stats.points = saved.stats.points || 0;
+            stats.powerRank = saved.stats.powerRank || 1;
+            if (saved.stats.affinities) Object.assign(stats.affinities, saved.stats.affinities);
+            if (saved.stats.baseStats) Object.assign(stats.baseStats, saved.stats.baseStats);
+            initialState = {
+                stats,
+                unlockedNodes: saved.unlockedNodes || [],
+                nodeLevels: saved.nodeLevels || {},
+                generatedNodes: saved.generatedNodes || [],
+                synergies: saved.synergies || [],
+                combos: saved.combos || [],
+                missions: saved.missions || [],
+                log: saved.log || [],
+                message: '',
+                availableNodes: []
+            };
+        } catch(e) { /* fallback */ }
+    }
+
+    const state = {
+        stats: initialState.stats,
+        unlockedNodes: initialState.unlockedNodes,
+        nodeLevels: initialState.nodeLevels,
+        generatedNodes: initialState.generatedNodes,
+        synergies: initialState.synergies,
+        combos: initialState.combos,
+        missions: initialState.missions,
+        log: initialState.log,
+        message: initialState.message,
+        availableNodes: initialState.availableNodes
+    };
+
+    const stateProxy = new Proxy(state, {
+        set(target, prop, value) {
+            target[prop] = value;
+            const events = {
+                stats: 'StatsActualizados',
+                unlockedNodes: 'NodosActualizados',
+                nodeLevels: 'NodosActualizados',
+                generatedNodes: 'NodosActualizados',
+                synergies: 'SynergiasActualizadas',
+                combos: 'CombosActualizados',
+                missions: 'MisionesActualizadas',
+                log: 'LogActualizado',
+                message: 'MensajeActualizado',
+                availableNodes: 'RuletaActualizada'
+            };
+            if (events[prop]) eventBus.emit(events[prop], { prop, value });
+            if (['stats','unlockedNodes','nodeLevels','generatedNodes','synergies','combos','missions','log'].includes(prop)) {
+                Persistence.save({
+                    stats: {
+                        level: state.stats.level,
+                        points: state.stats.points,
+                        powerRank: state.stats.powerRank,
+                        affinities: state.stats.affinities,
+                        baseStats: state.stats.baseStats
+                    },
+                    unlockedNodes: state.unlockedNodes,
+                    nodeLevels: state.nodeLevels,
+                    generatedNodes: state.generatedNodes,
+                    synergies: state.synergies,
+                    combos: state.combos,
+                    missions: state.missions,
+                    log: state.log
+                });
+            }
+            return true;
+        }
+    });
+
+    // ================================================================
+    // 6. LÓGICA DE GENERACIÓN, PROGRESIÓN Y ATRIBUTOS
+    // ================================================================
+    function pickRandom(arr) { return arr[Math.floor(Math.random() * arr.length)]; }
+
+    function generateNodeName(tags, templateName) {
+        if (!tags || tags.length === 0) return templateName;
+        const mainTag = tags[0];
+        const tagInfo = TAG_DATA[mainTag];
+        if (!tagInfo) return templateName;
+        const prefix = pickRandom(tagInfo.prefixes);
+        if (tags.length === 1) return `${prefix} ${templateName}`;
+        const secondTag = tags[1];
+        const tagInfo2 = TAG_DATA[secondTag];
+        if (tagInfo2) {
+            const p2 = pickRandom(tagInfo2.prefixes);
+            return `${prefix} ${p2}`;
+        }
+        return `${prefix} ${templateName}`;
+    }
+
+    function getEffectiveEffects(nodeObj) {
+        const lvl = nodeObj.level || 1;
+        const base = { ...nodeObj.baseEffect };
+        for (let k in base) {
+            if (typeof base[k] === 'number') {
+                const powerMult = 1 + Math.log2(nodeObj.powerRank + 1) * 0.15;
+                base[k] = Math.round(base[k] * lvl * powerMult * 10) / 10;
+            }
+        }
+        return base;
+    }
+
+    function generateNodeFromTemplate(template, selectedTags, powerRank) {
+        const tags = selectedTags.slice(0, 2);
+        const baseEffect = { ...template.baseEffect };
+        for (const tag of tags) {
+            const tagInfo = TAG_DATA[tag];
+            if (tagInfo) {
+                for (const [key, val] of Object.entries(tagInfo.effects)) {
+                    baseEffect[key] = (baseEffect[key] || 0) + val;
+                }
+            }
+        }
+        let rarity = template.baseRarity;
+        if (powerRank >= 3 && rarity === 'common') rarity = 'rare';
+        if (powerRank >= 5 && rarity === 'rare') rarity = 'epic';
+        if (powerRank >= 8 && rarity === 'epic') rarity = 'legendary';
+        const name = generateNodeName(tags, template.name);
+        const id = `gen_${Date.now()}_${Math.random().toString(36).substr(2,6)}`;
+        return {
+            id, templateId: template.id, name, tags, baseEffect, rarity,
+            level: 1, maxLevel: template.maxLevel || 3,
+            cost: template.cost || 1, icon: template.icon || 'fa-circle',
+            powerRank: powerRank, isGenerated: true
+        };
+    }
+
+    function getNextHito() {
+        const lvl = stateProxy.stats.level;
+        return Math.ceil(lvl / 5) * 5;
+    }
+
+    function generateRuletaOptions() {
+        const affinities = stateProxy.stats.affinities;
+        const sortedTags = Object.entries(affinities).sort((a,b) => b[1] - a[1]).map(e => e[0]);
+        const topTags = sortedTags.slice(0, 2);
+        const mainTag = topTags[0] || pickRandom(ALL_TAGS);
+        let secondTag = topTags[1] || pickRandom(ALL_TAGS.filter(t => t !== mainTag));
+        let surpriseTag = pickRandom(ALL_TAGS.filter(t => t !== mainTag && t !== secondTag));
+        const usedTags = [mainTag];
+        if (secondTag && !usedTags.includes(secondTag)) usedTags.push(secondTag);
+        else secondTag = pickRandom(ALL_TAGS.filter(t => !usedTags.includes(t)));
+        usedTags.push(secondTag);
+        if (surpriseTag && !usedTags.includes(surpriseTag)) usedTags.push(surpriseTag);
+        else surpriseTag = pickRandom(ALL_TAGS.filter(t => !usedTags.includes(t)));
+
+        const templates = TEMPLATES.filter(t => t.level <= Math.floor(stateProxy.stats.powerRank / 2) + 1);
+        if (templates.length === 0) return [];
+        const powerRank = stateProxy.stats.powerRank;
+        const t1 = pickRandom(templates);
+        const node1 = generateNodeFromTemplate(t1, [mainTag], powerRank);
+        const t2 = pickRandom(templates.filter(t => t.id !== t1.id));
+        const node2 = generateNodeFromTemplate(t2, [secondTag], powerRank);
+        const t3 = pickRandom(templates.filter(t => t.id !== t1.id && t.id !== t2.id));
+        const node3 = generateNodeFromTemplate(t3, [surpriseTag], powerRank);
+        return [node1, node2, node3];
+    }
+
+    // Sistema de atributos base
+    function spendAttr(attrName, cost = 1) {
+        if (stateProxy.stats.points < cost) {
+            showToast('⚠️ No tienes suficientes puntos.', 'error');
+            return;
+        }
+        stateProxy.stats.points -= cost;
+        stateProxy.stats.baseStats[attrName] = (stateProxy.stats.baseStats[attrName] || 0) + 1;
+        stateProxy.stats = computeTotalStats();
+        stateProxy.log.unshift(`⬆️ Atributo ${attrName} +1 (gastado 1 punto)`);
+        eventBus.emit('StatsActualizados', {});
+        eventBus.emit('LogActualizado', {});
+        showToast(`⬆️ ${attrName} +1`, 'success');
+    }
+
+    // ================================================================
+    // 7. UNLOCK, LEVEL UP, STATS
+    // ================================================================
+    function unlockNode(nodeObj) {
+        if (stateProxy.unlockedNodes.includes(nodeObj.id)) {
+            const existing = stateProxy.generatedNodes.find(n => n.id === nodeObj.id);
+            if (existing && existing.level < existing.maxLevel) {
+                const cost = existing.cost || 1;
+                if (stateProxy.stats.points < cost) {
+                    showToast(`⚠️ Necesitas ${cost} puntos para mejorar.`, 'error');
+                    return;
+                }
+                stateProxy.stats.points -= cost;
+                existing.level += 1;
+                stateProxy.log.unshift(`⬆️ Mejorado: ${existing.name} (nivel ${existing.level})`);
+                stateProxy.stats = computeTotalStats();
+                stateProxy.availableNodes = [];
+                stateProxy.message = `✅ "${existing.name}" mejorado a nivel ${existing.level}`;
+                showToast(`✅ ${existing.name} mejorado a nivel ${existing.level}`, 'success');
+                checkSynergiesAndCombos();
+                checkMissions();
+                eventBus.emit('StatsActualizados', {});
+                eventBus.emit('NodosActualizados', {});
+                eventBus.emit('LogActualizado', {});
+                return;
+            } else {
+                showToast(`⚠️ "${nodeObj.name}" ya está al máximo.`, 'warn');
+                return;
+            }
+        }
+        const cost = nodeObj.cost || 1;
+        if (stateProxy.stats.points < cost) {
+            showToast(`⚠️ Necesitas ${cost} puntos para desbloquear.`, 'error');
+            return;
+        }
+        if (nodeObj.level && nodeObj.level > stateProxy.stats.level) {
+            showToast(`⚠️ Necesitas nivel ${nodeObj.level} para desbloquear.`, 'error');
+            return;
+        }
+        stateProxy.stats.points -= cost;
+        if (nodeObj.isGenerated) {
+            stateProxy.generatedNodes.push({ ...nodeObj });
+            stateProxy.unlockedNodes.push(nodeObj.id);
+            stateProxy.nodeLevels[nodeObj.id] = 1;
+            stateProxy.log.unshift(`🔓 Desbloqueado: ${nodeObj.name} (${nodeObj.tags.join(', ')})`);
+        } else {
+            stateProxy.unlockedNodes.push(nodeObj.id);
+            stateProxy.nodeLevels[nodeObj.id] = 1;
+            stateProxy.log.unshift(`🔓 Desbloqueado: ${nodeObj.name}`);
+        }
+        stateProxy.stats = computeTotalStats();
+        stateProxy.availableNodes = [];
+        stateProxy.message = `✅ "${nodeObj.name}" desbloqueado. Puntos restantes: ${stateProxy.stats.points}`;
+        showToast(`✅ ${nodeObj.name} desbloqueado`, 'success');
+        checkSynergiesAndCombos();
+        checkMissions();
+        eventBus.emit('StatsActualizados', {});
+        eventBus.emit('NodosActualizados', {});
+        eventBus.emit('LogActualizado', {});
+    }
+
+    function levelUp() {
+        stateProxy.stats.level += 1;
+        stateProxy.stats.points += 1;
+        const hito = getNextHito();
+        if (stateProxy.stats.level >= hito) {
+            const options = generateRuletaOptions();
+            if (options.length > 0) {
+                stateProxy.availableNodes = options;
+                stateProxy.message = `🎯 ¡Hito alcanzado! Elige un nodo.`;
+                showToast(`🎯 ¡Hito nivel ${hito}! Elige un nodo en la ruleta.`, 'success');
+            } else {
+                stateProxy.message = '⚠️ No hay nodos disponibles para generar.';
+            }
+            const unlockedCount = stateProxy.unlockedNodes.length;
+            stateProxy.stats.powerRank = Math.floor(unlockedCount / 3) + 1;
+        }
+        stateProxy.log.unshift(`⬆️ Subiste al nivel ${stateProxy.stats.level}`);
+        eventBus.emit('StatsActualizados', {});
+        eventBus.emit('RuletaActualizada', {});
+        eventBus.emit('LogActualizado', {});
+        if (Math.random() < 0.15) triggerRandomEvent();
+        checkMissions();
+    }
+
+    function computeTotalStats() {
+        const stats = buildBaseStats();
+        stats.level = stateProxy.stats.level;
+        stats.points = stateProxy.stats.points;
+        stats.powerRank = stateProxy.stats.powerRank;
+        const bs = stateProxy.stats.baseStats || { hp:0, mana:0, damage:0, defense:0, speed:0 };
+        stats.maxHp += bs.hp * 5;
+        stats.maxMana += bs.mana * 3;
+        stats.damage += bs.damage * 1;
+        stats.defense += bs.defense * 1;
+        stats.speed += bs.speed * 2;
+        for (const node of stateProxy.generatedNodes) {
+            const eff = getEffectiveEffects(node);
+            for (const [key, val] of Object.entries(eff)) {
+                if (key === 'affinities') continue;
+                stats[key] = (stats[key] || 0) + val;
+            }
+            if (node.tags) {
+                for (const tag of node.tags) {
+                    stats.affinities[tag] = (stats.affinities[tag] || 0) + 1;
+                }
+            }
+        }
+        for (const synId of stateProxy.synergies) {
+            const syn = SYNERGY_CATALOG.find(s => s.id === synId);
+            if (syn) {
+                for (const [key, val] of Object.entries(syn.effects)) {
+                    stats[key] = (stats[key] || 0) + val;
+                }
+            }
+        }
+        for (const combo of stateProxy.combos) {
+            const c = COMBO_CATALOG.find(c => c.id === combo);
+            if (c) {
+                for (const [key, val] of Object.entries(c.effects)) {
+                    stats[key] = (stats[key] || 0) + val;
+                }
+            }
+        }
+        for (const k of Object.keys(stats)) {
+            if (typeof stats[k] === 'number') stats[k] = Math.round(stats[k] * 100) / 100;
+        }
+        return stats;
+    }
+
+    // ================================================================
+    // 8. SINERGIAS, COMBOS, MISIONES, EVENTOS (sin cambios)
+    // ================================================================
+    function checkSynergiesAndCombos() {
+        let activeSyn = [];
+        for (const syn of SYNERGY_CATALOG) {
+            const hasAll = syn.requiredTags.every(tag => 
+                stateProxy.generatedNodes.some(n => n.tags.includes(tag))
+            );
+            if (hasAll && !stateProxy.synergies.includes(syn.id)) {
+                activeSyn.push(syn.id);
+                stateProxy.log.unshift(`🔗 Sinergia: ${syn.name}`);
+                showToast(`🔗 ¡Sinergia activada: ${syn.name}!`, 'success');
+            }
+        }
+        if (activeSyn.length) {
+            stateProxy.synergies = [...new Set([...stateProxy.synergies, ...activeSyn])];
+            stateProxy.stats = computeTotalStats();
+            eventBus.emit('StatsActualizados', {});
+            eventBus.emit('SynergiasActualizadas', {});
+            eventBus.emit('LogActualizado', {});
+        }
+
+        let activeCombos = [];
+        for (const combo of COMBO_CATALOG) {
+            const tagCounts = {};
+            for (const node of stateProxy.generatedNodes) {
+                for (const tag of node.tags || []) {
+                    tagCounts[tag] = (tagCounts[tag] || 0) + 1;
+                }
+            }
+            let met = true;
+            for (const [tag, required] of Object.entries(combo.requiredTags)) {
+                if ((tagCounts[tag] || 0) < required) { met = false; break; }
+            }
+            if (met && !stateProxy.combos.includes(combo.id)) {
+                activeCombos.push(combo.id);
+                stateProxy.log.unshift(`⚡ Combo: ${combo.name}`);
+                showToast(`⚡ ¡Combo activado: ${combo.name}!`, 'success');
+            }
+        }
+        if (activeCombos.length) {
+            stateProxy.combos = [...new Set([...stateProxy.combos, ...activeCombos])];
+            stateProxy.stats = computeTotalStats();
+            eventBus.emit('StatsActualizados', {});
+            eventBus.emit('CombosActualizados', {});
+            eventBus.emit('LogActualizado', {});
+        }
+    }
+
+    function checkMissions() {
+        let anyDone = false;
+        for (const mission of MISSION_CATALOG) {
+            if (stateProxy.missions.includes(mission.id)) continue;
+            if (mission.condition(stateProxy)) {
+                stateProxy.missions.push(mission.id);
+                stateProxy.log.unshift(`🏆 Misión completada: ${mission.name}`);
+                if (mission.reward.points) {
+                    stateProxy.stats.points += mission.reward.points;
+                    showToast(`🏆 +${mission.reward.points} puntos por misión!`, 'success');
+                }
+                if (mission.reward.affinity) {
+                    stateProxy.stats.affinities[mission.reward.affinity.tag] =
+                        (stateProxy.stats.affinities[mission.reward.affinity.tag] || 0) + mission.reward.affinity.value;
+                    showToast(`🏆 +${mission.reward.affinity.value} de ${mission.reward.affinity.tag}`, 'success');
+                }
+                anyDone = true;
+            }
+        }
+        if (anyDone) {
+            stateProxy.stats = computeTotalStats();
+            eventBus.emit('StatsActualizados', {});
+            eventBus.emit('MisionesActualizadas', {});
+            eventBus.emit('LogActualizado', {});
+        }
+    }
+
+    function triggerRandomEvent() {
+        const events = [
+            { msg: '🍀 Encuentras un grimorio antiguo: +5 afinidad de magia.', effect: () => { stateProxy.stats.affinities.magia = (stateProxy.stats.affinities.magia || 0) + 5; } },
+            { msg: '💎 Una estrella fugaz te concede +3 puntos.', effect: () => { stateProxy.stats.points += 3; } },
+            { msg: '🔥 Un espíritu de fuego te bendice: +10 afinidad de fuego.', effect: () => { stateProxy.stats.affinities.fuego = (stateProxy.stats.affinities.fuego || 0) + 10; } },
+            { msg: '❄️ El viento del norte te fortalece: +10 afinidad de hielo.', effect: () => { stateProxy.stats.affinities.hielo = (stateProxy.stats.affinities.hielo || 0) + 10; } },
+            { msg: '🩸 Un ritual de sangre te otorga +5% robo de vida.', effect: () => { stateProxy.stats.lifeSteal = (stateProxy.stats.lifeSteal || 0) + 0.05; } },
+        ];
+        const evt = events[Math.floor(Math.random() * events.length)];
+        evt.effect();
+        stateProxy.log.unshift(`✨ Evento: ${evt.msg}`);
+        stateProxy.stats = computeTotalStats();
+        showToast(`✨ ${evt.msg}`, 'warn');
+        eventBus.emit('StatsActualizados', {});
+        eventBus.emit('LogActualizado', {});
+    }
+
+    function trainAffinity(tag) {
+        if (!tag) return;
+        const gain = 2 + Math.floor(Math.random() * 5);
+        stateProxy.stats.affinities[tag] = (stateProxy.stats.affinities[tag] || 0) + gain;
+        stateProxy.log.unshift(`🏋️ Entrenamiento: ${tag} +${gain}`);
+        stateProxy.stats = computeTotalStats();
+        eventBus.emit('StatsActualizados', {});
+        eventBus.emit('LogActualizado', {});
+        showToast(`🏋️ Afinidad ${tag} +${gain}`, 'success');
+        const btn = document.querySelector(`.affinity-train-btn[data-tag="${tag}"]`);
+        if (btn) { btn.disabled = true; setTimeout(() => btn.disabled = false, 2000); }
+    }
+
+    function unlockAllNodes() {
+        const allTags = ALL_TAGS;
+        const templates = TEMPLATES;
+        let count = 0;
+        for (const template of templates) {
+            for (let i = 0; i < Math.min(3, allTags.length); i++) {
+                const tags = [allTags[i % allTags.length]];
+                if (i % 2 === 0 && i < allTags.length-1) tags.push(allTags[(i+1) % allTags.length]);
+                const node = generateNodeFromTemplate(template, tags, stateProxy.stats.powerRank + 5);
+                if (!stateProxy.generatedNodes.some(n => n.id === node.id)) {
+                    stateProxy.generatedNodes.push(node);
+                    stateProxy.unlockedNodes.push(node.id);
+                    stateProxy.nodeLevels[node.id] = 1;
+                    count++;
+                }
+            }
+        }
+        stateProxy.stats = computeTotalStats();
+        stateProxy.stats.points = 99;
+        stateProxy.log.unshift(`🔓 ¡${count} nodos generados y desbloqueados! (test)`);
+        stateProxy.message = `✅ ${count} nodos generados.`;
+        stateProxy.availableNodes = [];
+        checkSynergiesAndCombos();
+        checkMissions();
+        eventBus.emit('StatsActualizados', {});
+        eventBus.emit('NodosActualizados', {});
+        eventBus.emit('RuletaActualizada', {});
+        eventBus.emit('LogActualizado', {});
+        eventBus.emit('MensajeActualizado', {});
+        showToast(`🔓 ${count} nodos generados (test)`, 'success');
+    }
+
+    function resetGame() {
+        if (!confirm('¿Reiniciar todo el progreso?')) return;
+        stateProxy.unlockedNodes = [];
+        stateProxy.nodeLevels = {};
+        stateProxy.generatedNodes = [];
+        stateProxy.synergies = [];
+        stateProxy.combos = [];
+        stateProxy.missions = [];
+        stateProxy.log = [];
+        stateProxy.message = '';
+        stateProxy.availableNodes = [];
+        stateProxy.stats = buildBaseStats();
+        stateProxy.stats.points = 0;
+        stateProxy.stats.powerRank = 1;
+        stateProxy.log.unshift('🔄 Personaje reiniciado.');
+        Persistence.clear();
+        eventBus.emit('StatsActualizados', {});
+        eventBus.emit('NodosActualizados', {});
+        eventBus.emit('RuletaActualizada', {});
+        eventBus.emit('SynergiasActualizadas', {});
+        eventBus.emit('CombosActualizados', {});
+        eventBus.emit('MisionesActualizadas', {});
+        eventBus.emit('LogActualizado', {});
+        eventBus.emit('MensajeActualizado', {});
+        showToast('🔄 Progreso reiniciado.', 'warn');
+    }
+
+    // ================================================================
+    // 9. UI CON COLORES, ESTADOS Y ATRIBUTOS
+    // ================================================================
+    function showToast(msg, type='info') {
+        const container = document.getElementById('toastContainer');
+        const toast = document.createElement('div');
+        toast.className = `toast ${type}`;
+        toast.textContent = msg;
+        container.appendChild(toast);
+        setTimeout(() => {
+            toast.style.opacity = '0';
+            toast.style.transform = 'translateX(40px)';
+            setTimeout(() => toast.remove(), 300);
+        }, 3500);
+    }
+
+    function rarityColor(rarity) {
+        const map = { common: 'var(--color-common)', rare: 'var(--color-rare)', epic: 'var(--color-epic)', legendary: 'var(--color-legendary)' };
+        return map[rarity] || 'var(--color-common)';
+    }
+
+    const UI = {
+        init() {
+            this.statsContainer = document.getElementById('statsContainer');
+            this.levelDisplay = document.getElementById('levelDisplay');
+            this.pointsDisplay = document.getElementById('pointsDisplay');
+            this.powerRankDisplay = document.getElementById('powerRankDisplay');
+            this.pointsWarning = document.getElementById('pointsWarning');
+            this.unusedPoints = document.getElementById('unusedPoints');
+            this.affinityBar = document.getElementById('affinityBar');
+            this.constellationContainer = document.getElementById('constellationContainer');
+            this.ruletaContainer = document.getElementById('ruletaContainer');
+            this.catalogNodes = document.getElementById('catalogNodes');
+            this.synergyList = document.getElementById('synergyList');
+            this.comboList = document.getElementById('comboList');
+            this.logList = document.getElementById('logList');
+            this.message = document.getElementById('message');
+            this.missionList = document.getElementById('missionList');
+            this.progressFill = document.getElementById('progressFill');
+            this.progressPercent = document.getElementById('progressPercent');
+            this.unlockedCount = document.getElementById('unlockedCount');
+            this.totalNodes = document.getElementById('totalNodes');
+            this.branchSummary = document.getElementById('branchSummary');
+            this.nextHito = document.getElementById('nextHito');
+            this.attrPanel = document.getElementById('attrPanel');
+
+            document.getElementById('btnLevelUp').addEventListener('click', levelUp);
+            document.getElementById('btnUnlockAll').addEventListener('click', unlockAllNodes);
+            document.getElementById('btnReset').addEventListener('click', resetGame);
+
+            document.getElementById('tabTree').addEventListener('click', () => {
+                document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+                document.getElementById('tabTree').classList.add('active');
+                document.getElementById('tabContentTree').style.display = 'block';
+                document.getElementById('tabContentRuleta').style.display = 'none';
+                this.renderConstellation();
+            });
+            document.getElementById('tabRuleta').addEventListener('click', () => {
+                document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+                document.getElementById('tabRuleta').classList.add('active');
+                document.getElementById('tabContentTree').style.display = 'none';
+                document.getElementById('tabContentRuleta').style.display = 'block';
+                this.renderRuleta();
+            });
+
+            eventBus.on('StatsActualizados', () => { this.renderStats(); this.renderAffinities(); this.renderAttrPanel(); });
+            eventBus.on('NodosActualizados', () => { this.renderConstellation(); this.renderCatalog(); this.renderBranchSummary(); this.renderProgress(); });
+            eventBus.on('RuletaActualizada', () => this.renderRuleta());
+            eventBus.on('SynergiasActualizadas', () => this.renderSynergies());
+            eventBus.on('CombosActualizados', () => this.renderCombos());
+            eventBus.on('MisionesActualizadas', () => this.renderMissions());
+            eventBus.on('LogActualizado', () => this.renderLog());
+            eventBus.on('MensajeActualizado', () => this.renderMessage());
+
+            this.renderAll();
+            if (stateProxy.stats.points === 0 && stateProxy.stats.level === 1) {
+                stateProxy.stats.points = 1;
+                stateProxy.message = '🎯 Tienes 1 punto. Sube de nivel o invierte en atributos.';
+                eventBus.emit('StatsActualizados', {});
+                eventBus.emit('MensajeActualizado', {});
+            }
+            this.nextHito.textContent = getNextHito();
+            checkMissions();
+            this.renderProgress();
+            this.renderBranchSummary();
+            this.totalNodes.textContent = stateProxy.generatedNodes.length;
+        },
+
+        renderAll() {
+            this.renderStats();
+            this.renderAffinities();
+            this.renderConstellation();
+            this.renderRuleta();
+            this.renderCatalog();
+            this.renderSynergies();
+            this.renderCombos();
+            this.renderMissions();
+            this.renderLog();
+            this.renderMessage();
+            this.renderBranchSummary();
+            this.renderProgress();
+            this.renderAttrPanel();
+        },
+
+        renderStats() {
+            const stats = stateProxy.stats;
+            const groups = {
+                'Vida y Recursos': [
+                    ['Vida', stats.maxHp],
+                    ['Maná', stats.maxMana],
+                    ['Regen Vida', `${(stats.regenHp * 100).toFixed(0)}%`],
+                    ['Regen Maná', `${(stats.regenMana * 100).toFixed(0)}%`]
+                ],
+                'Ofensivas': [
+                    ['Daño Base', stats.damage],
+                    ['Daño Fuego', `${(stats.fireDamage * 100).toFixed(0)}%`],
+                    ['Daño Hielo', `${(stats.iceDamage * 100).toFixed(0)}%`],
+                    ['Daño Rayo', `${(stats.lightningDamage * 100).toFixed(0)}%`],
+                    ['Daño Caos', `${(stats.chaosDamage * 100).toFixed(0)}%`],
+                    ['Daño Veneno', `${(stats.poisonDamage * 100).toFixed(0)}%`],
+                    ['Crítico (prob.)', `${(stats.critChance * 100).toFixed(0)}%`],
+                    ['Crítico (daño)', `${(stats.critDamage * 100).toFixed(0)}%`]
+                ],
+                'Defensivas': [
+                    ['Defensa', stats.defense],
+                    ['Resist. Total', `${(stats.allResist * 100).toFixed(0)}%`],
+                    ['Evasión', `${(stats.evasion * 100).toFixed(0)}%`],
+                    ['Bloqueo', `${(stats.blockChance * 100).toFixed(0)}%`],
+                    ['Robo de Vida', `${(stats.lifeSteal * 100).toFixed(0)}%`]
+                ],
+                'Movilidad': [['Velocidad', stats.speed]],
+                'Especiales': [
+                    ['Reduc. Maná', `${(stats.manaCostReduction * 100).toFixed(0)}%`],
+                    ['Berserker', `${(stats.berserkerDamage * 100).toFixed(0)}%`],
+                    ['Ralentización', `${(stats.slowChance * 100).toFixed(0)}%`],
+                    ['Quemadura', `${(stats.burnChance * 100).toFixed(0)}%`],
+                    ['Sanación Aliados', `${(stats.healAlly * 100).toFixed(0)}%`],
+                    ['Caos (prob.)', `${(stats.chaosChance * 100).toFixed(0)}%`]
+                ]
+            };
+            let html = '';
+            for (const [groupName, items] of Object.entries(groups)) {
+                const filtered = items.filter(([label, val]) => {
+                    if (typeof val === 'string') return true;
+                    return val !== 0 && val !== undefined;
+                });
+                if (filtered.length === 0) continue;
+                html += `<div class="stat-group"><div class="stat-group-title">${groupName}</div><div class="stat-grid">`;
+                for (const [label, val] of filtered) {
+                    const display = typeof val === 'string' ? val : Math.round(val * 100) / 100;
+                    html += `<div class="stat-item"><span>${label}</span><span class="value">${display}</span></div>`;
+                }
+                html += `</div></div>`;
+            }
+            this.statsContainer.innerHTML = html;
+            this.levelDisplay.textContent = stats.level;
+            this.pointsDisplay.textContent = stats.points;
+            this.powerRankDisplay.textContent = stats.powerRank || 1;
+            if (stats.points > 0) {
+                this.pointsWarning.style.display = 'block';
+                this.unusedPoints.textContent = stats.points;
+            } else {
+                this.pointsWarning.style.display = 'none';
+            }
+            this.nextHito.textContent = getNextHito();
+        },
+
+        renderAttrPanel() {
+            const attrs = stateProxy.stats.baseStats || { hp:0, mana:0, damage:0, defense:0, speed:0 };
+            const labels = { hp: 'Vida', mana: 'Maná', damage: 'Daño', defense: 'Defensa', speed: 'Velocidad' };
+            let html = '';
+            for (const [key, label] of Object.entries(labels)) {
+                const val = attrs[key] || 0;
+                html += `
+                    <div class="attr-item">
+                        <span>${label}</span>
+                        <span class="attr-value">${val}</span>
+                        <button class="btn-attr" data-attr="${key}" ${stateProxy.stats.points < 1 ? 'disabled' : ''}>+1</button>
+                    </div>
+                `;
+            }
+            this.attrPanel.innerHTML = html;
+            this.attrPanel.querySelectorAll('.btn-attr').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    const attr = btn.dataset.attr;
+                    spendAttr(attr);
+                });
+            });
+        },
+
+        renderAffinities() {
+            const aff = stateProxy.stats.affinities || {};
+            const sorted = Object.entries(aff).sort((a,b) => b[1] - a[1]);
+            let html = '';
+            if (sorted.every(([_,v]) => v === 0)) {
+                html = '<span class="info-text" style="color:var(--text-muted);font-size:0.8rem;">Sin afinidades aún.</span>';
+            } else {
+                const colorMap = {
+                    fuego: '#ff6b35', hielo: '#4fc3f7', rayo: '#f9ca24', sangre: '#e94560',
+                    magia: '#c084fc', sombra: '#8e44ad', aire: '#85c1e9', tierra: '#a67c52',
+                    veneno: '#27ae60', fisico: '#f39c12', melee: '#e67e22', proyectil: '#3498db',
+                    naturaleza: '#2ecc71', luz: '#f1c40f'
+                };
+                for (const [tag, val] of sorted) {
+                    if (val === 0) continue;
+                    const pct = Math.min(100, (val / 60) * 100);
+                    const color = colorMap[tag] || '#4ecca3';
+                    html += `
+                        <div class="affinity-row" data-tag="${tag}">
+                            <span class="tag-label">${tag}</span>
+                            <div class="affinity-track">
+                                <div class="affinity-fill" style="width:${pct}%;background:${color};"></div>
+                            </div>
+                            <span class="affinity-value">${val}</span>
+                            <button class="affinity-train-btn" data-tag="${tag}" title="Entrenar ${tag} (+2 a +6)">+</button>
+                        </div>
+                    `;
+                }
+            }
+            this.affinityBar.innerHTML = html;
+            this.affinityBar.querySelectorAll('.affinity-train-btn').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    const tag = btn.dataset.tag;
+                    if (tag) trainAffinity(tag);
+                });
+            });
+        },
+
+        renderConstellation() {
+            const container = this.constellationContainer;
+            const nodes = stateProxy.generatedNodes;
+            if (nodes.length === 0) {
+                container.innerHTML = '<p class="info-text" style="color:var(--text-muted);">Desbloquea nodos para ver tu constelación.</p>';
+                return;
+            }
+            // Organizar por niveles (0-4) en filas horizontales
+            const levels = [0, 1, 2, 3, 4];
+            const grouped = {};
+            for (const lvl of levels) grouped[lvl] = nodes.filter(n => n.level === lvl);
+            const width = 900;
+            const height = 500;
+            const positions = {};
+            const yStart = 60;
+            const yStep = 90;
+            for (const lvl of levels) {
+                const list = grouped[lvl] || [];
+                const count = list.length;
+                if (count === 0) continue;
+                const y = yStart + lvl * yStep;
+                const xStep = Math.min(150, (width - 100) / count);
+                const xStart = (width - xStep * (count - 1)) / 2;
+                for (let i = 0; i < count; i++) {
+                    const x = xStart + i * xStep;
+                    positions[list[i].id] = { x, y };
+                }
+            }
+
+            let svg = `<svg viewBox="0 0 ${width} ${height}" xmlns="http://www.w3.org/2000/svg">`;
+            const drawnEdges = new Set();
+            for (const node of nodes) {
+                if (node.reqs) {
+                    for (const reqId of node.reqs) {
+                        const from = positions[reqId];
+                        const to = positions[node.id];
+                        if (from && to) {
+                            const key = `${reqId}-${node.id}`;
+                            if (!drawnEdges.has(key)) {
+                                drawnEdges.add(key);
+                                const unlocked = stateProxy.unlockedNodes.includes(node.id);
+                                const ascend = node.ascendFrom === reqId;
+                                const reqMet = stateProxy.unlockedNodes.includes(reqId);
+                                let cls = 'edge-line';
+                                if (unlocked) cls += ' active';
+                                if (ascend) cls += ' ascend';
+                                if (!reqMet) cls += ' required';
+                                svg += `<line x1="${from.x}" y1="${from.y}" x2="${to.x}" y2="${to.y}" class="${cls}" />`;
+                            }
+                        }
+                    }
+                }
+            }
+
+            for (const node of nodes) {
+                const pos = positions[node.id];
+                if (!pos) continue;
+                const unlocked = stateProxy.unlockedNodes.includes(node.id);
+                const lvl = stateProxy.nodeLevels[node.id] || 1;
+                const maxLvl = node.maxLevel || 3;
+                const isMaxed = unlocked && lvl >= maxLvl;
+                const isUnlockable = !unlocked && isNodeUnlockable(node);
+                let state = 'locked';
+                if (isMaxed) state = 'maxed';
+                else if (unlocked) state = 'unlocked';
+                else if (isUnlockable) state = 'unlockable';
+                const cls = `node-svg ${state === 'unlocked' ? 'unlocked' : (state === 'maxed' ? 'maxed' : (state === 'unlockable' ? 'unlockable' : 'locked'))}`;
+                const r = (state === 'unlocked' || state === 'maxed') ? 18 : (state === 'unlockable' ? 16 : 12);
+                let fill = '#666';
+                if (state === 'unlocked') fill = rarityColor(node.rarity);
+                else if (state === 'maxed') fill = 'var(--color-max)';
+                else if (state === 'unlockable') fill = 'var(--color-unlockable)';
+                else if (node.rarity === 'epic') fill = 'var(--color-epic)';
+                else if (node.rarity === 'legendary') fill = 'var(--color-legendary)';
+                else if (node.rarity === 'rare') fill = 'var(--color-rare)';
+                svg += `
+                    <circle cx="${pos.x}" cy="${pos.y}" r="${r}" class="${cls}" fill="${fill}" data-node-id="${node.id}" style="cursor:pointer;" />
+                    <text x="${pos.x}" y="${pos.y}" class="node-label" fill="#fff" font-size="7" text-anchor="middle" dominant-baseline="central">${node.name.slice(0,6)}</text>
+                `;
+            }
+            svg += `</svg>`;
+            container.innerHTML = svg;
+
+            container.querySelectorAll('.node-svg').forEach(el => {
+                const id = el.dataset.nodeId;
+                const node = stateProxy.generatedNodes.find(n => n.id === id);
+                if (!node) return;
+                el.addEventListener('click', () => {
+                    const unlocked = stateProxy.unlockedNodes.includes(id);
+                    if (unlocked) {
+                        const lvl = stateProxy.nodeLevels[id] || 1;
+                        const maxLvl = node.maxLevel || 3;
+                        showToast(`${node.name} (nivel ${lvl}/${maxLvl}) - ${node.rarity}`, 'info');
+                    } else if (isNodeUnlockable(node)) {
+                        const cost = node.cost || 1;
+                        if (stateProxy.stats.points < cost) {
+                            showToast(`⚠️ Necesitas ${cost} puntos para desbloquear.`, 'error');
+                            return;
+                        }
+                        if (confirm(`¿Desbloquear "${node.name}" por ${cost} punto(s)?`)) {
+                            unlockNode(node);
+                        }
+                    } else {
+                        showToast(`${node.name} - Bloqueado.`, 'warn');
+                    }
+                });
+            });
+        },
+
+        isNodeUnlockable(node) {
+            if (stateProxy.unlockedNodes.includes(node.id)) return false;
+            if (node.reqs) {
+                for (const reqId of node.reqs) {
+                    if (!stateProxy.unlockedNodes.includes(reqId)) return false;
+                }
+            }
+            if (node.affinityReq) {
+                const current = stateProxy.stats.affinities[node.affinityReq.tag] || 0;
+                if (current < node.affinityReq.min) return false;
+            }
+            if (node.ascendFrom) {
+                if (!stateProxy.unlockedNodes.includes(node.ascendFrom)) return false;
+            }
+            return true;
+        },
+
+        renderRuleta() {
+            const container = this.ruletaContainer;
+            const options = stateProxy.availableNodes;
+            if (!options || options.length === 0) {
+                container.innerHTML = '<p class="info-text" style="color:var(--text-muted);">Sube de nivel hasta el siguiente hito para generar opciones.</p>';
+                return;
+            }
+            let html = '';
+            for (const node of options) {
+                const effects = getEffectiveEffects(node);
+                const effectsStr = Object.entries(effects).map(([k,v]) => `${k}: +${v}`).join(', ');
+                const cost = node.cost || 1;
+                const isMaxed = stateProxy.unlockedNodes.includes(node.id) && stateProxy.nodeLevels[node.id] >= node.maxLevel;
+                html += `
+                    <div class="ruleta-opcion" data-node-id="${node.id}">
+                        ${isMaxed ? '<span class="max-tag">MAX</span>' : ''}
+                        <div class="nombre"><i class="fas ${node.icon || 'fa-circle'}"></i> ${node.name}</div>
+                        <div class="detalles">${node.tags.join(', ')}</div>
+                        <div class="rarity-badge rarity-${node.rarity}">${node.rarity}</div>
+                        <div class="detalles">${effectsStr}</div>
+                        <div class="detalles"><i class="fas fa-coins"></i> ${cost} punto(s)</div>
+                        ${!isMaxed ? `<button class="btn-elegir" data-action="unlock-ruleta">${stateProxy.unlockedNodes.includes(node.id) ? 'Mejorar' : 'Desbloquear'}</button>` : '<span style="color:var(--color-max);font-size:0.6rem;">Máximo</span>'}
+                    </div>
+                `;
+            }
+            container.innerHTML = html;
+            container.querySelectorAll('[data-action="unlock-ruleta"]').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    const card = btn.closest('.ruleta-opcion');
+                    const nodeId = card.dataset.nodeId;
+                    const node = stateProxy.availableNodes.find(n => n.id === nodeId);
+                    if (!node) return;
+                    if (stateProxy.stats.points < (node.cost || 1)) {
+                        showToast('⚠️ No tienes puntos suficientes.', 'error');
+                        return;
+                    }
+                    unlockNode(node);
+                });
+            });
+        },
+
+        renderCatalog() {
+            const container = this.catalogNodes;
+            const nodes = stateProxy.generatedNodes;
+            if (nodes.length === 0) {
+                container.innerHTML = '<p class="info-text" style="color:var(--text-muted);">Aún no hay nodos generados.</p>';
+                return;
+            }
+            let html = '';
+            for (const node of nodes) {
+                const unlocked = stateProxy.unlockedNodes.includes(node.id);
+                const effects = getEffectiveEffects(node);
+                const effectsStr = Object.entries(effects).map(([k,v]) => `${k}: +${v}`).join(', ');
+                const lvl = stateProxy.nodeLevels[node.id] || 1;
+                const maxLvl = node.maxLevel || 3;
+                const isMaxed = unlocked && lvl >= maxLvl;
+                const isUnlockable = !unlocked && this.isNodeUnlockable(node);
+                html += `
+                    <div class="node-card" style="opacity:${unlocked ? 1 : 0.6}; border-left: 3px solid ${unlocked ? (isMaxed ? 'var(--color-max)' : rarityColor(node.rarity)) : (isUnlockable ? 'var(--color-unlockable)' : 'var(--border-subtle)')};">
+                        ${isMaxed ? '<span class="max-tag">MAX</span>' : ''}
+                        <div class="name"><i class="fas ${node.icon || 'fa-circle'}" style="color:${unlocked ? 'var(--good)' : 'var(--text-muted)'};"></i> ${node.name} ${unlocked ? `(nivel ${lvl})` : '(bloqueado)'}</div>
+                        <div class="tags">${node.tags.join(', ')}</div>
+                        <div class="rarity-badge rarity-${node.rarity}">${node.rarity}</div>
+                        <div class="effects">${effectsStr}</div>
+                        <div class="cost-badge"><i class="fas fa-coins"></i> ${node.cost || 1} punto(s) | Nivel ${lvl}/${maxLvl}</div>
+                        ${unlocked && !isMaxed ? `<button class="btn-unlock-node" data-action="upgrade-catalog" data-node-id="${node.id}">Mejorar (${node.cost || 1} pts)</button>` : ''}
+                        ${!unlocked && isUnlockable ? `<button class="btn-unlock-node" data-action="unlock-catalog" data-node-id="${node.id}">Desbloquear (${node.cost || 1} pts)</button>` : ''}
+                        ${isMaxed ? '<span style="color:var(--color-max);font-size:0.6rem;">Máximo nivel</span>' : ''}
+                    </div>
+                `;
+            }
+            container.innerHTML = html;
+            container.querySelectorAll('[data-action="unlock-catalog"], [data-action="upgrade-catalog"]').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    const nodeId = btn.dataset.nodeId;
+                    const node = stateProxy.generatedNodes.find(n => n.id === nodeId);
+                    if (!node) return;
+                    if (stateProxy.stats.points < (node.cost || 1)) {
+                        showToast('⚠️ No tienes puntos suficientes.', 'error');
+                        return;
+                    }
+                    unlockNode(node);
+                });
+            });
+        },
+
+        renderSynergies() {
+            const container = this.synergyList;
+            const syns = stateProxy.synergies;
+            if (syns.length === 0) {
+                container.innerHTML = '<p class="info-text" style="color:var(--text-muted);font-size:0.8rem;">Sin sinergias activas.</p>';
+                return;
+            }
+            let html = '';
+            for (const id of syns) {
+                const syn = SYNERGY_CATALOG.find(s => s.id === id);
+                if (syn) {
+                    html += `<div class="log-entry synergy"><i class="fas fa-link"></i> ${syn.name}: ${syn.desc}</div>`;
+                }
+            }
+            container.innerHTML = html;
+        },
+
+        renderCombos() {
+            const container = this.comboList;
+            const combos = stateProxy.combos;
+            if (combos.length === 0) {
+                container.innerHTML = '<p class="info-text" style="color:var(--text-muted);font-size:0.8rem;">Sin combos activos.</p>';
+                return;
+            }
+            let html = '';
+            for (const id of combos) {
+                const c = COMBO_CATALOG.find(c => c.id === id);
+                if (c) {
+                    html += `<div class="log-entry combo"><i class="fas fa-bolt"></i> ${c.name}: ${c.desc}</div>`;
+                }
+            }
+            container.innerHTML = html;
+        },
+
+        renderMissions() {
+            const container = this.missionList;
+            let html = '';
+            for (const mission of MISSION_CATALOG) {
+                const done = stateProxy.missions.includes(mission.id);
+                const cls = done ? 'mission-item done' : 'mission-item';
+                const progress = done ? '✓' : '⏳';
+                html += `
+                    <div class="${cls}">
+                        <span>${progress} ${mission.name}</span>
+                        <span class="reward">+${mission.reward.points || 0} pts</span>
+                    </div>
+                `;
+            }
+            container.innerHTML = html || '<p class="info-text" style="color:var(--text-muted);font-size:0.8rem;">Sin misiones.</p>';
+        },
+
+        renderLog() {
+            const container = this.logList;
+            const logs = stateProxy.log;
+            if (logs.length === 0) {
+                container.innerHTML = '<p class="info-text" style="color:var(--text-muted);font-size:0.8rem;">Sin eventos.</p>';
+                return;
+            }
+            let html = '';
+            for (const entry of logs.slice(0, 25)) {
+                let cls = '', icon = 'fa-circle';
+                if (entry.includes('🔓')) { cls = 'unlock'; icon = 'fa-unlock'; }
+                else if (entry.includes('⬆️') && !entry.includes('Subiste')) { cls = 'upgrade'; icon = 'fa-arrow-up'; }
+                else if (entry.includes('🔗')) { cls = 'synergy'; icon = 'fa-link'; }
+                else if (entry.includes('⚡')) { cls = 'combo'; icon = 'fa-bolt'; }
+                else if (entry.includes('✨')) { cls = 'event'; icon = 'fa-star'; }
+                else if (entry.includes('🏆')) { cls = 'mission'; icon = 'fa-trophy'; }
+                else if (entry.includes('🏋️')) { icon = 'fa-dumbbell'; }
+                else if (entry.includes('Atributo')) { cls = 'attr'; icon = 'fa-arrow-up'; }
+                html += `<div class="log-entry ${cls}"><i class="fas ${icon}"></i> ${entry}</div>`;
+            }
+            container.innerHTML = html;
+        },
+
+        renderMessage() {
+            this.message.textContent = stateProxy.message || '';
+        },
+
+        renderProgress() {
+            const total = stateProxy.generatedNodes.length;
+            const unlocked = stateProxy.unlockedNodes.length;
+            const pct = total > 0 ? Math.round((unlocked / total) * 100) : 0;
+            this.progressFill.style.width = pct + '%';
+            this.progressPercent.textContent = pct + '%';
+            this.unlockedCount.textContent = unlocked;
+            this.totalNodes.textContent = total;
+        },
+
+        renderBranchSummary() {
+            const container = this.branchSummary;
+            const branches = {};
+            for (const node of stateProxy.generatedNodes) {
+                if (node.tags) {
+                    for (const tag of node.tags) {
+                        branches[tag] = (branches[tag] || 0) + 1;
+                    }
+                }
+            }
+            let html = '';
+            for (const [branch, count] of Object.entries(branches)) {
+                html += `<span class="branch-tag">${branch} <span class="count">${count}</span></span>`;
+            }
+            container.innerHTML = html || '<span style="color:var(--text-muted);font-size:0.7rem;">Sin nodos generados.</span>';
+        }
+    };
+
+    // ================================================================
+    // 10. INICIALIZACIÓN
+    // ================================================================
+    window.onload = () => {
+        UI.init();
+        if (stateProxy.generatedNodes.length === 0 && stateProxy.stats.affinities.fuego === 0) {
+            stateProxy.stats.affinities.fuego = 10;
+            stateProxy.stats.affinities.magia = 8;
+            stateProxy.stats.affinities.sangre = 5;
+            eventBus.emit('StatsActualizados', {});
+        }
+        if (stateProxy.stats.points > 0 && stateProxy.availableNodes.length === 0) {
+            const opts = generateRuletaOptions();
+            if (opts.length) stateProxy.availableNodes = opts;
+        }
+        eventBus.emit('RuletaActualizada', {});
+        showToast('🎯 ¡Bienvenido! Entrena afinidades, sube de nivel y alcanza hitos.', 'info');
+    };
+    </script>
+</body>
+</html>
