@@ -1,0 +1,148 @@
+Torre Oscura – Motor de Sinergias Emergentes v2
+1. ¿Qué es?
+Torre Oscura es un prototipo de juego de rol (RPG) de gestión de habilidades, diseñado para explorar sistemas de progresión emergente basados en sinergias entre etiquetas (tags). El jugador controla un personaje que aprende y mejora habilidades mediante el uso, la aplicación de mutadores y la fusión de habilidades, todo ello dentro de un entorno de combate por turnos contra enemigos con resistencias.
+
+El núcleo del juego es el grafo de afinidades: cada habilidad posee etiquetas (ej. fuego, magia, proyectil) que se relacionan entre sí mediante un grafo de distancias conceptuales. Usar una habilidad entrena las etiquetas que la componen, y la ganancia de afinidad depende de qué tan lejos esté cada etiqueta de su máximo global, creando un sistema de rendimientos decrecientes y “catch-up” que incentiva la experimentación y la rotación de habilidades.
+
+2. ¿Qué hace?
+El juego ofrece un bucle de progresión completo que combina:
+
+2.1. Gestión de personaje
+Nivel, XP, Vida y Estabilidad (recurso para fusionar y experimentar).
+
+Afinidades: 17 etiquetas con un máximo global progresivo (aumenta con el nivel). Cada etiqueta tiene una barra visual que muestra su progreso.
+
+Rasgos: pasivos que se desbloquean al alcanzar ciertos umbrales de afinidad (ej. Llamas Arcanas requiere Fuego ≥ 40 y Magia ≥ 40). Los rasgos modifican el comportamiento de las habilidades (ej. añaden quemadura, robo de vida, etc.).
+
+Inventario: consumibles como pociones de vida y estabilidad que se obtienen al derrotar enemigos.
+
+2.2. Sistema de habilidades
+Habilidades base con estadísticas (daño, coste, velocidad, proyectiles, alcance, etc.).
+
+Entrenamiento: usar una habilidad (desde el panel o mediante ataque) incrementa las afinidades de sus etiquetas, con pesos decrecientes (1.0, 0.6, 0.3, 0.15) según el orden de las etiquetas. La ganancia se calcula con una fórmula que tiene en cuenta el valor actual y el máximo global, lo que permite que las etiquetas bajas suban más rápido.
+
+Mutadores: mejoras que se aplican a una habilidad, alterando sus estadísticas (ej. Dividir añade un proyectil extra, Sangre convierte el coste a vida y aumenta el daño). Cada mutador está asociado a una etiqueta; aplicarlo repetidamente (3 veces) puede impregnar permanentemente la habilidad con esa etiqueta. Los mutadores se ofrecen aleatoriamente al subir de nivel.
+
+2.3. Fusión de habilidades
+Permite combinar dos habilidades para generar dos opciones híbridas.
+
+Las nuevas habilidades heredan etiquetas y mutadores compatibles de las originales.
+
+La fusión cuesta XP, un catalizador y estabilidad. Un dado d3 determina si las habilidades originales desaparecen (total o parcialmente), añadiendo riesgo y estrategia.
+
+2.4. Combate por turnos
+El personaje se enfrenta a enemigos que escalan con su nivel.
+
+Los enemigos poseen resistencias (1-2 etiquetas aleatorias). Si la habilidad usada coincide con alguna resistencia, el daño se reduce un 30%.
+
+Al atacar, la habilidad usada se entrena automáticamente (sube afinidad).
+
+Al derrotar un enemigo, el jugador gana XP y tiene posibilidades de obtener pociones (vida o estabilidad).
+
+Cada 5 niveles aparece un jefe con mayor vida y daño.
+
+2.5. Interfaz y feedback
+Panel con pestañas para mutadores, fusión, combate e inventario.
+
+Barras de progreso para vida, estabilidad y cada afinidad.
+
+Mensajes y registro de eventos para dar feedback inmediato.
+
+3. ¿Cómo lo hace? (Arquitectura técnica)
+3.1. Patrón de arquitectura
+El código está organizado en módulos que se comunican mediante un Event Bus (patrón publicador/suscriptor). Esto desacopla la lógica de negocio de la interfaz de usuario, facilitando futuras migraciones a una arquitectura hexagonal o basada en componentes.
+
+3.2. Capas
+a) Infraestructura
+EventBus: centraliza la emisión y suscripción de eventos (ej. HabilidadesActualizadas, StatsActualizados).
+
+Rng: utilidades para números aleatorios (enteros, selección, probabilidad).
+
+b) Dominio
+Grafo y etiquetas: definición de todas las etiquetas y sus relaciones de distancia (BFS para calcular distancia conceptual).
+
+Habilidad: clase que encapsula nombre, etiquetas, estadísticas base, mutadores aplicados e impregnación.
+
+Mutadores: lista de objetos con id, name, tag, description y función apply(stats, skill).
+
+Rasgos: objetos con condición (función que evalúa afinidades) y efecto (modificador de estadísticas).
+
+c) Aplicación (lógica de negocio)
+CharacterState: objeto observable mediante Proxy. Cada modificación de una propiedad clave (ej. skills, affinities) dispara eventos que actualizan la UI automáticamente.
+
+AffinityManager: gestiona el entrenamiento de afinidades. Aplica la fórmula de ganancia:
+
+text
+gain = base_mult * weight * (max_aff - current) / max_aff * 0.8
+Donde base_mult depende del número de usos (rendimiento decreciente), weight depende de la posición de la etiqueta en la habilidad, y el factor (max_aff - current)/max_aff proporciona el efecto catch-up.
+
+Combate: funciones para generar enemigos con resistencias, calcular daño (reducción por resistencia), aplicar daño y recompensas (XP, loot).
+
+Fusión: generación de opciones combinando estadísticas y mutadores, con lógica de eliminación de originales mediante dado d3.
+
+d) Infraestructura de UI
+UI: objeto que maneja el renderizado de todos los paneles. Se suscribe a los eventos del bus para actualizar solo las partes necesarias sin recargar toda la página.
+
+Modales: para mostrar opciones de fusión.
+
+3.3. Flujo de datos
+El usuario realiza una acción (ej. atacar, entrenar, fusionar).
+
+La acción modifica el CharacterState (a través de funciones de aplicación).
+
+El Proxy detecta el cambio y emite un evento correspondiente.
+
+La UI, suscrita a esos eventos, actualiza el DOM de forma reactiva.
+
+3.4. Buenas prácticas implementadas
+Inmutabilidad relativa: los objetos se copian al modificar estadísticas (spread operator).
+
+Separación de responsabilidades: dominio puro (clases, funciones) vs. infraestructura (UI, eventos).
+
+Comentarios explicativos en el código para facilitar el mantenimiento.
+
+Preparado para tests: las funciones de dominio no dependen del DOM, por lo que pueden probarse unitariamente.
+
+3.5. Adaptabilidad
+El sistema está diseñado para permitir futuras ampliaciones:
+
+Añadir nuevos tags, mutadores o rasgos sin tocar el núcleo.
+
+Migrar a una arquitectura hexagonal reemplazando el EventBus por puertos/adaptadores.
+
+Incorporar persistencia (localStorage) sin modificar la lógica de negocio.
+
+4. Tecnologías utilizadas
+HTML5 + CSS3 (diseño responsive, dark theme).
+
+JavaScript ES6 (clases, arrow functions, spread, Proxy, módulos implícitos).
+
+Event-driven programming mediante EventBus personalizado.
+
+Proxy para reactividad del estado.
+
+5. Estado actual y próximos pasos
+El prototipo es jugable y funcional:
+
+Progresión de afinidades con feedback visual.
+
+Combate con enemigos resistentes.
+
+Mutadores, fusión, rasgos, inventario.
+
+Mejoras planificadas (según iteraciones futuras):
+
+Sistema de nomenclatura de habilidades por parte del jugador.
+
+Grupo de 3 personajes (cambiar entre ellos).
+
+Auto-combate mejorado con estrategia.
+
+Cuadrícula y posicionamiento táctico.
+
+Eventos de jefes y oleadas.
+
+Persistencia local (guardado de partida).
+
+6. Conclusión
+Torre Oscura es un banco de pruebas para mecánicas de progresión emergente, diseñado con una arquitectura limpia y modular que permite iterar rápidamente. Su enfoque en sinergias de etiquetas, rendimientos decrecientes y riesgo/recompensa (fusión) lo convierten en un sistema profundo y adictivo, a la vez que sirve como base sólida para futuros desarrollos.
