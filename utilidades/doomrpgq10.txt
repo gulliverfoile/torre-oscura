@@ -1,0 +1,135 @@
+============================================================
+DUNGEON 3D · HEXAGONAL + ANTORCHAS + ESCALERAS
+============================================================
+
+1. ¿QUÉ ES?
+-----------
+Es un juego de mazmorras en primera persona (estilo Wolfenstein 3D) 
+con mecánicas de exploración, combate por turnos, progresión por 
+niveles y una arquitectura de software modular basada en eventos 
+(Arquitectura Hexagonal). 
+
+Está implementado en un único archivo HTML5 con JavaScript vanilla, 
+sin dependencias externas. Funciona en cualquier navegador moderno.
+
+2. CARACTERÍSTICAS PRINCIPALES
+-------------------------------
+- Motor 3D con raycasting (paredes, suelo, techo, niebla).
+- Iluminación dinámica con antorchas parpadeantes.
+- Sprites 3D (antorchas y enemigos) con Z-buffer.
+- Movimiento fluido (interpolación entre celdas, headbob).
+- Rotación suave (velocidad angular) y giros rápidos.
+- Minimapa en tiempo real con posición del jugador y escalera.
+- Sistema de combate por turnos con panel UI.
+- Enemigos con estadísticas (HP, ataque, defensa, loot).
+- Progresión del jugador (nivel, HP, MP, experiencia).
+- Paleta de colores configurable en tiempo real.
+- Carga de mapas externos desde JSON.
+- Log de eventos y mensajes en pantalla.
+- Efectos visuales: partículas, shake de cámara, transiciones.
+
+3. ¿CÓMO SE JUEGA?
+------------------
+- Teclas W/S: mover hacia adelante/atrás.
+- Teclas A/D o flechas izquierda/derecha: girar suavemente.
+- Teclas Q/E: giros rápidos de 45°.
+- Barra espaciadora: atacar en combate.
+- Tecla 1: lanzar hechizo "Bola de fuego" (gasta MP).
+- Tecla F: intentar huir del combate.
+- Tecla P: abrir/cerrar el panel de paleta de colores.
+- Clic izquierdo (en el panel de combate): botones de acción.
+
+Objetivo: explorar el laberinto, derrotar enemigos, subir de nivel 
+y encontrar la escalera (marcada en el minimapa) para bajar al 
+siguiente nivel de profundidad.
+
+4. ARQUITECTURA (DISEÑO HEXAGONAL)
+-----------------------------------
+El código está organizado en capas claramente separadas:
+
+- NÚCLEO (Core): EventBus, Palette, GameState.
+  Proporcionan la comunicación desacoplada y el estado global.
+
+- DOMINIO (Domain): DungeonMap, Player, Enemy, Particle.
+  Entidades del juego con su lógica de negocio.
+
+- APLICACIÓN (Application): ExploreEngine, CombatSystem, TransitionEffect.
+  Casos de uso que orquestan las interacciones entre entidades.
+
+- INFRAESTRUCTURA (Infrastructure): InputManager, AudioManager, MapLoader.
+  Servicios técnicos (entrada, sonido, carga de datos).
+
+- INTERFAZ (UI): Renderer, HUD, CombatUI, PaletteManager, ExternalMapLoader.
+  Capa de presentación y gestión de la interfaz de usuario.
+
+Comunicación: todos los módulos se comunican mediante eventos 
+(EventBus), lo que permite añadir, quitar o modificar funcionalidades 
+sin romper el resto del sistema.
+
+5. DETALLES DE IMPLEMENTACIÓN
+-----------------------------
+a) Raycaster:
+   - Lanza rayos desde la posición del jugador en el campo de visión.
+   - Calcula distancia a paredes usando el algoritmo DDA.
+   - Dibuja paredes con altura proporcional a la distancia.
+   - Aplica niebla y colores según el tipo de celda.
+
+b) Movimiento:
+   - El jugador se mueve por celdas (grid), pero el desplazamiento 
+     se interpola suavemente (movimiento de celda a celda).
+   - El headbob (cabeceo) se genera con una onda senoidal al andar.
+   - La rotación usa velocidad angular con fricción para un giro 
+     progresivo y natural.
+
+c) Iluminación:
+   - Cada antorcha y luz del mapa emite un gradiente radial.
+   - Las antorchas parpadean con una función senoidal doble.
+   - La luz se aplica como una superposición oscura (máscara) 
+     sobre la escena renderizada.
+
+d) Sprites:
+   - Se dibujan en la posición 3D correspondiente.
+   - Se ordenan por distancia (Z-buffer) para no solaparse con paredes.
+   - Usan caracteres Unicode (🔥, 👹, etc.) como texturas.
+
+e) Combate:
+   - Por turnos: el jugador ataca, luego el enemigo responde.
+   - Daño calculado con defensa y variación aleatoria.
+   - Los enemigos tienen loot y experiencia.
+   - El panel de combate se superpone al mundo 3D.
+
+f) Persistencia:
+   - No hay guardado automático (se puede añadir con localStorage).
+   - Los mapas se cargan desde un objeto JavaScript o desde JSON externo.
+
+6. EXTENSIBILIDAD Y MEJORAS POSIBLES
+------------------------------------
+- Añadir guardado de partida (localStorage).
+- Implementar movimiento continuo (sin grid) para mayor fluidez.
+- Añadir más tipos de enemigos con IA avanzada (patrullas, emboscadas).
+- Incluir objetos interactivos (cofres, pociones, armas).
+- Sistema de misiones y diálogos.
+- Generación procedural de mazmorras.
+- Sonido ambiental y música de fondo.
+- Soporte para mando y pantalla táctil.
+
+7. REQUISITOS TÉCNICOS
+-----------------------
+- Navegador web moderno (Chrome, Firefox, Edge, Safari).
+- JavaScript habilitado.
+- Conexión a internet (solo para cargar fuentes si se usaran, 
+  pero el juego es completamente autónomo).
+- No requiere instalación ni dependencias externas.
+
+8. CÓMO EJECUTARLO
+------------------
+1. Guarda el código HTML en un archivo con extensión .html.
+2. Abre el archivo con tu navegador.
+3. ¡Juega! Usa el teclado y el ratón según las indicaciones.
+
+También puedes cargar mapas personalizados en formato JSON usando 
+el botón "📂 Cargar Mapa".
+
+============================================================
+FIN DEL DOCUMENTO
+============================================================
