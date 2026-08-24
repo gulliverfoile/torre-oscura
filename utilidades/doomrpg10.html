@@ -1,0 +1,1855 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Dungeon 3D · Hexagonal + Antorchas + Escaleras</title>
+    <style>
+        /* ===== Estilos generales ===== */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            background: #000;
+            overflow: hidden;
+            font-family: 'Courier New', monospace;
+            user-select: none;
+        }
+        canvas {
+            display: block;
+            position: absolute;
+            top: 0;
+            left: 0;
+        }
+        #gameCanvas {
+            z-index: 1;
+        }
+        #transitionCanvas {
+            z-index: 5;
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+        #transitionCanvas.active {
+            opacity: 1;
+        }
+        #hud {
+            position: absolute;
+            top: 15px;
+            left: 15px;
+            z-index: 10;
+            color: #fff;
+            font-size: 14px;
+            background: rgba(0, 0, 0, 0.7);
+            padding: 8px 12px;
+            border-radius: 6px;
+            border: 1px solid #00ffff;
+            pointer-events: none;
+            text-shadow: 0 0 5px #000;
+        }
+        #combat-panel {
+            position: absolute;
+            bottom: 30px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 20;
+            background: rgba(0, 0, 0, 0.9);
+            border: 1px solid #ff00ff;
+            border-radius: 8px;
+            padding: 15px;
+            min-width: 280px;
+            text-align: center;
+            color: #fff;
+            display: none;
+        }
+        #combat-panel.visible {
+            display: block;
+        }
+        #combat-panel button {
+            background: #111;
+            color: #00ffff;
+            border: 1px solid #00ffff;
+            padding: 8px 15px;
+            margin: 5px;
+            cursor: pointer;
+            font-family: monospace;
+            border-radius: 4px;
+            transition: 0.2s;
+        }
+        #combat-panel button:hover {
+            background: #00ffff;
+            color: #000;
+        }
+        #combat-log {
+            margin-top: 12px;
+            color: #ffcc00;
+            font-size: 13px;
+            min-height: 20px;
+        }
+        #log {
+            position: absolute;
+            bottom: 10px;
+            right: 10px;
+            z-index: 10;
+            color: #888;
+            font-size: 11px;
+            max-width: 300px;
+            text-align: right;
+            pointer-events: none;
+        }
+        #palette-panel {
+            position: absolute;
+            top: 50%;
+            left: 10px;
+            transform: translateY(-50%);
+            z-index: 30;
+            background: rgba(0, 0, 0, 0.9);
+            border: 1px solid #fff;
+            border-radius: 8px;
+            padding: 12px;
+            width: 200px;
+            display: none;
+            color: #fff;
+        }
+        #palette-panel.visible {
+            display: block;
+        }
+        #palette-panel h3 {
+            margin: 0 0 10px 0;
+            text-align: center;
+            color: #fff;
+            border-bottom: 1px solid #555;
+            padding-bottom: 5px;
+        }
+        .color-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 6px;
+            font-size: 13px;
+        }
+        .color-row label {
+            flex: 1;
+        }
+        .color-row input[type="color"] {
+            width: 40px;
+            height: 25px;
+            border: none;
+            padding: 0;
+            background: none;
+            cursor: pointer;
+        }
+        .color-row input[type="color"]:hover {
+            outline: 1px solid #fff;
+        }
+        #toggle-palette {
+            position: absolute;
+            top: 15px;
+            right: 15px;
+            z-index: 40;
+            background: #111;
+            color: #fff;
+            border: 1px solid #555;
+            padding: 5px 10px;
+            cursor: pointer;
+            font-family: monospace;
+            border-radius: 4px;
+        }
+        #toggle-palette:hover {
+            background: #333;
+        }
+        #load-map-btn {
+            position: absolute;
+            top: 60px;
+            right: 15px;
+            z-index: 40;
+            background: #111;
+            color: #fff;
+            border: 1px solid #555;
+            padding: 5px 10px;
+            cursor: pointer;
+            font-family: monospace;
+            border-radius: 4px;
+        }
+        #load-map-btn:hover {
+            background: #333;
+        }
+        #file-input {
+            display: none;
+        }
+        #crosshair {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            z-index: 10;
+            pointer-events: none;
+            color: #0f0;
+            font-size: 24px;
+            text-shadow: 0 0 5px #000;
+        }
+        #minimap {
+            position: absolute;
+            bottom: 20px;
+            left: 20px;
+            z-index: 15;
+            background: rgba(0, 0, 0, 0.8);
+            border: 1px solid #444;
+            border-radius: 4px;
+            padding: 4px;
+            width: 120px;
+            height: 120px;
+            display: none;
+            image-rendering: pixelated;
+        }
+        #minimap canvas {
+            width: 100%;
+            height: 100%;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- ===== Canvas principal ===== -->
+    <canvas id="gameCanvas"></canvas>
+    <canvas id="transitionCanvas"></canvas>
+    <div id="crosshair">+</div>
+
+    <!-- ===== HUD ===== -->
+    <div id="hud">
+        <div>HP: <span id="hud-hp">20/20</span></div>
+        <div>MP: <span id="hud-mp">10/10</span></div>
+        <div>Nivel: <span id="hud-level">1</span></div>
+        <div>EXP: <span id="hud-exp">0</span></div>
+        <div style="margin-top:4px; font-size:12px; color:#aaa;">
+            [W/S] mover · [A/D] girar · [Q/E] giro rápido · [P] paleta
+        </div>
+    </div>
+
+    <!-- ===== Panel de combate ===== -->
+    <div id="combat-panel">
+        <div style="font-size:18px; color:#ff00ff; margin-bottom:10px;" id="combat-title"></div>
+        <div style="margin-bottom:10px;">
+            <div id="enemy-sprite" style="width:120px;height:120px;background:#333;margin:0 auto;border:1px solid #f00;display:flex;align-items:center;justify-content:center;color:#fff;font-size:48px;">👹</div>
+        </div>
+        <div>
+            <button data-action="attack">⚔️ Atacar</button>
+            <button data-action="spell" data-spell="fireball">🔥 Bola de fuego</button>
+            <button data-action="flee">🏃 Huir</button>
+        </div>
+        <div id="combat-log"></div>
+    </div>
+
+    <!-- ===== Log ===== -->
+    <div id="log"></div>
+
+    <!-- ===== Botones ===== -->
+    <button id="toggle-palette">🎨 P</button>
+    <button id="load-map-btn">📂 Cargar Mapa</button>
+    <input type="file" id="file-input" accept=".json" />
+
+    <!-- ===== Paleta de colores ===== -->
+    <div id="palette-panel">
+        <h3>🎨 Paleta de Colores</h3>
+        <div class="color-row"><label>Pared</label><input type="color" id="color-wall" value="#8a7a6a" /></div>
+        <div class="color-row"><label>Puerta</label><input type="color" id="color-door" value="#8b5a2b" /></div>
+        <div class="color-row"><label>Trampa</label><input type="color" id="color-trap" value="#aa5533" /></div>
+        <div class="color-row"><label>Escalera</label><input type="color" id="color-stairs" value="#4a7a4a" /></div>
+        <div class="color-row"><label>Suelo</label><input type="color" id="color-floor" value="#2a2a2a" /></div>
+        <div class="color-row"><label>Techo</label><input type="color" id="color-ceiling" value="#1a1a1a" /></div>
+        <div class="color-row"><label>Niebla</label><input type="color" id="color-fog" value="#000000" /></div>
+        <div class="color-row"><label>Antorcha</label><input type="color" id="color-torch" value="#ffaa44" /></div>
+        <div class="color-row"><label>Luz</label><input type="color" id="color-light" value="#ffc864" /></div>
+        <div class="color-row"><label>HUD</label><input type="color" id="color-hud" value="#00ffff" /></div>
+        <div class="color-row"><label>Combate</label><input type="color" id="color-combat" value="#ff00ff" /></div>
+    </div>
+
+    <!-- ===== Minimapa ===== -->
+    <div id="minimap"><canvas id="minimapCanvas" width="120" height="120"></canvas></div>
+
+    <!-- ====================================================================== -->
+    <!-- =========================== SCRIPT =================================== -->
+    <!-- ====================================================================== -->
+
+    <script>
+        'use strict';
+
+        // ======================================================================
+        // 1. NÚCLEO: EventBus, Palette, GameState
+        // ======================================================================
+
+        /**
+         * Bus de eventos central. Desacopla módulos mediante suscripción/publicación.
+         */
+        class EventBus {
+            constructor() {
+                this.listeners = new Map();
+            }
+
+            /**
+             * Suscribe un callback a un evento.
+             * @param {string} eventName - Nombre del evento.
+             * @param {Function} callback - Función a ejecutar.
+             * @returns {Function} Función para cancelar la suscripción.
+             */
+            on(eventName, callback) {
+                if (!this.listeners.has(eventName)) {
+                    this.listeners.set(eventName, new Set());
+                }
+                this.listeners.get(eventName).add(callback);
+                return () => this.listeners.get(eventName)?.delete(callback);
+            }
+
+            /**
+             * Emite un evento con un payload opcional.
+             * @param {string} eventName - Nombre del evento.
+             * @param {Object} payload - Datos a enviar.
+             */
+            emit(eventName, payload = {}) {
+                const callbacks = this.listeners.get(eventName);
+                if (callbacks) {
+                    callbacks.forEach(cb => cb(payload));
+                }
+            }
+
+            /** Elimina todos los listeners (útil para reiniciar). */
+            clear() {
+                this.listeners.clear();
+            }
+        }
+
+        /**
+         * Paleta de colores configurable en tiempo real.
+         * Emite 'palette:update' al cambiar un color.
+         */
+        class Palette {
+            constructor() {
+                this.wall = '#8a7a6a';
+                this.door = '#8b5a2b';
+                this.trap = '#aa5533';
+                this.stairs = '#4a7a4a';
+                this.floor = '#2a2a2a';
+                this.ceiling = '#1a1a1a';
+                this.fog = '#000000';
+                this.torch = '#ffaa44';
+                this.light = '#ffc864';
+                this.hud = '#00ffff';
+                this.combat = '#ff00ff';
+            }
+
+            /**
+             * Cambia un color y emite el evento.
+             * @param {string} name - Nombre del color (wall, door, etc.)
+             * @param {string} value - Código hexadecimal.
+             */
+            setColor(name, value) {
+                if (this.hasOwnProperty(name)) {
+                    this[name] = value;
+                    // El eventBus debe estar definido globalmente
+                    if (typeof eventBus !== 'undefined') {
+                        eventBus.emit('palette:update', { name, value });
+                    }
+                }
+            }
+
+            /** Obtiene un color por su nombre. */
+            getColor(name) {
+                return this[name] || '#ffffff';
+            }
+        }
+
+        /**
+         * Estado global del juego. Contiene todas las entidades y flags.
+         */
+        class GameState {
+            constructor() {
+                this.map = null; // DungeonMap
+                this.player = null; // Player
+                this.enemies = []; // Array de Enemy
+                this.particles = []; // Array de Particle
+                this.flags = new Map(); // Banderas de progreso
+                this.gameLog = [];
+                this.isInCombat = false;
+                this.currentEncounter = null;
+                this.palette = new Palette();
+                this.mapLevel = 0; // Profundidad
+            }
+
+            /** Establece una bandera. */
+            setFlag(name, value = true) {
+                this.flags.set(name, value);
+            }
+
+            /** Consulta una bandera. */
+            hasFlag(name) {
+                return this.flags.has(name) && this.flags.get(name);
+            }
+
+            /** Añade un mensaje al log y emite el evento. */
+            addLog(message) {
+                this.gameLog.push(message);
+                if (this.gameLog.length > 50) this.gameLog.shift();
+                eventBus.emit('log:update', { message });
+            }
+        }
+
+        // ======================================================================
+        // 2. DOMINIO: Map, Player, Enemy, Particle
+        // ======================================================================
+
+        /**
+         * Mapa de la mazmorra. Incluye grid, luces, antorchas y eventos.
+         */
+        class DungeonMap {
+            constructor(data) {
+                this.id = data.id;
+                this.grid = data.grid;
+                this.width = data.width;
+                this.height = data.height;
+                this.start = data.start || [1, 1];
+                this.lights = data.lights || [];
+                this.torches = data.torches || [];
+                this.encounterTable = data.encounterTable || [];
+                this.level = data.level || 0;
+                this.cellEvents = new Map();
+                this._loadCellEvents(data.events || []);
+            }
+
+            _loadCellEvents(events) {
+                events.forEach(evt => {
+                    const key = `${evt.cell[0]},${evt.cell[1]}`;
+                    if (!this.cellEvents.has(key)) this.cellEvents.set(key, []);
+                    this.cellEvents.get(key).push(evt);
+                });
+            }
+
+            /** Comprueba si una celda es transitable. */
+            isWalkable(x, y) {
+                if (x < 0 || y < 0 || x >= this.width || y >= this.height) return false;
+                const cell = this.grid[y][x];
+                return cell === 0 || cell === 2 || cell === 4 || cell === 5; // 5 = escalera
+            }
+
+            /** Devuelve el valor de una celda (0 = suelo, 1 = pared, etc.). */
+            getCell(x, y) {
+                if (x < 0 || y < 0 || x >= this.width || y >= this.height) return 1;
+                return this.grid[y][x];
+            }
+
+            /** Obtiene los eventos asociados a una celda. */
+            getEventsAt(x, y) {
+                return this.cellEvents.get(`${x},${y}`) || [];
+            }
+
+            /** Modifica el valor de una celda. */
+            setCell(x, y, value) {
+                if (x >= 0 && y >= 0 && x < this.width && y < this.height) {
+                    this.grid[y][x] = value;
+                }
+            }
+
+            /** Indica si una celda es una escalera. */
+            isStairs(x, y) {
+                return this.getCell(x, y) === 5;
+            }
+        }
+
+        /**
+         * Jugador con movimiento interpolado por celdas y rotación suave.
+         */
+        class Player {
+            constructor(x, y, angle = 0) {
+                this.x = x;
+                this.y = y;
+                this.angle = angle;
+                this.hp = 20;
+                this.maxHp = 20;
+                this.mp = 10;
+                this.maxMp = 10;
+                this.level = 1;
+                this.exp = 0;
+                this.expToNext = 100;
+                this.inventory = [];
+                this.spells = ['fireball'];
+                this.weapon = { name: 'Espada corta', value: 5 };
+                this.armor = null;
+
+                // Movimiento suave por celdas (interpolación)
+                this.moving = false;
+                this.moveProgress = 0;
+                this.fromX = x;
+                this.fromY = y;
+                this.toX = x;
+                this.toY = y;
+
+                // Rotación suave
+                this.angularVelocity = 0;
+                this.rotationFriction = 0.9;
+                this.rotationSpeed = 3.0;
+
+                // Headbob (oscilación de cámara al andar)
+                this.headBob = 0;
+                this.walkCycle = 0;
+                this.isMoving = false;
+            }
+
+            /** Inicia un movimiento de una celda en la dirección (dx, dy). */
+            startMove(dx, dy) {
+                if (this.moving) return false;
+                this.fromX = this.x;
+                this.fromY = this.y;
+                this.toX = this.x + dx;
+                this.toY = this.y + dy;
+                this.moveProgress = 0;
+                this.moving = true;
+                this.isMoving = true;
+                return true;
+            }
+
+            /** Actualiza la interpolación del movimiento. */
+            updateMove(dt) {
+                if (!this.moving) return;
+                this.moveProgress += dt * 6;
+                if (this.moveProgress >= 1) {
+                    this.x = this.toX;
+                    this.y = this.toY;
+                    this.moving = false;
+                    this.headBob = 0;
+                    this.isMoving = false;
+                } else {
+                    this.x = this.fromX + (this.toX - this.fromX) * this.moveProgress;
+                    this.y = this.fromY + (this.toY - this.fromY) * this.moveProgress;
+                    // Headbob: oscilación senoidal
+                    this.walkCycle += dt * 10;
+                    this.headBob = Math.sin(this.walkCycle) * 0.04;
+                }
+            }
+
+            /** Intenta moverse en la dirección actual (delante o detrás). */
+            move(map, direction = 1) {
+                if (this.moving) return false;
+                const dx = Math.round(Math.cos(this.angle));
+                const dy = Math.round(Math.sin(this.angle));
+                const newX = Math.round(this.x) + dx * direction;
+                const newY = Math.round(this.y) + dy * direction;
+                if (map.isWalkable(newX, newY)) {
+                    this.startMove(dx * direction, dy * direction);
+                    return true;
+                }
+                return false;
+            }
+
+            /** Aplica rotación suave mediante velocidad angular. */
+            applyRotation(inputRot, dt) {
+                if (inputRot !== 0) {
+                    this.angularVelocity += inputRot * this.rotationSpeed * dt;
+                } else {
+                    this.angularVelocity *= this.rotationFriction;
+                }
+                this.angle += this.angularVelocity * dt;
+                while (this.angle > Math.PI * 2) this.angle -= Math.PI * 2;
+                while (this.angle < 0) this.angle += Math.PI * 2;
+            }
+
+            /** Gana experiencia y sube de nivel si corresponde. */
+            gainExp(amount) {
+                this.exp += amount;
+                while (this.exp >= this.expToNext) {
+                    this.exp -= this.expToNext;
+                    this.level++;
+                    this.maxHp += 5;
+                    this.hp = this.maxHp;
+                    this.maxMp += 3;
+                    this.mp = this.maxMp;
+                    this.expToNext = Math.floor(this.expToNext * 1.5);
+                    eventBus.emit('player:levelup', { level: this.level });
+                }
+            }
+        }
+
+        /**
+         * Enemigo para combate por turnos (con estadísticas y loot).
+         */
+        class Enemy {
+            constructor(config) {
+                this.id = config.id;
+                this.name = config.name;
+                this.hp = config.hp;
+                this.maxHp = config.hp;
+                this.attack = config.attack;
+                this.defense = config.defense || 0;
+                this.expReward = config.expReward || 10;
+                this.lootTable = config.lootTable || [];
+                this.image = config.image || '👹';
+                this.alive = true;
+            }
+
+            /** Calcula el daño infligido al jugador. */
+            attackPlayer(defense) {
+                const base = Math.max(1, this.attack - defense);
+                const variance = Math.floor(base * 0.2);
+                const min = Math.max(1, base - variance);
+                const max = base + variance;
+                return Math.floor(Math.random() * (max - min + 1)) + min;
+            }
+
+            /** Aplica daño al enemigo. Devuelve true si muere. */
+            takeDamage(amount) {
+                this.hp -= amount;
+                if (this.hp <= 0) {
+                    this.hp = 0;
+                    this.alive = false;
+                    return true;
+                }
+                return false;
+            }
+        }
+
+        /**
+         * Partícula para efectos visuales (impactos, magia, etc.).
+         */
+        class Particle {
+            constructor(x, y, color, lifetime = 0.5) {
+                this.x = x;
+                this.y = y;
+                const angle = Math.random() * Math.PI * 2;
+                const speed = 60 + Math.random() * 200;
+                this.vx = Math.cos(angle) * speed;
+                this.vy = Math.sin(angle) * speed;
+                this.color = color;
+                this.life = lifetime;
+                this.maxLife = lifetime;
+                this.radius = 2 + Math.random() * 4;
+            }
+
+            update(dt) {
+                this.x += this.vx * dt;
+                this.y += this.vy * dt;
+                this.vx *= 0.95;
+                this.vy *= 0.95;
+                this.life -= dt;
+            }
+
+            get alive() {
+                return this.life > 0;
+            }
+        }
+
+        // ======================================================================
+        // 3. APLICACIÓN: ExploreEngine, CombatSystem, TransitionEffect
+        // ======================================================================
+
+        /**
+         * Motor de exploración: maneja el movimiento y los eventos del mapa.
+         */
+        class ExploreEngine {
+            constructor(eventBus, gameState) {
+                this.eventBus = eventBus;
+                this.gameState = gameState;
+                this.setupListeners();
+            }
+
+            setupListeners() {
+                // Movimiento
+                this.eventBus.on('input:move', (payload) => {
+                    if (this.gameState.isInCombat) return;
+                    this.handleMove(payload.direction || 1);
+                });
+
+                // Rotación (ahora se maneja con velocidad angular en el bucle)
+                this.eventBus.on('input:rotate', (payload) => {
+                    // Solo se usa para giros rápidos (Q/E)
+                    if (this.gameState.isInCombat) return;
+                    this.gameState.player.angle += payload.radians || 0;
+                    while (this.gameState.player.angle > Math.PI * 2) this.gameState.player.angle -= Math.PI * 2;
+                    while (this.gameState.player.angle < 0) this.gameState.player.angle += Math.PI * 2;
+                });
+
+                // Fin de combate
+                this.eventBus.on('combat:end', (payload) => {
+                    this.gameState.isInCombat = false;
+                    this.gameState.currentEncounter = null;
+                    this.eventBus.emit('transition:end', {});
+                    if (payload.result === 'victory' && payload.enemy) {
+                        const player = this.gameState.player;
+                        player.gainExp(payload.enemy.expReward);
+                        this.gameState.addLog(`Ganas ${payload.enemy.expReward} EXP.`);
+                        if (payload.enemy.lootTable) {
+                            payload.enemy.lootTable.forEach(item => {
+                                if (Math.random() < item.chance) {
+                                    this.gameState.addLog(`Encuentras: ${item.itemId}`);
+                                    if (item.itemId === 'pocion') {
+                                        player.hp = Math.min(player.maxHp, player.hp + 10);
+                                    }
+                                }
+                            });
+                        }
+                    }
+                });
+
+                // Detección de escaleras
+                this.eventBus.on('player:moved', (payload) => {
+                    const map = this.gameState.map;
+                    const player = this.gameState.player;
+                    const px = Math.round(player.x);
+                    const py = Math.round(player.y);
+                    if (map.isStairs(px, py)) {
+                        this.eventBus.emit('stairs:step', { x: px, y: py });
+                    }
+                });
+
+                this.eventBus.on('stairs:step', () => {
+                    this.gameState.mapLevel++;
+                    this.gameState.addLog(`Bajas al nivel ${this.gameState.mapLevel}`);
+                    // Aquí se podría cargar un nuevo mapa, pero por simplicidad solo lo anunciamos.
+                });
+            }
+
+            handleMove(direction) {
+                const { player, map } = this.gameState;
+                const moved = player.move(map, direction);
+                if (moved) {
+                    this.eventBus.emit('player:move_start', {});
+                } else {
+                    this.eventBus.emit('player:blocked', {});
+                }
+            }
+        }
+
+        /**
+         * Sistema de combate por turnos con panel UI.
+         */
+        class CombatSystem {
+            constructor(eventBus, gameState) {
+                this.eventBus = eventBus;
+                this.gameState = gameState;
+                this.currentEnemy = null;
+                this.setupListeners();
+            }
+
+            setupListeners() {
+                this.eventBus.on('combat:start', (payload) => {
+                    this.startCombat(payload.enemy);
+                });
+
+                this.eventBus.on('input:attack', () => {
+                    if (!this.gameState.isInCombat) return;
+                    this.playerAttack();
+                });
+
+                this.eventBus.on('input:spell', (payload) => {
+                    if (!this.gameState.isInCombat) return;
+                    this.castSpell(payload.spellId);
+                });
+
+                this.eventBus.on('input:flee', () => {
+                    if (!this.gameState.isInCombat) return;
+                    this.flee();
+                });
+
+                this.eventBus.on('enemy:die', (payload) => {
+                    if (this.currentEnemy && this.currentEnemy.id === payload.enemy.id) {
+                        this.eventBus.emit('combat:end', { result: 'victory', enemy: this.currentEnemy });
+                        this.currentEnemy = null;
+                    }
+                });
+            }
+
+            startCombat(enemyConfig) {
+                this.currentEnemy = new Enemy(enemyConfig);
+                this.gameState.isInCombat = true;
+                this.gameState.currentEncounter = { enemy: this.currentEnemy };
+                this.eventBus.emit('transition:start', { type: 'combat' });
+                this.eventBus.emit('combat:turn', { type: 'start', enemy: this.currentEnemy });
+                this.eventBus.emit('sound:play', { name: 'combat_start' });
+            }
+
+            playerAttack() {
+                const player = this.gameState.player;
+                const enemy = this.currentEnemy;
+                if (!enemy || !enemy.alive) return;
+                const damage = Math.max(1, player.weapon.value - enemy.defense + Math.floor(Math.random() * 3));
+                const killed = enemy.takeDamage(damage);
+                this.gameState.addLog(`Atacas a ${enemy.name} por ${damage} de daño.`);
+                this.eventBus.emit('sound:play', { name: 'attack' });
+                this.eventBus.emit('effect:particles', {
+                    x: window.innerWidth / 2,
+                    y: window.innerHeight / 2,
+                    color: '#ffdd44',
+                    count: 10
+                });
+                if (killed) {
+                    this.gameState.addLog(`${enemy.name} ha muerto.`);
+                    this.eventBus.emit('sound:play', { name: 'enemy_die' });
+                    this.eventBus.emit('effect:shake', { intensity: 5, duration: 0.15 });
+                    this.eventBus.emit('enemy:die', { enemy });
+                } else {
+                    this.enemyTurn();
+                }
+            }
+
+            castSpell(spellId) {
+                const spells = {
+                    'fireball': { damage: 8, mpCost: 3, name: 'Bola de fuego' }
+                };
+                const spell = spells[spellId];
+                if (!spell) return;
+                const player = this.gameState.player;
+                const enemy = this.currentEnemy;
+                if (!enemy || !enemy.alive) return;
+                if (player.mp < spell.mpCost) {
+                    this.gameState.addLog('No tienes suficiente maná.');
+                    this.eventBus.emit('sound:play', { name: 'error' });
+                    return;
+                }
+                player.mp -= spell.mpCost;
+                const killed = enemy.takeDamage(spell.damage);
+                this.gameState.addLog(`Lanzas ${spell.name} a ${enemy.name} por ${spell.damage} de daño.`);
+                this.eventBus.emit('sound:play', { name: 'spell' });
+                this.eventBus.emit('effect:particles', {
+                    x: window.innerWidth / 2,
+                    y: window.innerHeight / 2,
+                    color: '#00ff88',
+                    count: 20
+                });
+                if (killed) {
+                    this.gameState.addLog(`${enemy.name} ha muerto.`);
+                    this.eventBus.emit('sound:play', { name: 'enemy_die' });
+                    this.eventBus.emit('effect:shake', { intensity: 8, duration: 0.2 });
+                    this.eventBus.emit('enemy:die', { enemy });
+                } else {
+                    this.enemyTurn();
+                }
+            }
+
+            enemyTurn() {
+                const player = this.gameState.player;
+                const enemy = this.currentEnemy;
+                if (!enemy || !enemy.alive) return;
+                const defense = player.armor ? player.armor.value : 0;
+                const damage = enemy.attackPlayer(defense);
+                player.hp -= damage;
+                this.gameState.addLog(`${enemy.name} te ataca por ${damage} de daño.`);
+                this.eventBus.emit('sound:play', { name: 'player_hit' });
+                this.eventBus.emit('effect:shake', { intensity: 10, duration: 0.25 });
+                if (player.hp <= 0) {
+                    player.hp = 0;
+                    this.gameState.addLog('Has muerto...');
+                    this.eventBus.emit('player:death', {});
+                    this.eventBus.emit('combat:end', { result: 'defeat', enemy });
+                } else {
+                    this.eventBus.emit('combat:turn', { type: 'player_turn' });
+                }
+            }
+
+            flee() {
+                if (Math.random() < 0.5) {
+                    this.gameState.addLog('Escapas del combate.');
+                    this.eventBus.emit('sound:play', { name: 'flee' });
+                    this.eventBus.emit('combat:end', { result: 'fled', enemy: this.currentEnemy });
+                    this.currentEnemy = null;
+                } else {
+                    this.gameState.addLog('No puedes escapar.');
+                    this.eventBus.emit('sound:play', { name: 'error' });
+                    this.enemyTurn();
+                }
+            }
+        }
+
+        /**
+         * Efecto de transición visual entre estados (entrada, combate, etc.).
+         */
+        class TransitionEffect {
+            constructor(eventBus, canvas) {
+                this.eventBus = eventBus;
+                this.canvas = canvas;
+                this.ctx = canvas.getContext('2d');
+                this.active = false;
+                this.startTime = 0;
+                this.duration = 1.2;
+                this.animationId = null;
+                this.resize();
+                window.addEventListener('resize', () => this.resize());
+                this.setupListeners();
+            }
+
+            resize() {
+                this.canvas.width = window.innerWidth;
+                this.canvas.height = window.innerHeight;
+            }
+
+            setupListeners() {
+                this.eventBus.on('transition:start', (payload) => this.start(payload.type || 'combat'));
+                this.eventBus.on('transition:end', () => this.stop());
+            }
+
+            start(type) {
+                this.active = true;
+                this.canvas.classList.add('active');
+                this.startTime = performance.now();
+                if (this.animationId) cancelAnimationFrame(this.animationId);
+                this.animate();
+            }
+
+            stop() {
+                this.active = false;
+                this.canvas.classList.remove('active');
+                if (this.animationId) cancelAnimationFrame(this.animationId);
+                this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+            }
+
+            animate() {
+                if (!this.active) return;
+                const now = performance.now();
+                const elapsed = (now - this.startTime) / 1000;
+                const progress = Math.min(elapsed / this.duration, 1);
+                this.draw(progress);
+                if (progress < 1) {
+                    this.animationId = requestAnimationFrame(() => this.animate());
+                } else {
+                    this.stop();
+                }
+            }
+
+            draw(progress) {
+                const ctx = this.ctx;
+                const w = this.canvas.width;
+                const h = this.canvas.height;
+                ctx.clearRect(0, 0, w, h);
+                const centerX = w / 2;
+                const centerY = h / 2;
+                const maxRadius = Math.max(w, h) * 0.6;
+                const layers = 30;
+                const rotation = progress * Math.PI * 2 * 2;
+                ctx.save();
+                ctx.globalAlpha = Math.sin(progress * Math.PI);
+                ctx.shadowColor = '#00ffff';
+                ctx.shadowBlur = 10;
+                for (let i = 0; i < layers; i++) {
+                    const t = i / layers;
+                    const radius = 10 + t * maxRadius * 1.618;
+                    if (radius > maxRadius) continue;
+                    const angle = rotation + t * Math.PI * 2 * 3;
+                    const x = centerX + radius * Math.cos(angle);
+                    const y = centerY + radius * Math.sin(angle);
+                    ctx.fillStyle = `hsl(${t * 360}, 100%, 50%)`;
+                    ctx.beginPath();
+                    ctx.arc(x, y, 2 + t * 3, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+                ctx.restore();
+            }
+        }
+
+        // ======================================================================
+        // 4. INFRAESTRUCTURA: Input, Audio, MapLoader
+        // ======================================================================
+
+        /**
+         * Gestor de entrada de teclado.
+         */
+        class InputManager {
+            constructor(eventBus) {
+                this.eventBus = eventBus;
+                this.keys = {};
+                this.rotationInput = 0;
+                this.setupKeyboard();
+            }
+
+            setupKeyboard() {
+                const keyMap = {
+                    'w': () => this.eventBus.emit('input:move', { direction: 1 }),
+                    's': () => this.eventBus.emit('input:move', { direction: -1 }),
+                };
+
+                window.addEventListener('keydown', (e) => {
+                    const key = e.key.toLowerCase();
+                    if (keyMap[key]) {
+                        e.preventDefault();
+                        keyMap[key]();
+                    }
+                    // Rotación suave con A y D
+                    if (key === 'a' || key === 'arrowleft') {
+                        e.preventDefault();
+                        this.rotationInput = -0.8;
+                    } else if (key === 'd' || key === 'arrowright') {
+                        e.preventDefault();
+                        this.rotationInput = 0.8;
+                    }
+                    // Giros rápidos con Q y E
+                    else if (key === 'q') {
+                        e.preventDefault();
+                        this.eventBus.emit('input:rotate', { radians: -Math.PI / 8 });
+                    } else if (key === 'e') {
+                        e.preventDefault();
+                        this.eventBus.emit('input:rotate', { radians: Math.PI / 8 });
+                    }
+                    // Otras teclas
+                    else if (key === ' ') {
+                        e.preventDefault();
+                        this.eventBus.emit('input:attack');
+                    } else if (key === '1') {
+                        this.eventBus.emit('input:spell', { spellId: 'fireball' });
+                    } else if (key === 'f') {
+                        this.eventBus.emit('input:flee');
+                    } else if (key === 'p') {
+                        this.eventBus.emit('toggle:palette');
+                    }
+                });
+
+                window.addEventListener('keyup', (e) => {
+                    const key = e.key.toLowerCase();
+                    if (key === 'a' || key === 'arrowleft' || key === 'd' || key === 'arrowright') {
+                        this.rotationInput = 0;
+                    }
+                });
+            }
+
+            /** Devuelve la entrada de rotación suave (-1 a 1). */
+            getRotationInput() {
+                return this.rotationInput;
+            }
+        }
+
+        /**
+         * Gestor de audio sintético (Web Audio API).
+         */
+        class AudioManager {
+            constructor(eventBus) {
+                this.eventBus = eventBus;
+                this.audioCtx = null;
+                this.setupListeners();
+            }
+
+            initAudio() {
+                if (!this.audioCtx) {
+                    this.audioCtx = new(window.AudioContext || window.webkitAudioContext)();
+                }
+                if (this.audioCtx.state === 'suspended') this.audioCtx.resume();
+            }
+
+            setupListeners() {
+                this.eventBus.on('sound:play', (payload) => this.play(payload.name));
+            }
+
+            play(name) {
+                this.initAudio();
+                if (!this.audioCtx) return;
+                switch (name) {
+                    case 'step':
+                        this._tone(150, 0.05, 'square', 0.04);
+                        break;
+                    case 'attack':
+                        this._tone(800, 0.1, 'sawtooth', 0.1);
+                        break;
+                    case 'spell':
+                        this._tone(1200, 0.15, 'triangle', 0.12);
+                        break;
+                    case 'player_hit':
+                        this._tone(200, 0.08, 'square', 0.08);
+                        break;
+                    case 'enemy_die':
+                        this._tone(80, 0.25, 'sawtooth', 0.15);
+                        this._tone(60, 0.2, 'square', 0.1);
+                        break;
+                    case 'combat_start':
+                        this._tone(300, 0.15, 'sawtooth', 0.08);
+                        this._tone(200, 0.1, 'square', 0.06);
+                        break;
+                    case 'flee':
+                        this._tone(600, 0.08, 'triangle', 0.1);
+                        break;
+                    case 'error':
+                        this._tone(120, 0.1, 'square', 0.06);
+                        break;
+                    case 'levelup':
+                        this._tone(660, 0.1, 'triangle', 0.12);
+                        setTimeout(() => this._tone(880, 0.1, 'triangle', 0.12), 80);
+                        break;
+                    default:
+                        break;
+                }
+            }
+
+            _tone(freq, dur, type, vol) {
+                if (!this.audioCtx) return;
+                const osc = this.audioCtx.createOscillator();
+                const gain = this.audioCtx.createGain();
+                osc.type = type;
+                osc.frequency.value = freq;
+                gain.gain.setValueAtTime(0.01, this.audioCtx.currentTime);
+                gain.gain.linearRampToValueAtTime(vol, this.audioCtx.currentTime + 0.01);
+                gain.gain.exponentialRampToValueAtTime(0.001, this.audioCtx.currentTime + dur);
+                osc.connect(gain);
+                gain.connect(this.audioCtx.destination);
+                osc.start();
+                osc.stop(this.audioCtx.currentTime + dur);
+            }
+        }
+
+        /**
+         * Cargador de mapas desde objeto, JSON o URL.
+         */
+        class MapLoader {
+            load(data) {
+                return new DungeonMap(data);
+            }
+
+            loadFromJSON(jsonString) {
+                return this.load(JSON.parse(jsonString));
+            }
+
+            async loadFromURL(url) {
+                const response = await fetch(url);
+                const data = await response.json();
+                return this.load(data);
+            }
+        }
+
+        // ======================================================================
+        // 5. RENDERER 3D (Raycaster + Sprites + Luces + Headbob + Minimapa)
+        // ======================================================================
+
+        class Renderer {
+            constructor(eventBus, canvas, gameState, palette) {
+                this.eventBus = eventBus;
+                this.canvas = canvas;
+                this.ctx = canvas.getContext('2d');
+                this.gameState = gameState;
+                this.palette = palette;
+                this.fov = Math.PI / 3;
+                this.maxDepth = 20;
+                this.wallHeightFactor = 1.0;
+                this.particles = [];
+                this.shakeTimer = 0;
+                this.shakeIntensity = 0;
+                this.shakeX = 0;
+                this.shakeY = 0;
+                this.zBuffer = new Float32Array(canvas.width);
+                this.torchTimers = new Map(); // Para parpadeo
+                this.resize();
+                window.addEventListener('resize', () => this.resize());
+                this.setupListeners();
+                this.renderFrame();
+            }
+
+            resize() {
+                this.canvas.width = window.innerWidth;
+                this.canvas.height = window.innerHeight;
+                this.zBuffer = new Float32Array(this.canvas.width);
+            }
+
+            setupListeners() {
+                this.eventBus.on('player:moved', () => this.renderFrame());
+                this.eventBus.on('player:rotated', () => this.renderFrame());
+                this.eventBus.on('player:move_start', () => this.renderFrame());
+                this.eventBus.on('map:load', () => this.renderFrame());
+                this.eventBus.on('palette:update', () => this.renderFrame());
+                this.eventBus.on('effect:particles', (p) => this.spawnParticles(p));
+                this.eventBus.on('effect:shake', (p) => this.applyShake(p.intensity, p.duration));
+                this.eventBus.on('combat:start', () => this.renderFrame());
+                this.eventBus.on('combat:end', () => this.renderFrame());
+                this.eventBus.on('transition:end', () => this.renderFrame());
+            }
+
+            spawnParticles({ x, y, color, count }) {
+                for (let i = 0; i < count; i++) {
+                    this.particles.push(new Particle(x, y, color, 0.3 + Math.random() * 0.4));
+                }
+            }
+
+            applyShake(intensity, duration) {
+                this.shakeTimer = duration;
+                this.shakeIntensity = intensity;
+            }
+
+            renderFrame() {
+                if (this.gameState.isInCombat) {
+                    this.renderCombatScene();
+                } else {
+                    this.renderWorldScene();
+                }
+                this.renderMiniMap();
+            }
+
+            renderWorldScene() {
+                const ctx = this.ctx;
+                const w = this.canvas.width;
+                const h = this.canvas.height;
+                const { player, map, palette } = this.gameState;
+
+                ctx.save();
+
+                // Shake
+                if (this.shakeTimer > 0) {
+                    this.shakeTimer -= 1 / 60;
+                    const s = this.shakeIntensity;
+                    this.shakeX = (Math.random() - 0.5) * 2 * s;
+                    this.shakeY = (Math.random() - 0.5) * 2 * s;
+                    if (this.shakeTimer <= 0) { this.shakeX = 0;
+                        this.shakeY = 0; }
+                }
+                ctx.translate(this.shakeX, this.shakeY);
+
+                // Headbob
+                const headBobOffset = player.headBob * h * 0.15;
+                const horizon = h / 2 + headBobOffset;
+
+                // Suelo
+                const floorGrad = ctx.createLinearGradient(0, horizon, 0, h);
+                floorGrad.addColorStop(0, palette.floor);
+                floorGrad.addColorStop(1, '#000');
+                ctx.fillStyle = floorGrad;
+                ctx.fillRect(0, horizon, w, h - horizon);
+
+                // Techo
+                const ceilGrad = ctx.createLinearGradient(0, 0, 0, horizon);
+                ceilGrad.addColorStop(0, '#000');
+                ceilGrad.addColorStop(1, palette.ceiling);
+                ctx.fillStyle = ceilGrad;
+                ctx.fillRect(0, 0, w, horizon);
+
+                // Raycasting
+                const angleStep = this.fov / w;
+                const startAngle = player.angle - this.fov / 2;
+
+                for (let x = 0; x < w; x++) {
+                    const rayAngle = startAngle + x * angleStep;
+                    const distance = this.castRay(player.x, player.y, rayAngle, map);
+                    this.zBuffer[x] = distance;
+                    const wallHeight = (h / (distance + 0.1)) * this.wallHeightFactor;
+                    const wallTop = horizon - wallHeight / 2;
+
+                    const hitX = Math.floor(player.x + Math.cos(rayAngle) * distance);
+                    const hitY = Math.floor(player.y + Math.sin(rayAngle) * distance);
+                    const cellType = map.getCell(hitX, hitY);
+
+                    let wallColor;
+                    switch (cellType) {
+                        case 1:
+                            wallColor = palette.wall;
+                            break;
+                        case 2:
+                            wallColor = palette.door;
+                            break;
+                        case 3:
+                            wallColor = palette.trap;
+                            break;
+                        case 4:
+                        case 5:
+                            wallColor = palette.stairs;
+                            break;
+                        default:
+                            wallColor = palette.wall;
+                    }
+
+                    const fogFactor = Math.min(1, distance / this.maxDepth);
+                    const fogRGB = this.hexToRgb(palette.fog);
+                    const wallRGB = this.hexToRgb(wallColor);
+                    const r = Math.floor(wallRGB.r * (1 - fogFactor) + fogRGB.r * fogFactor);
+                    const g = Math.floor(wallRGB.g * (1 - fogFactor) + fogRGB.g * fogFactor);
+                    const b = Math.floor(wallRGB.b * (1 - fogFactor) + fogRGB.b * fogFactor);
+                    ctx.fillStyle = `rgb(${r},${g},${b})`;
+                    ctx.fillRect(x, wallTop, 1, wallHeight);
+                }
+
+                // Iluminación dinámica (antorchas parpadean)
+                this.applyDynamicLighting(ctx, player, map, w, h, horizon);
+
+                // Sprites (antorchas y enemigos)
+                this.drawSprites(ctx, player, map, w, h, horizon);
+
+                // Partículas
+                this.updateParticles(1 / 60);
+                this.drawParticles(ctx);
+
+                ctx.restore();
+
+                // Debug info
+                this.renderDebugInfo(ctx, player, map);
+            }
+
+            castRay(x, y, angle, map) {
+                const dirX = Math.cos(angle);
+                const dirY = Math.sin(angle);
+                let mapX = Math.floor(x);
+                let mapY = Math.floor(y);
+                const deltaDistX = Math.abs(1 / dirX);
+                const deltaDistY = Math.abs(1 / dirY);
+                let stepX, stepY, sideDistX, sideDistY;
+
+                if (dirX < 0) { stepX = -1;
+                    sideDistX = (x - mapX) * deltaDistX; } else { stepX = 1;
+                    sideDistX = (mapX + 1 - x) * deltaDistX; }
+                if (dirY < 0) { stepY = -1;
+                    sideDistY = (y - mapY) * deltaDistY; } else { stepY = 1;
+                    sideDistY = (mapY + 1 - y) * deltaDistY; }
+
+                let side = 0;
+                let distance = 0;
+                let hit = false;
+                while (!hit && distance < this.maxDepth) {
+                    if (sideDistX < sideDistY) {
+                        sideDistX += deltaDistX;
+                        mapX += stepX;
+                        side = 0;
+                    } else {
+                        sideDistY += deltaDistY;
+                        mapY += stepY;
+                        side = 1;
+                    }
+                    if (mapX < 0 || mapY < 0 || mapX >= map.width || mapY >= map.height) {
+                        hit = true;
+                        distance = this.maxDepth;
+                        break;
+                    }
+                    if (map.grid[mapY][mapX] !== 0) {
+                        hit = true;
+                        if (side === 0) distance = (mapX - x + (1 - stepX) / 2) / dirX;
+                        else distance = (mapY - y + (1 - stepY) / 2) / dirY;
+                        if (distance < 0.01) distance = 0.01;
+                    }
+                }
+                return distance;
+            }
+
+            applyDynamicLighting(ctx, player, map, w, h, horizon) {
+                if (!this.lightCanvas) {
+                    this.lightCanvas = document.createElement('canvas');
+                    this.lightCtx = this.lightCanvas.getContext('2d');
+                }
+                this.lightCanvas.width = w;
+                this.lightCanvas.height = h;
+                const lctx = this.lightCtx;
+                lctx.clearRect(0, 0, w, h);
+                lctx.fillStyle = 'rgba(0,0,0,0.7)';
+                lctx.fillRect(0, 0, w, h);
+
+                // Luces estáticas del mapa
+                map.lights.forEach(light => {
+                    this.drawLight(lctx, light.cell[0], light.cell[1], light.radius || 5, light.intensity || 1.0,
+                        player, w, h, horizon);
+                });
+
+                // Antorchas con parpadeo
+                if (map.torches) {
+                    map.torches.forEach(torch => {
+                        const key = `${torch.x},${torch.y}`;
+                        if (!this.torchTimers.has(key)) {
+                            this.torchTimers.set(key, Math.random() * 100);
+                        }
+                        const time = this.torchTimers.get(key) + 0.02;
+                        this.torchTimers.set(key, time);
+                        const flicker = 0.8 + 0.4 * Math.sin(time * 2.5) * Math.sin(time * 1.7 + 0.5);
+                        const intensity = (torch.intensity || 1.0) * flicker;
+                        this.drawLight(lctx, torch.x, torch.y, 4, intensity, player, w, h, horizon);
+                    });
+                }
+
+                ctx.drawImage(this.lightCanvas, 0, 0);
+            }
+
+            drawLight(lctx, lx, ly, radius, intensity, player, w, h, horizon) {
+                const dx = lx - player.x;
+                const dy = ly - player.y;
+                const dist = Math.sqrt(dx * dx + dy * dy);
+                const angleToLight = Math.atan2(dy, dx);
+                let diff = angleToLight - player.angle;
+                while (diff > Math.PI) diff -= 2 * Math.PI;
+                while (diff < -Math.PI) diff += 2 * Math.PI;
+                if (Math.abs(diff) < this.fov / 2 && dist > 0.1) {
+                    const screenX = (diff / this.fov + 0.5) * w;
+                    const screenY = horizon;
+                    const rgb = this.hexToRgb(this.palette.light);
+                    const grad = lctx.createRadialGradient(screenX, screenY, 0, screenX, screenY, radius * w / 10);
+                    grad.addColorStop(0, `rgba(${rgb.r},${rgb.g},${rgb.b},${0.5 * intensity})`);
+                    grad.addColorStop(1, 'rgba(0,0,0,0)');
+                    lctx.fillStyle = grad;
+                    lctx.beginPath();
+                    lctx.arc(screenX, screenY, radius * w / 10, 0, Math.PI * 2);
+                    lctx.fill();
+                }
+            }
+
+            drawSprites(ctx, player, map, w, h, horizon) {
+                // Antorchas
+                if (map.torches) {
+                    map.torches.forEach(torch => {
+                        this.drawSprite(ctx, torch.x, torch.y, torch.sprite || '🔥', player, horizon, w, h);
+                    });
+                }
+                // Enemigos
+                this.gameState.enemies.forEach(enemy => {
+                    if (!enemy.alive) return;
+                    this.drawSprite(ctx, enemy.x, enemy.y, enemy.image || '👹', player, horizon, w, h);
+                });
+            }
+
+            drawSprite(ctx, worldX, worldY, spriteChar, player, horizon, w, h) {
+                const dx = worldX - player.x;
+                const dy = worldY - player.y;
+                const dist = Math.sqrt(dx * dx + dy * dy);
+                const angleToSprite = Math.atan2(dy, dx);
+                let diff = angleToSprite - player.angle;
+                while (diff > Math.PI) diff -= 2 * Math.PI;
+                while (diff < -Math.PI) diff += 2 * Math.PI;
+                if (Math.abs(diff) < this.fov / 2 && dist < this.maxDepth && dist > 0.1) {
+                    const screenX = (diff / this.fov + 0.5) * w;
+                    const col = Math.floor(screenX);
+                    if (col >= 0 && col < w && dist < this.zBuffer[col]) {
+                        const size = (h / (dist + 0.1)) * 0.5;
+                        const screenY = horizon;
+                        ctx.save();
+                        ctx.translate(screenX, screenY);
+                        ctx.font = `${Math.floor(size)}px monospace`;
+                        ctx.textAlign = 'center';
+                        ctx.textBaseline = 'middle';
+                        ctx.shadowColor = '#000';
+                        ctx.shadowBlur = 10;
+                        ctx.fillText(spriteChar, 0, 0);
+                        ctx.restore();
+                    }
+                }
+            }
+
+            updateParticles(dt) {
+                for (const p of this.particles) p.update(dt);
+                this.particles = this.particles.filter(p => p.alive);
+            }
+
+            drawParticles(ctx) {
+                for (const p of this.particles) {
+                    ctx.globalAlpha = p.life / p.maxLife;
+                    ctx.fillStyle = p.color;
+                    ctx.beginPath();
+                    ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+                ctx.globalAlpha = 1;
+            }
+
+            renderMiniMap() {
+                const canvas = document.getElementById('minimapCanvas');
+                if (!canvas) return;
+                const ctx = canvas.getContext('2d');
+                const map = this.gameState.map;
+                if (!map) return;
+                const w = canvas.width;
+                const h = canvas.height;
+                const cellSize = 8;
+                ctx.fillStyle = '#222';
+                ctx.fillRect(0, 0, w, h);
+                const px = Math.round(this.gameState.player.x);
+                const py = Math.round(this.gameState.player.y);
+                const offsetX = px - Math.floor(w / cellSize / 2);
+                const offsetY = py - Math.floor(h / cellSize / 2);
+                for (let y = 0; y < Math.ceil(h / cellSize); y++) {
+                    for (let x = 0; x < Math.ceil(w / cellSize); x++) {
+                        const mapX = offsetX + x;
+                        const mapY = offsetY + y;
+                        if (mapX < 0 || mapY < 0 || mapX >= map.width || mapY >= map.height) continue;
+                        const cell = map.grid[mapY][mapX];
+                        ctx.fillStyle = cell === 0 ? '#444' : '#666';
+                        ctx.fillRect(x * cellSize, y * cellSize, cellSize, cellSize);
+                    }
+                }
+                // Jugador
+                ctx.fillStyle = '#0f0';
+                const jx = (px - offsetX) * cellSize;
+                const jy = (py - offsetY) * cellSize;
+                ctx.fillRect(jx - 2, jy - 2, 4, 4);
+                // Escalera
+                for (let y = 0; y < map.height; y++) {
+                    for (let x = 0; x < map.width; x++) {
+                        if (map.grid[y][x] === 5) {
+                            const sx = (x - offsetX) * cellSize;
+                            const sy = (y - offsetY) * cellSize;
+                            ctx.fillStyle = '#ff0';
+                            ctx.fillRect(sx, sy, cellSize, cellSize);
+                        }
+                    }
+                }
+            }
+
+            renderDebugInfo(ctx, player, map) {
+                ctx.fillStyle = '#fff';
+                ctx.font = '14px monospace';
+                ctx.fillText(`Pos: ${player.x.toFixed(1)}, ${player.y.toFixed(1)}  Ángulo: ${player.angle.toFixed(2)}`, 10,
+                    30);
+                ctx.fillText(`Nivel: ${this.gameState.mapLevel}  Enemigos: ${this.gameState.enemies.filter(e=>e.alive).length}`,
+                    10, 50);
+            }
+
+            renderCombatScene() {
+                const ctx = this.ctx;
+                const w = this.canvas.width;
+                const h = this.canvas.height;
+                ctx.fillStyle = '#000';
+                ctx.fillRect(0, 0, w, h);
+                ctx.fillStyle = this.palette.combat;
+                ctx.font = '30px monospace';
+                ctx.fillText('⚔️ COMBATE ⚔️', w / 2 - 100, h / 2);
+            }
+
+            hexToRgb(hex) {
+                const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+                return result ? {
+                    r: parseInt(result[1], 16),
+                    g: parseInt(result[2], 16),
+                    b: parseInt(result[3], 16)
+                } : { r: 255, g: 255, b: 255 };
+            }
+        }
+
+        // ======================================================================
+        // 6. UI: HUD, CombatUI, PaletteManager, ExternalMapLoader
+        // ======================================================================
+
+        class HUD {
+            constructor(eventBus, gameState) {
+                this.eventBus = eventBus;
+                this.gameState = gameState;
+                this.hpEl = document.getElementById('hud-hp');
+                this.mpEl = document.getElementById('hud-mp');
+                this.levelEl = document.getElementById('hud-level');
+                this.expEl = document.getElementById('hud-exp');
+                this.hudDiv = document.getElementById('hud');
+                this.setupListeners();
+                this.update();
+            }
+
+            setupListeners() {
+                this.eventBus.on('player:moved', () => this.update());
+                this.eventBus.on('player:rotated', () => this.update());
+                this.eventBus.on('player:move_start', () => this.update());
+                this.eventBus.on('combat:end', () => this.update());
+                this.eventBus.on('player:death', () => this.update());
+                this.eventBus.on('player:levelup', () => this.update());
+                this.eventBus.on('palette:update', (payload) => {
+                    if (payload.name === 'hud') this.hudDiv.style.borderColor = payload.value;
+                });
+            }
+
+            update() {
+                const p = this.gameState.player;
+                if (!p) return;
+                this.hpEl.textContent = `${p.hp}/${p.maxHp}`;
+                this.mpEl.textContent = `${p.mp}/${p.maxMp}`;
+                this.levelEl.textContent = p.level;
+                this.expEl.textContent = p.exp;
+            }
+        }
+
+        class CombatUI {
+            constructor(eventBus, gameState, panelElement) {
+                this.eventBus = eventBus;
+                this.gameState = gameState;
+                this.panel = panelElement;
+                this.titleEl = document.getElementById('combat-title');
+                this.enemySpriteEl = document.getElementById('enemy-sprite');
+                this.logEl = document.getElementById('combat-log');
+                this.setupListeners();
+            }
+
+            setupListeners() {
+                this.panel.addEventListener('click', (e) => {
+                    const action = e.target.dataset.action;
+                    if (!action) return;
+                    if (action === 'attack') this.eventBus.emit('input:attack');
+                    else if (action === 'spell') this.eventBus.emit('input:spell', { spellId: e.target.dataset
+                            .spell });
+                    else if (action === 'flee') this.eventBus.emit('input:flee');
+                });
+
+                this.eventBus.on('combat:start', (payload) => {
+                    this.panel.classList.add('visible');
+                    this.titleEl.textContent = `¡Un ${payload.enemy.name} aparece!`;
+                    this.enemySpriteEl.textContent = payload.enemy.image || '👹';
+                    this.logEl.textContent = '';
+                });
+
+                this.eventBus.on('combat:end', () => {
+                    this.panel.classList.remove('visible');
+                    this.logEl.textContent = '';
+                });
+
+                this.eventBus.on('log:update', (payload) => {
+                    if (this.gameState.isInCombat) this.logEl.textContent = payload.message;
+                });
+
+                this.eventBus.on('palette:update', (payload) => {
+                    if (payload.name === 'combat') {
+                        this.panel.style.borderColor = payload.value;
+                        this.titleEl.style.color = payload.value;
+                    }
+                });
+            }
+        }
+
+        class PaletteManager {
+            constructor(eventBus, palette) {
+                this.eventBus = eventBus;
+                this.palette = palette;
+                this.panel = document.getElementById('palette-panel');
+                this.toggleBtn = document.getElementById('toggle-palette');
+                this.setupListeners();
+                this.bindInputs();
+            }
+
+            setupListeners() {
+                this.toggleBtn.addEventListener('click', () => this.togglePanel());
+                this.eventBus.on('toggle:palette', () => this.togglePanel());
+            }
+
+            togglePanel() {
+                this.panel.classList.toggle('visible');
+            }
+
+            bindInputs() {
+                const ids = ['wall', 'door', 'trap', 'stairs', 'floor', 'ceiling', 'fog', 'torch', 'light', 'hud',
+                    'combat'
+                ];
+                ids.forEach(id => {
+                    const input = document.getElementById(`color-${id}`);
+                    if (input) {
+                        input.addEventListener('input', (e) => {
+                            this.palette.setColor(id, e.target.value);
+                        });
+                    }
+                });
+            }
+        }
+
+        class ExternalMapLoader {
+            constructor(eventBus, gameState) {
+                this.eventBus = eventBus;
+                this.gameState = gameState;
+                this.fileInput = document.getElementById('file-input');
+                this.loadBtn = document.getElementById('load-map-btn');
+                this.mapLoader = new MapLoader();
+                this.setupListeners();
+            }
+
+            setupListeners() {
+                this.loadBtn.addEventListener('click', () => this.fileInput.click());
+                this.fileInput.addEventListener('change', (e) => {
+                    const file = e.target.files[0];
+                    if (file) this.readFile(file);
+                });
+            }
+
+            readFile(file) {
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    try {
+                        const data = JSON.parse(e.target.result);
+                        const newMap = this.mapLoader.load(data);
+                        this.gameState.map = newMap;
+                        const start = newMap.start;
+                        this.gameState.player.x = start[0];
+                        this.gameState.player.y = start[1];
+                        this.gameState.player.angle = Math.PI / 2;
+                        this.gameState.player.moving = false;
+                        this.eventBus.emit('map:load', { map: newMap });
+                        this.gameState.addLog('Mapa cargado correctamente');
+                    } catch (err) {
+                        alert('Error al parsear JSON: ' + err.message);
+                    }
+                };
+                reader.readAsText(file);
+            }
+        }
+
+        // ======================================================================
+        // 7. DATOS DE EJEMPLO (Laberinto 16x16 con antorchas guía)
+        // ======================================================================
+
+        const dungeonData = {
+            id: 'laberinto_antorchas',
+            width: 16,
+            height: 16,
+            grid: [
+                [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
+                [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1],
+                [1, 0, 1, 1, 1, 0, 1, 1, 1, 1, 1, 0, 1, 1, 0, 1],
+                [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1],
+                [1, 0, 1, 0, 1, 1, 1, 0, 1, 1, 1, 1, 0, 1, 0, 1],
+                [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1],
+                [1, 0, 1, 1, 0, 1, 0, 0, 0, 0, 0, 1, 0, 1, 0, 1],
+                [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1],
+                [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1],
+                [1, 0, 1, 0, 1, 1, 1, 0, 1, 1, 1, 1, 0, 1, 0, 1],
+                [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1],
+                [1, 0, 1, 1, 0, 1, 0, 0, 0, 0, 0, 1, 0, 1, 0, 1],
+                [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1],
+                [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1],
+                [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 5, 0, 1], // escalera
+                [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1]
+            ],
+            start: [1, 1],
+            torches: [
+                { x: 2, y: 2, sprite: '🔥', intensity: 1.2 },
+                { x: 5, y: 2, sprite: '🔥', intensity: 1.0 },
+                { x: 8, y: 2, sprite: '🔥', intensity: 1.0 },
+                { x: 11, y: 2, sprite: '🔥', intensity: 1.0 },
+                { x: 2, y: 5, sprite: '🔥', intensity: 1.0 },
+                { x: 11, y: 5, sprite: '🔥', intensity: 1.0 },
+                { x: 2, y: 8, sprite: '🔥', intensity: 1.0 },
+                { x: 11, y: 8, sprite: '🔥', intensity: 1.0 },
+                { x: 2, y: 11, sprite: '🔥', intensity: 1.0 },
+                { x: 11, y: 11, sprite: '🔥', intensity: 1.0 },
+                { x: 6, y: 13, sprite: '🔥', intensity: 1.5 },
+                { x: 9, y: 13, sprite: '🔥', intensity: 1.5 }
+            ],
+            lights: [
+                { cell: [2, 2], radius: 5, intensity: 1.2 },
+                { cell: [5, 2], radius: 4, intensity: 1.0 },
+                { cell: [8, 2], radius: 4, intensity: 1.0 },
+                { cell: [11, 2], radius: 4, intensity: 1.0 },
+                { cell: [2, 5], radius: 4, intensity: 1.0 },
+                { cell: [11, 5], radius: 4, intensity: 1.0 },
+                { cell: [2, 8], radius: 4, intensity: 1.0 },
+                { cell: [11, 8], radius: 4, intensity: 1.0 },
+                { cell: [2, 11], radius: 4, intensity: 1.0 },
+                { cell: [11, 11], radius: 4, intensity: 1.0 },
+                { cell: [6, 13], radius: 5, intensity: 1.5 },
+                { cell: [9, 13], radius: 5, intensity: 1.5 }
+            ],
+            encounterTable: [
+                { id: 'rata', name: 'Rata gigante', hp: 8, attack: 4, defense: 1, expReward: 15, image: '🐀',
+                    lootTable: [{ itemId: 'moneda', chance: 0.8 }] },
+                { id: 'esqueleto', name: 'Esqueleto', hp: 15, attack: 7, defense: 3, expReward: 30, image: '💀',
+                    lootTable: [{ itemId: 'espada', chance: 0.2 }] },
+                { id: 'espectro', name: 'Espectro', hp: 20, attack: 10, defense: 5, expReward: 60, image: '👻',
+                    lootTable: [{ itemId: 'grimorio', chance: 0.5 }] }
+            ]
+        };
+
+        // ======================================================================
+        // 8. INICIALIZACIÓN Y BUCLE PRINCIPAL
+        // ======================================================================
+
+        // Instancia global del bus de eventos (necesario para Palette, etc.)
+        const eventBus = new EventBus();
+
+        // Estado global
+        const gameState = new GameState();
+
+        function init() {
+            // --- Cargar mapa ---
+            const mapLoader = new MapLoader();
+            const map = mapLoader.load(dungeonData);
+            gameState.map = map;
+
+            // --- Crear jugador ---
+            const start = map.start;
+            const player = new Player(start[0], start[1], Math.PI / 2);
+            gameState.player = player;
+
+            // --- Crear enemigos en posiciones estratégicas ---
+            const enemyConfigs = [
+                { id: 'rata', name: 'Rata', hp: 8, attack: 4, defense: 1, expReward: 15, image: '🐀' },
+                { id: 'esqueleto', name: 'Esqueleto', hp: 15, attack: 7, defense: 3, expReward: 30, image: '💀' },
+                { id: 'espectro', name: 'Espectro', hp: 20, attack: 10, defense: 5, expReward: 60, image: '👻' }
+            ];
+            gameState.enemies = [
+                new Enemy(enemyConfigs[0]),
+                new Enemy(enemyConfigs[1]),
+                new Enemy(enemyConfigs[2])
+            ];
+            gameState.enemies[0].x = 4;
+            gameState.enemies[0].y = 4;
+            gameState.enemies[1].x = 10;
+            gameState.enemies[1].y = 6;
+            gameState.enemies[2].x = 13;
+            gameState.enemies[2].y = 13;
+
+            // --- Instanciar todos los módulos ---
+            const renderer = new Renderer(
+                eventBus,
+                document.getElementById('gameCanvas'),
+                gameState,
+                gameState.palette
+            );
+
+            const transitionEffect = new TransitionEffect(
+                eventBus,
+                document.getElementById('transitionCanvas')
+            );
+
+            const hud = new HUD(eventBus, gameState);
+            const combatUI = new CombatUI(
+                eventBus,
+                gameState,
+                document.getElementById('combat-panel')
+            );
+
+            const exploreEngine = new ExploreEngine(eventBus, gameState);
+            const combatSystem = new CombatSystem(eventBus, gameState);
+            const inputManager = new InputManager(eventBus);
+            const audioManager = new AudioManager(eventBus);
+            const paletteManager = new PaletteManager(eventBus, gameState.palette);
+            const externalMapLoader = new ExternalMapLoader(eventBus, gameState);
+
+            // --- Mostrar pista inicial ---
+            gameState.addLog('🔦 Sigue las antorchas hacia el este y luego al sur para encontrar la escalera.');
+
+            // --- Log en UI ---
+            eventBus.on('log:update', (payload) => {
+                const logDiv = document.getElementById('log');
+                logDiv.innerHTML += payload.message + '<br>';
+                logDiv.scrollTop = logDiv.scrollHeight;
+                console.log('[GAME]', payload.message);
+            });
+
+            // --- Mostrar minimapa ---
+            document.getElementById('minimap').style.display = 'block';
+
+            // --- Efecto de entrada ---
+            eventBus.emit('transition:start', { type: 'intro' });
+            setTimeout(() => eventBus.emit('transition:end', {}), 1200);
+
+            // --- Bucle principal ---
+            let lastTime = performance.now();
+
+            function gameLoop(now) {
+                const dt = Math.min((now - lastTime) / 1000, 0.05);
+                lastTime = now;
+
+                // Rotación suave
+                const rotInput = inputManager.getRotationInput();
+                player.applyRotation(rotInput, dt);
+
+                // Movimiento
+                if (player.moving) {
+                    player.updateMove(dt);
+                    if (player.headBob !== player.lastHeadBob) {
+                        if (Math.abs(player.headBob - player.lastHeadBob) > 0.01) {
+                            eventBus.emit('sound:play', { name: 'step' });
+                        }
+                        player.lastHeadBob = player.headBob;
+                    }
+                    eventBus.emit('player:moved', { x: player.x, y: player.y, angle: player.angle });
+                }
+
+                // Actualizar partículas
+                renderer.updateParticles(dt);
+
+                // Renderizar
+                renderer.renderFrame();
+
+                requestAnimationFrame(gameLoop);
+            }
+
+            requestAnimationFrame(gameLoop);
+
+            console.log('Dungeon 3D con movimiento fluido, headbob y antorchas parpadeantes iniciado.');
+        }
+
+        // Arrancar cuando el DOM esté listo
+        window.addEventListener('DOMContentLoaded', init);
+    </script>
+</body>
+</html>
