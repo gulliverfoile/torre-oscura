@@ -1,0 +1,1044 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Simulador de Construcción · Colocación con sombra</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { background: #1a2a1a; color: #d0d0c0; font-family: monospace; display: flex; flex-direction: column; align-items: center; padding: 1rem; }
+        canvas { border: 2px solid #4a6a4a; image-rendering: pixelated; cursor: pointer; }
+        .panel { display: flex; flex-wrap: wrap; gap: 20px; justify-content: center; margin: 10px 0; }
+        .info { background: #0a1a0a; padding: 10px; border-radius: 6px; border: 1px solid #3a5a3a; min-width: 180px; }
+        .info h4 { color: #c0a060; margin-bottom: 5px; }
+        .info .recurso { display: flex; justify-content: space-between; font-size: 0.9rem; }
+        .toolbar { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; margin: 10px 0; }
+        button { background: #2a3a2a; color: #d0d0c0; border: 1px solid #5a7a5a; padding: 6px 12px; border-radius: 4px; cursor: pointer; }
+        button:hover:not(:disabled) { background: #4a6a4a; }
+        button:disabled { opacity: 0.5; cursor: not-allowed; }
+        button.active-construccion { background: #4a7a4a; border-color: #ffd700; color: #fff; }
+        .tool-item { background: #0a1a0a; padding: 4px 10px; border-radius: 4px; border: 1px solid #3a5a3a; display: inline-block; margin: 2px; cursor: pointer; }
+        .tool-item.selected { border-color: #ffd700; background: #1a2a1a; }
+        .tool-item.roto { color: #b05040; text-decoration: line-through; }
+        #log { background: #0a1a0a; border: 1px solid #3a5a3a; border-radius: 4px; padding: 8px; max-height: 120px; overflow-y: auto; width: 100%; max-width: 700px; font-size: 12px; }
+        .status-msg { color: #c0a060; font-style: italic; min-height: 1.5rem; }
+    </style>
+</head>
+<body>
+    <h2>🌳 Simulador de Construcción · Colocación con sombra</h2>
+    <canvas id="mapCanvas" width="640" height="640"></canvas>
+
+    <div class="panel">
+        <div class="info" id="infoRecursos">
+            <h4>📦 Recursos</h4>
+            <div id="recursosDisplay"></div>
+        </div>
+        <div class="info" id="infoHerramientas">
+            <h4>🛠️ Herramientas</h4>
+            <div id="toolsDisplay"></div>
+        </div>
+        <div class="info" id="infoEstructuras">
+            <h4>🏠 Estructuras</h4>
+            <div id="structuresDisplay"></div>
+        </div>
+    </div>
+
+    <div class="toolbar" id="toolbar-construccion">
+        <button onclick="activarConstruccion('cabaña')">🏠 Cabaña (1x1)</button>
+        <button onclick="activarConstruccion('aserradero')">🪚 Aserradero (1x1)</button>
+        <button onclick="activarConstruccion('vivero')">🌱 Vivero (1x1)</button>
+        <button onclick="activarConstruccion('granja')">🌾 Granja (2x2)</button>
+        <button onclick="activarConstruccion('cuartel')">⚔️ Cuartel (2x2)</button>
+        <button onclick="activarConstruccion('torre')">🗼 Torre (1x1)</button>
+        <button onclick="activarConstruccion('mina')">⛏️ Mina (1x1)</button>
+        <button onclick="activarConstruccion('fundicion')">🔥 Fundición (1x1)</button>
+        <button onclick="activarConstruccion('camino')">🛤️ Camino (1x1)</button>
+        <button onclick="cancelarConstruccion()">❌ Cancelar</button>
+    </div>
+
+    <div class="toolbar">
+        <button onclick="fabricarPico('madera')">🪵 Pico madera (3 madera)</button>
+        <button onclick="fabricarPico('piedra')">🪨 Pico piedra (3 piedra+1 madera)</button>
+        <button onclick="fabricarPico('metal')">⚙️ Pico metal (2 cobre+1 madera)</button>
+        <button onclick="fabricarPico('acero')">🔩 Pico acero (1 acero+1 hierro)</button>
+        <button onclick="repararHerramientaActiva()">🔧 Reparar pico activo</button>
+        <button onclick="limpiarCelda()">🧹 Limpiar celda</button>
+        <button onclick="repararTodas()">🔧 Reparar todo</button>
+        <button onclick="simulateStep()">⏩ Paso</button>
+        <button onclick="toggleAutoSim()">▶️ Auto</button>
+    </div>
+
+    <div id="log"></div>
+    <div class="status-msg" id="statusMsg"></div>
+
+<script>
+'use strict';
+
+// ======================================================================
+// 1. EVENT BUS (Hexagonal) - CON SOPORTE PARA SOLICITUDES
+// ======================================================================
+class EventBus {
+    constructor() {
+        this.listeners = new Map();
+        this.requestListeners = new Map();
+    }
+    on(event, cb) {
+        if (!this.listeners.has(event)) this.listeners.set(event, new Set());
+        this.listeners.get(event).add(cb);
+        return () => this.listeners.get(event)?.delete(cb);
+    }
+    onRequest(event, cb) {
+        if (!this.requestListeners.has(event)) this.requestListeners.set(event, new Set());
+        this.requestListeners.get(event).add(cb);
+        return () => this.requestListeners.get(event)?.delete(cb);
+    }
+    emit(event, data) {
+        const cbs = this.listeners.get(event);
+        if (cbs) cbs.forEach(cb => cb(data));
+    }
+    request(event, data) {
+        const cbs = this.requestListeners.get(event);
+        if (cbs) {
+            for (const cb of cbs) {
+                const result = cb(data);
+                if (result !== undefined) return result;
+            }
+        }
+        return undefined;
+    }
+}
+const bus = new EventBus();
+
+// ======================================================================
+// 2. CONFIGURACIÓN
+// ======================================================================
+const CONFIG = {
+    gridSize: 16,
+    cellSize: 40,
+    tickInterval: 1500,
+    regenerationTurns: 5,
+    expansionTurns: 8,
+    treeGrowthTurns: 4,
+    maxTreeCount: 8,
+    aserraderoRange: 3,
+    viveroRange: 2,
+};
+
+// ======================================================================
+// 3. DEFINICIONES (con tamaño variable)
+// ======================================================================
+const RECURSOS_DEF = {
+    arbol: { id: 'arbol', label: 'Árbol', recurso: 'madera', nivelMin: 1, nivelPen: 0, regenera: true, expande: true, color: '#2e7d32' },
+    roca: { id: 'roca', label: 'Roca', recurso: 'piedra', nivelMin: 2, nivelPen: 1, regenera: false, expande: false, color: '#9e9e9e' },
+    metal: { id: 'metal', label: 'Mineral', recurso: 'cobre', nivelMin: 3, nivelPen: 2, regenera: false, expande: false, color: '#b8860b' },
+};
+
+const ESTRUCTURAS_DEF = {
+    cabaña: { label: 'Cabaña', hp: 100, material: 'madera', consumo: { madera: 2 }, produccion: { comida: 3 }, nivelMax: 3, coste: { madera: 10, piedra: 5 }, tamaño: 1, color: '#3a4a5a' },
+    aserradero: { label: 'Aserradero', hp: 120, material: 'madera', consumo: { madera: 2 }, produccion: { tablones: 4 }, nivelMax: 3, coste: { madera: 15, piedra: 5 }, tamaño: 1, necesitaBosque: true, rango: CONFIG.aserraderoRange, color: '#8a6a3a' },
+    vivero: { label: 'Vivero', hp: 80, material: 'madera', consumo: {}, produccion: {}, nivelMax: 1, coste: { madera: 10, piedra: 3 }, tamaño: 1, plantaArboles: true, rango: CONFIG.viveroRange, color: '#4a8a3a' },
+    granja: { label: 'Granja', hp: 100, material: 'madera', consumo: { comida: 1 }, produccion: { comida: 5 }, nivelMax: 3, coste: { madera: 20, piedra: 10 }, tamaño: 2, color: '#d4a017' },
+    cuartel: { label: 'Cuartel', hp: 150, material: 'piedra', consumo: { comida: 2 }, produccion: { defensa: 1 }, nivelMax: 3, coste: { madera: 25, piedra: 20 }, tamaño: 2, color: '#8b0000' },
+    torre: { label: 'Torre', hp: 120, material: 'piedra', consumo: {}, produccion: { ataque: 1 }, nivelMax: 3, coste: { piedra: 15, madera: 5 }, tamaño: 1, color: '#b8860b' },
+    mina: { label: 'Mina', hp: 150, material: 'piedra', consumo: { piedra: 1 }, produccion: { cobre: 1, hierro: 0.5 }, nivelMax: 3, coste: { piedra: 15, madera: 5 }, tamaño: 1, color: '#8a7a6a' },
+    fundicion: { label: 'Fundición', hp: 200, material: 'metal', consumo: { cobre: 2, hierro: 1 }, produccion: { acero: 1 }, nivelMax: 3, coste: { piedra: 10, acero: 5 }, tamaño: 1, color: '#b05040' },
+    camino: { label: 'Camino', hp: 50, material: 'piedra', consumo: {}, produccion: {}, nivelMax: 1, coste: { piedra: 2 }, tamaño: 1, esCamino: true, color: '#8a7a6a' },
+};
+
+const HERRAMIENTAS_DEF = {
+    madera: { nombre: 'Pico de madera', nivel: 1, durabilidadMax: 20, coste: { madera: 3 } },
+    piedra: { nombre: 'Pico de piedra', nivel: 2, durabilidadMax: 40, coste: { piedra: 3, madera: 1 } },
+    metal: { nombre: 'Pico de metal', nivel: 3, durabilidadMax: 60, coste: { cobre: 2, madera: 1 } },
+    acero: { nombre: 'Pico de acero', nivel: 4, durabilidadMax: 100, coste: { acero: 1, hierro: 1 } },
+};
+
+// ======================================================================
+// 4. SERVICIOS
+// ======================================================================
+
+class GridService {
+    constructor() {
+        this.size = CONFIG.gridSize;
+        this.celdas = [];
+        this.init();
+        bus.on('grid:regenerar', () => this.regenerarBosques());
+        bus.on('grid:expandir', () => this.expandirBosques());
+        bus.on('grid:plantar', ({x, y}) => this.plantarArbol(x, y));
+        bus.on('grid:limpiar', ({x, y}) => this.limpiarCelda(x, y));
+        bus.onRequest('grid:get', () => this.celdas);
+        bus.onRequest('grid:is_libre', ({x, y}) => this.isCeldaLibre(x, y));
+        bus.onRequest('grid:extraer_recurso', ({x, y, cantidad}) => this.extraerRecurso(x, y, cantidad));
+        bus.onRequest('grid:colocar_estructura', ({x, y, struct}) => this.colocarEstructura(x, y, struct));
+    }
+
+    init() {
+        this.celdas = [];
+        for (let y = 0; y < this.size; y++) {
+            this.celdas[y] = [];
+            for (let x = 0; x < this.size; x++) {
+                this.celdas[y][x] = { tipo: 'vacio', recurso: null, estructura: null, plantarContador: 0 };
+            }
+        }
+        // Sembrar bosques
+        const bosques = [[2,2,6], [5,8,5], [10,3,7], [13,10,4], [8,12,5]];
+        for (const [bx, by, cant] of bosques) {
+            if (bx < this.size && by < this.size) {
+                this.celdas[by][bx].tipo = 'recurso';
+                this.celdas[by][bx].recurso = { id: 'arbol', cantidad: Math.min(cant, CONFIG.maxTreeCount) };
+            }
+        }
+        // Rocas
+        for (let i = 0; i < 6; i++) {
+            const x = Math.floor(Math.random() * this.size);
+            const y = Math.floor(Math.random() * this.size);
+            if (this.celdas[y][x].tipo === 'vacio') {
+                this.celdas[y][x].tipo = 'recurso';
+                this.celdas[y][x].recurso = { id: 'roca', cantidad: 2 + Math.floor(Math.random() * 4) };
+            }
+        }
+        // Metal
+        for (let i = 0; i < 3; i++) {
+            const x = Math.floor(Math.random() * this.size);
+            const y = Math.floor(Math.random() * this.size);
+            if (this.celdas[y][x].tipo === 'vacio') {
+                this.celdas[y][x].tipo = 'recurso';
+                this.celdas[y][x].recurso = { id: 'metal', cantidad: 1 + Math.floor(Math.random() * 2) };
+            }
+        }
+        bus.emit('grid:actualizado');
+    }
+
+    getCelda(x, y) {
+        if (x < 0 || y < 0 || x >= this.size || y >= this.size) return null;
+        return this.celdas[y][x];
+    }
+
+    isCeldaLibre(x, y) {
+        const c = this.getCelda(x, y);
+        if (!c) return false;
+        return c.tipo === 'vacio' || (c.tipo === 'recurso' && c.recurso && c.recurso.cantidad <= 0);
+    }
+
+    limpiarCelda(x, y) {
+        const c = this.getCelda(x, y);
+        if (!c) return false;
+        if (c.tipo === 'estructura') bus.emit('estructura:eliminar', { x, y });
+        c.tipo = 'vacio';
+        c.recurso = null;
+        c.estructura = null;
+        c.plantarContador = 0;
+        bus.emit('grid:actualizado');
+        return true;
+    }
+
+    colocarEstructura(x, y, struct) {
+        const c = this.getCelda(x, y);
+        if (!c || !this.isCeldaLibre(x, y)) return false;
+        c.tipo = 'estructura';
+        c.estructura = struct;
+        bus.emit('grid:actualizado');
+        return true;
+    }
+
+    extraerRecurso(x, y, cantidad) {
+        const c = this.getCelda(x, y);
+        if (!c || c.tipo !== 'recurso' || !c.recurso) return null;
+        const extraido = Math.min(c.recurso.cantidad, cantidad);
+        c.recurso.cantidad -= extraido;
+        if (c.recurso.cantidad <= 0) {
+            c.tipo = 'vacio';
+            c.recurso = null;
+            c.plantarContador = 0;
+        }
+        bus.emit('grid:actualizado');
+        return { id: c.recurso ? c.recurso.id : 'vacio', cantidad: extraido };
+    }
+
+    plantarArbol(x, y) {
+        const c = this.getCelda(x, y);
+        if (!c || c.tipo !== 'vacio') return false;
+        c.tipo = 'recurso';
+        c.recurso = { id: 'arbol', cantidad: 0 };
+        c.plantarContador = CONFIG.treeGrowthTurns;
+        bus.emit('grid:actualizado');
+        return true;
+    }
+
+    regenerarBosques() {
+        const newTrees = [];
+        for (let y = 0; y < this.size; y++) {
+            for (let x = 0; x < this.size; x++) {
+                const c = this.celdas[y][x];
+                if (c.tipo === 'vacio' && Math.random() < 0.2) {
+                    let hasForest = false;
+                    for (let dy = -1; dy <= 1; dy++) {
+                        for (let dx = -1; dx <= 1; dx++) {
+                            if (dx === 0 && dy === 0) continue;
+                            const nx = x + dx, ny = y + dy;
+                            const n = this.getCelda(nx, ny);
+                            if (n && n.tipo === 'recurso' && n.recurso && n.recurso.id === 'arbol' && n.recurso.cantidad > 0) {
+                                hasForest = true;
+                                break;
+                            }
+                        }
+                        if (hasForest) break;
+                    }
+                    if (hasForest) {
+                        newTrees.push({ x, y });
+                    }
+                }
+            }
+        }
+        for (const t of newTrees) {
+            const c = this.celdas[t.y][t.x];
+            if (c.tipo === 'vacio') {
+                c.tipo = 'recurso';
+                c.recurso = { id: 'arbol', cantidad: 1 };
+            }
+        }
+        if (newTrees.length) bus.emit('grid:actualizado');
+    }
+
+    expandirBosques() {
+        const expansions = [];
+        for (let y = 0; y < this.size; y++) {
+            for (let x = 0; x < this.size; x++) {
+                const c = this.celdas[y][x];
+                if (c.tipo === 'recurso' && c.recurso && c.recurso.id === 'arbol' && c.recurso.cantidad >= 4 && Math.random() < 0.3) {
+                    const dirs = [[0,-1],[1,0],[0,1],[-1,0]];
+                    for (const [dx, dy] of dirs) {
+                        const nx = x + dx, ny = y + dy;
+                        const n = this.getCelda(nx, ny);
+                        if (n && n.tipo === 'vacio') {
+                            expansions.push({ x: nx, y: ny });
+                            break;
+                        }
+                    }
+                }
+            }
+        }
+        for (const e of expansions) {
+            const c = this.celdas[e.y][e.x];
+            if (c.tipo === 'vacio') {
+                c.tipo = 'recurso';
+                c.recurso = { id: 'arbol', cantidad: 1 };
+            }
+        }
+        if (expansions.length) bus.emit('grid:actualizado');
+    }
+
+    updatePlantedTrees() {
+        for (let y = 0; y < this.size; y++) {
+            for (let x = 0; x < this.size; x++) {
+                const c = this.celdas[y][x];
+                if (c.tipo === 'recurso' && c.recurso && c.recurso.id === 'arbol' && c.recurso.cantidad === 0 && c.plantarContador > 0) {
+                    c.plantarContador--;
+                    if (c.plantarContador === 0) {
+                        c.recurso.cantidad = 1;
+                        bus.emit('grid:actualizado');
+                    }
+                }
+            }
+        }
+    }
+}
+
+class ResourceService {
+    constructor() {
+        this.recursos = { madera: 10, piedra: 5, cobre: 0, hierro: 0, acero: 0, comida: 5, tablones: 0, defensa: 0, ataque: 0 };
+        bus.on('recurso:extraer', ({ recursoId, cantidad }) => this.añadir(recursoId, cantidad));
+        bus.on('recurso:consumir', ({ recursoId, cantidad }) => this.consumir(recursoId, cantidad));
+        bus.onRequest('recurso:consultar', ({ recursoId, cantidad }) => this.tiene(recursoId, cantidad));
+    }
+
+    añadir(id, cantidad) {
+        if (this.recursos.hasOwnProperty(id)) {
+            this.recursos[id] += cantidad;
+            bus.emit('recursos:actualizado', this.recursos);
+            return true;
+        }
+        return false;
+    }
+
+    consumir(id, cantidad) {
+        if (!this.recursos.hasOwnProperty(id)) return false;
+        if (this.recursos[id] < cantidad) return false;
+        this.recursos[id] -= cantidad;
+        bus.emit('recursos:actualizado', this.recursos);
+        return true;
+    }
+
+    tiene(id, cantidad) {
+        return (this.recursos[id] || 0) >= cantidad;
+    }
+
+    getTodos() { return { ...this.recursos }; }
+}
+
+class ToolService {
+    constructor() {
+        this.herramientas = [];
+        this.selected = 0;
+        this.fabricar('madera', true);
+        bus.on('herramienta:fabricar', ({ tipo }) => this.fabricar(tipo));
+        bus.on('herramienta:reparar', () => this.repararActiva());
+        bus.on('extraer:manual', ({ x, y }) => this.extraer(x, y));
+    }
+
+    fabricar(tipo, gratis = false) {
+        const def = HERRAMIENTAS_DEF[tipo];
+        if (!def) return false;
+        if (!gratis) {
+            for (const [res, cant] of Object.entries(def.coste)) {
+                if (!bus.request('recurso:consultar', { recursoId: res, cantidad: cant })) return false;
+            }
+            for (const [res, cant] of Object.entries(def.coste)) {
+                bus.emit('recurso:consumir', { recursoId: res, cantidad: cant });
+            }
+        }
+        const h = {
+            id: def.nombre,
+            nombre: def.nombre,
+            nivel: def.nivel,
+            durabilidad: def.durabilidadMax,
+            durabilidadMax: def.durabilidadMax,
+            tipo: tipo
+        };
+        this.herramientas.push(h);
+        this.selected = this.herramientas.length - 1;
+        bus.emit('herramientas:actualizado', this.herramientas);
+        bus.emit('log:add', { msg: `✅ Fabricado ${def.nombre}`, type: 'success' });
+        return true;
+    }
+
+    repararActiva() {
+        const h = this.getActiva();
+        if (!h) return false;
+        if (h.durabilidad >= h.durabilidadMax) { bus.emit('log:add', { msg: '⚠️ Ya está al máximo', type: 'info' }); return false; }
+        const coste = { madera: 2, piedra: 1 };
+        for (const [res, cant] of Object.entries(coste)) {
+            if (!bus.request('recurso:consultar', { recursoId: res, cantidad: cant })) return false;
+        }
+        for (const [res, cant] of Object.entries(coste)) {
+            bus.emit('recurso:consumir', { recursoId: res, cantidad: cant });
+        }
+        h.durabilidad = Math.min(h.durabilidadMax, h.durabilidad + 15);
+        bus.emit('herramientas:actualizado', this.herramientas);
+        bus.emit('log:add', { msg: `🔧 Reparado ${h.nombre}`, type: 'success' });
+        return true;
+    }
+
+    getActiva() {
+        if (this.herramientas.length === 0) return null;
+        return this.herramientas[this.selected] || null;
+    }
+
+    seleccionar(index) {
+        if (index < 0 || index >= this.herramientas.length) return false;
+        this.selected = index;
+        bus.emit('herramientas:actualizado', this.herramientas);
+        return true;
+    }
+
+    extraer(x, y) {
+        const grid = bus.request('grid:get');
+        if (!grid) { bus.emit('log:add', { msg: '❌ Grid no disponible', type: 'error' }); return false; }
+        const celda = grid[y]?.[x];
+        if (!celda || celda.tipo !== 'recurso' || !celda.recurso || celda.recurso.cantidad <= 0) {
+            bus.emit('log:add', { msg: '⚠️ No hay recurso aquí', type: 'info' });
+            return false;
+        }
+        const h = this.getActiva();
+        if (!h) { bus.emit('log:add', { msg: '❌ No tienes herramienta', type: 'error' }); return false; }
+        if (h.durabilidad <= 0) { bus.emit('log:add', { msg: '❌ Herramienta rota', type: 'error' }); return false; }
+        const def = RECURSOS_DEF[celda.recurso.id];
+        if (!def) return false;
+        if (h.nivel < def.nivelMin) { bus.emit('log:add', { msg: `❌ ${h.nombre} no puede extraer ${def.label}`, type: 'error' }); return false; }
+        let penalizacion = false;
+        if (h.nivel < def.nivelMin) penalizacion = true;
+        let cantidad = 1 + Math.floor(Math.random() * 2);
+        if (penalizacion) { cantidad = Math.max(1, Math.floor(cantidad / 2)); h.durabilidad -= 2; }
+        else h.durabilidad -= 1;
+        const extraido = bus.request('grid:extraer_recurso', { x, y, cantidad });
+        if (!extraido) return false;
+        bus.emit('recurso:extraer', { recursoId: def.recurso, cantidad: extraido.cantidad });
+        if (h.durabilidad <= 0) {
+            bus.emit('log:add', { msg: `💥 ${h.nombre} se ha roto`, type: 'error' });
+            const idx = this.herramientas.indexOf(h);
+            if (idx !== -1) { this.herramientas.splice(idx, 1); if (this.selected >= this.herramientas.length) this.selected = Math.max(0, this.herramientas.length - 1); }
+            bus.emit('herramientas:actualizado', this.herramientas);
+        } else {
+            bus.emit('herramientas:actualizado', this.herramientas);
+        }
+        bus.emit('log:add', { msg: `⛏️ Extraído ${extraido.cantidad} ${def.label}${penalizacion ? ' (penalización)' : ''}`, type: 'info' });
+        return true;
+    }
+}
+
+class StructureService {
+    constructor() {
+        this.structures = [];
+        this.modoConstruccion = null; // { tipo, x, y, valido }
+        bus.on('estructura:construir', ({ tipo, x, y }) => this.construir(tipo, x, y));
+        bus.on('estructura:eliminar', ({ x, y }) => this.eliminar(x, y));
+        bus.on('estructura:reparar_todas', () => this.repararTodas());
+        bus.on('estructura:simular', () => this.simular());
+        bus.on('estructura:activar_construccion', ({ tipo }) => this.activarConstruccion(tipo));
+        bus.on('estructura:cancelar_construccion', () => this.cancelarConstruccion());
+        bus.onRequest('estructura:get_modo', () => this.modoConstruccion);
+        bus.onRequest('estructura:validar_ubicacion', ({ tipo, x, y }) => this.validarUbicacion(tipo, x, y));
+    }
+
+    activarConstruccion(tipo) {
+        this.modoConstruccion = { tipo, x: 0, y: 0, valido: false };
+        bus.emit('log:add', { msg: `🏗️ Modo construcción: ${ESTRUCTURAS_DEF[tipo].label}`, type: 'info' });
+        bus.emit('estructura:modo_cambiado', this.modoConstruccion);
+    }
+
+    cancelarConstruccion() {
+        this.modoConstruccion = null;
+        bus.emit('log:add', { msg: '❌ Construcción cancelada', type: 'info' });
+        bus.emit('estructura:modo_cambiado', null);
+    }
+
+    validarUbicacion(tipo, x, y) {
+        const def = ESTRUCTURAS_DEF[tipo];
+        if (!def) return { valido: false, razon: 'Tipo desconocido' };
+        const grid = bus.request('grid:get');
+        if (!grid) return { valido: false, razon: 'Grid no disponible' };
+        const tamaño = def.tamaño || 1;
+        // Verificar recursos
+        for (const [res, cant] of Object.entries(def.coste)) {
+            if (!bus.request('recurso:consultar', { recursoId: res, cantidad: cant })) {
+                return { valido: false, razon: `Falta ${res}` };
+            }
+        }
+        // Verificar que todas las celdas están libres
+        for (let dy = 0; dy < tamaño; dy++) {
+            for (let dx = 0; dx < tamaño; dx++) {
+                const nx = x + dx, ny = y + dy;
+                if (nx < 0 || ny < 0 || nx >= grid.length || ny >= grid.length) {
+                    return { valido: false, razon: 'Fuera del mapa' };
+                }
+                if (!bus.request('grid:is_libre', { x: nx, y: ny })) {
+                    return { valido: false, razon: `Celda (${nx},${ny}) ocupada` };
+                }
+            }
+        }
+        // Verificar bosque si necesita
+        if (def.necesitaBosque && !this._hayBosqueCerca(x, y, def.rango, tamaño)) {
+            return { valido: false, razon: 'Necesita bosque cerca' };
+        }
+        return { valido: true };
+    }
+
+    _hayBosqueCerca(x, y, rango, tamaño) {
+        const grid = bus.request('grid:get');
+        if (!grid) return false;
+        for (let dy = -rango; dy < rango + tamaño; dy++) {
+            for (let dx = -rango; dx < rango + tamaño; dx++) {
+                const nx = x + dx, ny = y + dy;
+                if (nx < 0 || ny < 0 || nx >= grid.length || ny >= grid.length) continue;
+                const c = grid[ny][nx];
+                if (c.tipo === 'recurso' && c.recurso && c.recurso.id === 'arbol' && c.recurso.cantidad > 0) return true;
+            }
+        }
+        return false;
+    }
+
+    construir(tipo, x, y) {
+        const def = ESTRUCTURAS_DEF[tipo];
+        if (!def) return false;
+        const validacion = this.validarUbicacion(tipo, x, y);
+        if (!validacion.valido) {
+            bus.emit('log:add', { msg: `❌ No se puede construir: ${validacion.razon}`, type: 'error' });
+            return false;
+        }
+        // Consumir recursos
+        for (const [res, cant] of Object.entries(def.coste)) {
+            bus.emit('recurso:consumir', { recursoId: res, cantidad: cant });
+        }
+        const tamaño = def.tamaño || 1;
+        const struct = {
+            id: tipo,
+            label: def.label,
+            hp: def.hp,
+            hpMax: def.hp,
+            level: 1,
+            material: def.material,
+            consumo: { ...def.consumo },
+            produccion: { ...def.produccion },
+            esCamino: def.esCamino || false,
+            necesitaBosque: def.necesitaBosque || false,
+            plantaArboles: def.plantaArboles || false,
+            rango: def.rango || 0,
+            x, y,
+            tamaño: tamaño,
+            efficiency: 1.0,
+            turnosSinRecursos: 0,
+            color: def.color || '#3a4a5a',
+            celdasOcupadas: []
+        };
+        // Ocupar celdas
+        for (let dy = 0; dy < tamaño; dy++) {
+            for (let dx = 0; dx < tamaño; dx++) {
+                const nx = x + dx, ny = y + dy;
+                bus.request('grid:colocar_estructura', { x: nx, y: ny, struct });
+                struct.celdasOcupadas.push({ x: nx, y: ny });
+            }
+        }
+        this.structures.push(struct);
+        this._actualizarEficiencias();
+        bus.emit('log:add', { msg: `✅ ${def.label} construida en (${x},${y})`, type: 'success' });
+        bus.emit('estructuras:actualizado', this.structures);
+        bus.emit('estructura:modo_cambiado', null);
+        return true;
+    }
+
+    eliminar(x, y) {
+        const idx = this.structures.findIndex(s => s.x === x && s.y === y);
+        if (idx === -1) return false;
+        const struct = this.structures[idx];
+        // Limpiar celdas ocupadas
+        for (const celda of struct.celdasOcupadas) {
+            bus.emit('grid:limpiar', celda);
+        }
+        this.structures.splice(idx, 1);
+        bus.emit('estructuras:actualizado', this.structures);
+        return true;
+    }
+
+    repararTodas() {
+        for (const s of this.structures) s.hp = s.hpMax;
+        bus.emit('log:add', { msg: '🔧 Estructuras reparadas', type: 'info' });
+        bus.emit('estructuras:actualizado', this.structures);
+    }
+
+    _actualizarEficiencias() {
+        const grid = bus.request('grid:get');
+        if (!grid) return;
+        for (const s of this.structures) {
+            if (s.esCamino) continue;
+            let hasPath = false;
+            for (let dy = -2; dy <= 2; dy++) {
+                for (let dx = -2; dx <= 2; dx++) {
+                    if (dx === 0 && dy === 0) continue;
+                    const nx = s.x + dx, ny = s.y + dy;
+                    if (nx < 0 || ny < 0 || nx >= grid.length || ny >= grid.length) continue;
+                    const c = grid[ny][nx];
+                    if (c.tipo === 'estructura' && c.estructura && c.estructura.esCamino) { hasPath = true; break; }
+                }
+                if (hasPath) break;
+            }
+            s.efficiency = hasPath ? 1.3 : 1.0;
+        }
+    }
+
+    simular() {
+        const grid = bus.request('grid:get');
+        if (!grid) return;
+        for (const s of this.structures) {
+            if (s.esCamino) continue;
+            let puedeProducir = true;
+            for (const [res, cant] of Object.entries(s.consumo)) {
+                const needed = cant * s.efficiency;
+                if (!bus.request('recurso:consultar', { recursoId: res, cantidad: needed })) { puedeProducir = false; break; }
+            }
+            if (puedeProducir) {
+                for (const [res, cant] of Object.entries(s.consumo)) {
+                    const needed = cant * s.efficiency;
+                    bus.emit('recurso:consumir', { recursoId: res, cantidad: needed });
+                }
+                for (const [res, cant] of Object.entries(s.produccion)) {
+                    const produced = cant * s.efficiency * s.level * 0.8;
+                    bus.emit('recurso:extraer', { recursoId: res, cantidad: produced });
+                }
+                if (s.level < ESTRUCTURAS_DEF[s.id].nivelMax) s.level += 0.02;
+                s.turnosSinRecursos = 0;
+            } else {
+                s.turnosSinRecursos++;
+                if (s.turnosSinRecursos > 3) {
+                    bus.emit('log:add', { msg: `⚠️ ${s.label} sin recursos ${s.turnosSinRecursos} turnos`, type: 'warn' });
+                }
+            }
+            // Aserradero: consume bosque
+            if (s.necesitaBosque) {
+                const bosque = this._obtenerBosqueCercano(s.x, s.y, s.rango);
+                if (bosque && bosque.cantidad > 0) {
+                    if (Math.floor(Date.now() / 2000) % 2 === 0) {
+                        const c = grid[bosque.y]?.[bosque.x];
+                        if (c && c.tipo === 'recurso' && c.recurso && c.recurso.id === 'arbol') {
+                            c.recurso.cantidad = Math.max(0, c.recurso.cantidad - 0.5);
+                            if (c.recurso.cantidad <= 0) {
+                                c.tipo = 'vacio';
+                                c.recurso = null;
+                                bus.emit('log:add', { msg: `🌲 Bosque agotado en (${bosque.x},${bosque.y})`, type: 'warn' });
+                            }
+                            bus.emit('grid:actualizado');
+                        }
+                    }
+                } else {
+                    bus.emit('log:add', { msg: `⚠️ Aserradero (${s.x},${s.y}) sin bosque cercano`, type: 'warn' });
+                }
+            }
+            // Vivero: plantar árboles
+            if (s.plantaArboles) {
+                for (let dy = -s.rango; dy <= s.rango; dy++) {
+                    for (let dx = -s.rango; dx <= s.rango; dx++) {
+                        if (dx === 0 && dy === 0) continue;
+                        const nx = s.x + dx, ny = s.y + dy;
+                        if (nx < 0 || ny < 0 || nx >= grid.length || ny >= grid.length) continue;
+                        const c = grid[ny][nx];
+                        if (c.tipo === 'vacio' && Math.random() < 0.1) {
+                            bus.emit('grid:plantar', { x: nx, y: ny });
+                            bus.emit('log:add', { msg: `🌱 Vivero plantó árbol en (${nx},${ny})`, type: 'info' });
+                            break;
+                        }
+                    }
+                }
+            }
+        }
+        this._actualizarEficiencias();
+        bus.emit('estructuras:actualizado', this.structures);
+    }
+
+    _obtenerBosqueCercano(x, y, rango) {
+        const grid = bus.request('grid:get');
+        if (!grid) return null;
+        let best = null, bestDist = Infinity;
+        for (let dy = -rango; dy <= rango; dy++) {
+            for (let dx = -rango; dx <= rango; dx++) {
+                if (dx === 0 && dy === 0) continue;
+                const nx = x + dx, ny = y + dy;
+                if (nx < 0 || ny < 0 || nx >= grid.length || ny >= grid.length) continue;
+                const c = grid[ny][nx];
+                if (c.tipo === 'recurso' && c.recurso && c.recurso.id === 'arbol' && c.recurso.cantidad > 0) {
+                    const d = Math.abs(dx) + Math.abs(dy);
+                    if (d < bestDist) { bestDist = d; best = { x: nx, y: ny, cantidad: c.recurso.cantidad }; }
+                }
+            }
+        }
+        return best;
+    }
+}
+
+class SimulationService {
+    constructor() {
+        this.turno = 0;
+        this.auto = false;
+        this.interval = null;
+        bus.on('sim:step', () => this.step());
+        bus.on('sim:toggle', () => this.toggle());
+    }
+
+    step() {
+        this.turno++;
+        if (this.turno % CONFIG.regenerationTurns === 0) bus.emit('grid:regenerar');
+        if (this.turno % CONFIG.expansionTurns === 0) bus.emit('grid:expandir');
+        const grid = bus.request('grid:get');
+        if (grid) {
+            for (let y = 0; y < grid.length; y++) {
+                for (let x = 0; x < grid.length; x++) {
+                    const c = grid[y][x];
+                    if (c.tipo === 'recurso' && c.recurso && c.recurso.id === 'arbol' && c.recurso.cantidad === 0 && c.plantarContador > 0) {
+                        c.plantarContador--;
+                        if (c.plantarContador === 0) {
+                            c.recurso.cantidad = 1;
+                            bus.emit('grid:actualizado');
+                        }
+                    }
+                }
+            }
+        }
+        bus.emit('estructura:simular');
+        bus.emit('log:add', { msg: `⏳ Paso ${this.turno} completado`, type: 'info' });
+    }
+
+    toggle() {
+        this.auto = !this.auto;
+        if (this.auto) {
+            this.interval = setInterval(() => this.step(), CONFIG.tickInterval);
+            bus.emit('log:add', { msg: '▶️ Auto-simulación activada', type: 'info' });
+        } else {
+            clearInterval(this.interval);
+            this.interval = null;
+            bus.emit('log:add', { msg: '⏹️ Auto-simulación desactivada', type: 'info' });
+        }
+    }
+}
+
+// ======================================================================
+// 5. UI (RENDERIZADOR) CON SOMBRA DE CONSTRUCCIÓN
+// ======================================================================
+class UIService {
+    constructor(canvasId) {
+        this.canvas = document.getElementById(canvasId);
+        this.ctx = this.canvas.getContext('2d');
+        this.cellSize = CONFIG.cellSize;
+        this.gridSize = CONFIG.gridSize;
+        this.selectedCell = null;
+        this.modoConstruccion = null; // { tipo, x, y, valido }
+        this.setupEvents();
+        bus.on('grid:actualizado', () => this.render());
+        bus.on('recursos:actualizado', () => this.updateInfo());
+        bus.on('herramientas:actualizado', () => this.updateInfo());
+        bus.on('estructuras:actualizado', () => this.updateInfo());
+        bus.on('log:add', (data) => this.addLog(data.msg, data.type));
+        bus.on('estructura:modo_cambiado', (modo) => {
+            this.modoConstruccion = modo;
+            this.render();
+            this.actualizarBotonesConstruccion();
+        });
+        this.render();
+        this.updateInfo();
+        this.actualizarBotonesConstruccion();
+        // Exponer funciones globales
+        window.fabricarPico = (tipo) => bus.emit('herramienta:fabricar', { tipo });
+        window.repararHerramientaActiva = () => bus.emit('herramienta:reparar');
+        window.activarConstruccion = (tipo) => bus.emit('estructura:activar_construccion', { tipo });
+        window.cancelarConstruccion = () => bus.emit('estructura:cancelar_construccion');
+        window.plantarArbol = () => {
+            if (this.selectedCell) {
+                const { x, y } = this.selectedCell;
+                const grid = bus.request('grid:get');
+                if (!grid) return;
+                const c = grid[y]?.[x];
+                if (c && c.tipo === 'vacio') {
+                    if (bus.request('recurso:consultar', { recursoId: 'madera', cantidad: 1 })) {
+                        bus.emit('recurso:consumir', { recursoId: 'madera', cantidad: 1 });
+                        bus.emit('grid:plantar', { x, y });
+                        bus.emit('log:add', { msg: `🌱 Plantado árbol en (${x},${y})`, type: 'success' });
+                    } else {
+                        bus.emit('log:add', { msg: '❌ No tienes madera para plantar', type: 'error' });
+                    }
+                } else {
+                    bus.emit('log:add', { msg: '⚠️ Selecciona una celda vacía', type: 'info' });
+                }
+            } else {
+                bus.emit('log:add', { msg: '⚠️ Haz clic en una celda vacía primero', type: 'info' });
+            }
+        };
+        window.limpiarCelda = () => {
+            if (this.selectedCell) {
+                bus.emit('grid:limpiar', this.selectedCell);
+                bus.emit('log:add', { msg: `🧹 Limpiada celda (${this.selectedCell.x},${this.selectedCell.y})`, type: 'info' });
+            }
+        };
+        window.repararTodas = () => bus.emit('estructura:reparar_todas');
+        window.simulateStep = () => bus.emit('sim:step');
+        window.toggleAutoSim = () => bus.emit('sim:toggle');
+    }
+
+    setupEvents() {
+        this.canvas.addEventListener('mousemove', (e) => {
+            const rect = this.canvas.getBoundingClientRect();
+            const scaleX = this.canvas.width / rect.width;
+            const scaleY = this.canvas.height / rect.height;
+            const x = Math.floor((e.clientX - rect.left) * scaleX / this.cellSize);
+            const y = Math.floor((e.clientY - rect.top) * scaleY / this.cellSize);
+            if (x < 0 || y < 0 || x >= this.gridSize || y >= this.gridSize) return;
+            this.mousePos = { x, y };
+            // Si estamos en modo construcción, actualizar validación
+            if (this.modoConstruccion) {
+                const validacion = bus.request('estructura:validar_ubicacion', { tipo: this.modoConstruccion.tipo, x, y });
+                if (validacion) {
+                    this.modoConstruccion.x = x;
+                    this.modoConstruccion.y = y;
+                    this.modoConstruccion.valido = validacion.valido;
+                    this.modoConstruccion.razon = validacion.razon || '';
+                }
+                this.render();
+            }
+        });
+
+        this.canvas.addEventListener('click', (e) => {
+            const rect = this.canvas.getBoundingClientRect();
+            const scaleX = this.canvas.width / rect.width;
+            const scaleY = this.canvas.height / rect.height;
+            const x = Math.floor((e.clientX - rect.left) * scaleX / this.cellSize);
+            const y = Math.floor((e.clientY - rect.top) * scaleY / this.cellSize);
+            if (x < 0 || y < 0 || x >= this.gridSize || y >= this.gridSize) return;
+            this.selectedCell = { x, y };
+            // Si estamos en modo construcción, intentar construir
+            if (this.modoConstruccion && this.modoConstruccion.valido) {
+                bus.emit('estructura:construir', { tipo: this.modoConstruccion.tipo, x, y });
+                bus.emit('estructura:cancelar_construccion');
+                return;
+            }
+            // Si no, extraer recurso
+            bus.emit('extraer:manual', { x, y });
+            this.render();
+        });
+    }
+
+    render() {
+        const ctx = this.ctx;
+        const grid = bus.request('grid:get') || [];
+        const cell = this.cellSize;
+        ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+        // Dibujar grid base
+        for (let y = 0; y < this.gridSize; y++) {
+            for (let x = 0; x < this.gridSize; x++) {
+                const px = x * cell, py = y * cell;
+                const c = grid[y]?.[x];
+                if (!c) { ctx.fillStyle = '#1a1a2a'; ctx.fillRect(px, py, cell, cell); continue; }
+                if (c.tipo === 'estructura' && c.estructura) {
+                    const e = c.estructura;
+                    ctx.fillStyle = e.color || '#3a4a5a';
+                    ctx.fillRect(px, py, cell, cell);
+                    ctx.fillStyle = '#fff';
+                    ctx.font = '12px monospace';
+                    ctx.fillText(ESTRUCTURAS_DEF[e.id]?.label.charAt(0) || '?', px+5, py+15);
+                    const hpPct = e.hp / e.hpMax;
+                    ctx.fillStyle = '#222';
+                    ctx.fillRect(px, py+cell-4, cell, 3);
+                    ctx.fillStyle = hpPct > 0.5 ? '#4ade80' : '#ef4444';
+                    ctx.fillRect(px, py+cell-4, cell * hpPct, 3);
+                    if (e.level > 1) {
+                        ctx.fillStyle = '#ffd700';
+                        ctx.font = '10px monospace';
+                        ctx.fillText(`Lv${Math.floor(e.level)}`, px+20, py+12);
+                    }
+                } else if (c.tipo === 'recurso' && c.recurso) {
+                    const def = RECURSOS_DEF[c.recurso.id];
+                    ctx.fillStyle = def ? def.color : '#555';
+                    ctx.fillRect(px+4, py+4, cell-8, cell-8);
+                    ctx.fillStyle = '#fff';
+                    ctx.font = '10px monospace';
+                    ctx.fillText(c.recurso.cantidad.toFixed(0), px+10, py+20);
+                    if (c.plantarContador > 0) {
+                        ctx.fillStyle = '#ffaa00';
+                        ctx.font = '8px monospace';
+                        ctx.fillText(`⏳${c.plantarContador}`, px+24, py+12);
+                    }
+                } else {
+                    ctx.fillStyle = (x+y)%2===0 ? '#1a2a1a' : '#0a1a0a';
+                    ctx.fillRect(px, py, cell, cell);
+                }
+                ctx.strokeStyle = '#2a3a2a';
+                ctx.strokeRect(px, py, cell, cell);
+            }
+        }
+        // Dibujar sombra de construcción (si está activa)
+        if (this.modoConstruccion) {
+            const { tipo, x, y, valido, razon } = this.modoConstruccion;
+            const def = ESTRUCTURAS_DEF[tipo];
+            if (def) {
+                const tamaño = def.tamaño || 1;
+                const color = valido ? 'rgba(0,255,0,0.3)' : 'rgba(255,0,0,0.3)';
+                const borde = valido ? '#4ade80' : '#ef4444';
+                for (let dy = 0; dy < tamaño; dy++) {
+                    for (let dx = 0; dx < tamaño; dx++) {
+                        const px = (x + dx) * cell, py = (y + dy) * cell;
+                        ctx.fillStyle = color;
+                        ctx.fillRect(px, py, cell, cell);
+                        ctx.strokeStyle = borde;
+                        ctx.lineWidth = 2;
+                        ctx.strokeRect(px, py, cell, cell);
+                    }
+                }
+                if (!valido && razon) {
+                    ctx.fillStyle = '#ef4444';
+                    ctx.font = '12px monospace';
+                    ctx.fillText(razon, x * cell, y * cell - 10);
+                }
+            }
+        }
+        // Selección
+        if (this.selectedCell) {
+            const { x, y } = this.selectedCell;
+            ctx.strokeStyle = '#ffd700';
+            ctx.lineWidth = 2;
+            ctx.strokeRect(x * cell, y * cell, cell, cell);
+        }
+    }
+
+    actualizarBotonesConstruccion() {
+        document.querySelectorAll('#toolbar-construccion button').forEach(btn => {
+            const tipo = btn.textContent.trim().split(' ')[0];
+            if (tipo && ESTRUCTURAS_DEF[tipo]) {
+                btn.classList.toggle('active-construccion', this.modoConstruccion && this.modoConstruccion.tipo === tipo);
+            }
+        });
+    }
+
+    updateInfo() {
+        const recursos = bus.request('recursos:get') || {};
+        document.getElementById('recursosDisplay').innerHTML = `
+            🪵 Madera: ${recursos.madera?.toFixed(1)||0}
+            🪨 Piedra: ${recursos.piedra?.toFixed(1)||0}
+            🥉 Cobre: ${recursos.cobre?.toFixed(1)||0}
+            ⛓️ Hierro: ${recursos.hierro?.toFixed(1)||0}
+            ⚙️ Acero: ${recursos.acero?.toFixed(1)||0}
+            🍖 Comida: ${recursos.comida?.toFixed(1)||0}
+            📦 Tablones: ${recursos.tablones?.toFixed(1)||0}
+            🛡️ Defensa: ${recursos.defensa?.toFixed(1)||0}
+            ⚔️ Ataque: ${recursos.ataque?.toFixed(1)||0}
+        `;
+        const herramientas = bus.request('herramientas:get') || [];
+        let html = '';
+        if (herramientas.length === 0) html = '<span>Ninguna</span>';
+        else {
+            herramientas.forEach((h, i) => {
+                const sel = i === bus.request('herramienta:selected_get') ? ' selected' : '';
+                const roto = h.durabilidad <= 0 ? ' roto' : '';
+                html += `<span class="tool-item${sel}${roto}" onclick="window.seleccionarHerramienta(${i})">${h.nombre} (${h.durabilidad}/${h.durabilidadMax})</span>`;
+            });
+        }
+        document.getElementById('toolsDisplay').innerHTML = html;
+        const estructuras = bus.request('estructuras:get') || [];
+        const noCaminos = estructuras.filter(s => !s.esCamino);
+        document.getElementById('structuresDisplay').innerHTML = `
+            ${noCaminos.length} estructuras<br>
+            ${noCaminos.map(s => `${ESTRUCTURAS_DEF[s.id]?.label||s.id} (${s.x},${s.y})`).join('<br>') || 'Ninguna'}
+        `;
+    }
+
+    addLog(msg, type = 'info') {
+        const logDiv = document.getElementById('log');
+        const entry = document.createElement('div');
+        entry.textContent = msg;
+        if (type === 'error') entry.style.color = '#ef4444';
+        else if (type === 'success') entry.style.color = '#4ade80';
+        else if (type === 'warn') entry.style.color = '#facc15';
+        else entry.style.color = '#aaa';
+        logDiv.prepend(entry);
+        if (logDiv.children.length > 20) logDiv.removeChild(logDiv.lastChild);
+        const status = document.getElementById('statusMsg');
+        status.textContent = msg;
+        setTimeout(() => { if (status.textContent === msg) status.textContent = ''; }, 4000);
+    }
+}
+
+// ======================================================================
+// 6. INICIALIZACIÓN Y CONEXIONES
+// ======================================================================
+const gridService = new GridService();
+const resourceService = new ResourceService();
+const toolService = new ToolService();
+const structureService = new StructureService();
+const simulationService = new SimulationService();
+
+bus.onRequest('recursos:get', () => resourceService.getTodos());
+bus.onRequest('herramientas:get', () => toolService.herramientas);
+bus.onRequest('herramienta:selected_get', () => toolService.selected);
+bus.onRequest('estructuras:get', () => structureService.structures);
+bus.onRequest('estructura:get_modo', () => structureService.modoConstruccion);
+
+window.seleccionarHerramienta = (index) => toolService.seleccionar(index);
+
+const ui = new UIService('mapCanvas');
+
+// Estado inicial
+bus.emit('grid:actualizado');
+bus.emit('recursos:actualizado', resourceService.getTodos());
+bus.emit('herramientas:actualizado', toolService.herramientas);
+bus.emit('estructuras:actualizado', structureService.structures);
+bus.emit('log:add', { msg: '🌳 Simulación iniciada. Haz clic en una estructura para construir.', type: 'info' });
+bus.emit('log:add', { msg: '🌱 Planta árboles para mantener el bosque.', type: 'info' });
+bus.emit('log:add', { msg: '🪚 Construye un aserradero cerca del bosque para producir tablones.', type: 'info' });
+
+console.log('🏗️ Simulador de Construcción · Colocación con sombra iniciado.');
+</script>
+</body>
+</html>
