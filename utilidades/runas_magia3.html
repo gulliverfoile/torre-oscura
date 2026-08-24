@@ -1,0 +1,864 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Forja de Runas - Simulador de Hechizos</title>
+    <style>
+        :root {
+            --bg: #0d1117;
+            --panel: #161b22;
+            --border: #30363d;
+            --text: #c9d1d9;
+            --accent: #7c3aed;
+            --accent-hover: #6d28d9;
+            --rare: #fbbf24;
+            --legendary: #f472b6;
+            --common: #9ca3af;
+            --danger: #ef4444;
+            --success: #10b981;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            background-color: var(--bg);
+            color: var(--text);
+            font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+            line-height: 1.6;
+            padding: 2rem;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        h1 {
+            color: var(--accent);
+            text-align: center;
+            margin-bottom: 2rem;
+            font-size: 2.5rem;
+            letter-spacing: 2px;
+            text-shadow: 0 0 10px rgba(124, 58, 237, 0.5);
+        }
+
+        .container {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 2rem;
+            margin-bottom: 2rem;
+        }
+
+        @media (max-width: 768px) {
+            .container {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .panel {
+            background: var(--panel);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 1.5rem;
+            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.3);
+        }
+
+        .panel h2 {
+            color: var(--accent);
+            margin-bottom: 1.5rem;
+            font-size: 1.4rem;
+            border-bottom: 2px solid var(--border);
+            padding-bottom: 0.5rem;
+        }
+
+        .runa-row {
+            display: flex;
+            gap: 1rem;
+            margin-bottom: 1rem;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+
+        .runa-row select,
+        .runa-row input {
+            background: #0d1117;
+            color: var(--text);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            padding: 0.6rem 1rem;
+            font-size: 0.95rem;
+            outline: none;
+            transition: border-color 0.2s;
+        }
+
+        .runa-row select:focus,
+        .runa-row input:focus {
+            border-color: var(--accent);
+        }
+
+        .runa-row select {
+            min-width: 140px;
+            cursor: pointer;
+        }
+
+        .runa-row input[type="number"] {
+            width: 80px;
+        }
+
+        .btn {
+            background: var(--accent);
+            color: white;
+            border: none;
+            border-radius: 6px;
+            padding: 0.6rem 1.2rem;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: background 0.2s, transform 0.1s;
+            font-weight: 600;
+            letter-spacing: 0.5px;
+        }
+
+        .btn:hover {
+            background: var(--accent-hover);
+            transform: translateY(-2px);
+        }
+
+        .btn:active {
+            transform: translateY(0);
+        }
+
+        .btn-danger {
+            background: var(--danger);
+        }
+
+        .btn-danger:hover {
+            background: #dc2626;
+        }
+
+        .btn-success {
+            background: var(--success);
+        }
+
+        .btn-success:hover {
+            background: #059669;
+        }
+
+        .runa-lista {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.8rem;
+            margin: 1rem 0;
+        }
+
+        .runa-item {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            background: #0d1117;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            padding: 0.5rem 1rem;
+            font-size: 0.9rem;
+        }
+
+        .runa-item button {
+            background: none;
+            border: none;
+            color: var(--danger);
+            cursor: pointer;
+            font-size: 1.2rem;
+            line-height: 1;
+            padding: 0 0.3rem;
+        }
+
+        .tarjeta-hechizo {
+            background: linear-gradient(145deg, #1a1f2e, #0d1117);
+            border: 2px solid var(--border);
+            border-radius: 12px;
+            padding: 1.5rem;
+            margin-top: 1.5rem;
+            transition: all 0.3s;
+        }
+
+        .tarjeta-hechizo.rareza-legendario {
+            border-color: var(--legendary);
+            box-shadow: 0 0 20px rgba(244, 114, 182, 0.3);
+        }
+
+        .tarjeta-hechizo.rareza-raro {
+            border-color: var(--rare);
+            box-shadow: 0 0 15px rgba(251, 191, 36, 0.2);
+        }
+
+        .tarjeta-hechizo .nombre-hechizo {
+            font-size: 1.5rem;
+            font-weight: bold;
+            color: white;
+            margin-bottom: 0.5rem;
+        }
+
+        .tarjeta-hechizo .stats {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 0.8rem;
+            margin: 1rem 0;
+        }
+
+        .stat {
+            background: rgba(0, 0, 0, 0.3);
+            padding: 0.6rem;
+            border-radius: 6px;
+            text-align: center;
+        }
+
+        .stat .label {
+            font-size: 0.8rem;
+            color: #8b949e;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .stat .value {
+            font-size: 1.2rem;
+            font-weight: bold;
+            color: white;
+        }
+
+        .descripcion {
+            font-style: italic;
+            color: #8b949e;
+            margin: 1rem 0;
+        }
+
+        .acciones {
+            display: flex;
+            gap: 1rem;
+            margin-top: 1.5rem;
+            flex-wrap: wrap;
+        }
+
+        .libro-favs {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 2rem;
+        }
+
+        @media (max-width: 768px) {
+            .libro-favs {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .hechizo-listado {
+            display: flex;
+            flex-direction: column;
+            gap: 0.8rem;
+            margin-top: 1rem;
+        }
+
+        .hechizo-card-mini {
+            background: #0d1117;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            padding: 0.8rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .hechizo-card-mini .nombre {
+            font-weight: 600;
+            color: white;
+        }
+
+        .hechizo-card-mini .detalle {
+            font-size: 0.8rem;
+            color: #8b949e;
+        }
+
+        .casilla-contador {
+            text-align: right;
+            font-size: 0.9rem;
+            color: #8b949e;
+            margin-top: 0.5rem;
+        }
+
+        .sinergia {
+            color: var(--rare);
+            font-weight: bold;
+            margin-top: 0.5rem;
+        }
+    </style>
+</head>
+<body>
+    <h1>⚡ Forja de Runas ⚡</h1>
+
+    <div class="container">
+        <!-- Panel de Forja -->
+        <div class="panel">
+            <h2>🔮 Crear Hechizo</h2>
+            <div id="runas-seleccionadas" class="runa-lista">
+                <!-- Aquí se muestran las runas añadidas -->
+            </div>
+            <button id="btn-agregar-runa" class="btn">➕ Añadir Runa</button>
+            <div style="margin-top: 1rem;">
+                <button id="btn-forjar" class="btn">⚒️ Forjar Hechizo</button>
+            </div>
+            <div id="resultado-forja">
+                <!-- Aquí se inserta la tarjeta del hechizo -->
+            </div>
+        </div>
+
+        <!-- Panel de Resultado / Tarjeta -->
+        <div class="panel" style="display: none;" id="panel-tarjeta">
+            <h2>📜 Hechizo Forjado</h2>
+            <div id="tarjeta-contenido"></div>
+        </div>
+    </div>
+
+    <!-- Libro y Favoritos -->
+    <div class="libro-favs">
+        <div class="panel">
+            <h2>📖 Libro de Hechizos</h2>
+            <div id="libro-lista" class="hechizo-listado"></div>
+            <div class="casilla-contador" id="libro-contador">0 / 10</div>
+        </div>
+        <div class="panel">
+            <h2>⭐ Favoritos</h2>
+            <div id="favoritos-lista" class="hechizo-listado"></div>
+            <div class="casilla-contador" id="favoritos-contador">0 / 3</div>
+        </div>
+    </div>
+
+    <script>
+        // =====================================================
+        // MÓDULO: DOMINIO (Domain)
+        // Aquí reside la lógica pura: definiciones y forja.
+        // Sin dependencias del DOM, fácil de testear.
+        // =====================================================
+
+        const TiposRuna = Object.freeze({
+            NUCLEO: 'nucleo',
+            FORMA: 'forma',
+            PREFIJO: 'prefijo',
+            SUFIJO: 'sufijo'
+        });
+
+        const RunasDisponibles = [
+            { id: 'fuego', nombre: 'Fuego', tipo: TiposRuna.NUCLEO, descripcion: 'Quemadura (daño en el tiempo)', pesoBase: 50, factorDano: 1.0 },
+            { id: 'hielo', nombre: 'Hielo', tipo: TiposRuna.NUCLEO, descripcion: 'Ralentización (reduce velocidad)', pesoBase: 40, factorDano: 0.9 },
+            { id: 'rayo', nombre: 'Rayo', tipo: TiposRuna.NUCLEO, descripcion: 'Cadena (salta a enemigos cercanos)', pesoBase: 60, factorDano: 1.1 },
+            { id: 'sangre', nombre: 'Sangre', tipo: TiposRuna.NUCLEO, descripcion: 'Robo de vida (cura % del daño)', pesoBase: 70, factorDano: 1.2 },
+            { id: 'vacio', nombre: 'Vacío', tipo: TiposRuna.NUCLEO, descripcion: 'Glitch (efecto aleatorio/caótico)', pesoBase: 80, factorDano: 1.4 },
+
+            { id: 'proyectil', nombre: 'Proyectil', tipo: TiposRuna.FORMA, descripcion: 'Dispara un proyectil directo', pesoBase: 40, factorDano: 1.0, factorCosto: 1.0 },
+            { id: 'aura', nombre: 'Aura', tipo: TiposRuna.FORMA, descripcion: 'Crea un área persistente', pesoBase: 30, factorDano: 0.8, factorCosto: 0.9 },
+            { id: 'invocacion', nombre: 'Invocación', tipo: TiposRuna.FORMA, descripcion: 'Invoca una entidad aliada temporal', pesoBase: 50, factorDano: 0.9, factorCosto: 1.1 },
+
+            { id: 'dividir', nombre: 'Dividir', tipo: TiposRuna.PREFIJO, descripcion: 'Se divide en 3 proyectiles', pesoBase: 30, factorDano: 0.7, factorCosto: 0.1 },
+            { id: 'amplificar', nombre: 'Amplificar', tipo: TiposRuna.PREFIJO, descripcion: '+50% potencia', pesoBase: 40, factorDano: 1.5, factorCosto: 0.2 },
+            { id: 'fantasma', nombre: 'Fantasma', tipo: TiposRuna.PREFIJO, descripcion: 'Atraviesa enemigos', pesoBase: 20, factorDano: 1.0, factorCosto: 0.1 },
+
+            { id: 'persistente', nombre: 'Persistente', tipo: TiposRuna.SUFIJO, descripcion: '+100% duración/área', pesoBase: 25, factorDano: 1.0, factorCosto: 0.15, costeCordura: 0 },
+            { id: 'corrupto', nombre: 'Corrupto', tipo: TiposRuna.SUFIJO, descripcion: '+30% daño, cuesta cordura', pesoBase: 35, factorDano: 1.3, factorCosto: 0.0, costeCordura: 2 },
+            { id: 'puro', nombre: 'Puro', tipo: TiposRuna.SUFIJO, descripcion: 'Reduce coste de cordura en 1, -10% coste maná', pesoBase: 15, factorDano: 1.0, factorCosto: -0.1, costeCordura: -1 }
+        ];
+
+        class RunaSeleccionada {
+            constructor(definicion, peso) {
+                this.id = definicion.id;
+                this.nombre = definicion.nombre;
+                this.tipo = definicion.tipo;
+                this.descripcion = definicion.descripcion;
+                this.peso = peso;
+                this.factorDano = definicion.factorDano || 1.0;
+                this.factorCosto = definicion.factorCosto || 0.0;
+                this.costeCordura = definicion.costeCordura || 0;
+                this.efectos = definicion.efectos || [];
+            }
+        }
+
+        class MotorForja {
+            static forjar(runas) {
+                if (!runas || runas.length === 0) {
+                    throw new Error('Se necesitan al menos una runa para forjar un hechizo.');
+                }
+                if (runas.length > 4) {
+                    throw new Error('Máximo 4 runas permitidas.');
+                }
+
+                const sumaElementos = {};
+                const sumaFormas = {};
+                const sumaPrefijos = {};
+                const sumaSufijos = {};
+
+                let pesoTotal = 0;
+                let costeCorduraTotal = 0;
+                let efectosAdicionales = [];
+
+                for (const runa of runas) {
+                    pesoTotal += runa.peso;
+                    switch (runa.tipo) {
+                        case TiposRuna.NUCLEO:
+                            if (!sumaElementos[runa.id]) sumaElementos[runa.id] = 0;
+                            sumaElementos[runa.id] += runa.peso;
+                            break;
+                        case TiposRuna.FORMA:
+                            if (!sumaFormas[runa.id]) sumaFormas[runa.id] = 0;
+                            sumaFormas[runa.id] += runa.peso;
+                            break;
+                        case TiposRuna.PREFIJO:
+                            if (!sumaPrefijos[runa.id]) sumaPrefijos[runa.id] = 0;
+                            sumaPrefijos[runa.id] += runa.peso;
+                            break;
+                        case TiposRuna.SUFIJO:
+                            if (!sumaSufijos[runa.id]) sumaSufijos[runa.id] = 0;
+                            sumaSufijos[runa.id] += runa.peso;
+                            break;
+                    }
+                }
+
+                let elementoDominante = null;
+                let pesoElementoDominante = 0;
+                const elementosConPeso = Object.keys(sumaElementos).map(id => ({
+                    id,
+                    peso: sumaElementos[id]
+                })).sort((a, b) => b.peso - a.peso);
+
+                if (elementosConPeso.length > 0) {
+                    const lider = elementosConPeso[0];
+                    const empatados = elementosConPeso.filter(e => (lider.peso - e.peso) < lider.peso * 0.1);
+                    if (empatados.length > 1) {
+                        const elegido = empatados[Math.floor(Math.random() * empatados.length)];
+                        elementoDominante = elegido.id;
+                        pesoElementoDominante = elegido.peso;
+                    } else {
+                        elementoDominante = lider.id;
+                        pesoElementoDominante = lider.peso;
+                    }
+                }
+
+                let formaDominante = null;
+                let pesoFormaDominante = 0;
+                const formasConPeso = Object.keys(sumaFormas).map(id => ({
+                    id,
+                    peso: sumaFormas[id]
+                })).sort((a, b) => b.peso - a.peso);
+
+                if (formasConPeso.length > 0) {
+                    const liderForma = formasConPeso[0];
+                    const empatadosForma = formasConPeso.filter(f => (liderForma.peso - f.peso) < liderForma.peso * 0.1);
+                    if (empatadosForma.length > 1) {
+                        const elegido = empatadosForma[Math.floor(Math.random() * empatadosForma.length)];
+                        formaDominante = elegido.id;
+                        pesoFormaDominante = elegido.peso;
+                    } else {
+                        formaDominante = liderForma.id;
+                        pesoFormaDominante = liderForma.peso;
+                    }
+                }
+
+                const prefijosActivos = Object.keys(sumaPrefijos).sort();
+                const sufijosActivos = Object.keys(sumaSufijos).sort();
+
+                const nombreElemento = elementoDominante ? RunasDisponibles.find(r => r.id === elementoDominante)?.nombre || 'Elemento' : 'Elemento';
+                const nombreForma = formaDominante ? RunasDisponibles.find(r => r.id === formaDominante)?.nombre || 'Forma' : 'Forma';
+                const nombrePrefijo = prefijosActivos.length > 0 ? prefijosActivos.map(id => RunasDisponibles.find(r => r.id === id)?.nombre).join('-') : '';
+                const nombreSufijo = sufijosActivos.length > 0 ? sufijosActivos.map(id => RunasDisponibles.find(r => r.id === id)?.nombre).join('-') : '';
+
+                let nombreHechizo = `${nombrePrefijo} ${nombreElemento} ${nombreForma} ${nombreSufijo}`.trim().replace(/\s+/g, ' ');
+
+                let danoBase = 0;
+                if (elementoDominante) {
+                    const runaElemento = RunasDisponibles.find(r => r.id === elementoDominante);
+                    danoBase += pesoElementoDominante * (runaElemento?.factorDano || 1.0);
+                }
+                if (formaDominante) {
+                    const runaForma = RunasDisponibles.find(r => r.id === formaDominante);
+                    danoBase += pesoFormaDominante * (runaForma?.factorDano || 1.0);
+                }
+
+                let multiplicadorDano = 1.0;
+                let multiplicadorCosto = 1.0;
+                let costeCorduraExtra = 0;
+
+                for (const id of prefijosActivos) {
+                    const runaPrefijo = RunasDisponibles.find(r => r.id === id);
+                    if (runaPrefijo) {
+                        multiplicadorDano *= runaPrefijo.factorDano || 1.0;
+                        multiplicadorCosto += runaPrefijo.factorCosto || 0;
+                    }
+                }
+                for (const id of sufijosActivos) {
+                    const runaSufijo = RunasDisponibles.find(r => r.id === id);
+                    if (runaSufijo) {
+                        multiplicadorDano *= runaSufijo.factorDano || 1.0;
+                        multiplicadorCosto += runaSufijo.factorCosto || 0;
+                        costeCorduraExtra += runaSufijo.costeCordura || 0;
+                    }
+                }
+
+                const danoFinal = Math.round(danoBase * multiplicadorDano * 100) / 100;
+
+                let costeMana = Math.round((10 + danoFinal * 0.5 + pesoTotal * 0.2) * multiplicadorCosto * 100) / 100;
+
+                let costeCordura = costeCorduraExtra;
+                if (elementosConPeso.length > 1) {
+                    const totalElementos = elementosConPeso.reduce((sum, e) => sum + e.peso, 0);
+                    const elementosRelevantes = elementosConPeso.filter(e => (e.peso / totalElementos) > 0.2);
+                    if (elementosRelevantes.length > 1) {
+                        costeCordura += 1;
+                    }
+                }
+                if (costeCordura < 0) costeCordura = 0;
+
+                let rareza = 'común';
+                let puntosRareza = 0;
+                puntosRareza += pesoTotal / 20;
+                puntosRareza += runas.length * 2;
+                puntosRareza += prefijosActivos.length * 3;
+                puntosRareza += sufijosActivos.length * 3;
+                if (elementosConPeso.length > 1) puntosRareza += 5;
+                if (costeCordura > 0) puntosRareza += 3;
+
+                if (puntosRareza > 30) rareza = 'legendario';
+                else if (puntosRareza > 18) rareza = 'raro';
+                else if (puntosRareza > 10) rareza = 'poco común';
+                else rareza = 'común';
+
+                let sinergias = [];
+                if (elementoDominante === 'fuego' && formaDominante === 'proyectil' && prefijosActivos.includes('dividir')) {
+                    sinergias.push('🔥 Lluvia de meteoritos: 3 proyectiles de fuego');
+                }
+                if (elementoDominante === 'hielo' && formaDominante === 'aura' && sufijosActivos.includes('persistente')) {
+                    sinergias.push('❄️ Glaciar eterno: aura más grande y duradera');
+                }
+                if (elementoDominante === 'sangre' && formaDominante === 'proyectil' && prefijosActivos.includes('amplificar')) {
+                    sinergias.push('🩸 Drenaje vital: robo de vida aumentado');
+                }
+                if (elementoDominante === 'vacio' && formaDominante === 'invocacion' && sufijosActivos.includes('corrupto')) {
+                    sinergias.push('🌀 Engendro inestable: comportamiento aleatorio');
+                }
+                if (elementoDominante === 'rayo' && formaDominante === 'aura') {
+                    sinergias.push('⚡ Tormenta estática: cadenas en área');
+                }
+
+                const hechizo = {
+                    nombre: nombreHechizo,
+                    elemento: elementoDominante,
+                    forma: formaDominante,
+                    prefijos: prefijosActivos,
+                    sufijos: sufijosActivos,
+                    dano: danoFinal,
+                    costeMana,
+                    costeCordura,
+                    rareza,
+                    sinergias,
+                    runasUsadas: runas.map(r => ({ id: r.id, nombre: r.nombre, peso: r.peso, tipo: r.tipo })),
+                    fecha: new Date().toLocaleTimeString()
+                };
+                return hechizo;
+            }
+        }
+
+        // =====================================================
+        // MÓDULO: APLICACIÓN (Application)
+        // =====================================================
+
+        class Aplicacion {
+            constructor() {
+                this.runasSeleccionadas = [];
+                this.libro = [];
+                this.favoritos = [];
+                this.maxLibro = 10;
+                this.maxFavoritos = 3;
+                this.hechizoActual = null;
+            }
+
+            agregarRuna(runaId, peso) {
+                if (this.runasSeleccionadas.length >= 4) {
+                    throw new Error('Máximo 4 runas por hechizo.');
+                }
+                const definicion = RunasDisponibles.find(r => r.id === runaId);
+                if (!definicion) throw new Error('Runa no encontrada.');
+                if (peso < 1 || peso > 100) throw new Error('Peso debe estar entre 1 y 100.');
+                const nuevaRuna = new RunaSeleccionada(definicion, peso);
+                this.runasSeleccionadas.push(nuevaRuna);
+                return nuevaRuna;
+            }
+
+            eliminarRuna(index) {
+                if (index >= 0 && index < this.runasSeleccionadas.length) {
+                    this.runasSeleccionadas.splice(index, 1);
+                }
+            }
+
+            forjarHechizo() {
+                const hechizo = MotorForja.forjar(this.runasSeleccionadas);
+                this.hechizoActual = hechizo;
+                return hechizo;
+            }
+
+            guardarEnLibro() {
+                if (!this.hechizoActual) return false;
+                if (this.libro.length >= this.maxLibro) {
+                    alert('📖 Libro lleno. Elimina algunos hechizos para guardar.');
+                    return false;
+                }
+                this.libro.push({ ...this.hechizoActual });
+                return true;
+            }
+
+            marcarFavorito() {
+                if (!this.hechizoActual) return false;
+                if (this.favoritos.length >= this.maxFavoritos) {
+                    alert('⭐ Favoritos lleno (máx 3). Elimina alguno para añadir.');
+                    return false;
+                }
+                this.favoritos.push({ ...this.hechizoActual });
+                return true;
+            }
+
+            eliminarDelLibro(index) {
+                if (index >= 0 && index < this.libro.length) {
+                    this.libro.splice(index, 1);
+                }
+            }
+
+            eliminarDeFavoritos(index) {
+                if (index >= 0 && index < this.favoritos.length) {
+                    this.favoritos.splice(index, 1);
+                }
+            }
+
+            getRunasPorTipo(tipo) {
+                return RunasDisponibles.filter(r => r.tipo === tipo);
+            }
+        }
+
+        // =====================================================
+        // MÓDULO: INFRAESTRUCTURA (UI)
+        // =====================================================
+
+        const app = new Aplicacion();
+
+        const contenedorRunasSeleccionadas = document.getElementById('runas-seleccionadas');
+        const btnAgregarRuna = document.getElementById('btn-agregar-runa');
+        const btnForjar = document.getElementById('btn-forjar');
+        const panelTarjeta = document.getElementById('panel-tarjeta');
+        const tarjetaContenido = document.getElementById('tarjeta-contenido');
+        const libroLista = document.getElementById('libro-lista');
+        const favoritosLista = document.getElementById('favoritos-lista');
+        const libroContador = document.getElementById('libro-contador');
+        const favoritosContador = document.getElementById('favoritos-contador');
+
+        function inicializarUI() {
+            btnAgregarRuna.addEventListener('click', () => {
+                crearFilaRuna();
+            });
+
+            btnForjar.addEventListener('click', () => {
+                // Sincronizar runas desde la UI antes de forjar
+                if (sincronizarRunasUI()) {
+                    try {
+                        const hechizo = app.forjarHechizo();
+                        mostrarTarjeta(hechizo);
+                    } catch (error) {
+                        alert('⚠️ ' + error.message);
+                    }
+                }
+            });
+
+            crearFilaRuna();
+            actualizarListas();
+        }
+
+        function crearFilaRuna() {
+            if (contenedorRunasSeleccionadas.children.length >= 4) {
+                alert('Máximo 4 runas por hechizo.');
+                return;
+            }
+
+            const fila = document.createElement('div');
+            fila.className = 'runa-row';
+
+            const selectTipo = document.createElement('select');
+            selectTipo.innerHTML = `
+                <option value="${TiposRuna.NUCLEO}">Núcleo</option>
+                <option value="${TiposRuna.FORMA}">Forma</option>
+                <option value="${TiposRuna.PREFIJO}">Prefijo</option>
+                <option value="${TiposRuna.SUFIJO}">Sufijo</option>
+            `;
+
+            const selectRuna = document.createElement('select');
+            cargarRunasSegunTipo(selectTipo, selectRuna);
+
+            selectTipo.addEventListener('change', () => {
+                cargarRunasSegunTipo(selectTipo, selectRuna);
+            });
+
+            const inputPeso = document.createElement('input');
+            inputPeso.type = 'number';
+            inputPeso.min = 1;
+            inputPeso.max = 100;
+            inputPeso.value = Math.floor(Math.random() * 50) + 10;
+            inputPeso.step = 1;
+
+            const btnEliminar = document.createElement('button');
+            btnEliminar.textContent = '✖';
+            btnEliminar.className = 'btn-danger';
+            btnEliminar.style.background = 'none';
+            btnEliminar.style.border = 'none';
+            btnEliminar.style.color = 'var(--danger)';
+            btnEliminar.style.cursor = 'pointer';
+            btnEliminar.style.fontSize = '1.2rem';
+            btnEliminar.style.padding = '0.2rem 0.5rem';
+            btnEliminar.addEventListener('click', () => {
+                // Simplemente removemos la fila del DOM; no es necesario tocar el array
+                fila.remove();
+                actualizarListas();
+            });
+
+            fila.appendChild(selectTipo);
+            fila.appendChild(selectRuna);
+            fila.appendChild(inputPeso);
+            fila.appendChild(btnEliminar);
+
+            contenedorRunasSeleccionadas.appendChild(fila);
+            actualizarListas();
+        }
+
+        function cargarRunasSegunTipo(selectTipo, selectRuna) {
+            const tipo = selectTipo.value;
+            const runas = app.getRunasPorTipo(tipo);
+            selectRuna.innerHTML = runas.map(r => `<option value="${r.id}">${r.nombre} (${r.descripcion})</option>`).join('');
+        }
+
+        function sincronizarRunasUI() {
+            app.runasSeleccionadas = [];
+            const filas = contenedorRunasSeleccionadas.children;
+            for (const fila of filas) {
+                const selects = fila.querySelectorAll('select');
+                const selectTipo = selects[0];
+                const selectRuna = selects[1];
+                const inputPeso = fila.querySelector('input[type="number"]');
+                const runaId = selectRuna.value;
+                const peso = parseInt(inputPeso.value, 10);
+
+                if (isNaN(peso) || peso < 1 || peso > 100) {
+                    alert('El peso debe estar entre 1 y 100.');
+                    return false;
+                }
+
+                try {
+                    app.agregarRuna(runaId, peso);
+                } catch (error) {
+                    alert('⚠️ ' + error.message);
+                    return false;
+                }
+            }
+            if (app.runasSeleccionadas.length === 0) {
+                alert('Se necesitan al menos una runa para forjar un hechizo.');
+                return false;
+            }
+            return true;
+        }
+
+        function mostrarTarjeta(hechizo) {
+            panelTarjeta.style.display = 'block';
+            const rarezaClase = hechizo.rareza === 'legendario' ? 'rareza-legendario' : 
+                                hechizo.rareza === 'raro' ? 'rareza-raro' : '';
+
+            let html = `
+                <div class="tarjeta-hechizo ${rarezaClase}">
+                    <div class="nombre-hechizo">${hechizo.nombre}</div>
+                    <div class="stats">
+                        <div class="stat">
+                            <div class="label">Daño</div>
+                            <div class="value">${hechizo.dano}</div>
+                        </div>
+                        <div class="stat">
+                            <div class="label">Coste Maná</div>
+                            <div class="value">${hechizo.costeMana}</div>
+                        </div>
+                        <div class="stat">
+                            <div class="label">Coste Cordura</div>
+                            <div class="value">${hechizo.costeCordura}</div>
+                        </div>
+                        <div class="stat">
+                            <div class="label">Rareza</div>
+                            <div class="value">${hechizo.rareza}</div>
+                        </div>
+                    </div>
+                    <div class="descripcion">
+                        <strong>Elemento:</strong> ${hechizo.elemento || 'Ninguno'} |
+                        <strong>Forma:</strong> ${hechizo.forma || 'Ninguna'}
+                        ${hechizo.prefijos.length ? `| <strong>Prefijos:</strong> ${hechizo.prefijos.join(', ')}` : ''}
+                        ${hechizo.sufijos.length ? `| <strong>Sufijos:</strong> ${hechizo.sufijos.join(', ')}` : ''}
+                    </div>
+                    ${hechizo.sinergias.length ? `<div class="sinergia">✨ ${hechizo.sinergias.join(' | ')}</div>` : ''}
+                    <div class="descripcion" style="margin-top:0.5rem;">
+                        <small>Runas usadas: ${hechizo.runasUsadas.map(r => `${r.nombre}(${r.peso})`).join(', ')}</small>
+                    </div>
+                    <div class="acciones">
+                        <button class="btn" id="btn-guardar-libro">📖 Guardar en Libro</button>
+                        <button class="btn btn-success" id="btn-favorito">⭐ Favorito</button>
+                    </div>
+                </div>
+            `;
+            tarjetaContenido.innerHTML = html;
+
+            document.getElementById('btn-guardar-libro').addEventListener('click', () => {
+                if (app.guardarEnLibro()) {
+                    actualizarListas();
+                    alert('Hechizo guardado en el libro.');
+                }
+            });
+            document.getElementById('btn-favorito').addEventListener('click', () => {
+                if (app.marcarFavorito()) {
+                    actualizarListas();
+                    alert('Hechizo marcado como favorito.');
+                }
+            });
+        }
+
+        function actualizarListas() {
+            libroLista.innerHTML = '';
+            for (let i = 0; i < app.libro.length; i++) {
+                const h = app.libro[i];
+                const div = document.createElement('div');
+                div.className = 'hechizo-card-mini';
+                div.innerHTML = `
+                    <div>
+                        <div class="nombre">${h.nombre}</div>
+                        <div class="detalle">Daño: ${h.dano} | Maná: ${h.costeMana} | Cordura: ${h.costeCordura} | ${h.rareza}</div>
+                    </div>
+                    <button class="btn-danger" style="background:none;border:none;color:var(--danger);cursor:pointer;" onclick="app.eliminarDelLibro(${i}); actualizarListas();">✖</button>
+                `;
+                libroLista.appendChild(div);
+            }
+            libroContador.textContent = `${app.libro.length} / ${app.maxLibro}`;
+
+            favoritosLista.innerHTML = '';
+            for (let i = 0; i < app.favoritos.length; i++) {
+                const h = app.favoritos[i];
+                const div = document.createElement('div');
+                div.className = 'hechizo-card-mini';
+                div.innerHTML = `
+                    <div>
+                        <div class="nombre">${h.nombre}</div>
+                        <div class="detalle">Daño: ${h.dano} | Maná: ${h.costeMana} | Cordura: ${h.costeCordura} | ${h.rareza}</div>
+                    </div>
+                    <button class="btn-danger" style="background:none;border:none;color:var(--danger);cursor:pointer;" onclick="app.eliminarDeFavoritos(${i}); actualizarListas();">✖</button>
+                `;
+                favoritosLista.appendChild(div);
+            }
+            favoritosContador.textContent = `${app.favoritos.length} / ${app.maxFavoritos}`;
+        }
+
+        document.addEventListener('DOMContentLoaded', inicializarUI);
+    </script>
+</body>
+</html>
