@@ -1,0 +1,723 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Generador Procedural de Casas · MVP</title>
+    <style>
+        /* Estilos generales */
+        * { box-sizing: border-box; margin: 0; }
+        body {
+            font-family: 'Segoe UI', system-ui, sans-serif;
+            background: #0f172a;
+            color: #e2e8f0;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        h1 {
+            font-weight: 300;
+            margin-bottom: 20px;
+            letter-spacing: 1px;
+            color: #3b82f6;
+        }
+        .container {
+            max-width: 1200px;
+            width: 100%;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 24px;
+        }
+        .panel {
+            background: #1e293b;
+            border-radius: 16px;
+            padding: 20px;
+            border: 1px solid #334155;
+            box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+        }
+        .panel h3 {
+            color: #94a3b8;
+            font-weight: 400;
+            margin-bottom: 12px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .btn-group {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin: 12px 0;
+        }
+        .btn {
+            background: #3b82f6;
+            color: #fff;
+            border: none;
+            padding: 8px 18px;
+            border-radius: 30px;
+            font-size: 0.9rem;
+            cursor: pointer;
+            transition: background 0.2s, transform 0.1s;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .btn:hover { background: #2563eb; transform: scale(1.02); }
+        .btn:active { transform: scale(0.98); }
+        .btn.secondary { background: #334155; }
+        .btn.secondary:hover { background: #475569; }
+        .btn.success { background: #10b981; }
+        .btn.success:hover { background: #059669; }
+        .btn.warning { background: #f59e0b; color: #0f172a; }
+        .btn.warning:hover { background: #d97706; }
+        .btn.danger { background: #ef4444; }
+        .btn.danger:hover { background: #dc2626; }
+        canvas {
+            width: 100%;
+            aspect-ratio: 4/3;
+            background: #0f172a;
+            border-radius: 12px;
+            border: 1px solid #334155;
+            cursor: default;
+            display: block;
+        }
+        .flex-row {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 12px;
+            align-items: center;
+            margin: 8px 0;
+        }
+        .flex-row label {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            font-size: 0.85rem;
+            color: #94a3b8;
+        }
+        .flex-row input[type="number"],
+        .flex-row input[type="text"] {
+            background: #0f172a;
+            border: 1px solid #334155;
+            color: #e2e8f0;
+            padding: 4px 8px;
+            border-radius: 8px;
+            width: 80px;
+        }
+        .status {
+            font-size: 0.8rem;
+            color: #94a3b8;
+            padding: 4px 0;
+        }
+        .json-output {
+            background: #0f172a;
+            padding: 12px;
+            border-radius: 12px;
+            max-height: 250px;
+            overflow-y: auto;
+            font-size: 0.8rem;
+            white-space: pre-wrap;
+            border: 1px solid #334155;
+            margin-top: 8px;
+            font-family: 'Courier New', monospace;
+        }
+        @media (max-width: 900px) {
+            .container { grid-template-columns: 1fr; }
+        }
+    </style>
+</head>
+<body>
+
+    <h1>🏠 Generador Procedural de Casas · MVP</h1>
+
+    <div class="container">
+
+        <!-- Panel izquierdo: Controles y salida JSON -->
+        <div class="panel">
+            <h3>⚙️ Parámetros</h3>
+            <div class="flex-row">
+                <label>Semilla <input type="number" id="seedInput" value="42" min="0" max="999999"></label>
+                <label>Plantas <input type="number" id="floorsInput" value="1" min="1" max="3"></label>
+                <label>Estilo 
+                    <select id="styleSelect">
+                        <option value="medieval">Medieval</option>
+                        <option value="moderno">Moderno</option>
+                        <option value="rustico">Rústico</option>
+                    </select>
+                </label>
+            </div>
+            <div class="btn-group">
+                <button class="btn success" id="generateBtn">🏗️ Generar casa</button>
+                <button class="btn secondary" id="randomSeedBtn">🎲 Semilla aleatoria</button>
+            </div>
+            <div class="status" id="statusMsg">Listo</div>
+            <div class="json-output" id="houseOutput">Esperando generación...</div>
+        </div>
+
+        <!-- Panel derecho: Canvas y exportación -->
+        <div class="panel">
+            <h3>🖼️ Vista frontal</h3>
+            <div class="btn-group">
+                <button class="btn secondary" id="exportPngBtn">⬇️ Exportar PNG</button>
+                <button class="btn secondary" id="clearCanvasBtn">🧹 Limpiar</button>
+            </div>
+            <canvas id="houseCanvas" width="800" height="600"></canvas>
+            <div class="status" id="canvasStatus">Esperando casa...</div>
+        </div>
+
+    </div>
+
+    <!-- ================================================================ -->
+    <!-- JAVASCRIPT (arquitectura hexagonal + eventos)                    -->
+    <!-- ================================================================ -->
+    <script>
+        (function() {
+            'use strict';
+
+            // ================================================================
+            // 1. BUS DE EVENTOS (Patrón Observer)
+            // ================================================================
+            class EventBus {
+                constructor() {
+                    this.listeners = new Map();
+                }
+                on(event, callback) {
+                    if (!this.listeners.has(event)) this.listeners.set(event, []);
+                    this.listeners.get(event).push(callback);
+                    return () => this.off(event, callback);
+                }
+                off(event, callback) {
+                    const callbacks = this.listeners.get(event);
+                    if (callbacks) {
+                        const idx = callbacks.indexOf(callback);
+                        if (idx !== -1) callbacks.splice(idx, 1);
+                    }
+                }
+                emit(event, payload) {
+                    const callbacks = this.listeners.get(event);
+                    if (callbacks) {
+                        [...callbacks].forEach(cb => {
+                            try { cb(payload); } catch (e) { console.error(e); }
+                        });
+                    }
+                }
+            }
+
+            // ================================================================
+            // 2. DOMINIO - VALUE OBJECTS
+            // ================================================================
+
+            /** Componente de una casa (nodo) */
+            class HouseComponent {
+                /**
+                 * @param {string} type - 'wall', 'roof', 'door', 'window', 'chimney'
+                 * @param {number} weight - 0..1 influye en la probabilidad de inclusión
+                 * @param {string} variant - estado actual (variante elegida)
+                 * @param {object} params - parámetros específicos (posición, tamaño, color, etc.)
+                 */
+                constructor(type, weight = 1.0, variant = 'default', params = {}) {
+                    this.type = type;
+                    this.weight = weight;
+                    this.variant = variant;
+                    this.params = params;
+                }
+            }
+
+            /** Casa completa */
+            class House {
+                /**
+                 * @param {string} style - 'medieval', 'moderno', 'rustico'
+                 * @param {number} floors - número de plantas
+                 * @param {Array<HouseComponent>} components
+                 */
+                constructor(style, floors, components) {
+                    this.style = style;
+                    this.floors = floors;
+                    this.components = components;
+                }
+            }
+
+            // ================================================================
+            // 3. DOMINIO - PUERTOS (INTERFACES)
+            // ================================================================
+
+            /** Puerto de generación */
+            class GeneratorPort {
+                /**
+                 * Genera una casa a partir de parámetros.
+                 * @param {number} seed - semilla para aleatoriedad determinista
+                 * @param {string} style - estilo
+                 * @param {number} floors - número de plantas
+                 * @returns {House}
+                 */
+                generate(seed, style, floors) {
+                    throw new Error('Método no implementado');
+                }
+            }
+
+            /** Puerto de renderizado */
+            class RendererPort {
+                clear() { throw new Error('Método no implementado'); }
+                drawHouse(house) { throw new Error('Método no implementado'); }
+            }
+
+            // ================================================================
+            // 4. INFRAESTRUCTURA - ADAPTADORES
+            // ================================================================
+
+            /**
+             * Generador pseudoaleatorio con semilla (simple multiplicativo)
+             */
+            class SeededRandom {
+                constructor(seed) {
+                    this.seed = seed % 2147483647;
+                    if (this.seed <= 0) this.seed += 2147483646;
+                }
+                /** Devuelve un número entre 0 y 1 */
+                next() {
+                    this.seed = (this.seed * 16807) % 2147483647;
+                    return (this.seed - 1) / 2147483646;
+                }
+                /** Devuelve un entero entre min (incluido) y max (excluido) */
+                nextInt(min, max) {
+                    return Math.floor(this.next() * (max - min)) + min;
+                }
+                /** Elige un elemento de un array con probabilidades (pesos) */
+                weightedChoice(items, weightKey = 'weight') {
+                    const total = items.reduce((sum, item) => sum + (item[weightKey] || 1), 0);
+                    let r = this.next() * total;
+                    for (const item of items) {
+                        r -= (item[weightKey] || 1);
+                        if (r <= 0) return item;
+                    }
+                    return items[items.length - 1];
+                }
+            }
+
+            /**
+             * Adaptador de generación de casas
+             */
+            class HouseGeneratorAdapter extends GeneratorPort {
+                constructor() {
+                    super();
+                    // Catálogo de componentes con sus variantes y pesos
+                    this.catalog = this._buildCatalog();
+                }
+
+                _buildCatalog() {
+                    return {
+                        wall: {
+                            weight: 1.0,
+                            variants: [
+                                { id: 'plain', weight: 0.6, params: { color: '#e2d5c0' } },
+                                { id: 'stone', weight: 0.3, params: { color: '#9e8d7a' } },
+                                { id: 'brick', weight: 0.1, params: { color: '#b85a3a' } }
+                            ]
+                        },
+                        roof: {
+                            weight: 1.0,
+                            variants: [
+                                { id: 'gabled', weight: 0.5, params: { color: '#7a4a3a' } },
+                                { id: 'flat', weight: 0.2, params: { color: '#5a6a7a' } },
+                                { id: 'hipped', weight: 0.3, params: { color: '#6a5a4a' } }
+                            ]
+                        },
+                        door: {
+                            weight: 1.0,
+                            variants: [
+                                { id: 'simple', weight: 0.5, params: { color: '#5a3a2a' } },
+                                { id: 'double', weight: 0.3, params: { color: '#4a2a1a' } },
+                                { id: 'arched', weight: 0.2, params: { color: '#3a2a1a' } }
+                            ]
+                        },
+                        window: {
+                            weight: 1.0,
+                            variants: [
+                                { id: 'square', weight: 0.5, params: { color: '#87ceeb' } },
+                                { id: 'rect', weight: 0.3, params: { color: '#6ab0d6' } },
+                                { id: 'round', weight: 0.2, params: { color: '#a8d8ea' } }
+                            ]
+                        },
+                        chimney: {
+                            weight: 0.7, // menos probable
+                            variants: [
+                                { id: 'brick', weight: 0.7, params: { color: '#8b4513' } },
+                                { id: 'stone', weight: 0.3, params: { color: '#696969' } }
+                            ]
+                        }
+                    };
+                }
+
+                /**
+                 * Genera una casa con semilla, estilo y número de plantas.
+                 */
+                generate(seed, style, floors) {
+                    const rng = new SeededRandom(seed);
+                    // Determinar qué componentes incluir según sus pesos
+                    const includedTypes = [];
+                    for (const [type, def] of Object.entries(this.catalog)) {
+                        if (rng.next() < def.weight) {
+                            includedTypes.push(type);
+                        }
+                    }
+                    // Asegurar que siempre haya pared, tejado y puerta
+                    if (!includedTypes.includes('wall')) includedTypes.push('wall');
+                    if (!includedTypes.includes('roof')) includedTypes.push('roof');
+                    if (!includedTypes.includes('door')) includedTypes.push('door');
+
+                    // Para cada tipo, elegir una variante según pesos
+                    const components = [];
+                    for (const type of includedTypes) {
+                        const def = this.catalog[type];
+                        if (!def) continue;
+                        // Elegir variante
+                        const chosen = rng.weightedChoice(def.variants, 'weight');
+                        // Parámetros base según el estilo
+                        let styleParams = this._getStyleParams(style, type);
+                        // Combinar con parámetros de la variante
+                        const params = { ...styleParams, ...chosen.params };
+                        // Añadir posición/ tamaño relativo (se calculan en el render)
+                        const comp = new HouseComponent(type, def.weight, chosen.id, params);
+                        components.push(comp);
+                    }
+
+                    // Ordenar para que el render dibuje en el orden correcto (paredes primero, luego tejado, etc.)
+                    const order = ['wall', 'door', 'window', 'chimney', 'roof'];
+                    components.sort((a, b) => order.indexOf(a.type) - order.indexOf(b.type));
+
+                    return new House(style, floors, components);
+                }
+
+                /**
+                 * Ajustes de color/estilo según el estilo global.
+                 */
+                _getStyleParams(style, type) {
+                    const base = {};
+                    switch (style) {
+                        case 'medieval':
+                            if (type === 'wall') base.color = '#c4b5a0';
+                            else if (type === 'roof') base.color = '#6a4a3a';
+                            else if (type === 'door') base.color = '#4a2a1a';
+                            else if (type === 'window') base.color = '#aacfdf';
+                            else if (type === 'chimney') base.color = '#7a5a4a';
+                            break;
+                        case 'moderno':
+                            if (type === 'wall') base.color = '#e8e8e8';
+                            else if (type === 'roof') base.color = '#4a5a6a';
+                            else if (type === 'door') base.color = '#2a3a4a';
+                            else if (type === 'window') base.color = '#8fcbdd';
+                            else if (type === 'chimney') base.color = '#6a7a8a';
+                            break;
+                        case 'rustico':
+                            if (type === 'wall') base.color = '#d4c8b0';
+                            else if (type === 'roof') base.color = '#8a6a4a';
+                            else if (type === 'door') base.color = '#5a3a2a';
+                            else if (type === 'window') base.color = '#b8d8e8';
+                            else if (type === 'chimney') base.color = '#8a7a6a';
+                            break;
+                        default:
+                            break;
+                    }
+                    return base;
+                }
+            }
+
+            /**
+             * Adaptador de renderizado en canvas 2D
+             */
+            class CanvasRendererAdapter extends RendererPort {
+                constructor(canvas) {
+                    super();
+                    this.canvas = canvas;
+                    this.ctx = canvas.getContext('2d');
+                }
+
+                clear() {
+                    this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+                    this.ctx.fillStyle = '#0f172a';
+                    this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+                }
+
+                /**
+                 * Dibuja una casa en el canvas (vista frontal)
+                 */
+                drawHouse(house) {
+                    const ctx = this.ctx;
+                    const w = this.canvas.width;
+                    const h = this.canvas.height;
+
+                    // Escala: la casa ocupará un área central
+                    const scale = Math.min(w, h) / 400;
+                    const cx = w / 2;
+                    const baseY = h / 2 + 100 * scale;
+
+                    // Componentes por tipo
+                    const comps = {};
+                    for (const c of house.components) {
+                        if (!comps[c.type]) comps[c.type] = [];
+                        comps[c.type].push(c);
+                    }
+
+                    // --- Pared ---
+                    const wallComp = comps['wall']?.[0];
+                    if (wallComp) {
+                        const wallWidth = 240 * scale;
+                        const wallHeight = 180 * scale * house.floors;
+                        const wallX = cx - wallWidth / 2;
+                        const wallY = baseY - wallHeight;
+                        ctx.fillStyle = wallComp.params.color || '#e2d5c0';
+                        ctx.fillRect(wallX, wallY, wallWidth, wallHeight);
+                        ctx.strokeStyle = '#1e293b';
+                        ctx.lineWidth = 2;
+                        ctx.strokeRect(wallX, wallY, wallWidth, wallHeight);
+                    }
+
+                    // --- Ventanas ---
+                    const windows = comps['window'] || [];
+                    const winWidth = 30 * scale;
+                    const winHeight = 30 * scale;
+                    // Distribuir ventanas en la pared
+                    const cols = 2 + (house.floors > 1 ? 1 : 0);
+                    const rows = Math.min(house.floors, 2);
+                    for (let i = 0; i < windows.length && i < cols * rows; i++) {
+                        const col = i % cols;
+                        const row = Math.floor(i / cols);
+                        const xOff = (col + 0.5) / (cols + 1);
+                        const yOff = (row + 0.5) / (rows + 1);
+                        const wx = cx - 100 * scale + xOff * 200 * scale - winWidth / 2;
+                        const wy = baseY - 30 * scale - (row + 0.5) * (150 * scale / (rows + 1)) - winHeight / 2;
+                        ctx.fillStyle = windows[i].params.color || '#87ceeb';
+                        ctx.fillRect(wx, wy, winWidth, winHeight);
+                        ctx.strokeStyle = '#1e293b';
+                        ctx.lineWidth = 2;
+                        ctx.strokeRect(wx, wy, winWidth, winHeight);
+                        // Cruz interior
+                        ctx.beginPath();
+                        ctx.moveTo(wx + winWidth / 2, wy);
+                        ctx.lineTo(wx + winWidth / 2, wy + winHeight);
+                        ctx.moveTo(wx, wy + winHeight / 2);
+                        ctx.lineTo(wx + winWidth, wy + winHeight / 2);
+                        ctx.stroke();
+                    }
+
+                    // --- Puerta ---
+                    const doorComp = comps['door']?.[0];
+                    if (doorComp) {
+                        const doorW = 40 * scale;
+                        const doorH = 70 * scale;
+                        const doorX = cx - doorW / 2;
+                        const doorY = baseY - doorH;
+                        ctx.fillStyle = doorComp.params.color || '#5a3a2a';
+                        ctx.fillRect(doorX, doorY, doorW, doorH);
+                        ctx.strokeStyle = '#1e293b';
+                        ctx.lineWidth = 2;
+                        ctx.strokeRect(doorX, doorY, doorW, doorH);
+                        // Pomos
+                        ctx.beginPath();
+                        ctx.arc(doorX + doorW * 0.7, doorY + doorH * 0.6, 4, 0, Math.PI * 2);
+                        ctx.fillStyle = '#f5d742';
+                        ctx.fill();
+                    }
+
+                    // --- Tejado ---
+                    const roofComp = comps['roof']?.[0];
+                    if (roofComp) {
+                        const variant = roofComp.variant;
+                        const roofOverhang = 20 * scale;
+                        const wallWidth = 240 * scale;
+                        const wallX = cx - wallWidth / 2;
+                        const wallY = baseY - 180 * scale * house.floors;
+                        const roofY = wallY - 10 * scale;
+
+                        ctx.fillStyle = roofComp.params.color || '#7a4a3a';
+                        ctx.strokeStyle = '#1e293b';
+                        ctx.lineWidth = 2;
+
+                        if (variant === 'flat') {
+                            const rw = wallWidth + roofOverhang * 2;
+                            const rh = 20 * scale;
+                            ctx.fillRect(wallX - roofOverhang, roofY - rh, rw, rh);
+                            ctx.strokeRect(wallX - roofOverhang, roofY - rh, rw, rh);
+                        } else if (variant === 'gabled') {
+                            const rw = wallWidth + roofOverhang * 2;
+                            const rh = 60 * scale;
+                            ctx.beginPath();
+                            ctx.moveTo(wallX - roofOverhang, roofY);
+                            ctx.lineTo(cx, roofY - rh);
+                            ctx.lineTo(wallX + wallWidth + roofOverhang, roofY);
+                            ctx.closePath();
+                            ctx.fill();
+                            ctx.stroke();
+                            // Línea de cumbrera
+                            ctx.beginPath();
+                            ctx.moveTo(cx - 10 * scale, roofY - rh);
+                            ctx.lineTo(cx + 10 * scale, roofY - rh);
+                            ctx.stroke();
+                        } else if (variant === 'hipped') {
+                            // Tejado a cuatro aguas (simplificado: trapecio)
+                            const rw = wallWidth + roofOverhang * 2;
+                            const rh = 50 * scale;
+                            const topW = rw * 0.6;
+                            ctx.beginPath();
+                            ctx.moveTo(wallX - roofOverhang, roofY);
+                            ctx.lineTo(cx + topW / 2, roofY - rh);
+                            ctx.lineTo(cx - topW / 2, roofY - rh);
+                            ctx.closePath();
+                            ctx.fill();
+                            ctx.stroke();
+                        }
+                    }
+
+                    // --- Chimenea ---
+                    const chimneyComp = comps['chimney']?.[0];
+                    if (chimneyComp) {
+                        const chX = cx + 60 * scale;
+                        const chY = (baseY - 180 * scale * house.floors) - 70 * scale;
+                        const chW = 20 * scale;
+                        const chH = 60 * scale;
+                        ctx.fillStyle = chimneyComp.params.color || '#8b4513';
+                        ctx.fillRect(chX, chY, chW, chH);
+                        ctx.strokeStyle = '#1e293b';
+                        ctx.lineWidth = 2;
+                        ctx.strokeRect(chX, chY, chW, chH);
+                        // Parte superior
+                        ctx.fillRect(chX - 4, chY - 4, chW + 8, 8);
+                        ctx.strokeRect(chX - 4, chY - 4, chW + 8, 8);
+                    }
+
+                    // --- Texto informativo ---
+                    ctx.fillStyle = '#94a3b8';
+                    ctx.font = '14px sans-serif';
+                    ctx.fillText(`Estilo: ${house.style}  |  Plantas: ${house.floors}  |  Componentes: ${house.components.length}`, 20, 30);
+                }
+            }
+
+            // ================================================================
+            // 5. CASOS DE USO
+            // ================================================================
+
+            /**
+             * Caso de uso: generar y renderizar una casa.
+             */
+            class GenerateHouseUseCase {
+                constructor(generator, renderer, eventBus) {
+                    this.generator = generator;
+                    this.renderer = renderer;
+                    this.eventBus = eventBus;
+                }
+
+                execute(seed, style, floors) {
+                    try {
+                        this.eventBus.emit('generation:started');
+                        const house = this.generator.generate(seed, style, floors);
+                        this.renderer.clear();
+                        this.renderer.drawHouse(house);
+                        this.eventBus.emit('generation:completed', { house, seed });
+                        return house;
+                    } catch (e) {
+                        this.eventBus.emit('generation:error', e);
+                        throw e;
+                    }
+                }
+            }
+
+            // ================================================================
+            // 6. COMPOSICIÓN DE DEPENDENCIAS (CONTENEDOR)
+            // ================================================================
+
+            function createContainer() {
+                const eventBus = new EventBus();
+                const canvas = document.getElementById('houseCanvas');
+                const generator = new HouseGeneratorAdapter();
+                const renderer = new CanvasRendererAdapter(canvas);
+                const useCase = new GenerateHouseUseCase(generator, renderer, eventBus);
+
+                return { eventBus, generator, renderer, useCase };
+            }
+
+            // ================================================================
+            // 7. CONTROLADOR DE UI
+            // ================================================================
+
+            class UIController {
+                constructor(container) {
+                    this.container = container;
+                    this.eventBus = container.eventBus;
+                    this.houseOutput = document.getElementById('houseOutput');
+                    this.statusMsg = document.getElementById('statusMsg');
+                    this.canvasStatus = document.getElementById('canvasStatus');
+
+                    // Botones
+                    document.getElementById('generateBtn').addEventListener('click', () => this._handleGenerate());
+                    document.getElementById('randomSeedBtn').addEventListener('click', () => this._handleRandomSeed());
+                    document.getElementById('exportPngBtn').addEventListener('click', () => this._handleExportPng());
+                    document.getElementById('clearCanvasBtn').addEventListener('click', () => this._handleClearCanvas());
+
+                    // Suscribirse a eventos
+                    this.eventBus.on('generation:started', () => {
+                        this.statusMsg.textContent = '⏳ Generando...';
+                    });
+                    this.eventBus.on('generation:completed', (payload) => {
+                        this.statusMsg.textContent = `✅ Casa generada (semilla: ${payload.seed})`;
+                        this.canvasStatus.textContent = `🏠 ${payload.house.components.length} componentes · ${payload.house.style}`;
+                        // Mostrar JSON
+                        this.houseOutput.textContent = JSON.stringify(payload.house, null, 2);
+                    });
+                    this.eventBus.on('generation:error', (e) => {
+                        this.statusMsg.textContent = `❌ Error: ${e.message}`;
+                    });
+
+                    // Generar una casa al cargar
+                    this._handleGenerate();
+                }
+
+                _handleGenerate() {
+                    const seed = parseInt(document.getElementById('seedInput').value, 10) || 42;
+                    const style = document.getElementById('styleSelect').value;
+                    const floors = parseInt(document.getElementById('floorsInput').value, 10) || 1;
+                    this.container.useCase.execute(seed, style, floors);
+                }
+
+                _handleRandomSeed() {
+                    const seed = Math.floor(Math.random() * 999999);
+                    document.getElementById('seedInput').value = seed;
+                    this._handleGenerate();
+                }
+
+                _handleExportPng() {
+                    const canvas = document.getElementById('houseCanvas');
+                    const link = document.createElement('a');
+                    link.download = 'casa_generada.png';
+                    link.href = canvas.toDataURL('image/png');
+                    link.click();
+                    this.canvasStatus.textContent = '⬇️ PNG exportado.';
+                }
+
+                _handleClearCanvas() {
+                    const canvas = document.getElementById('houseCanvas');
+                    const ctx = canvas.getContext('2d');
+                    ctx.clearRect(0, 0, canvas.width, canvas.height);
+                    ctx.fillStyle = '#0f172a';
+                    ctx.fillRect(0, 0, canvas.width, canvas.height);
+                    this.canvasStatus.textContent = '🧹 Canvas limpiado.';
+                    this.houseOutput.textContent = 'Esperando generación...';
+                }
+            }
+
+            // ================================================================
+            // 8. INICIALIZACIÓN
+            // ================================================================
+
+            document.addEventListener('DOMContentLoaded', () => {
+                const container = createContainer();
+                const ui = new UIController(container);
+                // Exponer para depuración
+                window.houseApp = { container, ui };
+                console.log('🏠 Generador procedural de casas iniciado.');
+            });
+
+        })();
+    </script>
+</body>
+</html>
