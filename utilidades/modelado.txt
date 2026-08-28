@@ -1,0 +1,131 @@
+¿Qué es este código?
+Has creado un generador procedural de casas con una arquitectura limpia (hexagonal) que funciona en un único archivo HTML autocontenido. No usa librerías externas; solo HTML, CSS y JavaScript puro. Está diseñado para ser modular, extensible y fácil de entender, siguiendo buenas prácticas de desarrollo de software.
+
+¿Qué hace?
+El código genera una casa aleatoria en 2D (vista frontal) a partir de:
+
+Una semilla (número entero) que asegura que el resultado sea reproducible.
+
+Un estilo (medieval, moderno o rústico).
+
+Un número de plantas (1, 2 o 3).
+
+Cada casa está compuesta por componentes (nodos): pared, tejado, puerta, ventanas y chimenea. Cada componente tiene:
+
+Un peso que determina su probabilidad de aparecer (ej: la chimenea solo aparece el 70% de las veces).
+
+Una máquina de estados interna con varias variantes (ej: tejado a dos aguas, plano, a cuatro aguas), cada una con su propio peso.
+
+El sistema elige qué componentes incluir y qué variante usar según los pesos y la semilla, y luego dibuja la casa en un canvas HTML. Además, muestra un JSON con la estructura de la casa generada.
+
+¿Cómo lo hace? (Arquitectura interna)
+El código sigue una arquitectura hexagonal (puertos y adaptadores) , dividida en capas:
+
+1. Bus de eventos (EventBus)
+Un patrón Observer que permite que los componentes se comuniquen sin acoplarse directamente.
+
+Emite eventos como generation:started, generation:completed, generation:error.
+
+La UI escucha estos eventos para actualizar el estado y mostrar mensajes.
+
+2. Dominio (Value Objects)
+HouseComponent: representa un nodo de la casa (ej: "wall", "roof"). Contiene type, weight, variant (estado actual) y params (color, posición, etc.).
+
+House: agregado que contiene una lista de componentes, más propiedades globales como style y floors.
+
+3. Puertos (Interfaces)
+GeneratorPort: define el contrato para generar una casa (generate(seed, style, floors)).
+
+RendererPort: define el contrato para dibujar una casa (drawHouse(house)).
+
+4. Adaptadores (Implementaciones concretas)
+HouseGeneratorAdapter:
+
+Contiene un catálogo con todos los tipos de componentes, sus pesos y sus variantes.
+
+Usa un generador pseudoaleatorio con semilla (SeededRandom) para decidir qué componentes incluir y qué variante elegir.
+
+Asegura que siempre haya pared, tejado y puerta (pesos forzados).
+
+Ordena los componentes para que el render los dibuje en el orden correcto (paredes, puertas, ventanas, chimenea, tejado).
+
+CanvasRendererAdapter:
+
+Recibe un elemento canvas y dibuja la casa en 2D.
+
+Calcula posiciones y tamaños relativos al tamaño del canvas.
+
+Dibuja cada componente según su tipo y variante, usando colores extraídos de los parámetros.
+
+5. Caso de Uso (Orquestación)
+GenerateHouseUseCase:
+
+Recibe el generador, el renderizador y el bus de eventos.
+
+Cuando se ejecuta, pide al generador que cree una casa, limpia el canvas, la dibuja y emite eventos de inicio, éxito o error.
+
+6. Controlador de UI
+Conecta los botones, inputs y canvas con el caso de uso.
+
+Escucha los eventos del bus para actualizar la interfaz (mensajes de estado, JSON, etc.).
+
+Proporciona funciones para exportar PNG, limpiar el canvas o generar con semilla aleatoria.
+
+7. Composición (Contenedor)
+La función createContainer() instancia todas las piezas y las conecta (inyección de dependencias).
+
+El UIController recibe este contenedor y se encarga de la interacción con el usuario.
+
+Flujo de ejecución típico
+El usuario pulsa "Generar casa".
+
+El controlador lee los parámetros (semilla, estilo, plantas).
+
+Llama al caso de uso GenerateHouseUseCase.execute().
+
+El caso de uso:
+
+Emite generation:started.
+
+Pide al generador que cree una casa con los parámetros.
+
+El generador usa el SeededRandom para decidir componentes y variantes según los pesos.
+
+Devuelve un objeto House.
+
+El renderizador limpia el canvas y dibuja la casa.
+
+Emite generation:completed con la casa y la semilla.
+
+El controlador, al recibir el evento, actualiza el JSON y los mensajes de estado.
+
+Características destacadas
+Reproducibilidad: con la misma semilla siempre obtienes la misma casa.
+
+Modularidad: puedes añadir nuevos componentes (ej: "balcón", "garaje") sin tocar el núcleo, solo añadiéndolos al catálogo.
+
+Extensibilidad: puedes cambiar el renderizador para que dibuje en 3D (Three.js) sin modificar la lógica de generación.
+
+Buenas prácticas: inyección de dependencias, responsabilidad única, patrón Observer, código comentado, nombres claros.
+
+Limitaciones actuales (y oportunidades de mejora)
+Solo vista frontal: no hay profundidad ni perspectiva.
+
+Posiciones fijas: las ventanas y puertas se colocan en una cuadrícula predefinida; no se adaptan al tamaño de la pared.
+
+Sin interacción en el canvas: no se puede arrastrar ni modificar nada.
+
+Catálogo limitado: solo 5 tipos de componentes y 3 estilos.
+
+Pero todo esto es mejorable: el diseño del código permite añadir más variantes, más estilos, posicionamiento más inteligente, y hasta una vista isométrica o 3D sin romper nada.
+
+Conclusión
+Has construido una prueba de concepto funcional de un sistema de generación procedural basado en nodos con pesos y máquinas de estado, todo envuelto en una arquitectura limpia. Funciona completamente en el navegador, es autocontenido y sirve como base para proyectos más ambiciosos (como el generador 3D que mencionabas).
+
+El código está listo para que puedas:
+
+Entenderlo (está comentado).
+
+Modificarlo (añadir componentes, cambiar pesos, nuevos estilos).
+
+Extenderlo (conectar un motor 3D, exportar a OBJ, etc.).
