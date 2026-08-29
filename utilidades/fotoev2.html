@@ -1,0 +1,896 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Simulador UV · Arquitectura Hexagonal</title>
+    <style>
+        /* ----------------------------------------------
+           ESTILOS
+        ------------------------------------------------ */
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: 'Segoe UI', system-ui, sans-serif;
+            background: #0a0a1a;
+            color: #e0e0ff;
+            padding: 20px;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            background-image: radial-gradient(ellipse at center, #1a1a3a 0%, #050510 100%);
+        }
+        h1 {
+            text-align: center;
+            margin-bottom: 20px;
+            font-size: 2rem;
+            background: linear-gradient(135deg, #ffcc00, #ff6600);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        .container {
+            max-width: 1300px;
+            width: 100%;
+            display: grid;
+            grid-template-columns: 1fr 2fr;
+            gap: 20px;
+        }
+        @media (max-width: 900px) {
+            .container { grid-template-columns: 1fr; }
+        }
+        .panel {
+            background: rgba(20,20,50,0.8);
+            border: 1px solid rgba(100,100,200,0.3);
+            border-radius: 16px;
+            padding: 20px;
+            backdrop-filter: blur(10px);
+        }
+        .panel h2 {
+            margin-bottom: 12px;
+            font-size: 1.2rem;
+            color: #aaccff;
+            border-bottom: 1px solid rgba(100,100,200,0.2);
+            padding-bottom: 8px;
+        }
+        .panel label {
+            display: block;
+            margin-top: 12px;
+            font-size: 0.9rem;
+            color: #aaccff;
+        }
+        .panel input[type="range"] {
+            width: 100%;
+            margin: 5px 0 10px;
+            accent-color: #ff8800;
+            background: transparent;
+            cursor: pointer;
+        }
+        .panel select, .panel button {
+            width: 100%;
+            padding: 10px 14px;
+            border-radius: 8px;
+            border: 1px solid rgba(150,150,220,0.4);
+            background: rgba(30,30,60,0.9);
+            color: #fff;
+            font-size: 1rem;
+            margin-bottom: 10px;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        .panel button {
+            background: linear-gradient(135deg, #2a2a5a, #1a1a3a);
+            font-weight: bold;
+        }
+        .panel button:hover { background: linear-gradient(135deg, #3a3a7a, #2a2a5a); }
+        .file-label {
+            display: block;
+            text-align: center;
+            padding: 12px;
+            background: linear-gradient(135deg, #444488, #222255);
+            border-radius: 8px;
+            cursor: pointer;
+            margin-bottom: 10px;
+            transition: background 0.2s;
+        }
+        .file-label:hover { background: linear-gradient(135deg, #5555aa, #333366); }
+        .file-label input { display: none; }
+        .canvas-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 10px;
+            margin-top: 10px;
+        }
+        .canvas-grid canvas {
+            width: 100%;
+            height: auto;
+            border-radius: 8px;
+            background: #0a0a18;
+            border: 1px solid #2a2a4a;
+            aspect-ratio: 4/3;
+        }
+        .canvas-grid .label {
+            text-align: center;
+            font-size: 0.8rem;
+            color: #8899bb;
+            margin-top: 4px;
+        }
+        .comparison-container {
+            position: relative;
+            margin-top: 10px;
+        }
+        .comparison-container canvas {
+            width: 100%;
+            height: auto;
+            border-radius: 8px;
+            background: #0a0a18;
+            border: 1px solid #2a2a4a;
+            aspect-ratio: 4/3;
+        }
+        .slider-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            pointer-events: none;
+        }
+        .slider-overlay input[type="range"] {
+            width: 100%;
+            height: 100%;
+            opacity: 0;
+            cursor: col-resize;
+            pointer-events: auto;
+        }
+        .slider-line {
+            position: absolute;
+            top: 0;
+            left: 50%;
+            width: 2px;
+            height: 100%;
+            background: #ffcc00;
+            box-shadow: 0 0 10px #ffcc00;
+            pointer-events: none;
+            transition: left 0.05s;
+        }
+        .footer {
+            margin-top: 20px;
+            font-size: 0.8rem;
+            color: #667;
+            text-align: center;
+        }
+        .param-value {
+            float: right;
+            color: #ffcc66;
+            font-weight: bold;
+        }
+        #downloadBtn {
+            background: #2a7a2a;
+        }
+        #downloadBtn:hover { background: #3a9a3a; }
+        .status {
+            padding: 8px;
+            border-radius: 6px;
+            text-align: center;
+            margin: 10px 0;
+            font-weight: bold;
+        }
+        .status.ok { color: #66ff66; }
+        .status.partial { color: #ffcc00; }
+        .status.error { color: #ff4444; }
+        .flex-row {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+        .flex-row button { flex: 1; }
+        .settings-group {
+            background: rgba(0,0,0,0.2);
+            border-radius: 8px;
+            padding: 10px;
+            margin-top: 10px;
+        }
+        .settings-group label {
+            margin-top: 6px;
+        }
+    </style>
+</head>
+<body>
+    <h1>🔬 Simulador UV · Hexagonal</h1>
+    <div class="container">
+        <!-- Panel de control -->
+        <div class="panel">
+            <h2>📷 Cargar imagen</h2>
+            <label class="file-label" id="fileLabel">
+                📂 Seleccionar imagen
+                <input type="file" id="imageInput" accept="image/*" />
+            </label>
+
+            <h2 style="margin-top:20px;">🎛️ Parámetros UV</h2>
+            <label>Intensidad <span class="param-value" id="intensityVal">1.0</span></label>
+            <input type="range" id="intensity" min="0" max="3" step="0.01" value="1.0" />
+
+            <label>Rugosidad <span class="param-value" id="roughnessVal">0.5</span></label>
+            <input type="range" id="roughness" min="0" max="1" step="0.01" value="0.5" />
+
+            <label>Material <span class="param-value" id="materialVal">floral</span></label>
+            <select id="material">
+                <option value="floral">🌺 Floral (pétalo)</option>
+                <option value="foliage">🌿 Follaje (hoja)</option>
+                <option value="rock">🪨 Roca</option>
+                <option value="skin">🧴 Piel</option>
+                <option value="custom">⚙️ Personalizado</option>
+            </select>
+
+            <div class="settings-group">
+                <label>🔘 Mostrar canal UV en grises</label>
+                <input type="checkbox" id="showUVChannel" />
+                <label>🔀 Modo comparación (deslizar)</label>
+                <input type="checkbox" id="comparisonMode" checked />
+            </div>
+
+            <div class="flex-row">
+                <button id="processBtn">🔄 Procesar</button>
+                <button id="downloadBtn" disabled>💾 Descargar</button>
+            </div>
+            <button id="resetSettingsBtn">↩️ Restablecer parámetros</button>
+
+            <div class="status ok" id="statusMsg">Carga una imagen para comenzar</div>
+        </div>
+
+        <!-- Panel de visualización -->
+        <div class="panel">
+            <h2>📊 Original · UV · Mapa UV</h2>
+            <div class="canvas-grid">
+                <div>
+                    <canvas id="originalCanvas" width="400" height="300"></canvas>
+                    <div class="label">Original (RGB)</div>
+                </div>
+                <div>
+                    <canvas id="uvCanvas" width="400" height="300"></canvas>
+                    <div class="label">Simulación UV</div>
+                </div>
+                <div>
+                    <canvas id="uvMaskCanvas" width="400" height="300"></canvas>
+                    <div class="label">Canal UV (grises)</div>
+                </div>
+            </div>
+
+            <h2 style="margin-top:15px;">🔄 Comparación (desliza)</h2>
+            <div class="comparison-container" id="comparisonContainer">
+                <canvas id="comparisonCanvas" width="400" height="300"></canvas>
+                <input type="range" id="comparisonSlider" min="0" max="100" value="50" />
+                <div class="slider-line" id="sliderLine"></div>
+            </div>
+        </div>
+    </div>
+    <div class="footer">
+        Simulador UV con arquitectura hexagonal · Event-driven · Mejoras: LUT, canal UV, comparación
+    </div>
+
+    <script>
+        // ================================================================
+        // 1. DOMINIO (Core) - Lógica de negocio pura
+        // ================================================================
+
+        /**
+         * UVCore: contiene la lógica de procesamiento de imágenes UV.
+         * No tiene dependencias externas; todo se pasa por parámetros.
+         */
+        class UVCore {
+            /**
+             * Procesa una imagen y aplica simulación UV.
+             * @param {ImageData} imageData - imagen de entrada
+             * @param {Object} params - { intensity, roughness, material }
+             * @param {Object} options - { showUVChannel: boolean }
+             * @returns {{ uvImageData: ImageData, uvMask: ImageData, rawUV: Float32Array }}
+             */
+            process(imageData, params, options = {}) {
+                const { intensity, roughness, material } = params;
+                const { showUVChannel = false } = options;
+                const data = new Uint8ClampedArray(imageData.data);
+                const width = imageData.width;
+                const height = imageData.height;
+                const uvRaw = new Float32Array(width * height);
+
+                // Seleccionar fórmula según material
+                const uvFormula = this._getFormula(material);
+
+                for (let i = 0; i < data.length; i += 4) {
+                    const r = data[i];
+                    const g = data[i+1];
+                    const b = data[i+2];
+                    const brightness = (r + g + b) / 765; // 0..1
+                    const maxC = Math.max(r, g, b);
+                    const minC = Math.min(r, g, b);
+                    const saturation = (maxC === 0) ? 0 : (1 - minC / maxC);
+
+                    let uvRawVal = uvFormula(brightness, saturation, roughness);
+                    uvRawVal = Math.max(0, Math.min(1, uvRawVal));
+                    const uv = uvRawVal * intensity;
+                    uvRaw[i/4] = uv;
+
+                    // Mapeo UV a color visible con LUT básica
+                    const [uvR, uvG, uvB] = this._uvToColor(uv);
+
+                    // Mezcla con original según intensidad
+                    const mix = Math.min(1, intensity);
+                    data[i] = Math.min(255, r + uvR * mix * 0.8);
+                    data[i+1] = Math.min(255, g + uvG * mix * 0.8);
+                    data[i+2] = Math.min(255, b + uvB * mix * 0.8);
+                }
+
+                const uvImageData = new ImageData(data, width, height);
+
+                // Construir máscara UV en grises
+                const maskData = new Uint8ClampedArray(width * height * 4);
+                for (let i = 0; i < uvRaw.length; i++) {
+                    const val = Math.min(255, uvRaw[i] * 255);
+                    const idx = i * 4;
+                    maskData[idx] = val;
+                    maskData[idx+1] = val;
+                    maskData[idx+2] = val;
+                    maskData[idx+3] = 255;
+                }
+                const uvMask = new ImageData(maskData, width, height);
+
+                return { uvImageData, uvMask, rawUV: uvRaw };
+            }
+
+            /**
+             * Fábrica de fórmulas UV según material.
+             * @param {string} material
+             * @returns {Function} (brightness, saturation, roughness) => number [0..1]
+             */
+            _getFormula(material) {
+                switch (material) {
+                    case 'floral':
+                        return (b, s, r) => Math.pow(b, 0.8) * (1 + s) * (1 - r * 0.3);
+                    case 'foliage':
+                        return (b, s, r) => {
+                            const greenness = 1 - Math.abs(b - 0.5) * 2;
+                            return greenness * (1 - r * 0.5);
+                        };
+                    case 'rock':
+                        return (b, s, r) => 0.3 + 0.4 * b * (1 - r * 0.6);
+                    case 'skin':
+                        return (b, s, r) => 0.1 + 0.2 * b * (1 - r);
+                    case 'custom':
+                    default:
+                        return (b, s, r) => b * s * (1 + 0.2 * (1 - r));
+                }
+            }
+
+            /**
+             * LUT básica: UV -> color visible (offset en RGB)
+             * @param {number} uv - valor 0..1
+             * @returns {[number, number, number]} [r, g, b] offsets
+             */
+            _uvToColor(uv) {
+                // Simula una fluorescencia magenta-azul
+                return [
+                    uv * 120,
+                    uv * 40,
+                    uv * 180
+                ];
+            }
+        }
+
+
+        // ================================================================
+        // 2. PUERTOS (Interfaces)
+        // ================================================================
+
+        /**
+         * @interface ImageLoaderPort
+         * @method load(file: File): Promise<{ imageData: ImageData, width: number, height: number }>
+         */
+
+        /**
+         * @interface RendererPort
+         * @method draw(imageData: ImageData): void
+         * @method clear(): void
+         */
+
+        /**
+         * @interface EventBusPort
+         * @method on(event: string, callback: Function): void
+         * @method emit(event: string, payload?: any): void
+         */
+
+        /**
+         * @interface SettingsStorePort
+         * @method save(key: string, value: any): void
+         * @method load(key: string): any
+         */
+
+
+        // ================================================================
+        // 3. ADAPTADORES (Implementaciones concretas)
+        // ================================================================
+
+        // 3.1. EventBus
+        class EventBus {
+            constructor() {
+                this._listeners = new Map();
+            }
+            on(event, callback) {
+                if (!this._listeners.has(event)) this._listeners.set(event, new Set());
+                this._listeners.get(event).add(callback);
+            }
+            off(event, callback) {
+                if (this._listeners.has(event)) this._listeners.get(event).delete(callback);
+            }
+            emit(event, payload) {
+                if (this._listeners.has(event)) {
+                    this._listeners.get(event).forEach(cb => cb(payload));
+                }
+            }
+        }
+
+        // 3.2. ImageLoader basado en FileReader y Canvas
+        class FileImageLoader {
+            /**
+             * Carga un archivo de imagen y devuelve ImageData redimensionado.
+             * @param {File} file
+             * @param {number} maxWidth
+             * @param {number} maxHeight
+             * @returns {Promise<{ imageData: ImageData, width: number, height: number }>}
+             */
+            load(file, maxWidth = 400, maxHeight = 300) {
+                return new Promise((resolve, reject) => {
+                    if (!file.type.startsWith('image/')) {
+                        reject(new Error('El archivo no es una imagen válida.'));
+                        return;
+                    }
+                    const reader = new FileReader();
+                    reader.onload = (e) => {
+                        const img = new Image();
+                        img.onload = () => {
+                            let w = img.width;
+                            let h = img.height;
+                            if (w > maxWidth) { h = h * maxWidth / w; w = maxWidth; }
+                            if (h > maxHeight) { w = w * maxHeight / h; h = maxHeight; }
+                            w = Math.round(w);
+                            h = Math.round(h);
+
+                            const canvas = document.createElement('canvas');
+                            canvas.width = w;
+                            canvas.height = h;
+                            const ctx = canvas.getContext('2d');
+                            ctx.drawImage(img, 0, 0, w, h);
+                            const imageData = ctx.getImageData(0, 0, w, h);
+                            resolve({ imageData, width: w, height: h });
+                        };
+                        img.onerror = () => reject(new Error('Error al decodificar la imagen.'));
+                        img.src = e.target.result;
+                    };
+                    reader.onerror = () => reject(new Error('Error al leer el archivo.'));
+                    reader.readAsDataURL(file);
+                });
+            }
+        }
+
+        // 3.3. CanvasRenderer
+        class CanvasRenderer {
+            /**
+             * @param {HTMLCanvasElement} canvas
+             */
+            constructor(canvas) {
+                this.canvas = canvas;
+                this.ctx = canvas.getContext('2d');
+            }
+
+            draw(imageData) {
+                this.canvas.width = imageData.width;
+                this.canvas.height = imageData.height;
+                this.ctx.putImageData(imageData, 0, 0);
+            }
+
+            clear() {
+                this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+            }
+        }
+
+        // 3.4. LocalStorageStore
+        class LocalStorageStore {
+            save(key, value) {
+                try {
+                    localStorage.setItem(key, JSON.stringify(value));
+                } catch (_) { /* ignore */ }
+            }
+            load(key) {
+                try {
+                    const raw = localStorage.getItem(key);
+                    return raw ? JSON.parse(raw) : null;
+                } catch (_) { return null; }
+            }
+        }
+
+
+        // ================================================================
+        // 4. CASOS DE USO (Application Layer)
+        // ================================================================
+
+        /**
+         * Carga una imagen y emite evento.
+         */
+        class LoadImageUseCase {
+            /**
+             * @param {ImageLoaderPort} loader
+             * @param {EventBusPort} bus
+             */
+            constructor(loader, bus) {
+                this.loader = loader;
+                this.bus = bus;
+            }
+
+            async execute(file) {
+                try {
+                    const result = await this.loader.load(file);
+                    this.bus.emit('imageLoaded', result);
+                    return result;
+                } catch (err) {
+                    this.bus.emit('error', { message: err.message });
+                    throw err;
+                }
+            }
+        }
+
+        /**
+         * Procesa la imagen actual con los parámetros dados y emite resultados.
+         */
+        class ProcessImageUseCase {
+            /**
+             * @param {UVCore} core
+             * @param {EventBusPort} bus
+             */
+            constructor(core, bus) {
+                this.core = core;
+                this.bus = bus;
+            }
+
+            execute(imageData, params, options = {}) {
+                const start = performance.now();
+                const result = this.core.process(imageData, params, options);
+                const elapsed = performance.now() - start;
+                this.bus.emit('imageProcessed', { ...result, elapsed });
+                return result;
+            }
+        }
+
+        /**
+         * Exporta la imagen procesada como PNG.
+         */
+        class ExportImageUseCase {
+            /**
+             * @param {EventBusPort} bus
+             */
+            constructor(bus) {
+                this.bus = bus;
+            }
+
+            execute(imageData, filename = 'simulacion_uv.png') {
+                const canvas = document.createElement('canvas');
+                canvas.width = imageData.width;
+                canvas.height = imageData.height;
+                const ctx = canvas.getContext('2d');
+                ctx.putImageData(imageData, 0, 0);
+                const link = document.createElement('a');
+                link.download = filename;
+                link.href = canvas.toDataURL('image/png');
+                link.click();
+                this.bus.emit('imageExported', { filename });
+            }
+        }
+
+        /**
+         * Guarda/restaura parámetros en el store.
+         */
+        class SettingsUseCase {
+            /**
+             * @param {SettingsStorePort} store
+             * @param {EventBusPort} bus
+             */
+            constructor(store, bus) {
+                this.store = store;
+                this.bus = bus;
+                this.defaults = {
+                    intensity: 1.0,
+                    roughness: 0.5,
+                    material: 'floral',
+                    showUVChannel: false,
+                    comparisonMode: true
+                };
+            }
+
+            load() {
+                const saved = this.store.load('uvSimulatorSettings');
+                if (saved) {
+                    // Merge con defaults para evitar valores faltantes
+                    const merged = { ...this.defaults, ...saved };
+                    this.bus.emit('settingsLoaded', merged);
+                    return merged;
+                }
+                this.bus.emit('settingsLoaded', this.defaults);
+                return this.defaults;
+            }
+
+            save(params) {
+                this.store.save('uvSimulatorSettings', params);
+                this.bus.emit('settingsSaved', params);
+            }
+
+            reset() {
+                this.store.save('uvSimulatorSettings', this.defaults);
+                this.bus.emit('settingsLoaded', this.defaults);
+                return this.defaults;
+            }
+        }
+
+
+        // ================================================================
+        // 5. ORQUESTACIÓN (main)
+        // ================================================================
+
+        (function main() {
+            // --- Instanciar puertos y adaptadores ---
+            const bus = new EventBus();
+            const core = new UVCore();
+            const imageLoader = new FileImageLoader();
+            const store = new LocalStorageStore();
+
+            // --- Casos de uso ---
+            const loadImageUC = new LoadImageUseCase(imageLoader, bus);
+            const processImageUC = new ProcessImageUseCase(core, bus);
+            const exportImageUC = new ExportImageUseCase(bus);
+            const settingsUC = new SettingsUseCase(store, bus);
+
+            // --- Referencias a elementos UI ---
+            const fileInput = document.getElementById('imageInput');
+            const fileLabel = document.getElementById('fileLabel');
+            const originalCanvas = document.getElementById('originalCanvas');
+            const uvCanvas = document.getElementById('uvCanvas');
+            const uvMaskCanvas = document.getElementById('uvMaskCanvas');
+            const comparisonCanvas = document.getElementById('comparisonCanvas');
+            const comparisonSlider = document.getElementById('comparisonSlider');
+            const sliderLine = document.getElementById('sliderLine');
+
+            const intensitySlider = document.getElementById('intensity');
+            const roughnessSlider = document.getElementById('roughness');
+            const materialSelect = document.getElementById('material');
+            const showUVCheck = document.getElementById('showUVChannel');
+            const comparisonCheck = document.getElementById('comparisonMode');
+            const processBtn = document.getElementById('processBtn');
+            const downloadBtn = document.getElementById('downloadBtn');
+            const resetSettingsBtn = document.getElementById('resetSettingsBtn');
+            const statusMsg = document.getElementById('statusMsg');
+
+            const intensityVal = document.getElementById('intensityVal');
+            const roughnessVal = document.getElementById('roughnessVal');
+            const materialVal = document.getElementById('materialVal');
+
+            // --- Renderers ---
+            const rendererOrig = new CanvasRenderer(originalCanvas);
+            const rendererUV = new CanvasRenderer(uvCanvas);
+            const rendererMask = new CanvasRenderer(uvMaskCanvas);
+            const rendererComp = new CanvasRenderer(comparisonCanvas);
+
+            // --- Estado de la aplicación ---
+            let currentImageData = null;          // ImageData original
+            let currentProcessed = null;          // { uvImageData, uvMask, rawUV }
+            let currentParams = {
+                intensity: 1.0,
+                roughness: 0.5,
+                material: 'floral'
+            };
+            let currentOptions = {
+                showUVChannel: false,
+                comparisonMode: true
+            };
+            let isProcessing = false;
+
+            // --- Funciones auxiliares ---
+            function updateStatus(text, type = 'ok') {
+                statusMsg.textContent = text;
+                statusMsg.className = 'status ' + type;
+            }
+
+            function getParamsFromUI() {
+                return {
+                    intensity: parseFloat(intensitySlider.value),
+                    roughness: parseFloat(roughnessSlider.value),
+                    material: materialSelect.value
+                };
+            }
+
+            function getOptionsFromUI() {
+                return {
+                    showUVChannel: showUVCheck.checked,
+                    comparisonMode: comparisonCheck.checked
+                };
+            }
+
+            function updateParamLabels() {
+                intensityVal.textContent = intensitySlider.value;
+                roughnessVal.textContent = roughnessSlider.value;
+                const matText = materialSelect.options[materialSelect.selectedIndex].text.split(' ')[0];
+                materialVal.textContent = matText;
+            }
+
+            function syncUIWithParams(params) {
+                intensitySlider.value = params.intensity;
+                roughnessSlider.value = params.roughness;
+                materialSelect.value = params.material;
+                // Options
+                if (params.showUVChannel !== undefined) showUVCheck.checked = params.showUVChannel;
+                if (params.comparisonMode !== undefined) comparisonCheck.checked = params.comparisonMode;
+                updateParamLabels();
+            }
+
+            // --- Función principal de procesamiento ---
+            function processCurrentImage() {
+                if (!currentImageData) {
+                    updateStatus('Primero carga una imagen', 'partial');
+                    return;
+                }
+                if (isProcessing) return;
+                isProcessing = true;
+                processBtn.disabled = true;
+
+                const params = getParamsFromUI();
+                const options = getOptionsFromUI();
+                currentParams = { ...params };
+                currentOptions = { ...options };
+
+                try {
+                    const result = processImageUC.execute(currentImageData, params, options);
+                    currentProcessed = result;
+                    // Mostrar en los canvases
+                    rendererUV.draw(result.uvImageData);
+                    rendererMask.draw(result.uvMask);
+                    // Actualizar comparación
+                    updateComparison();
+                    updateStatus(`✅ Procesado en ${result.elapsed.toFixed(1)} ms`, 'ok');
+                    downloadBtn.disabled = false;
+                    // Guardar parámetros
+                    settingsUC.save({ ...params, ...options });
+                } catch (e) {
+                    updateStatus('❌ Error: ' + e.message, 'error');
+                } finally {
+                    isProcessing = false;
+                    processBtn.disabled = false;
+                }
+            }
+
+            // --- Comparación (deslizador) ---
+            function updateComparison() {
+                if (!currentImageData || !currentProcessed) {
+                    rendererComp.clear();
+                    return;
+                }
+                const width = currentImageData.width;
+                const height = currentImageData.height;
+                const split = parseFloat(comparisonSlider.value) / 100; // 0..1
+                const splitPx = Math.floor(split * width);
+
+                // Crear ImageData combinado
+                const combined = new Uint8ClampedArray(width * height * 4);
+                const origData = currentImageData.data;
+                const uvData = currentProcessed.uvImageData.data;
+
+                for (let y = 0; y < height; y++) {
+                    for (let x = 0; x < width; x++) {
+                        const idx = (y * width + x) * 4;
+                        const src = (x < splitPx) ? origData : uvData;
+                        combined[idx] = src[idx];
+                        combined[idx+1] = src[idx+1];
+                        combined[idx+2] = src[idx+2];
+                        combined[idx+3] = 255;
+                    }
+                }
+                const combinedImageData = new ImageData(combined, width, height);
+                rendererComp.draw(combinedImageData);
+
+                // Posición de la línea
+                const rect = comparisonCanvas.getBoundingClientRect();
+                const lineX = split * 100;
+                sliderLine.style.left = lineX + '%';
+            }
+
+            // --- Eventos ---
+
+            // Cargar imagen
+            fileInput.addEventListener('change', async (e) => {
+                const file = e.target.files[0];
+                if (!file) return;
+                try {
+                    updateStatus('Cargando...', 'partial');
+                    const result = await loadImageUC.execute(file);
+                    currentImageData = result.imageData;
+                    rendererOrig.draw(result.imageData);
+                    rendererUV.clear();
+                    rendererMask.clear();
+                    rendererComp.clear();
+                    downloadBtn.disabled = true;
+                    fileLabel.textContent = `✅ ${file.name}`;
+                    updateStatus('Imagen cargada. Procesando...', 'ok');
+                    // Procesar automáticamente
+                    processCurrentImage();
+                } catch (err) {
+                    updateStatus('Error: ' + err.message, 'error');
+                }
+            });
+
+            // Cambios en parámetros -> reprocesar automáticamente
+            [intensitySlider, roughnessSlider, materialSelect, showUVCheck, comparisonCheck].forEach(el => {
+                el.addEventListener('input', () => {
+                    updateParamLabels();
+                    // Solo reprocesar si hay imagen y no estamos en medio de otro proceso
+                    if (currentImageData && !isProcessing) {
+                        // Pequeño debounce: usamos requestAnimationFrame para no saturar
+                        if (window._processTimeout) clearTimeout(window._processTimeout);
+                        window._processTimeout = setTimeout(() => {
+                            processCurrentImage();
+                        }, 50);
+                    }
+                });
+            });
+
+            // Botón procesar manual
+            processBtn.addEventListener('click', processCurrentImage);
+
+            // Descargar
+            downloadBtn.addEventListener('click', () => {
+                if (!currentProcessed) {
+                    updateStatus('No hay resultado para descargar', 'partial');
+                    return;
+                }
+                exportImageUC.execute(currentProcessed.uvImageData);
+                updateStatus('Descargado', 'ok');
+            });
+
+            // Resetear ajustes
+            resetSettingsBtn.addEventListener('click', () => {
+                const defaults = settingsUC.reset();
+                syncUIWithParams(defaults);
+                if (currentImageData) processCurrentImage();
+                updateStatus('Ajustes restablecidos', 'ok');
+            });
+
+            // Deslizador de comparación
+            comparisonSlider.addEventListener('input', () => {
+                updateComparison();
+            });
+
+            // Cargar ajustes guardados al inicio
+            const savedSettings = settingsUC.load();
+            if (savedSettings) {
+                syncUIWithParams(savedSettings);
+            }
+
+            // Suscribirse a eventos del bus (para logging o depuración)
+            bus.on('imageLoaded', (data) => {
+                console.log('[Event] imageLoaded', data);
+            });
+            bus.on('imageProcessed', (data) => {
+                console.log('[Event] imageProcessed', data.elapsed);
+            });
+            bus.on('error', (err) => {
+                console.error('[Event] error', err);
+            });
+
+            // Inicializar estado
+            updateStatus('Carga una imagen para comenzar', 'ok');
+            rendererOrig.clear();
+            rendererUV.clear();
+            rendererMask.clear();
+            rendererComp.clear();
+
+            console.log('✅ Simulador UV inicializado (Arquitectura Hexagonal)');
+        })();
+    </script>
+</body>
+</html>
