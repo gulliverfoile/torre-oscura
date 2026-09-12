@@ -1,0 +1,182 @@
+Motor Unificado · Filtrado + Generación
+Motor determinista que toma un texto de entrada, lo filtra contra reglas declarativas, extrae etiquetas, genera entidades a partir de un catálogo, detecta sinergias entre esas entidades y resuelve los efectos finales. Todo configurable desde JSON externo. Sin reglas fijas en el código.
+
+Qué es
+No es un juego. No es una IA. No es un agente. Es un motor de reglas + generación procedural con arquitectura hexagonal, pensado para que cualquiera pueda meterlo en su sistema y definir su propia lógica desde un archivo de configuración.
+
+Está destilado de varios prototipos (filtros de texto, generadores procedurales, árboles de habilidad) que compartían el mismo patrón: entrada → filtro → tags → generación → sinergias → resolución. Este repositorio extrae ese patrón y lo expone como un motor único.
+
+Qué hace
+Dado un texto de entrada y una configuración:
+
+Filtra el texto contra un conjunto de reglas (patrones regex con categoría, severidad, acción y tags asociados).
+
+Extrae los tags de las reglas que han hecho match.
+
+Genera un conjunto de entidades a partir de un catálogo, ponderando las que comparten tags con la entrada.
+
+Detecta sinergias y combos activos según los tags de las entidades generadas.
+
+Resuelve los efectos finales sumando los efectos base de las entidades, más los de las sinergias y combos activos.
+
+Devuelve un objeto con el filtro aplicado, los tags detectados, las entidades generadas, las sinergias activas y los efectos finales.
+
+Cómo lo hace
+Arquitectura hexagonal
+Tres capas, sin dependencias cruzadas hacia dentro:
+
+Dominio (TagRegistry, FilterEngine, Generator, SynergyEngine, Resolver): lógica pura, sin dependencias externas. Se puede testear sin DOM, sin red, sin storage.
+
+Aplicación (EventBus, Engine): orquesta el flujo y emite eventos (config:loaded, run:completed). No sabe nada de UI ni de JSON.
+
+Infraestructura (JSONLoader, LocalStore, UI): adaptadores concretos. La UI solo se suscribe a eventos del bus y renderiza.
+
+Principios
+Config externa: reglas, catálogo, sinergias y combos viven en un JSON. El motor no tiene reglas hardcodeadas.
+
+Sin estado oculto: el motor recibe config y texto, devuelve resultado. Nada más.
+
+Determinista: no hay ML, no hay aleatoriedad no controlada, no hay agentes. Dado el mismo input y config, mismo output.
+
+Desacoplado por eventos: si quieres añadir otra capa (persistencia, telemetría, render alternativo), te suscribes al bus.
+
+Extensible sin tocar el dominio: nuevos tags, nuevas reglas, nuevas entidades → solo cambia el JSON.
+
+Flujo
+text
+texto
+  │
+  ▼
+FilterEngine  ──► matches + tags
+  │
+  ▼
+Generator     ──► entidades (ponderadas por tags)
+  │
+  ▼
+SynergyEngine ──► sinergias + combos activos
+  │
+  ▼
+Resolver      ──► efectos finales
+Cada paso es una clase independiente. Puedes sustituir cualquiera sin tocar las demás.
+
+Uso
+Abre index.html en un navegador. No necesita backend ni instalación.
+
+Demo: carga una configuración de ejemplo y un texto listo para ejecutar.
+
+Cargar config: acepta un JSON externo (ver formato abajo).
+
+Ejecutar (o Ctrl+Enter): corre el pipeline y muestra el resultado.
+
+Limpiar: borra la configuración guardada y los resultados.
+
+La configuración se persiste en localStorage bajo la clave motor_unificado_config. Al recargar, se restaura automáticamente.
+
+Formato de configuración
+json
+{
+  "tags": {
+    "fuego": { "name": "Fuego", "color": "#ff6b35" }
+  },
+  "rules": [
+    {
+      "id": "r1",
+      "pattern": "fuego|llama|incendio",
+      "category": "elemento",
+      "severity": "high",
+      "action": "EXTRACT",
+      "message": "Fuego detectado",
+      "tags": ["fuego"],
+      "override": []
+    }
+  ],
+  "catalog": [
+    {
+      "id": "e1",
+      "name": "Espada Ígnea",
+      "tags": ["fuego"],
+      "weight": 3,
+      "rarity": "rare",
+      "cost": 2,
+      "effects": { "damage": 5 }
+    }
+  ],
+  "synergies": [
+    {
+      "id": "s1",
+      "name": "Cambio Térmico",
+      "requiredTags": ["fuego", "hielo"],
+      "effects": { "damage": 3, "defense": 3 }
+    }
+  ],
+  "combos": [
+    {
+      "id": "c1",
+      "name": "Trinidad Elemental",
+      "requiredTags": { "fuego": 1, "hielo": 1, "magia": 1 },
+      "effects": { "allResist": 0.1 }
+    }
+  ],
+  "defaultAction": "PERMITIR"
+}
+Notas:
+
+severity: critical | high | medium | low | info.
+
+action: cualquier string. El motor prioriza BLOQUEAR > REQUIERE_ESPERA > EXTRACT > defaultAction.
+
+override: lista de categorías cuyos matches se anulan si esta regla también hace match.
+
+weight: peso relativo en la generación. Las entidades cuyos tags coinciden con los detectados reciben peso extra.
+
+requiredTags (combos): mapa de tag → cantidad mínima.
+
+API programática
+Si quieres usarlo sin la UI, importa las clases del bloque <script> o extrae Engine y sus dependencias a un módulo.
+
+js
+const engine = new Engine(config);
+
+engine.bus.on('run:completed', (result) => {
+  console.log(result.effects);
+});
+
+const result = engine.run('texto de entrada');
+// result = { filter, tags, entities, synergies, combos, effects }
+Límites
+No es ML: no aprende, no infiere, no generaliza. Es un motor de reglas. Si quieres inferencia, esto no es.
+
+No es un agente: no tiene memoria persistente más allá de la config, no planifica, no ejecuta acciones externas.
+
+No es escalable a datasets enormes: el filtro es regex secuencial. Para corpus grandes, necesitarías indexación.
+
+No valida esquema estricto: si el JSON está malformado, algunas partes pueden fallar silenciosamente. Se puede añadir validación con JSON Schema.
+
+Sin tests automatizados: es un MVP. Los tests serían el siguiente paso.
+
+Qué NO incluye
+Renderizado visual de las entidades (canvas, DOM, etc.). Solo devuelve datos.
+
+Persistencia del resultado. Solo persiste la config.
+
+Multi-usuario, red, backend.
+
+Aleatoriedad controlada por semilla (usa Math.random por defecto; se puede inyectar un RNG).
+
+Editor visual del JSON. Se edita a mano.
+
+Extensiones posibles
+Validación de esquema con JSON Schema antes de cargar.
+
+RNG con semilla para reproducibilidad.
+
+Editor visual de reglas y catálogo.
+
+Múltiples configs en paralelo (perfiles).
+
+Adaptadores alternativos: cargar config desde URL, desde API, desde IndexedDB.
+
+Tests con catálogos de ejemplo y asserts sobre el resultado.
+
+Licencia
+AGPLv3. Copia, modifica, redistribuye. Si mejoras el motor, comparte
