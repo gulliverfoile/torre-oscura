@@ -1,0 +1,86 @@
+# Núcleo
+
+Core mínimo de event sourcing con arquitectura hexagonal. Tres operaciones.
+Vistas y adaptadores como módulos intercambiables. Sin dominio, sin reglas fijas.
+
+## Qué es
+
+Un log append-only de eventos. Cada evento tiene un elemento (el centro),
+una acción, un actor, contexto libre y un padre opcional. Nada más.
+
+El core sabe hacer tres cosas: escribir eventos, derivar vistas y
+reconstruir vistas desde el log. Todo lo demás son módulos.
+
+## Por qué
+
+Porque el core tonto es lo que lo hace robusto. Las vistas se pueden
+reemplazar sin tocar el core. Los adaptadores de entrada y salida son
+independientes. El log es la única fuente de verdad.
+
+## Estructura
+
+nucleo/
+  core.js         → append, derive, rebuild
+  evento.js       → formato y validación
+  store.js        → persistencia (JSON Lines por defecto)
+  vistas/         → módulos que leen el log y producen resultados
+  adaptadores/    → entradas (CLI, HTTP, UI) y salidas
+  ejemplos/       → config y eventos de muestra
+
+## Core
+
+append(evento)         → escribe al log
+derive(vista, filtro)  → ejecuta una vista sobre un filtro
+rebuild(vista)         → recalcula una vista desde el log entero
+
+## Evento
+
+{
+  id:        string único
+  elemento:  string (tag, noticia, usuario, comentario)
+  accion:    string (creado, votado, taggeado, moderado)
+  actor:     string
+  contexto:  objeto libre
+  padre:     string | null
+  version:   1
+  ts:        timestamp
+}
+
+## Vista
+
+Una vista es un módulo con esta forma:
+
+{
+  id:      string
+  init:    () => estado inicial
+  apply:   (estado, evento) => estado nuevo
+  result:  (estado) => salida
+}
+
+El core no sabe qué hay dentro. Solo la alimenta de eventos y lee su
+resultado.
+
+## Adaptador de entrada
+
+Cualquier cosa que produzca eventos con el formato de arriba. CLI, HTTP,
+WebSocket, importador. El core no los distingue.
+
+## Escalado
+
+El log se particiona por elemento. Las vistas se escalan aparte. Los
+módulos se añaden sin romper. La federación comparte eventos, no vistas.
+
+## Lo que NO incluye
+
+- UI bonita
+- Base de datos (JSON Lines por defecto)
+- Federación
+- ML
+- Moderación
+- Recomendación
+
+Todo eso son módulos. Se añaden encima.
+
+## Licencia
+
+AGPLv3.
