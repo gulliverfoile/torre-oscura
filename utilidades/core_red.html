@@ -1,0 +1,354 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Núcleo · Event Sourcing mínimo</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: system-ui, sans-serif; background: #0f172a; color: #e2e8f0; padding: 16px; min-height: 100vh; font-size: 14px; }
+  h1 { font-size: 1.1rem; font-weight: 400; color: #60a5fa; margin-bottom: 14px; }
+  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  @media (max-width: 800px) { .grid { grid-template-columns: 1fr; } }
+  .panel { background: #1e293b; border: 1px solid #334155; border-radius: 10px; padding: 14px; }
+  .panel h2 { font-size: 0.75rem; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 10px; font-weight: 500; }
+  textarea { width: 100%; height: 60px; background: #0f172a; border: 1px solid #334155; color: #e2e8f0; border-radius: 6px; padding: 8px; font-family: ui-monospace, monospace; font-size: 12px; resize: vertical; }
+  textarea:focus { outline: none; border-color: #3b82f6; }
+  input, select { background: #0f172a; border: 1px solid #334155; color: #e2e8f0; border-radius: 6px; padding: 6px 8px; font-family: inherit; font-size: 12px; }
+  input:focus, select:focus { outline: none; border-color: #3b82f6; }
+  button { background: #1e293b; color: #e2e8f0; border: 1px solid #334155; border-radius: 6px; padding: 7px 14px; cursor: pointer; font-size: 12px; }
+  button:hover { background: #334155; }
+  button.primary { background: #3b82f6; border-color: #3b82f6; color: #fff; }
+  button.primary:hover { background: #2563eb; }
+  button.danger { background: #7f1d1d; border-color: #991b1b; color: #fecaca; }
+  .row { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; margin-bottom: 8px; }
+  .row label { font-size: 11px; color: #94a3b8; }
+  .log { font-family: ui-monospace, monospace; font-size: 11px; color: #cbd5e1; max-height: 260px; overflow-y: auto; background: #0f172a; border-radius: 6px; padding: 8px; line-height: 1.5; }
+  .log .ev { border-bottom: 1px solid #1e293b; padding: 3px 0; }
+  .log .ev:last-child { border-bottom: none; }
+  .log .el { color: #93c5fd; }
+  .log .ac { color: #fbbf24; }
+  .log .ar { color: #4ade80; }
+  .log .ts { color: #475569; }
+  .kv { display: flex; justify-content: space-between; padding: 3px 0; border-bottom: 1px solid #1e293b; font-size: 12px; }
+  .kv:last-child { border-bottom: none; }
+  .kv .k { color: #94a3b8; }
+  .kv .v { color: #e2e8f0; font-family: ui-monospace, monospace; font-weight: 600; }
+  .empty { color: #475569; font-style: italic; font-size: 12px; }
+  .status { font-size: 11px; color: #64748b; margin-top: 6px; }
+  .status.ok { color: #4ade80; }
+  .status.err { color: #f87171; }
+  .tabs { display: flex; gap: 4px; margin-bottom: 8px; }
+  .tab { padding: 4px 10px; border-radius: 4px; background: #0f172a; border: 1px solid #334155; font-size: 11px; cursor: pointer; color: #94a3b8; }
+  .tab.active { background: #3b82f6; color: #fff; border-color: #3b82f6; }
+</style>
+</head>
+<body>
+<h1>⬡ Núcleo · Event Sourcing mínimo</h1>
+
+<div class="grid">
+  <div class="panel">
+    <h2>Entrada · producir evento</h2>
+    <div class="row">
+      <input id="el" placeholder="elemento" value="tag_fuego" style="flex:1;">
+      <input id="ac" placeholder="acción" value="aplicado" style="flex:1;">
+      <input id="ar" placeholder="actor" value="usuario_x" style="flex:1;">
+    </div>
+    <div class="row">
+      <input id="padre" placeholder="padre (opcional)" style="flex:1;">
+      <input id="ctx" placeholder='contexto JSON (opcional)' value='{"a":"noticia_1"}' style="flex:2;">
+    </div>
+    <div class="row">
+      <button class="primary" id="addBtn">▶ Añadir evento</button>
+      <button id="seedBtn">🌱 Cargar seed</button>
+      <button class="danger" id="clearBtn">🗑 Limpiar log</button>
+    </div>
+    <div class="status" id="status">Listo.</div>
+  </div>
+
+  <div class="panel">
+    <h2>Log (fuente de verdad)</h2>
+    <div class="log" id="logView"><div class="empty">Sin eventos.</div></div>
+  </div>
+
+  <div class="panel">
+    <h2>Vistas</h2>
+    <div class="tabs">
+      <div class="tab active" data-view="tagCount">tagCount</div>
+      <div class="tab" data-view="userActivity">userActivity</div>
+      <div class="tab" data-view="timeline">timeline</div>
+    </div>
+    <div id="viewOut"><div class="empty">Selecciona una vista.</div></div>
+  </div>
+
+  <div class="panel">
+    <h2>Core</h2>
+    <div class="kv"><span class="k">eventos en log</span><span class="v" id="countEv">0</span></div>
+    <div class="kv"><span class="k">último append</span><span class="v" id="lastAppend">-</span></div>
+    <div class="kv"><span class="k">último rebuild</span><span class="v" id="lastRebuild">-</span></div>
+    <div class="row" style="margin-top:10px;">
+      <button id="rebuildBtn">↻ rebuild todas las vistas</button>
+    </div>
+    <div class="status" id="coreStatus"></div>
+  </div>
+</div>
+
+<script>
+'use strict';
+
+// ================================================================
+// EVENTO · formato + validación
+// ================================================================
+const Evento = {
+  version: 1,
+  contador: 0,
+  crear({ elemento, accion, actor, contexto = {}, padre = null }) {
+    if (!elemento || !accion || !actor) throw new Error('elemento, accion y actor son obligatorios');
+    this.contador++;
+    return {
+      id: `${Date.now()}-${this.contador}`,
+      elemento, accion, actor, contexto, padre,
+      version: this.version,
+      ts: new Date().toISOString()
+    };
+  }
+};
+
+// ================================================================
+// STORE · persistencia (en memoria; se puede cambiar por JSONL, SQL, etc.)
+// ================================================================
+class Store {
+  constructor() { this._eventos = []; }
+  append(ev) { this._eventos.push(ev); return ev; }
+  all() { return [...this._eventos]; }
+  since(id) {
+    const i = this._eventos.findIndex(e => e.id === id);
+    return i >= 0 ? this._eventos.slice(i + 1) : [];
+  }
+  clear() { this._eventos = []; }
+  size() { return this._eventos.length; }
+}
+
+// ================================================================
+// CORE · append, derive, rebuild
+// ================================================================
+class Core {
+  constructor(store) {
+    this.store = store;
+    this.vistas = new Map();
+  }
+  registrarVista(vista) {
+    if (!vista.id || typeof vista.apply !== 'function') throw new Error('Vista inválida');
+    this.vistas.set(vista.id, vista);
+    this.store.all().forEach(ev => {});
+    return this;
+  }
+  append(evento) {
+    const ev = this.store.append(evento);
+    for (const vista of this.vistas.values()) {
+      if (!vista._estado) vista._estado = vista.init();
+      vista._estado = vista.apply(vista._estado, ev);
+    }
+    return ev;
+  }
+  derive(vistaId, filtro = null) {
+    const vista = this.vistas.get(vistaId);
+    if (!vista) throw new Error(`Vista ${vistaId} no registrada`);
+    let estado = vista.init();
+    const eventos = filtro ? this.store.all().filter(filtro) : this.store.all();
+    for (const ev of eventos) estado = vista.apply(estado, ev);
+    return vista.result(estado);
+  }
+  rebuild(vistaId = null) {
+    const ids = vistaId ? [vistaId] : [...this.vistas.keys()];
+    for (const id of ids) {
+      const vista = this.vistas.get(id);
+      if (!vista) continue;
+      let estado = vista.init();
+      for (const ev of this.store.all()) estado = vista.apply(estado, ev);
+      vista._estado = estado;
+    }
+    return ids;
+  }
+}
+
+// ================================================================
+// VISTAS · módulos que leen el log
+// ================================================================
+const tagCount = {
+  id: 'tagCount',
+  init: () => ({}),
+  apply: (estado, ev) => {
+    if (ev.elemento.startsWith('tag_') && ev.accion === 'aplicado') {
+      estado[ev.elemento] = (estado[ev.elemento] || 0) + 1;
+    }
+    return estado;
+  },
+  result: (estado) => Object.entries(estado).sort((a,b) => b[1] - a[1])
+};
+
+const userActivity = {
+  id: 'userActivity',
+  init: () => ({}),
+  apply: (estado, ev) => {
+    if (!estado[ev.actor]) estado[ev.actor] = { eventos: 0, elementos: new Set(), acciones: new Set() };
+    estado[ev.actor].eventos++;
+    estado[ev.actor].elementos.add(ev.elemento);
+    estado[ev.actor].acciones.add(ev.accion);
+    return estado;
+  },
+  result: (estado) => Object.entries(estado).map(([actor, d]) => ({
+    actor,
+    eventos: d.eventos,
+    elementos: d.elementos.size,
+    acciones: [...d.acciones]
+  })).sort((a,b) => b.eventos - a.eventos)
+};
+
+const timeline = {
+  id: 'timeline',
+  init: () => ([]),
+  apply: (estado, ev) => {
+    estado.push(`${ev.ts.slice(11,19)} · ${ev.elemento} fue ${ev.accion} por ${ev.actor}`);
+    return estado;
+  },
+  result: (estado) => estado.slice(-30)
+};
+
+// ================================================================
+// ADAPTADOR UI · produce eventos, renderiza vistas
+// ================================================================
+const store = new Store();
+const core = new Core(store);
+core.registrarVista(tagCount).registrarVista(userActivity).registrarVista(timeline);
+
+let currentView = 'tagCount';
+
+function esc(s) { return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+
+function renderLog() {
+  const el = document.getElementById('logView');
+  const evs = store.all();
+  if (!evs.length) { el.innerHTML = '<div class="empty">Sin eventos.</div>'; return; }
+  el.innerHTML = evs.slice(-40).map(ev => `
+    <div class="ev">
+      <span class="ts">${ev.ts.slice(11,19)}</span>
+      <span class="el">${esc(ev.elemento)}</span>
+      <span class="ac">${esc(ev.accion)}</span>
+      <span class="ar">${esc(ev.actor)}</span>
+      ${ev.padre ? `<span class="ts">← ${esc(ev.padre.slice(-6))}</span>` : ''}
+    </div>`).join('');
+  el.scrollTop = el.scrollHeight;
+}
+
+function renderView() {
+  const el = document.getElementById('viewOut');
+  try {
+    const r = core.derive(currentView);
+    if (Array.isArray(r)) {
+      if (!r.length) { el.innerHTML = '<div class="empty">Sin datos.</div>'; return; }
+      if (currentView === 'tagCount') {
+        el.innerHTML = r.map(([k,v]) => `<div class="kv"><span class="k">${esc(k)}</span><span class="v">${v}</span></div>`).join('');
+      } else if (currentView === 'userActivity') {
+        el.innerHTML = r.map(d => `<div class="kv"><span class="k">${esc(d.actor)}</span><span class="v">${d.eventos} ev · ${d.elementos} el · [${d.acciones.map(esc).join(', ')}]</span></div>`).join('');
+      } else {
+        el.innerHTML = r.map(l => `<div class="kv"><span class="k" style="font-family:ui-monospace,monospace;">${esc(l)}</span></div>`).join('');
+      }
+    } else if (typeof r === 'object') {
+      const entries = Object.entries(r);
+      if (!entries.length) { el.innerHTML = '<div class="empty">Sin datos.</div>'; return; }
+      el.innerHTML = entries.map(([k,v]) => `<div class="kv"><span class="k">${esc(k)}</span><span class="v">${esc(JSON.stringify(v))}</span></div>`).join('');
+    } else {
+      el.innerHTML = `<div class="kv"><span class="v">${esc(String(r))}</span></div>`;
+    }
+  } catch (e) {
+    el.innerHTML = `<div class="empty">Error: ${esc(e.message)}</div>`;
+  }
+}
+
+function setStatus(msg, type = '') {
+  const el = document.getElementById('status');
+  el.textContent = msg;
+  el.className = 'status' + (type ? ' ' + type : '');
+}
+
+function refreshCore() {
+  document.getElementById('countEv').textContent = store.size();
+}
+
+function addEvento() {
+  try {
+    let ctx = {};
+    const raw = document.getElementById('ctx').value.trim();
+    if (raw) ctx = JSON.parse(raw);
+    const ev = Evento.crear({
+      elemento: document.getElementById('el').value.trim(),
+      accion: document.getElementById('ac').value.trim(),
+      actor: document.getElementById('ar').value.trim(),
+      contexto: ctx,
+      padre: document.getElementById('padre').value.trim() || null
+    });
+    core.append(ev);
+    document.getElementById('lastAppend').textContent = ev.ts.slice(11,19);
+    setStatus(`✅ Evento añadido: ${ev.elemento} ${ev.accion}`, 'ok');
+    renderLog(); renderView(); refreshCore();
+  } catch (e) {
+    setStatus(`❌ ${e.message}`, 'err');
+  }
+}
+
+function cargarSeed() {
+  const seed = [
+    ['tag_fuego','aplicado','u1'],
+    ['tag_fuego','aplicado','u2'],
+    ['tag_hielo','aplicado','u1'],
+    ['tag_fuego','aplicado','u3'],
+    ['noticia_1','votado','u2'],
+    ['tag_hielo','aplicado','u3'],
+    ['tag_magia','aplicado','u1'],
+    ['noticia_1','comentado','u3'],
+    ['tag_fuego','aplicado','u2'],
+    ['noticia_2','creado','u1'],
+    ['tag_fuego','aplicado','u1'],
+    ['tag_hielo','aplicado','u2'],
+  ];
+  for (const [el,ac,ar] of seed) {
+    core.append(Evento.crear({ elemento: el, accion: ac, actor: ar, contexto: {} }));
+  }
+  setStatus(`✅ ${seed.length} eventos de seed cargados`, 'ok');
+  renderLog(); renderView(); refreshCore();
+}
+
+document.getElementById('addBtn').addEventListener('click', addEvento);
+document.getElementById('seedBtn').addEventListener('click', cargarSeed);
+document.getElementById('clearBtn').addEventListener('click', () => {
+  store.clear();
+  core.rebuild();
+  document.getElementById('lastAppend').textContent = '-';
+  document.getElementById('lastRebuild').textContent = '-';
+  setStatus('Log limpiado', '');
+  renderLog(); renderView(); refreshCore();
+});
+document.getElementById('rebuildBtn').addEventListener('click', () => {
+  const ids = core.rebuild();
+  document.getElementById('lastRebuild').textContent = new Date().toISOString().slice(11,19);
+  document.getElementById('coreStatus').textContent = `Vistas reconstruidas: ${ids.join(', ')}`;
+  renderView();
+});
+document.querySelectorAll('.tab').forEach(tab => {
+  tab.addEventListener('click', () => {
+    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+    tab.classList.add('active');
+    currentView = tab.dataset.view;
+    renderView();
+  });
+});
+document.getElementById('ctx').addEventListener('keydown', e => {
+  if (e.key === 'Enter' && e.ctrlKey) addEvento();
+});
+
+// init
+renderLog(); refreshCore();
+</script>
+</body>
+</html>
