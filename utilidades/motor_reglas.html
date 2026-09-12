@@ -1,0 +1,434 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Motor Unificado · Filtrado + Generación</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: system-ui, sans-serif; background: #0f172a; color: #e2e8f0; padding: 16px; min-height: 100vh; }
+  header { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-bottom: 16px; padding-bottom: 12px; border-bottom: 1px solid #1e293b; }
+  h1 { font-size: 1.1rem; font-weight: 400; color: #60a5fa; margin-right: auto; }
+  .btn { background: #1e293b; color: #e2e8f0; border: 1px solid #334155; padding: 6px 12px; border-radius: 6px; cursor: pointer; font-size: 0.85rem; }
+  .btn:hover { background: #334155; }
+  .btn.primary { background: #3b82f6; color: #fff; border-color: #3b82f6; }
+  .btn.primary:hover { background: #2563eb; }
+  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  @media (max-width: 800px) { .grid { grid-template-columns: 1fr; } }
+  .panel { background: #1e293b; border-radius: 12px; padding: 16px; border: 1px solid #334155; }
+  .panel h2 { font-size: 0.9rem; color: #94a3b8; font-weight: 500; margin-bottom: 10px; text-transform: uppercase; letter-spacing: 0.05em; }
+  textarea { width: 100%; height: 140px; background: #0f172a; border: 1px solid #334155; color: #e2e8f0; border-radius: 8px; padding: 10px; font-family: inherit; font-size: 0.9rem; resize: vertical; }
+  textarea:focus { outline: none; border-color: #3b82f6; }
+  .status { margin-top: 8px; font-size: 0.8rem; color: #94a3b8; }
+  .status.ok { color: #4ade80; }
+  .status.err { color: #f87171; }
+  .section { margin-bottom: 14px; }
+  .section-title { font-size: 0.75rem; color: #64748b; text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 6px; }
+  .chip { display: inline-block; padding: 2px 8px; border-radius: 12px; font-size: 0.75rem; margin: 2px 4px 2px 0; background: #334155; color: #cbd5e1; }
+  .chip.tag { background: #1e3a5f; color: #93c5fd; }
+  .chip.entity { background: #3b1e5f; color: #d8b4fe; }
+  .chip.syn { background: #5f3b1e; color: #fdba74; }
+  .chip.action { background: #5f1e1e; color: #fca5a5; }
+  .empty { color: #475569; font-size: 0.85rem; font-style: italic; }
+  .kv { display: flex; justify-content: space-between; font-size: 0.85rem; padding: 3px 0; border-bottom: 1px solid #1e293b; }
+  .kv:last-child { border-bottom: none; }
+  .kv .k { color: #94a3b8; }
+  .kv .v { color: #e2e8f0; font-weight: 600; font-family: ui-monospace, monospace; }
+</style>
+</head>
+<body>
+<header>
+  <h1>⚙️ Motor Unificado · Filtrado + Generación</h1>
+  <label class="btn">📂 Cargar config<input type="file" id="configInput" accept=".json" hidden></label>
+  <button class="btn" id="demoBtn">Demo</button>
+  <button class="btn" id="clearBtn">Limpiar</button>
+</header>
+
+<div class="grid">
+  <div class="panel">
+    <h2>Entrada</h2>
+    <textarea id="inputText" placeholder="Escribe texto… (ej: 'lanzo una bola de fuego y luego invoco hielo' )"></textarea>
+    <div style="margin-top:10px; display:flex; gap:8px;">
+      <button class="btn primary" id="runBtn">▶ Ejecutar</button>
+    </div>
+    <div class="status" id="configStatus">Sin config cargada</div>
+  </div>
+
+  <div class="panel">
+    <h2>Resultado</h2>
+    <div id="results"><div class="empty">Ejecuta para ver resultados.</div></div>
+  </div>
+</div>
+
+<script>
+'use strict';
+
+// ================================================================
+// DOMINIO — lógica pura, sin dependencias externas
+// ================================================================
+
+class TagRegistry {
+  constructor() { this._tags = new Map(); }
+  register(id, meta = {}) {
+    this._tags.set(id, { id, name: meta.name || id, color: meta.color || '#888', effects: meta.effects || {} });
+    return this;
+  }
+  get(id) { return this._tags.get(id); }
+  all() { return [...this._tags.values()]; }
+}
+
+class FilterEngine {
+  constructor(severityOrder = ['critical','high','medium','low','info']) {
+    this.severityOrder = severityOrder;
+  }
+  filter(text, rules, config = {}) {
+    const defaultAction = config.defaultAction || 'PERMITIR';
+    const matches = [];
+    const actions = new Set();
+    let maxSeverity = 'info';
+    for (const rule of rules) {
+      try {
+        const regex = new RegExp(rule.pattern, 'gi');
+        const found = text.match(regex);
+        if (found && found.length > 0) {
+          const idx = text.search(regex);
+          const ctx = text.substring(Math.max(0, idx - 40), Math.min(text.length, idx + 40));
+          matches.push({ rule, matchedText: found, context: ctx.trim() });
+          actions.add(rule.action);
+          const sevIdx = this.severityOrder.indexOf(rule.severity);
+          const maxIdx = this.severityOrder.indexOf(maxSeverity);
+          if (sevIdx >= 0 && (maxIdx < 0 || sevIdx < maxIdx)) maxSeverity = rule.severity;
+        }
+      } catch (e) { /* regex inválida, se ignora */ }
+    }
+    const final = matches.filter(m => {
+      if (!m.rule.override || !m.rule.override.length) return true;
+      return !matches.some(o => o.rule.id !== m.rule.id && m.rule.override.includes(o.rule.category));
+    });
+    let action = defaultAction;
+    if (actions.has('BLOQUEAR')) action = 'BLOQUEAR';
+    else if (actions.has('REQUIERE_ESPERA')) action = 'REQUIERE_ESPERA';
+    else if (actions.has('EXTRACT')) action = 'EXTRACT';
+    return {
+      matches: final,
+      action,
+      maxSeverity,
+      categories: [...new Set(final.map(m => m.rule.category))]
+    };
+  }
+}
+
+class Generator {
+  constructor(rng = Math.random) { this.rng = rng; }
+  pick(items, weightKey = 'weight') {
+    const total = items.reduce((s, i) => s + (i[weightKey] || 1), 0);
+    let r = this.rng() * total;
+    for (const item of items) {
+      r -= (item[weightKey] || 1);
+      if (r <= 0) return item;
+    }
+    return items[items.length - 1];
+  }
+  generate(tags, catalog, count = 3) {
+    if (!catalog.length) return [];
+    const weighted = catalog.map(e => ({
+      ...e,
+      _w: (e.weight || 1) * (1 + e.tags.filter(t => tags.includes(t)).length * 2)
+    }));
+    const result = [];
+    for (let i = 0; i < count; i++) {
+      const picked = this.pick(weighted, '_w');
+      result.push({
+        id: `${picked.id}_${i}`,
+        baseId: picked.id,
+        name: picked.name,
+        tags: picked.tags,
+        rarity: picked.rarity || 'common',
+        cost: picked.cost || 1,
+        effects: { ...picked.effects }
+      });
+    }
+    return result;
+  }
+}
+
+class SynergyEngine {
+  constructor(synergies = [], combos = []) {
+    this.synergies = synergies;
+    this.combos = combos;
+  }
+  detect(entities) {
+    const tagSet = new Set(entities.flatMap(e => e.tags));
+    const tagCounts = {};
+    for (const e of entities) for (const t of e.tags) tagCounts[t] = (tagCounts[t] || 0) + 1;
+    const activeSyn = this.synergies.filter(s => s.requiredTags.every(t => tagSet.has(t)));
+    const activeCombos = this.combos.filter(c =>
+      Object.entries(c.requiredTags).every(([t, n]) => (tagCounts[t] || 0) >= n)
+    );
+    return { synergies: activeSyn, combos: activeCombos };
+  }
+}
+
+class Resolver {
+  apply(entities, synResult) {
+    const effects = {};
+    const add = (obj) => {
+      for (const [k, v] of Object.entries(obj || {})) {
+        effects[k] = (effects[k] || 0) + v;
+      }
+    };
+    for (const e of entities) add(e.effects);
+    for (const s of synResult.synergies) add(s.effects);
+    for (const c of synResult.combos) add(c.effects);
+    return effects;
+  }
+}
+
+// ================================================================
+// APLICACIÓN — orquestación, eventos, casos de uso
+// ================================================================
+
+class EventBus {
+  constructor() { this._l = new Map(); }
+  on(ev, cb) { if (!this._l.has(ev)) this._l.set(ev, new Set()); this._l.get(ev).add(cb); return () => this.off(ev, cb); }
+  off(ev, cb) { this._l.get(ev)?.delete(cb); }
+  emit(ev, data) { this._l.get(ev)?.forEach(cb => { try { cb(data); } catch (e) { console.error(e); } }); }
+}
+
+class Engine {
+  constructor(config = null) {
+    this.bus = new EventBus();
+    this.tags = new TagRegistry();
+    this.filterEngine = new FilterEngine();
+    this.generator = new Generator();
+    this.synergyEngine = new SynergyEngine();
+    this.resolver = new Resolver();
+    this.config = { rules: [], catalog: [], synergies: [], combos: [], defaultAction: 'PERMITIR' };
+    if (config) this.loadConfig(config);
+  }
+
+  loadConfig(config) {
+    if (config.tags) {
+      for (const [id, meta] of Object.entries(config.tags)) this.tags.register(id, meta);
+    }
+    this.config = {
+      rules: config.rules || [],
+      catalog: config.catalog || [],
+      synergies: config.synergies || [],
+      combos: config.combos || [],
+      defaultAction: config.defaultAction || 'PERMITIR'
+    };
+    this.synergyEngine = new SynergyEngine(this.config.synergies, this.config.combos);
+    this.bus.emit('config:loaded', { tags: this.tags.all(), ...this.config });
+  }
+
+  run(text) {
+    // 1. Filtrar texto contra reglas
+    const filterResult = this.filterEngine.filter(text, this.config.rules, { defaultAction: this.config.defaultAction });
+
+    // 2. Extraer tags de las reglas que han hecho match
+    const tags = [...new Set(filterResult.matches.flatMap(m => m.rule.tags || []))];
+
+    // 3. Generar entidades a partir de los tags detectados
+    const entities = this.generator.generate(tags, this.config.catalog, 3);
+
+    // 4. Detectar sinergias y combos
+    const synResult = this.synergyEngine.detect(entities);
+
+    // 5. Resolver efectos finales
+    const effects = this.resolver.apply(entities, synResult);
+
+    const result = {
+      filter: filterResult,
+      tags,
+      entities,
+      synergies: synResult.synergies,
+      combos: synResult.combos,
+      effects
+    };
+    this.bus.emit('run:completed', result);
+    return result;
+  }
+}
+
+// ================================================================
+// INFRAESTRUCTURA — adaptadores (JSON, storage, UI)
+// ================================================================
+
+class JSONLoader {
+  static fromFile(file) {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = e => { try { resolve(JSON.parse(e.target.result)); } catch (err) { reject(err); } };
+      reader.onerror = () => reject(new Error('Error leyendo archivo'));
+      reader.readAsText(file);
+    });
+  }
+}
+
+class LocalStore {
+  constructor(key) { this.key = key; }
+  save(v) { try { localStorage.setItem(this.key, JSON.stringify(v)); } catch (e) {} }
+  load() { try { const r = localStorage.getItem(this.key); return r ? JSON.parse(r) : null; } catch (e) { return null; } }
+  clear() { localStorage.removeItem(this.key); }
+}
+
+// ================================================================
+// CONFIG DEMO (cargable desde JSON externo)
+// ================================================================
+
+const DEMO_CONFIG = {
+  tags: {
+    fuego:  { name: 'Fuego',  color: '#ff6b35' },
+    hielo:  { name: 'Hielo',  color: '#4fc3f7' },
+    magia:  { name: 'Magia',  color: '#c084fc' },
+    sangre: { name: 'Sangre', color: '#e94560' }
+  },
+  rules: [
+    { id: 'r1', pattern: 'fuego|llama|incendio|ígneo', category: 'elemento', severity: 'high', action: 'EXTRACT', message: 'Fuego detectado', tags: ['fuego'] },
+    { id: 'r2', pattern: 'hielo|frío|escarcha|glacial',  category: 'elemento', severity: 'high', action: 'EXTRACT', message: 'Hielo detectado', tags: ['hielo'] },
+    { id: 'r3', pattern: 'magia|arcano|hechizo|conjuro', category: 'elemento', severity: 'medium', action: 'EXTRACT', message: 'Magia detectada', tags: ['magia'] },
+    { id: 'r4', pattern: 'sangre|sanguíneo|vampiro',     category: 'elemento', severity: 'medium', action: 'EXTRACT', message: 'Sangre detectada', tags: ['sangre'] }
+  ],
+  catalog: [
+    { id: 'e1', name: 'Espada Ígnea',   tags: ['fuego'],  weight: 3, rarity: 'rare',  cost: 2, effects: { damage: 5 } },
+    { id: 'e2', name: 'Escudo Glacial', tags: ['hielo'],  weight: 3, rarity: 'rare',  cost: 2, effects: { defense: 4 } },
+    { id: 'e3', name: 'Cetro Arcano',   tags: ['magia'],  weight: 2, rarity: 'epic',  cost: 3, effects: { mana: 10 } },
+    { id: 'e4', name: 'Anillo de Sangre', tags: ['sangre'], weight: 2, rarity: 'rare', cost: 2, effects: { lifeSteal: 0.05 } }
+  ],
+  synergies: [
+    { id: 's1', name: 'Cambio Térmico',     requiredTags: ['fuego','hielo'], effects: { damage: 3, defense: 3 } },
+    { id: 's2', name: 'Convergencia Arcana', requiredTags: ['magia','fuego'], effects: { mana: 5, damage: 2 } }
+  ],
+  combos: [
+    { id: 'c1', name: 'Trinidad Elemental', requiredTags: { fuego: 1, hielo: 1, magia: 1 }, effects: { allResist: 0.1 } }
+  ],
+  defaultAction: 'PERMITIR'
+};
+
+// ================================================================
+// UI — orquestación de entrada/salida
+// ================================================================
+
+const engine = new Engine(DEMO_CONFIG);
+const store = new LocalStore('motor_unificado_config');
+
+function renderResult(result) {
+  const r = document.getElementById('results');
+  if (!result) { r.innerHTML = '<div class="empty">Sin resultados.</div>'; return; }
+
+  const esc = (s) => String(s).replace(/[&<>"']/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]));
+
+  let html = '';
+
+  // Filtro
+  html += `<div class="section"><div class="section-title">Filtro · acción global: <span class="chip action">${esc(result.filter.action)}</span></div>`;
+  if (result.filter.matches.length === 0) {
+    html += '<div class="empty">Sin coincidencias.</div>';
+  } else {
+    for (const m of result.filter.matches) {
+      html += `<div class="kv"><span class="k">${esc(m.rule.message)} <span class="chip">${esc(m.rule.severity)}</span></span><span class="v">${esc(m.matchedText[0])}</span></div>`;
+    }
+  }
+  html += '</div>';
+
+  // Tags
+  html += `<div class="section"><div class="section-title">Tags detectados</div>`;
+  if (result.tags.length === 0) html += '<div class="empty">Ninguno.</div>';
+  else html += result.tags.map(t => `<span class="chip tag">${esc(t)}</span>`).join('');
+  html += '</div>';
+
+  // Entidades generadas
+  html += `<div class="section"><div class="section-title">Entidades generadas</div>`;
+  if (result.entities.length === 0) html += '<div class="empty">Ninguna.</div>';
+  else {
+    for (const e of result.entities) {
+      html += `<div class="kv"><span class="k"><span class="chip entity">${esc(e.rarity)}</span> ${esc(e.name)}</span><span class="v">${esc(e.tags.join(','))}</span></div>`;
+    }
+  }
+  html += '</div>';
+
+  // Sinergias y combos
+  html += `<div class="section"><div class="section-title">Sinergias activas</div>`;
+  if (result.synergies.length === 0 && result.combos.length === 0) html += '<div class="empty">Ninguna.</div>';
+  else {
+    for (const s of result.synergies) html += `<span class="chip syn">🔗 ${esc(s.name)}</span>`;
+    for (const c of result.combos)    html += `<span class="chip syn">⚡ ${esc(c.name)}</span>`;
+  }
+  html += '</div>';
+
+  // Efectos finales
+  html += `<div class="section"><div class="section-title">Efectos resueltos</div>`;
+  const entries = Object.entries(result.effects);
+  if (entries.length === 0) html += '<div class="empty">Sin efectos.</div>';
+  else for (const [k, v] of entries) html += `<div class="kv"><span class="k">${esc(k)}</span><span class="v">${typeof v === 'number' ? Math.round(v * 100) / 100 : esc(v)}</span></div>`;
+  html += '</div>';
+
+  r.innerHTML = html;
+}
+
+function setStatus(msg, type = '') {
+  const el = document.getElementById('configStatus');
+  el.textContent = msg;
+  el.className = 'status' + (type ? ' ' + type : '');
+}
+
+function loadConfig(config, sourceLabel) {
+  try {
+    engine.loadConfig(config);
+    setStatus(`✅ Config cargada (${sourceLabel}): ${engine.config.rules.length} reglas, ${engine.config.catalog.length} entidades`, 'ok');
+    store.save(config);
+  } catch (e) {
+    setStatus(`❌ Error: ${e.message}`, 'err');
+  }
+}
+
+// Arranque
+window.addEventListener('DOMContentLoaded', () => {
+  // Intentar restaurar config guardada, si no, dejar la demo ya cargada
+  const saved = store.load();
+  if (saved) {
+    loadConfig(saved, 'localStorage');
+  } else {
+    setStatus('✅ Demo cargada · pulsa ▶ Ejecutar', 'ok');
+  }
+
+  document.getElementById('runBtn').addEventListener('click', () => {
+    const text = document.getElementById('inputText').value;
+    if (!text.trim()) { setStatus('Escribe algo primero', 'err'); return; }
+    const result = engine.run(text);
+    renderResult(result);
+  });
+
+  document.getElementById('configInput').addEventListener('change', async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    try {
+      const config = await JSONLoader.fromFile(file);
+      loadConfig(config, file.name);
+    } catch (err) {
+      setStatus(`❌ JSON inválido: ${err.message}`, 'err');
+    }
+    e.target.value = '';
+  });
+
+  document.getElementById('demoBtn').addEventListener('click', () => {
+    loadConfig(DEMO_CONFIG, 'demo');
+    document.getElementById('inputText').value = 'Lanzo una bola de fuego y luego invoco escarcha glacial con magia arcana.';
+  });
+
+  document.getElementById('clearBtn').addEventListener('click', () => {
+    store.clear();
+    document.getElementById('inputText').value = '';
+    document.getElementById('results').innerHTML = '<div class="empty">Ejecuta para ver resultados.</div>';
+    setStatus('Limpiado', '');
+  });
+
+  // Atajo Ctrl+Enter
+  document.getElementById('inputText').addEventListener('keydown', (e) => {
+    if (e.ctrlKey && e.key === 'Enter') document.getElementById('runBtn').click();
+  });
+});
+</script>
+</body>
+</html>
