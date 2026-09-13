@@ -42,22 +42,12 @@ Puedes cambiar renderer entre HTML y ASCII.
 
 El contenido se puede modificar en data/.
 
-⚠️ Solo se permite probar el motor y el juego.
-No está permitido vender ni distribuir el motor, juego o partes de ellos sin consentimiento expreso del autor.
 
-Licencia y monetización
-Motor (engine): propiedad del autor. Se permite probar y modificar localmente, pero no se puede vender ni distribuir sin autorización.
-
-Juego de demostración: propiedad del autor. Cualquier intento de monetización o redistribución requiere consentimiento expreso.
-
-Puedes experimentar y crear variantes personales, siempre que no se comercialicen ni se distribuyan públicamente sin permiso.
-
-⚠️ Cualquier uso comercial o redistribución requiere acuerdo explícito con el autor.
+Puedes experimentar y crear variantes personales, siempre que no se comercialicen 
 
 Contribuciones
 Este repositorio está pensado principalmente como sandbox personal.
-Si quieres aportar o experimentar, contacta al autor antes de subir cualquier cambio público.
-
+Si quieres aportar o experimentar, hazlo pero no le rompas los huevos al autor. 
 Nota final
 Torre9 nació como un juguete personal, pero ha crecido hasta convertirse en un engine modular.
 La intención principal es demostrar sistemas emergentes y probar ideas, mientras se mantiene la integridad y control del autor sobre monetización y distribución.
