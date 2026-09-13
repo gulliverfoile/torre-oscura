@@ -1,0 +1,1230 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+<meta name="theme-color" content="#0a0a0a" />
+<title>Trivia · PMV</title>
+<style>
+  /* ============================================================
+     ESTILOS · Accesibilidad primero (DMAE)
+     - Alto contraste: amarillo sobre negro
+     - Texto grande (18px base, 24px+ en pregunta)
+     - Objetivos táctiles >= 56px
+     - Sin animaciones parpadeantes
+     - Foco visible fuerte
+     ============================================================ */
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { height: 100%; }
+  body {
+    font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    background: #0a0a0a;
+    color: #f0f0f0;
+    font-size: 18px;
+    line-height: 1.55;
+    padding: 16px;
+    padding-bottom: env(safe-area-inset-bottom, 16px);
+    -webkit-text-size-adjust: 100%;
+    min-height: 100vh;
+  }
+  .wrap { max-width: 720px; margin: 0 auto; }
+  h1 { font-size: 1.5rem; color: #ffeb3b; margin-bottom: 4px; }
+  h2 { font-size: 1.2rem; margin-bottom: 12px; color: #ffeb3b; }
+  .sub { color: #b0b0b0; font-size: 0.95rem; margin-bottom: 20px; }
+
+  /* Botones base */
+  button {
+    font: inherit;
+    color: inherit;
+    background: #1a1a1a;
+    border: 2px solid #333;
+    border-radius: 12px;
+    padding: 14px 18px;
+    cursor: pointer;
+    min-height: 56px;
+    text-align: left;
+    transition: border-color .12s, background .12s;
+    width: 100%;
+    display: block;
+  }
+  button:hover, button:focus-visible {
+    border-color: #ffeb3b;
+    outline: none;
+  }
+  button:focus-visible { outline: 3px solid #ffeb3b; outline-offset: 2px; }
+  button:disabled { opacity: .5; cursor: not-allowed; }
+  .btn-primary { background: #ffeb3b; color: #0a0a0a; border-color: #ffeb3b; font-weight: 700; }
+  .btn-primary:hover, .btn-primary:focus-visible { background: #fff176; border-color: #fff176; }
+  .btn-ghost { background: transparent; }
+
+  /* Opciones de respuesta */
+  .opts { display: grid; gap: 10px; margin-top: 16px; }
+  .opt {
+    display: flex; align-items: flex-start; gap: 12px;
+    font-size: 1.1rem; line-height: 1.4;
+  }
+  .opt .num {
+    display: inline-flex; align-items: center; justify-content: center;
+    min-width: 32px; height: 32px;
+    background: #333; color: #ffeb3b;
+    border-radius: 8px; font-weight: 700; flex-shrink: 0;
+  }
+  .opt.correct { border-color: #4caf50; background: #103015; }
+  .opt.correct .num { background: #4caf50; color: #0a0a0a; }
+  .opt.wrong { border-color: #f44336; background: #301010; }
+  .opt.wrong .num { background: #f44336; color: #0a0a0a; }
+
+  /* Pregunta */
+  .q-meta { display: flex; justify-content: space-between; font-size: 0.9rem; color: #b0b0b0; margin-bottom: 8px; flex-wrap: wrap; gap: 8px; }
+  .q-meta .diff-3 { color: #ffeb3b; font-weight: 700; }
+  .question {
+    font-size: 1.35rem;
+    line-height: 1.4;
+    background: #1a1a1a;
+    padding: 18px;
+    border-radius: 12px;
+    border-left: 5px solid #ffeb3b;
+    margin-bottom: 8px;
+  }
+  .question.hard { border-left-color: #ff5252; background: #1a0808; }
+  .tags-line { font-size: 0.85rem; color: #b0b0b0; margin-top: 6px; }
+
+  /* Feedback */
+  .feedback {
+    margin-top: 16px;
+    padding: 16px;
+    border-radius: 12px;
+    background: #1a1a1a;
+    border-left: 5px solid #4caf50;
+  }
+  .feedback.wrong { border-left-color: #f44336; }
+  .feedback h3 { font-size: 1.1rem; margin-bottom: 8px; }
+  .feedback .exp { margin-bottom: 10px; }
+  .feedback .curio { color: #ffeb3b; font-style: italic; }
+
+  /* Comodines */
+  .comodines {
+    display: flex; gap: 8px; flex-wrap: wrap; margin-top: 14px;
+  }
+  .comodin {
+    flex: 1; min-width: 130px;
+    font-size: 0.95rem; padding: 10px 12px;
+    text-align: center;
+  }
+  .comodin[disabled] { opacity: .4; }
+
+  /* Tags (home) */
+  .tags { display: flex; flex-wrap: wrap; gap: 8px; margin: 12px 0 20px; }
+  .tag {
+    padding: 10px 16px;
+    border-radius: 999px;
+    border: 2px solid #333;
+    background: #1a1a1a;
+    cursor: pointer;
+    font-size: 0.95rem;
+    min-height: 44px;
+    display: inline-flex; align-items: center;
+  }
+  .tag.on { border-color: #ffeb3b; background: #2a2a10; color: #ffeb3b; }
+  .tag:focus-visible { outline: 3px solid #ffeb3b; outline-offset: 2px; }
+
+  /* Progreso */
+  .bar { height: 8px; background: #222; border-radius: 4px; overflow: hidden; margin: 8px 0 20px; }
+  .bar > i { display: block; height: 100%; background: #ffeb3b; transition: width .2s; }
+
+  /* Summary */
+  .summary { background: #1a1a1a; padding: 20px; border-radius: 12px; }
+  .summary .score { font-size: 2rem; color: #ffeb3b; font-weight: 700; }
+  .summary .stat { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #222; }
+  .summary .stat:last-child { border-bottom: none; }
+
+  /* Utilidades */
+  .row { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 12px; }
+  .row > * { flex: 1; min-width: 140px; }
+  .sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+  .hidden { display: none !important; }
+  .small { font-size: 0.9rem; color: #b0b0b0; }
+  .top-actions { display: flex; gap: 8px; justify-content: flex-end; margin-bottom: 12px; }
+  .top-actions button { width: auto; min-height: 44px; padding: 8px 12px; font-size: 0.9rem; }
+
+  @media (prefers-reduced-motion: reduce) {
+    * { transition: none !important; animation: none !important; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap" id="app"></div>
+
+<script>
+/* ================================================================
+   TRIVIA PMV · Arquitectura por capas, eventos, lista para hexagonal
+   ----------------------------------------------------------------
+   Capas:
+     1. DOMINIO     · reglas puras, sin DOM, sin estado global
+     2. APLICACIÓN  · orquestación, bus de eventos, persistencia
+     3. INFRA       · UI, TTS, carga de archivos
+   ----------------------------------------------------------------
+   Migración a hexagonal:
+     - Domain → núcleo (puertos: Bank, Scoring)
+     - Application → casos de uso
+     - Infra → adaptadores (DOM, localStorage, TTS, fetch)
+   ================================================================ */
+
+
+/* ================================================================
+   CAPA 1 · DOMINIO (puro)
+   ================================================================ */
+const Domain = (() => {
+  const DIFF_POINTS = { 1: 10, 2: 20, 3: 30 };
+
+  // Validación mínima de una pregunta
+  function isValidQuestion(q) {
+    if (!q || typeof q !== 'object') return false;
+    if (!q.id || !q.enunciado) return false;
+    if (!Array.isArray(q.opciones) || q.opciones.length < 2) return false;
+    if (!q.opciones.some(o => o && o.correcta === true)) return false;
+    return true;
+  }
+
+  // Banco en memoria con índice invertido por tag
+  class QuestionBank {
+    constructor() {
+      this.questions = [];
+      this.byTag = new Map();
+      this.byId = new Map();
+    }
+    addMany(list) {
+      let added = 0;
+      for (const q of list) {
+        if (!isValidQuestion(q)) continue;
+        if (this.byId.has(q.id)) continue;
+        const clean = {
+          id: String(q.id),
+          tipo: q.tipo || 'trivia',
+          enunciado: String(q.enunciado),
+          opciones: q.opciones.map(o => ({
+            texto: String(o.texto),
+            correcta: !!o.correcta,
+            tag_error: o.tag_error || null
+          })),
+          explicacion: q.explicacion || '',
+          dato_curioso: q.dato_curioso || null,
+          dificultad: [1,2,3].includes(q.dificultad) ? q.dificultad : 2,
+          tags: Array.isArray(q.tags) ? q.tags.slice() : [],
+          fuente: q.fuente || null,
+          revision: q.revision || 'pendiente'
+        };
+        this.questions.push(clean);
+        this.byId.set(clean.id, clean);
+        for (const t of clean.tags) {
+          if (!this.byTag.has(t)) this.byTag.set(t, []);
+          this.byTag.get(t).push(clean);
+        }
+        added++;
+      }
+      return added;
+    }
+    getTags() {
+      return [...this.byTag.keys()].sort();
+    }
+    pick(tags, difficulty, excludeIds) {
+      const pool = [];
+      const seen = new Set();
+      for (const t of tags) {
+        const list = this.byTag.get(t) || [];
+        for (const q of list) {
+          if (seen.has(q.id)) continue;
+          seen.add(q.id);
+          if (excludeIds && excludeIds.has(q.id)) continue;
+          if (difficulty !== null && difficulty !== undefined && q.dificultad !== difficulty) continue;
+          pool.push(q);
+        }
+      }
+      if (!pool.length) return null;
+      return pool[Math.floor(Math.random() * pool.length)];
+    }
+  }
+
+  // Construye una sesión: 10 preguntas (7 normales + 2 difíciles + 1 al azar)
+  function buildSession(bank, tags, opts = {}) {
+    const size = opts.size || 10;
+    const hardCount = Math.min(opts.hard || 2, Math.max(0, size - 1));
+    const normalCount = size - hardCount;
+    const used = new Set();
+    const picks = [];
+    for (let i = 0; i < normalCount; i++) {
+      const q = bank.pick(tags, null, used);
+      if (!q) break;
+      used.add(q.id);
+      picks.push(q);
+    }
+    for (let i = 0; i < hardCount; i++) {
+      const q = bank.pick(tags, 3, used) || bank.pick(tags, null, used);
+      if (!q) break;
+      used.add(q.id);
+      picks.push(q);
+    }
+    // Barajar para que las difíciles no salgan siempre al final
+    for (let i = picks.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [picks[i], picks[j]] = [picks[j], picks[i]];
+    }
+    return picks;
+  }
+
+  // Puntuación por respuesta
+  function scoreAnswer(question, wasCorrect, usedComodin) {
+    if (!wasCorrect) return 0;
+    let pts = DIFF_POINTS[question.dificultad] || 10;
+    if (usedComodin) pts = Math.max(1, Math.floor(pts * 0.7));
+    return pts;
+  }
+
+  // Umbral de nivel por XP
+  function levelFromXp(xp) {
+    return Math.min(5, Math.floor((xp || 0) / 100) + 1);
+  }
+
+  return { QuestionBank, buildSession, scoreAnswer, levelFromXp, DIFF_POINTS };
+})();
+
+
+/* ================================================================
+   CAPA 2 · APLICACIÓN (orquestación, eventos, persistencia)
+   ================================================================ */
+const App = (() => {
+  const EVENTS = {
+    BANK_LOADED: 'bank:loaded',
+    SESSION_STARTED: 'session:started',
+    QUESTION_SHOWN: 'question:shown',
+    ANSWER_SUBMITTED: 'answer:submitted',
+    SESSION_ENDED: 'session:ended',
+    PROGRESS_UPDATED: 'progress:updated',
+    COMODIN_USED: 'comodin:used',
+    ERROR: 'error',
+    SCREEN_CHANGED: 'screen:changed'
+  };
+
+  // Bus de eventos simple con unsubscribe
+  class EventBus {
+    constructor() { this._subs = new Map(); }
+    on(ev, fn) {
+      if (!this._subs.has(ev)) this._subs.set(ev, new Set());
+      this._subs.get(ev).add(fn);
+      return () => this._subs.get(ev).delete(fn);
+    }
+    emit(ev, payload) {
+      const subs = this._subs.get(ev);
+      if (!subs) return;
+      for (const fn of [...subs]) {
+        try { fn(payload); } catch (e) { console.error(`[bus] ${ev}`, e); }
+      }
+    }
+  }
+
+  // Progreso persistido en localStorage (una entrada por tag)
+  const STORAGE_KEY = 'trivia_pmv_progress_v1';
+  class Progress {
+    constructor() { this.data = this._load(); }
+    _load() {
+      try {
+        const raw = localStorage.getItem(STORAGE_KEY);
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          if (parsed && typeof parsed === 'object' && parsed.tags) return parsed;
+        }
+      } catch {}
+      return { tags: {}, sessions: 0 };
+    }
+    _save() {
+      try { localStorage.setItem(STORAGE_KEY, JSON.stringify(this.data)); } catch {}
+    }
+    getTag(tag) {
+      return this.data.tags[tag] || { xp: 0, level: 1, aciertos: 0, fallos: 0, racha: 0 };
+    }
+    addResult(tag, correct, points) {
+      const t = this.getTag(tag);
+      t.xp += points;
+      if (correct) { t.aciertos++; t.racha++; }
+      else { t.fallos++; t.racha = 0; }
+      t.level = Domain.levelFromXp(t.xp);
+      this.data.tags[tag] = t;
+      this.data.sessions++;
+      this._save();
+      return t;
+    }
+    reset() {
+      this.data = { tags: {}, sessions: 0 };
+      this._save();
+    }
+    all() { return this.data; }
+  }
+
+  // Motor de juego: no toca DOM, no toca storage directamente
+  class GameEngine {
+    constructor(bus, bank, progress) {
+      this.bus = bus;
+      this.bank = bank;
+      this.progress = progress;
+      this.session = null;
+    }
+
+    loadBank(list) {
+      const added = this.bank.addMany(list);
+      this.bus.emit(EVENTS.BANK_LOADED, { added, total: this.bank.questions.length });
+      return added;
+    }
+
+    startSession(tags, opts = {}) {
+      if (!this.bank.questions.length) {
+        this.bus.emit(EVENTS.ERROR, { message: 'El banco está vacío.' });
+        return;
+      }
+      const questions = Domain.buildSession(this.bank, tags, opts);
+      if (!questions.length) {
+        this.bus.emit(EVENTS.ERROR, { message: 'No hay preguntas para esos tags.' });
+        return;
+      }
+      this.session = {
+        tags: tags.slice(),
+        questions,
+        index: 0,
+        answers: [],
+        score: 0,
+        usedComodinIn: new Set(),
+        comodines: { descartar: 2, cambiar: 1 }
+      };
+      this.bus.emit(EVENTS.SESSION_STARTED, { total: questions.length, tags });
+      this._showCurrent();
+    }
+
+    _showCurrent() {
+      if (!this.session) return;
+      const q = this.session.questions[this.session.index];
+      if (!q) return this._endSession();
+      this.bus.emit(EVENTS.QUESTION_SHOWN, {
+        question: q,
+        index: this.session.index,
+        total: this.session.questions.length,
+        score: this.session.score,
+        comodines: { ...this.session.comodines }
+      });
+    }
+
+    useComodin(type) {
+      if (!this.session) return false;
+      if (!this.session.comodines[type] || this.session.comodines[type] <= 0) return false;
+      this.session.comodines[type]--;
+      this.session.usedComodinIn.add(this.session.index);
+      this.bus.emit(EVENTS.COMODIN_USED, { type, left: this.session.comodines[type] });
+      return true;
+    }
+
+    // Devuelve el índice de una opción incorrecta para descartar (o -1)
+    pickDiscardable() {
+      if (!this.session) return -1;
+      const q = this.session.questions[this.session.index];
+      const wrong = q.opciones.map((o, i) => o.correcta ? -1 : i).filter(i => i >= 0);
+      if (wrong.length <= 1) return -1; // no dejar solo la correcta
+      return wrong[Math.floor(Math.random() * wrong.length)];
+    }
+
+    answer(optionIndex) {
+      if (!this.session) return;
+      const q = this.session.questions[this.session.index];
+      const chosen = q.opciones[optionIndex];
+      if (!chosen) return;
+      const correct = !!chosen.correcta;
+      const usedComodin = this.session.usedComodinIn.has(this.session.index);
+      const points = Domain.scoreAnswer(q, correct, usedComodin);
+      this.session.score += points;
+      this.session.answers.push({ questionId: q.id, optionIndex, correct, points });
+
+      const mainTag = (q.tags && q.tags[0]) || 'general';
+      const updated = this.progress.addResult(mainTag, correct, points);
+      this.bus.emit(EVENTS.PROGRESS_UPDATED, { tag: mainTag, data: updated });
+
+      this.bus.emit(EVENTS.ANSWER_SUBMITTED, {
+        question: q,
+        chosenIndex: optionIndex,
+        correct,
+        points,
+        total: this.session.score
+      });
+    }
+
+    next() {
+      if (!this.session) return;
+      this.session.index++;
+      if (this.session.index >= this.session.questions.length) this._endSession();
+      else this._showCurrent();
+    }
+
+    _endSession() {
+      const s = this.session;
+      const summary = {
+        score: s.score,
+        correct: s.answers.filter(a => a.correct).length,
+        total: s.questions.length,
+        tags: s.tags.slice(),
+        answers: s.answers.slice()
+      };
+      this.session = null;
+      this.bus.emit(EVENTS.SESSION_ENDED, summary);
+    }
+
+    abort() {
+      if (!this.session) return;
+      this.session = null;
+      this.bus.emit(EVENTS.SCREEN_CHANGED, { screen: 'home' });
+    }
+  }
+
+  return { EVENTS, EventBus, Progress, GameEngine };
+})();
+
+
+/* ================================================================
+   CAPA 3 · INFRAESTRUCTURA (UI, TTS, carga de archivos)
+   ================================================================ */
+const UI = (() => {
+  const EV = App.EVENTS;
+  const app = document.getElementById('app');
+
+  // TTS · Web Speech API
+  const tts = {
+    enabled: false,
+    speak(text) {
+      if (!this.enabled) return;
+      if (!('speechSynthesis' in window)) return;
+      try {
+        window.speechSynthesis.cancel();
+        const u = new SpeechSynthesisUtterance(text);
+        u.lang = 'es-ES';
+        u.rate = 0.95;
+        window.speechSynthesis.speak(u);
+      } catch {}
+    },
+    stop() {
+      if ('speechSynthesis' in window) {
+        try { window.speechSynthesis.cancel(); } catch {}
+      }
+    }
+  };
+
+  // Estado de pantalla
+  let screen = 'home';
+  let bank = null;
+  let engine = null;
+  let progress = null;
+  let selectedTags = new Set();
+  let currentQuestion = null;
+  let answered = false;
+  let discardedOption = -1;
+
+  // --- Helpers DOM ---
+  const el = (tag, attrs = {}, children = []) => {
+    const n = document.createElement(tag);
+    for (const [k, v] of Object.entries(attrs)) {
+      if (k === 'class') n.className = v;
+      else if (k === 'html') n.innerHTML = v;
+      else if (k.startsWith('on') && typeof v === 'function') n.addEventListener(k.slice(2), v);
+      else if (v === true) n.setAttribute(k, '');
+      else if (v === false || v == null) continue;
+      else n.setAttribute(k, v);
+    }
+    for (const c of [].concat(children)) {
+      if (c == null) continue;
+      n.appendChild(typeof c === 'string' ? document.createTextNode(c) : c);
+    }
+    return n;
+  };
+  const clear = (n) => { while (n.firstChild) n.removeChild(n.firstChild); };
+  const escape = (s) => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+
+  // --- Pantalla HOME ---
+  function renderHome() {
+    screen = 'home';
+    clear(app);
+
+    const tags = bank.getTags();
+
+    // Si no hay selección, marcar los primeros 3 tags disponibles
+    if (!selectedTags.size) {
+      tags.slice(0, 3).forEach(t => selectedTags.add(t));
+    }
+
+    const header = el('div', {}, [
+      el('div', { class: 'top-actions' }, [
+        el('button', {
+          class: 'btn-ghost',
+          'aria-pressed': tts.enabled ? 'true' : 'false',
+          onclick: (e) => {
+            tts.enabled = !tts.enabled;
+            e.currentTarget.setAttribute('aria-pressed', tts.enabled ? 'true' : 'false');
+            e.currentTarget.textContent = tts.enabled ? '🔊 Voz ON' : '🔈 Voz OFF';
+            if (!tts.enabled) tts.stop();
+          }
+        }, [tts.enabled ? '🔊 Voz ON' : '🔈 Voz OFF']),
+        el('label', { class: 'btn-ghost', style: 'display:inline-flex;align-items:center;justify-content:center;min-height:44px;padding:8px 12px;border:2px solid #333;border-radius:12px;cursor:pointer;font-size:0.9rem;' }, [
+          '📂 Cargar JSON',
+          el('input', {
+            type: 'file', accept: '.json,application/json', class: 'sr',
+            onchange: (e) => {
+              const f = e.target.files[0];
+              if (!f) return;
+              const r = new FileReader();
+              r.onload = (ev) => {
+                try {
+                  const parsed = JSON.parse(ev.target.result);
+                  const list = Array.isArray(parsed) ? parsed : (parsed.preguntas || []);
+                  const added = engine.loadBank(list);
+                  alert(`Añadidas ${added} preguntas.`);
+                  renderHome();
+                } catch (err) { alert('JSON inválido: ' + err.message); }
+              };
+              r.readAsText(f);
+              e.target.value = '';
+            }
+          })
+        ])
+      ]),
+      el('h1', {}, ['Trivia']),
+      el('p', { class: 'sub' }, [`${bank.questions.length} preguntas disponibles`])
+    ]);
+    app.appendChild(header);
+
+    // Selector de tags
+    app.appendChild(el('h2', {}, ['Elige temas']));
+    const tagWrap = el('div', { class: 'tags', role: 'group', 'aria-label': 'Selector de temas' });
+    tags.forEach(t => {
+      const on = selectedTags.has(t);
+      const btn = el('button', {
+        type: 'button',
+        class: 'tag' + (on ? ' on' : ''),
+        'aria-pressed': on ? 'true' : 'false',
+        onclick: () => {
+          if (selectedTags.has(t)) selectedTags.delete(t);
+          else selectedTags.add(t);
+          renderHome();
+        }
+      }, [t]);
+      tagWrap.appendChild(btn);
+    });
+    app.appendChild(tagWrap);
+
+    // Progreso por tag
+    const prog = progress.all();
+    const tagProgress = tags.filter(t => prog.tags[t]);
+    if (tagProgress.length) {
+      app.appendChild(el('h2', {}, ['Tu progreso']));
+      tagProgress.forEach(t => {
+        const d = prog.tags[t];
+        app.appendChild(el('div', { class: 'stat', style: 'display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid #222;' }, [
+          el('span', {}, [`${t} · nivel ${d.level}`]),
+          el('span', { class: 'small' }, [`${d.xp} XP · ${d.aciertos}✓ ${d.fallos}✗`])
+        ]));
+      });
+      app.appendChild(el('div', { style: 'height:12px' }));
+    }
+
+    // Botón empezar
+    const startBtn = el('button', {
+      class: 'btn-primary',
+      onclick: () => {
+        if (!selectedTags.size) { alert('Selecciona al menos un tema.'); return; }
+        engine.startSession([...selectedTags]);
+      }
+    }, ['▶ Empezar sesión (10 preguntas)']);
+    app.appendChild(startBtn);
+
+    app.appendChild(el('p', { class: 'small', style: 'margin-top:14px;' }, [
+      'Atajos: 1-4 elige opción · Enter siguiente · Esc salir'
+    ]));
+  }
+
+  // --- Pantalla SESIÓN ---
+  function renderQuestion(payload) {
+    screen = 'session';
+    currentQuestion = payload.question;
+    answered = false;
+    discardedOption = -1;
+    clear(app);
+
+    const q = payload.question;
+    const isHard = q.dificultad === 3;
+
+    // Cabecera
+    app.appendChild(el('div', { class: 'q-meta' }, [
+      el('span', {}, [`Pregunta ${payload.index + 1} / ${payload.total}`]),
+      el('span', { class: isHard ? 'diff-3' : '' }, [isHard ? '★ Difícil' : `Nivel ${q.dificultad}`])
+    ]));
+    app.appendChild(el('div', { class: 'bar' }, [
+      el('i', { style: `width:${((payload.index) / payload.total) * 100}%` })
+    ]));
+
+    // Enunciado
+    app.appendChild(el('div', { class: 'question' + (isHard ? ' hard' : '') }, [
+      q.enunciado,
+      q.tags && q.tags.length
+        ? el('div', { class: 'tags-line' }, ['Tags: ' + q.tags.join(' · ')])
+        : null
+    ]));
+
+    // Opciones
+    const optsWrap = el('div', { class: 'opts', role: 'group', 'aria-label': 'Opciones' });
+    q.opciones.forEach((o, i) => {
+      const btn = el('button', {
+        class: 'opt',
+        'data-index': i,
+        type: 'button',
+        disabled: i === discardedOption,
+        onclick: () => submitAnswer(i)
+      }, [
+        el('span', { class: 'num' }, [String(i + 1)]),
+        el('span', { class: 'txt' }, [o.texto])
+      ]);
+      optsWrap.appendChild(btn);
+    });
+    app.appendChild(optsWrap);
+
+    // Comodines
+    const comodines = el('div', { class: 'comodines' });
+    const desc = el('button', {
+      class: 'comodin btn-ghost',
+      disabled: !payload.comodines.descartar,
+      onclick: () => {
+        if (answered) return;
+        if (!engine.useComodin('descartar')) return;
+        const idx = engine.pickDiscardable();
+        if (idx >= 0) {
+          discardedOption = idx;
+          const target = optsWrap.querySelector(`[data-index="${idx}"]`);
+          if (target) { target.disabled = true; target.style.textDecoration = 'line-through'; }
+        }
+      }
+    }, [`🗑 Descartar (${payload.comodines.descartar})`]);
+    const camb = el('button', {
+      class: 'comodin btn-ghost',
+      disabled: !payload.comodines.cambiar,
+      onclick: () => {
+        if (answered) return;
+        if (!engine.useComodin('cambiar')) return;
+        // Saltar a la siguiente; si es la última, cerrar sesión
+        engine.next();
+      }
+    }, [`🔄 Cambiar (${payload.comodines.cambiar})`]);
+    comodines.appendChild(desc);
+    comodines.appendChild(camb);
+    app.appendChild(comodines);
+
+    // Escuchar teclado
+    document.onkeydown = (e) => {
+      if (screen !== 'session') return;
+      if (e.key >= '1' && e.key <= '4') {
+        const idx = parseInt(e.key) - 1;
+        if (idx < q.opciones.length && !answered && idx !== discardedOption) submitAnswer(idx);
+      } else if (e.key === 'Enter' && answered) {
+        engine.next();
+      } else if (e.key === 'Escape') {
+        engine.abort();
+      }
+    };
+
+    if (tts.enabled) {
+      tts.speak(q.enunciado + '. ' + q.opciones.map((o, i) => `Opción ${i + 1}: ${o.texto}`).join('. '));
+    }
+  }
+
+  // --- Enviar respuesta ---
+  function submitAnswer(optionIndex) {
+    if (answered) return;
+    answered = true;
+    engine.answer(optionIndex);
+  }
+
+  // --- Feedback ---
+  function renderFeedback(payload) {
+    const q = payload.question;
+    const opts = app.querySelectorAll('.opt');
+
+    // Marcar correcta e incorrectas
+    q.opciones.forEach((o, i) => {
+      const btn = opts[i];
+      if (!btn) return;
+      if (o.correcta) btn.classList.add('correct');
+      if (i === payload.chosenIndex && !o.correcta) btn.classList.add('wrong');
+      btn.disabled = true;
+    });
+
+    // Panel de feedback
+    const fb = el('div', { class: 'feedback' + (payload.correct ? '' : ' wrong') }, [
+      el('h3', {}, [
+        payload.correct
+          ? `✓ Correcto · +${payload.points} puntos`
+          : `✗ Incorrecto · +0 puntos`
+      ]),
+      q.explicacion ? el('div', { class: 'exp' }, [q.explicacion]) : null,
+      q.dato_curioso ? el('div', { class: 'curio' }, ['💡 ' + q.dato_curioso]) : null,
+      // Botón siguiente
+      el('div', { class: 'row' }, [
+        el('button', {
+          class: 'btn-primary',
+          onclick: () => engine.next()
+        }, ['Siguiente ▶ (Enter)'])
+      ])
+    ]);
+    app.appendChild(fb);
+
+    // Scroll al feedback para asegurar visibilidad
+    fb.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+
+    if (tts.enabled) {
+      const text = (payload.correct ? 'Correcto. ' : 'Incorrecto. ') + (q.explicacion || '');
+      tts.speak(text);
+    }
+  }
+
+  // --- Pantalla RESUMEN ---
+  function renderSummary(s) {
+    screen = 'summary';
+    clear(app);
+    const pct = Math.round((s.correct / s.total) * 100);
+
+    app.appendChild(el('h1', {}, ['Sesión terminada']));
+    app.appendChild(el('p', { class: 'sub' }, [
+      `${s.correct} de ${s.total} aciertos · ${pct}%`
+    ]));
+
+    app.appendChild(el('div', { class: 'summary' }, [
+      el('div', { class: 'stat' }, [
+        el('span', {}, ['Puntuación']),
+        el('span', { class: 'score' }, [String(s.score)])
+      ]),
+      el('div', { class: 'stat' }, [
+        el('span', {}, ['Aciertos']),
+        el('span', {}, [`${s.correct} / ${s.total}`])
+      ]),
+      el('div', { class: 'stat' }, [
+        el('span', {}, ['Temas']),
+        el('span', { class: 'small' }, [s.tags.join(', ')])
+      ])
+    ]));
+
+    app.appendChild(el('div', { class: 'row', style: 'margin-top:16px;' }, [
+      el('button', {
+        class: 'btn-primary',
+        onclick: () => engine.startSession([...selectedTags])
+      }, ['↻ Otra sesión']),
+      el('button', {
+        class: 'btn-ghost',
+        onclick: () => {
+          screen = 'home';
+          renderHome();
+        }
+      }, ['🏠 Inicio'])
+    ]));
+
+    if (tts.enabled) {
+      tts.speak(`Sesión terminada. ${s.correct} de ${s.total} aciertos. Puntuación: ${s.score}.`);
+    }
+  }
+
+  // --- Suscripciones al bus ---
+  function bind(engineBus) {
+    engineBus.on(EV.BANK_LOADED, ({ total }) => {
+      console.log(`[bus] banco: ${total} preguntas`);
+    });
+    engineBus.on(EV.SESSION_STARTED, () => {
+      if (screen !== 'session') renderHome();
+    });
+    engineBus.on(EV.QUESTION_SHOWN, renderQuestion);
+    engineBus.on(EV.ANSWER_SUBMITTED, renderFeedback);
+    engineBus.on(EV.SESSION_ENDED, renderSummary);
+    engineBus.on(EV.ERROR, ({ message }) => alert(message));
+    engineBus.on(EV.SCREEN_CHANGED, ({ screen: s }) => {
+      if (s === 'home') renderHome();
+    });
+  }
+
+  function init(bus, bankInstance, progressInstance, engineInstance) {
+    bank = bankInstance;
+    progress = progressInstance;
+    engine = engineInstance;
+    bind(bus);
+    renderHome();
+  }
+
+  return { init };
+})();
+
+
+/* ================================================================
+   BANCO DE PREGUNTAS DE EJEMPLO
+   ================================================================ */
+const SAMPLE_QUESTIONS = [
+  {
+    id: "q_hist_001",
+    tipo: "trivia",
+    enunciado: "¿En qué año estalló la Revolución Francesa?",
+    opciones: [
+      { texto: "1776", correcta: false, tag_error: "confunde_con_independencia_eeuu" },
+      { texto: "1789", correcta: true, tag_error: null },
+      { texto: "1799", correcta: false, tag_error: "confunde_con_golpe_18_brumario" },
+      { texto: "1804", correcta: false, tag_error: "confunde_con_napoleon_emperador" }
+    ],
+    explicacion: "La Revolución Francesa comenzó en 1789 con la toma de la Bastilla. 1776 es la independencia de EEUU, 1799 el golpe de Napoleón y 1804 su coronación como emperador.",
+    dato_curioso: "La toma de la Bastilla ocurrió el 14 de julio, que hoy es fiesta nacional en Francia.",
+    dificultad: 2,
+    tags: ["historia", "historia_moderna"],
+    fuente: "Enciclopedia Británica",
+    revision: "verificada"
+  },
+  {
+    id: "q_hist_002",
+    tipo: "trivia",
+    enunciado: "¿Quién fue el primer emperador romano?",
+    opciones: [
+      { texto: "Julio César", correcta: false, tag_error: "confunde_dictador_con_emperador" },
+      { texto: "Augusto", correcta: true, tag_error: null },
+      { texto: "Nerón", correcta: false, tag_error: "confunde_sucesor" },
+      { texto: "Trajano", correcta: false, tag_error: "confunde_optimo" }
+    ],
+    explicacion: "Augusto (Octavio) fue el primer emperador, desde 27 a.C. Julio César fue dictador, pero nunca emperador.",
+    dato_curioso: "Augusto presumía de haber recibido Roma de barro y dejarla de mármol.",
+    dificultad: 2,
+    tags: ["historia", "historia_antigua"],
+    fuente: "Suetonio, Vidas de los doce césares",
+    revision: "verificada"
+  },
+  {
+    id: "q_hist_003",
+    tipo: "trivia",
+    enunciado: "¿En qué año cayó el Muro de Berlín?",
+    opciones: [
+      { texto: "1985", correcta: false, tag_error: "confunde_con_llegada_gorbachev" },
+      { texto: "1989", correcta: true, tag_error: null },
+      { texto: "1991", correcta: false, tag_error: "confunde_con_disolucion_urss" },
+      { texto: "1993", correcta: false, tag_error: "confunde_con_maastricht" }
+    ],
+    explicacion: "El Muro cayó el 9 de noviembre de 1989. 1991 es la disolución de la URSS.",
+    dato_curioso: "La noche del 9 de noviembre, los berlineses empezaron a derribar el Muro con martillos y cinceles.",
+    dificultad: 1,
+    tags: ["historia", "historia_contemporanea"],
+    fuente: "BBC",
+    revision: "verificada"
+  },
+  {
+    id: "q_hist_004",
+    tipo: "trivia",
+    enunciado: "¿Qué civilización construyó Machu Picchu?",
+    opciones: [
+      { texto: "Azteca", correcta: false, tag_error: "confunde_mesoamerica_con_andes" },
+      { texto: "Maya", correcta: false, tag_error: "confunde_mesoamerica_con_andes" },
+      { texto: "Inca", correcta: true, tag_error: null },
+      { texto: "Olmeca", correcta: false, tag_error: "confunde_preclasico" }
+    ],
+    explicacion: "Machu Picchu fue construida por los incas en el siglo XV. Aztecas, mayas y olmecas son de Mesoamérica, no de los Andes.",
+    dato_curioso: "Machu Picchu fue construida sin mortero: las piedras encajan tan bien que no cabe ni una hoja de cuchillo.",
+    dificultad: 1,
+    tags: ["historia", "historia_antigua"],
+    fuente: "UNESCO",
+    revision: "verificada"
+  },
+  {
+    id: "q_hist_005",
+    tipo: "trivia",
+    enunciado: "¿Quién escribió 'El príncipe'?",
+    opciones: [
+      { texto: "Maquiavelo", correcta: true, tag_error: null },
+      { texto: "Erasmo", correcta: false, tag_error: "confunde_humanista" },
+      { texto: "Tomás Moro", correcta: false, tag_error: "confunde_utopia" },
+      { texto: "Hobbes", correcta: false, tag_error: "confunde_leviatan" }
+    ],
+    explicacion: "Nicolás Maquiavelo escribió 'El príncipe' en 1513. Erasmo escribió 'Elogio de la locura', Tomás Moro 'Utopía' y Hobbes 'Leviatán'.",
+    dato_curioso: "'El príncipe' fue prohibido por la Iglesia y estuvo en el Índice de Libros Prohibidos hasta el siglo XIX.",
+    dificultad: 2,
+    tags: ["historia", "historia_moderna", "filosofia"],
+    fuente: "Enciclopedia Británica",
+    revision: "verificada"
+  },
+  {
+    id: "q_cie_001",
+    tipo: "trivia",
+    enunciado: "¿Cuál es el elemento más abundante en el universo?",
+    opciones: [
+      { texto: "Oxígeno", correcta: false, tag_error: "confunde_abundancia_terrestre" },
+      { texto: "Hidrógeno", correcta: true, tag_error: null },
+      { texto: "Carbono", correcta: false, tag_error: "confunde_vida" },
+      { texto: "Helio", correcta: false, tag_error: "confunde_estrella" }
+    ],
+    explicacion: "El hidrógeno representa aproximadamente el 75% de la materia bariónica del universo. El helio es el segundo, con ~24%.",
+    dato_curioso: "Casi todo el hidrógeno del universo se formó en los primeros minutos tras el Big Bang.",
+    dificultad: 2,
+    tags: ["ciencia", "ciencia_fisica"],
+    fuente: "NASA",
+    revision: "verificada"
+  },
+  {
+    id: "q_cie_002",
+    tipo: "trivia",
+    enunciado: "¿Qué órgano produce la insulina?",
+    opciones: [
+      { texto: "Hígado", correcta: false, tag_error: "confunde_metabolismo" },
+      { texto: "Páncreas", correcta: true, tag_error: null },
+      { texto: "Riñón", correcta: false, tag_error: "confunde_filtrado" },
+      { texto: "Tiroides", correcta: false, tag_error: "confunde_hormonas" }
+    ],
+    explicacion: "La insulina la producen las células beta de los islotes de Langerhans, en el páncreas.",
+    dato_curioso: "La insulina fue descubierta en 1921 por Banting y Best, y el primer paciente tratado fue un niño de 14 años.",
+    dificultad: 2,
+    tags: ["ciencia", "ciencia_biologia"],
+    fuente: "NIH",
+    revision: "verificada"
+  },
+  {
+    id: "q_cie_003",
+    tipo: "trivia",
+    enunciado: "¿Cuál es la velocidad de la luz en el vacío?",
+    opciones: [
+      { texto: "300.000 km/s", correcta: true, tag_error: null },
+      { texto: "150.000 km/s", correcta: false, tag_error: "confunde_mitad" },
+      { texto: "1.000.000 km/s", correcta: false, tag_error: "redondeo_excesivo" },
+      { texto: "30.000 km/s", correcta: false, tag_error: "falta_un_cero" }
+    ],
+    explicacion: "La velocidad de la luz en el vacío es 299.792.458 m/s, aproximadamente 300.000 km/s.",
+    dato_curioso: "La luz del Sol tarda 8 minutos y 20 segundos en llegar a la Tierra.",
+    dificultad: 1,
+    tags: ["ciencia", "ciencia_fisica"],
+    fuente: "BIPM",
+    revision: "verificada"
+  },
+  {
+    id: "q_cie_004",
+    tipo: "trivia",
+    enunciado: "¿Qué gas respiramos principalmente para vivir?",
+    opciones: [
+      { texto: "Dióxido de carbono", correcta: false, tag_error: "confunde_exhalacion" },
+      { texto: "Oxígeno", correcta: true, tag_error: null },
+      { texto: "Nitrógeno", correcta: false, tag_error: "confunde_mayoria_atmosfera" },
+      { texto: "Helio", correcta: false, tag_error: "confunde_inertes" }
+    ],
+    explicacion: "Respiramos oxígeno, aunque el aire que inhalamos es 78% nitrógeno y solo 21% oxígeno. El cuerpo solo aprovecha el oxígeno.",
+    dato_curioso: "Cada día respiramos unas 20.000 veces, moviendo unos 11.000 litros de aire.",
+    dificultad: 1,
+    tags: ["ciencia", "ciencia_biologia"],
+    fuente: "OMS",
+    revision: "verificada"
+  },
+  {
+    id: "q_cie_005",
+    tipo: "trivia",
+    enunciado: "¿Quién formuló la teoría de la relatividad?",
+    opciones: [
+      { texto: "Newton", correcta: false, tag_error: "confunde_gravedad_clasica" },
+      { texto: "Einstein", correcta: true, tag_error: null },
+      { texto: "Bohr", correcta: false, tag_error: "confunde_cuantica" },
+      { texto: "Galileo", correcta: false, tag_error: "confunde_renacimiento" }
+    ],
+    explicacion: "Einstein formuló la relatividad especial (1905) y general (1915). Newton formuló la gravedad clásica; Bohr, el modelo atómico.",
+    dato_curioso: "Einstein recibió el Nobel en 1921, pero no por la relatividad, sino por el efecto fotoeléctrico.",
+    dificultad: 1,
+    tags: ["ciencia", "ciencia_fisica", "historia_contemporanea"],
+    fuente: "Nobel Prize",
+    revision: "verificada"
+  },
+  {
+    id: "q_art_001",
+    tipo: "trivia",
+    enunciado: "¿Quién pintó la Gioconda?",
+    opciones: [
+      { texto: "Miguel Ángel", correcta: false, tag_error: "confunde_renacimiento_italiano" },
+      { texto: "Leonardo da Vinci", correcta: true, tag_error: null },
+      { texto: "Rafael", correcta: false, tag_error: "confunde_renacimiento_italiano" },
+      { texto: "Botticelli", correcta: false, tag_error: "confunde_quattrocento" }
+    ],
+    explicacion: "La Gioconda fue pintada por Leonardo da Vinci entre 1503 y 1519. Todos los demás también son renacentistas italianos.",
+    dato_curioso: "La Gioconda se exhibe en el Louvre tras un cristal blindado, y fue robada en 1911 por un empleado del museo.",
+    dificultad: 1,
+    tags: ["arte", "arte_pintura"],
+    fuente: "Louvre",
+    revision: "verificada"
+  },
+  {
+    id: "q_art_002",
+    tipo: "trivia",
+    enunciado: "¿A qué movimiento artístico pertenece 'Las señoritas de Avignon'?",
+    opciones: [
+      { texto: "Impresionismo", correcta: false, tag_error: "confunde_siglo_xix" },
+      { texto: "Cubismo", correcta: true, tag_error: null },
+      { texto: "Surrealismo", correcta: false, tag_error: "confunde_dali" },
+      { texto: "Expresionismo", correcta: false, tag_error: "confunde_alemania" }
+    ],
+    explicacion: "Picasso pintó 'Las señoritas de Avignon' en 1907, obra clave del cubismo.",
+    dato_curioso: "El nombre viene de una calle de Barcelona, aunque Picasso siempre la llamó 'El burdel de Avinyó'.",
+    dificultad: 2,
+    tags: ["arte", "arte_pintura", "historia_contemporanea"],
+    fuente: "MoMA",
+    revision: "verificada"
+  },
+  {
+    id: "q_art_003",
+    tipo: "trivia",
+    enunciado: "¿Quién esculpió el David?",
+    opciones: [
+      { texto: "Miguel Ángel", correcta: true, tag_error: null },
+      { texto: "Donatello", correcta: false, tag_error: "confunde_david_anterior" },
+      { texto: "Bernini", correcta: false, tag_error: "confunde_barroco" },
+      { texto: "Rodin", correcta: false, tag_error: "confunde_siglo_xix" }
+    ],
+    explicacion: "El David de Miguel Ángel (1501-1504) está en Florencia. Donatello también hizo un David, pero un siglo antes y en bronce.",
+    dato_curioso: "Miguel Ángel esculpió el David en un bloque de mármol que otro escultor había rechazado 40 años antes.",
+    dificultad: 2,
+    tags: ["arte", "arte_escultura"],
+    fuente: "Galería Uffizi",
+    revision: "verificada"
+  },
+  {
+    id: "q_art_004",
+    tipo: "trivia",
+    enunciado: "¿Qué compositor quedó sordo y siguió componiendo?",
+    opciones: [
+      { texto: "Mozart", correcta: false, tag_error: "confunde_epoca" },
+      { texto: "Beethoven", correcta: true, tag_error: null },
+      { texto: "Bach", correcta: false, tag_error: "confunde_barroco" },
+      { texto: "Chopin", correcta: false, tag_error: "confunde_romanticismo" }
+    ],
+    explicacion: "Beethoven empezó a perder audición a los 26 años y compuso sus obras más importantes estando prácticamente sordo.",
+    dato_curioso: "La Novena Sinfonía se estrenó con Beethoven dirigiendo, pero tuvo que ser girado por un amigo para ver los aplausos del público.",
+    dificultad: 2,
+    tags: ["arte", "arte_musica"],
+    fuente: "Deutsche Welle",
+    revision: "verificada"
+  },
+  {
+    id: "q_geo_001",
+    tipo: "trivia",
+    enunciado: "¿Cuál es el río más largo del mundo?",
+    opciones: [
+      { texto: "Nilo", correcta: false, tag_error: "confunde_africa" },
+      { texto: "Amazonas", correcta: true, tag_error: null },
+      { texto: "Yangtsé", correcta: false, tag_error: "confunde_asia" },
+      { texto: "Misisipi", correcta: false, tag_error: "confunde_america_norte" }
+    ],
+    explicacion: "El Amazonas es el río más largo (unos 7.000 km) y el más caudaloso. El Nilo es el segundo.",
+    dato_curioso: "El Amazonas vierte al océano tanta agua dulce que se puede beber a 200 km mar adentro.",
+    dificultad: 2,
+    tags: ["geografia", "geografia_fisica"],
+    fuente: "USGS",
+    revision: "verificada"
+  },
+  {
+    id: "q_geo_002",
+    tipo: "trivia",
+    enunciado: "¿Cuál es el país más grande del mundo por superficie?",
+    opciones: [
+      { texto: "China", correcta: false, tag_error: "confunde_poblacion" },
+      { texto: "Canadá", correcta: false, tag_error: "confunde_segundo" },
+      { texto: "Rusia", correcta: true, tag_error: null },
+      { texto: "EEUU", correcta: false, tag_error: "confunde_tercero" }
+    ],
+    explicacion: "Rusia tiene unos 17 millones de km², casi el doble que Canadá, el segundo.",
+    dato_curioso: "Rusia tiene 11 husos horarios: cuando es medianoche en Moscú, en Kamchatka ya es mediodía del día siguiente.",
+    dificultad: 1,
+    tags: ["geografia", "geografia_politica"],
+    fuente: "CIA World Factbook",
+    revision: "verificada"
+  },
+  {
+    id: "q_geo_003",
+    tipo: "trivia",
+    enunciado: "¿Cuál es la capital de Australia?",
+    opciones: [
+      { texto: "Sídney", correcta: false, tag_error: "confunde_ciudad_mas_poblada" },
+      { texto: "Melbourne", correcta: false, tag_error: "confunde_antigua_capital" },
+      { texto: "Canberra", correcta: true, tag_error: null },
+      { texto: "Perth", correcta: false, tag_error: "confunde_oeste" }
+    ],
+    explicacion: "Canberra es la capital desde 1913. Sídney y Melbourne se disputaban serlo, así que se construyó una ciudad nueva entre ambas.",
+    dato_curioso: "Canberra significa 'lugar de reunión' en lengua aborigen ngunnawal.",
+    dificultad: 2,
+    tags: ["geografia", "geografia_politica"],
+    fuente: "Gobierno de Australia",
+    revision: "verificada"
+  },
+  {
+    id: "q_psi_001",
+    tipo: "psicotecnico",
+    enunciado: "2, 4, 8, 16, ?",
+    opciones: [
+      { texto: "20", correcta: false, tag_error: "suma_constante" },
+      { texto: "24", correcta: false, tag_error: "suma_ocho" },
+      { texto: "32", correcta: true, tag_error: null },
+      { texto: "64", correcta: false, tag_error: "doble_de_mas" }
+    ],
+    explicacion: "Cada número es el doble del anterior: 2×2=4, 4×2=8, 8×2=16, 16×2=32.",
+    dato_curioso: "Las potencias de 2 crecen tan rápido que 2^64 supera el número estimado de granos de arena de la Tierra.",
+    dificultad: 1,
+    tags: ["psicotecnico", "psicotecnico_numerico"],
+    fuente: "Generado",
+    revision: "verificada"
+  },
+  {
+    id: "q_psi_002",
+    tipo: "psicotecnico",
+    enunciado: "1, 1, 2, 3, 5, 8, ?",
+    opciones: [
+      { texto: "11", correcta: false, tag_error: "suma_constante" },
+      { texto: "12", correcta: false, tag_error: "suma_cuatro" },
+      { texto: "13", correcta: true, tag_error: null },
+      { texto: "16", correcta: false, tag_error: "doble" }
+    ],
+    explicacion: "Es la sucesión de Fibonacci: cada número es la suma de los dos anteriores. 5+8=13.",
+    dato_curioso: "La proporción entre números consecutivos de Fibonacci se acerca a la proporción áurea (1,618...).",
+    dificultad: 2,
+    tags: ["psicotecnico", "psicotecnico_numerico"],
+    fuente: "Generado",
+    revision: "verificada"
+  },
+  {
+    id: "q_psi_003",
+    tipo: "psicotecnico",
+    enunciado: "Si A=1, B=2, C=3..., ¿qué número corresponde a la letra J?",
+    opciones: [
+      { texto: "9", correcta: false, tag_error: "off_by_one" },
+      { texto: "10", correcta: true, tag_error: null },
+      { texto: "11", correcta: false, tag_error: "off_by_one_arriba" },
+      { texto: "8", correcta: false, tag_error: "salto" }
+    ],
+    explicacion: "A=1, B=2, C=3, D=4, E=5, F=6, G=7, H=8, I=9, J=10.",
+    dato_curioso: "Este sistema se usa en cifrados básicos y en algunos juegos de mesa para esconder mensajes.",
+    dificultad: 1,
+    tags: ["psicotecnico", "psicotecnico_logico"],
+    fuente: "Generado",
+    revision: "verificada"
+  }
+];
+
+
+/* ================================================================
+   ARRANQUE · Wiring de capas
+   ================================================================ */
+(function bootstrap() {
+  const bus = new App.EventBus();
+  const bank = new Domain.QuestionBank();
+  const progress = new App.Progress();
+  const engine = new App.GameEngine(bus, bank, progress);
+
+  // Cargar banco inicial
+  engine.loadBank(SAMPLE_QUESTIONS);
+
+  // Inicializar UI (solo la UI toca DOM)
+  UI.init(bus, bank, progress, engine);
+
+  // Exponer para depuración en consola
+  window.__trivia = { bus, bank, progress, engine, EVENTS: App.EVENTS };
+  console.log('[trivia] PMV listo. Preguntas cargadas:', bank.questions.length);
+})();
+</script>
+</body>
+</html>
