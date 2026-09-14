@@ -1,0 +1,478 @@
+================================================================
+TRIVIA PMV · DOCUMENTO DE PROYECTO
+================================================================
+Versión: 1.0
+Fecha: 2026-09-14
+Licencia del software: AGPLv3
+Autor: (usuario)
+Repo: (pendiente)
+================================================================
+
+
+================================================================
+1. QUÉ ES
+================================================================
+
+Un juego de trivia educativo en un solo archivo HTML, sin
+dependencias, pensado como Producto Mínimo Viable (PMV) para
+probar mecánicas de escalado adaptativo por temas y accesibilidad
+para personas con degeneración macular (DMAE).
+
+Objetivos:
+  - Entretener y enseñar, no solo evaluar.
+  - Escalado por tag (tema) con 3 niveles, no por sesión.
+  - Preguntas curadas con explicación, dato curioso y tag_error.
+  - Accesibilidad primero: alto contraste, TTS, teclado.
+  - Banco de preguntas cargable desde JSON externo.
+  - Arquitectura modular lista para migrar a hexagonal.
+
+No objetivos (post-MVP):
+  - Coordenadas topológicas entre preguntas.
+  - Grafo de conceptos.
+  - Modo arquitecto (editar reglas en vivo).
+  - Comodín de llamada con falacia de autoridad.
+  - Modo RPG.
+
+
+================================================================
+2. CÓMO FUNCIONA
+================================================================
+
+2.1 Arquitectura por capas
+---------------------------
+
+  CAPA 1 · DOMINIO
+    - QuestionBank: almacena preguntas, índice invertido por tag.
+    - buildSession: construye una sesión de 10 preguntas.
+    - scoreAnswer: puntúa según dificultad y comodines.
+    - levelFromXp / xpToNextLevel: gestión de niveles.
+    Pura. Sin DOM, sin localStorage, sin TTS.
+
+  CAPA 2 · APLICACIÓN
+    - EventBus: pub/sub para desacoplar capas.
+    - Progress: persistencia del progreso del usuario.
+    - TTSSettings: persistencia de la configuración de voz.
+    - EthicalNotice: aviso ético dismissable.
+    - GameEngine: orquesta el flujo (start, answer, next, end).
+    No toca DOM. No sabe de UI.
+
+  CAPA 3 · INFRAESTRUCTURA
+    - UI: renderiza pantallas, escucha eventos, gestiona teclado.
+    - TTS: envuelve Web Speech API con narración por fragmentos.
+    - Carga de archivos JSON externos.
+    Solo esta capa toca DOM.
+
+2.2 Flujo de una sesión
+-----------------------
+
+  1. Home: el usuario elige tags (mínimo 1).
+  2. Pulsa "Empezar sesión (10 preguntas)".
+  3. Domain.buildSession aplica:
+       - Pesos por nivel del tag (pirámide).
+       - Exclusión de preguntas vistas en últimas 2 sesiones.
+       - Fallback si faltan preguntas de un nivel.
+  4. Se muestran 10 preguntas. Si TTS activo, lee el enunciado.
+  5. El usuario responde (clic o teclas 1-4).
+  6. Feedback: explicación + dato curioso. TTS lee por fragmentos.
+  7. Al terminar: resumen con XP, aciertos, nearLevel, racha.
+  8. Puede "Otra ronda" o "Inicio".
+  9. Cada tag acumula XP y sube de nivel (1 → 2 → 3).
+
+2.3 Pesos de sesión por nivel
+-----------------------------
+
+  Nivel 1:  60% dif1, 30% dif2, 10% dif3
+  Nivel 2:  40% dif1, 40% dif2, 20% dif3
+  Nivel 3:  20% dif1, 30% dif2, 50% dif3
+
+  Si faltan preguntas de un nivel, se compensa con el inferior.
+  Si aún faltan, se completa con otros tags. Si aún faltan, se
+  permiten repetir de sesiones recientes.
+
+2.4 Umbrales de XP
+------------------
+
+  Nivel 1 → 2: 100 XP
+  Nivel 2 → 3: 300 XP
+  Nivel 3: techo.
+
+  Puntuación por acierto: 10 (dif1), 20 (dif2), 30 (dif3).
+  Con comodín usado: 70% del valor.
+
+2.5 Accesibilidad (DMAE)
+------------------------
+
+  - Contraste: amarillo #ffeb3b sobre negro #0a0a0a.
+  - Texto base 18px, pregunta 22px.
+  - Botones mínimo 56px de alto (objetivos táctiles).
+  - Navegación completa por teclado.
+  - TTS opcional con selector de voces y marca de calidad.
+  - Narración por fragmentos (no lee 4 opciones seguidas).
+  - Sin animaciones parpadeantes.
+  - Respeta prefers-reduced-motion.
+  - Feedback con icono + texto, no solo color.
+
+
+================================================================
+3. ESQUEMA DEL JSON DE PREGUNTAS
+================================================================
+
+{
+  "version": "1.0",
+  "idioma": "es",
+  "preguntas": [
+    {
+      "id": "h01",
+      "tipo": "trivia",
+      "enunciado": "¿En qué año cayó el Muro de Berlín?",
+      "opciones": [
+        { "texto": "1985", "correcta": false, "tag_error": "confunde_con_llegada_gorbachev" },
+        { "texto": "1989", "correcta": true,  "tag_error": null },
+        { "texto": "1991", "correcta": false, "tag_error": "confunde_con_disolucion_urss" },
+        { "texto": "1993", "correcta": false, "tag_error": "confunde_con_maastricht" }
+      ],
+      "explicacion": "El Muro cayó el 9 de noviembre de 1989.",
+      "dato_curioso": "La noche del 9 de noviembre, los berlineses empezaron a derribar el Muro con martillos.",
+      "dificultad": 1,
+      "tags": ["historia", "historia_contemporanea"],
+      "fuente": "BBC",
+      "revision": "verificada"
+    }
+  ]
+}
+
+Campos obligatorios por pregunta:
+  - id: string único y estable.
+  - tipo: "trivia" | "psicotecnico" | "cifras" | "letras".
+  - enunciado: texto de la pregunta.
+  - opciones: array de 2 a 6 objetos { texto, correcta, tag_error }.
+  - explicacion: 1-2 frases pedagógicas.
+  - dato_curioso: 1 frase verificable o null.
+  - dificultad: 1 | 2 | 3.
+  - tags: 1-3 tags del vocabulario cerrado.
+  - fuente: de dónde viene la pregunta.
+  - revision: "pendiente" | "revisada" | "verificada".
+
+Campos opcionales:
+  - idioma, version a nivel raíz del JSON.
+
+Buenas prácticas:
+  - IDs estables: si corriges el enunciado, mantén el id.
+  - tag_error descriptivo y consistente: "confunde_X",
+    "suma_en_vez_de_multiplica", "off_by_one".
+  - Explicación que mencione por qué las incorrectas no son.
+  - Dato curioso verificable; si no estás seguro, null.
+
+
+================================================================
+4. PROMPT DE GENERACIÓN CON IA
+================================================================
+
+Usa este prompt con cualquier LLM (Claude, GPT, Gemini, etc.)
+para generar borradores. La revisión humana es obligatoria.
+
+--- INICIO DEL PROMPT ---
+
+Eres un editor pedagógico de trivia. Genera preguntas en JSON
+siguiendo exactamente este esquema.
+
+ESQUEMA DE SALIDA (una pregunta por objeto):
+{
+  "id": "auto",
+  "tipo": "trivia",
+  "enunciado": "string",
+  "opciones": [
+    { "texto": "string", "correcta": true,  "tag_error": null },
+    { "texto": "string", "correcta": false, "tag_error": "error_tipico_1" },
+    { "texto": "string", "correcta": false, "tag_error": "error_tipico_2" },
+    { "texto": "string", "correcta": false, "tag_error": "error_tipico_3" }
+  ],
+  "explicacion": "1-2 frases. Di por qué la correcta es correcta Y por qué las otras no lo son, usando los tag_error.",
+  "dato_curioso": "1 frase verificable. Si no estás seguro, null.",
+  "dificultad": 1,
+  "tags": ["tag_padre", "tag_hijo"],
+  "fuente": "nombre de la fuente",
+  "revision": "pendiente"
+}
+
+REGLAS:
+- El enunciado debe ser claro, sin ambigüedad.
+- Los distractores deben ser plausibles (mismo ámbito, época,
+  región o categoría que la respuesta correcta). No uses
+  distractores absurdos.
+- Cada distractor incorrecto lleva un tag_error descriptivo:
+  "confunde_con_X", "suma_en_vez_de_multiplica", "off_by_one",
+  "error_de_siglo".
+- La explicación menciona por qué cada incorrecta no lo es.
+- El dato_curioso debe ser verificable. Si no lo estás seguro
+  al 100%, pon null. Un dato inventado es peor que no tenerlo.
+- La dificultad: 1 = fácil (mayoría acierta), 2 = media, 3 = difícil.
+- Los tags deben venir SOLO del vocabulario cerrado que te doy.
+- Marca revision como "pendiente". Un humano lo revisará.
+
+VOCABULARIO DE TAGS (usa solo estos):
+historia, historia_antigua, historia_moderna, historia_contemporanea,
+ciencia, ciencia_fisica, ciencia_biologia, ciencia_quimica,
+geografia, geografia_politica, geografia_fisica,
+arte, arte_pintura, arte_escultura, arte_musica,
+literatura, filosofia,
+psicotecnico, psicotecnico_numerico, psicotecnico_logico,
+cifras, letras, deportes, entretenimiento
+
+TEMÁTICA SOLICITADA: [AQUÍ EL TEMA]
+CANTIDAD: [AQUÍ EL NÚMERO, ej: 10]
+DIFICULTAD OBJETIVO: [1 | 2 | 3 | mezcla]
+
+--- FIN DEL PROMPT ---
+
+Revisión posterior obligatoria:
+  1. Factual: ¿la respuesta correcta lo es?
+  2. Pedagógica: ¿la explicación enseña?
+  3. Sesgos: ¿hay estereotipos o temas contingentes?
+  4. Tags: ¿pertenecen al vocabulario cerrado?
+  5. Dato curioso: ¿es verificable?
+  6. tag_error: ¿describe el error típico real?
+
+
+================================================================
+5. SCRIPT DE MIGRACIÓN DESDE OPENTDB
+================================================================
+
+Open Trivia Database (https://opentdb.com) es un banco de
+preguntas comunitario bajo licencia CC BY-SA 4.0. Puedes
+descargar un JSON desde su web y transformarlo con este script
+de Node.js.
+
+IMPORTANTE: las preguntas migradas están en inglés. Necesitas
+un paso adicional de traducción (manual o con IA) antes de
+usarlas. Y revisar los tag_error, que vendrán a null.
+
+--- INICIO DEL SCRIPT (guardar como migrar_opentdb.js) ---
+
+/**
+ * Migra un JSON de OpenTDB al esquema propio de Trivia PMV.
+ * Uso: node migrar_opentdb.js opentdb_export.json
+ *
+ * Licencia del script: AGPLv3
+ * Licencia de las preguntas resultantes: CC BY-SA 4.0
+ *   (por heredar de OpenTDB)
+ */
+
+const fs = require('fs');
+
+const MAPA_CATEGORIAS = {
+  'History':                  ['historia'],
+  'Science: Mathematics':     ['ciencia', 'psicotecnico_numerico'],
+  'Science: Computers':       ['ciencia'],
+  'Science: Physics':         ['ciencia', 'ciencia_fisica'],
+  'Science: Chemistry':       ['ciencia', 'ciencia_quimica'],
+  'Science: Biology':         ['ciencia', 'ciencia_biologia'],
+  'Geography':                ['geografia'],
+  'Art':                      ['arte'],
+  'Literature':               ['literatura'],
+  'Philosophy':               ['filosofia'],
+  'Sports':                   ['deportes'],
+  'Entertainment: Film':      ['entretenimiento'],
+  'Entertainment: Music':     ['arte', 'arte_musica'],
+  'Entertainment: Books':     ['literatura'],
+};
+
+const MAPA_DIFICULTAD = { easy: 1, medium: 2, hard: 3 };
+
+function decodificarHTML(texto) {
+  return String(texto)
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"')
+    .replace(/&#039;/g, "'")
+    .replace(/&eacute;/g, 'é')
+    .replace(/&oacute;/g, 'ó')
+    .replace(/&iacute;/g, 'í')
+    .replace(/&aacute;/g, 'á')
+    .replace(/&uacute;/g, 'ú')
+    .replace(/&ntilde;/g, 'ñ');
+}
+
+function migrarPregunta(p, indice) {
+  const opciones = [
+    { texto: decodificarHTML(p.correct_answer), correcta: true, tag_error: null },
+    ...p.incorrect_answers.map(t => ({
+      texto: decodificarHTML(t),
+      correcta: false,
+      tag_error: null
+    }))
+  ];
+
+  // Barajar para que la correcta no esté siempre primera
+  for (let i = opciones.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [opciones[i], opciones[j]] = [opciones[j], opciones[i]];
+  }
+
+  return {
+    id: `opentdb_${indice}`,
+    tipo: 'trivia',
+    enunciado: decodificarHTML(p.question),
+    opciones,
+    explicacion: '',
+    dato_curioso: null,
+    dificultad: MAPA_DIFICULTAD[p.difficulty] || 2,
+    tags: MAPA_CATEGORIAS[p.category] || ['sin_clasificar'],
+    fuente: 'OpenTDB (CC BY-SA 4.0)',
+    revision: 'pendiente'
+  };
+}
+
+function migrar(archivoEntrada) {
+  const crudo = JSON.parse(fs.readFileSync(archivoEntrada, 'utf-8'));
+  const preguntas = crudo.results.map((p, i) => migrarPregunta(p, i));
+
+  const salida = {
+    version: '1.0',
+    idioma: 'en',
+    licencia: 'CC BY-SA 4.0',
+    atribucion: 'Open Trivia Database (https://opentdb.com)',
+    preguntas
+  };
+
+  const nombreSalida = archivoEntrada.replace('.json', '_migrado.json');
+  fs.writeFileSync(nombreSalida, JSON.stringify(salida, null, 2));
+  console.log(`Migradas ${preguntas.length} preguntas a ${nombreSalida}`);
+  console.log('Recuerda:');
+  console.log('  - Traducir al español (manual o IA + revisión).');
+  console.log('  - Rellenar explicacion, dato_curioso y tag_error.');
+  console.log('  - Cambiar revision de "pendiente" a "verificada" tras revisar.');
+  console.log('  - Mantener la atribución a OpenTDB y la licencia CC BY-SA 4.0.');
+}
+
+if (process.argv[2]) {
+  migrar(process.argv[2]);
+} else {
+  console.log('Uso: node migrar_opentdb.js opentdb_export.json');
+}
+
+--- FIN DEL SCRIPT ---
+
+
+================================================================
+6. LICENCIAS
+================================================================
+
+6.1 Software (código HTML, JS, CSS)
+------------------------------------
+
+  Licencia: GNU Affero General Public License v3.0 (AGPLv3).
+  Texto completo: https://www.gnu.org/licenses/agpl-3.0.html
+
+  Esto significa:
+  - Puedes usar, copiar, modificar y distribuir el software.
+  - Si lo distribuyes o lo pones en un servidor para que otros
+    lo usen por red, DEBES publicar el código fuente bajo la
+    misma licencia.
+  - No puedes relicenciarlo como propietario.
+  - Debes mantener los avisos de copyright y de licencia.
+
+  Aviso de copyright sugerido al inicio del HTML:
+    <!--
+      Trivia PMV
+      Copyright (C) 2026 (autor)
+      Este programa es software libre bajo AGPLv3.
+      Ver https://www.gnu.org/licenses/agpl-3.0.html
+    -->
+
+6.2 Banco de preguntas propias
+------------------------------
+
+  Autor: (usuario)
+  Licencia recomendada: CC BY-SA 4.0
+  (Creative Commons Atribución-CompartirIgual 4.0 Internacional)
+  Texto completo: https://creativecommons.org/licenses/by-sa/4.0/
+
+  Esto significa:
+  - Cualquiera puede compartir y adaptar las preguntas.
+  - Debe atribuir al autor original.
+  - Las obras derivadas deben llevar la misma licencia.
+  - Compatible con AGPLv3 del software.
+
+6.3 Preguntas migradas de OpenTDB
+---------------------------------
+
+  Licencia: CC BY-SA 4.0
+  Autoría original: Open Trivia Database (https://opentdb.com)
+
+  Obligaciones:
+  - Atribuir a OpenTDB en la UI, README o NOTICE.
+  - Mantener la licencia CC BY-SA 4.0 en las preguntas
+    derivadas (traducidas o modificadas).
+  - No puedes cerrar la licencia de estas preguntas.
+
+6.4 Separación recomendada en el repositorio
+--------------------------------------------
+
+  /html/
+    index.html         → AGPLv3
+  /data/
+    preguntas_propias.json     → CC BY-SA 4.0 (tuyo)
+    preguntas_opentdb.json     → CC BY-SA 4.0 (OpenTDB)
+  /scripts/
+    migrar_opentdb.js          → AGPLv3
+  /docs/
+    PROYECTO.txt               → AGPLv3 (este archivo)
+    NOTICE.txt                 → atribuciones de licencias
+  LICENSE                      → AGPLv3 completo
+  LICENSE-CC-BY-SA-4.0         → CC BY-SA 4.0 completo
+
+6.5 Compatibilidad
+------------------
+
+  - AGPLv3 (software) y CC BY-SA 4.0 (contenido) son
+    compatibles por decisión de la FSF y Creative Commons.
+  - Puedes distribuir el proyecto entero sin conflicto,
+    siempre que cada capa mantenga su licencia original.
+
+
+================================================================
+7. FICHEROS DEL PROYECTO
+================================================================
+
+  index.html              · juego completo, un solo archivo
+  PROYECTO.txt            · este documento
+  migrar_opentdb.js       · script de migración (Node.js)
+  preguntas_propias.json  · banco de preguntas propio
+  preguntas_opentdb.json  · banco migrado de OpenTDB
+  LICENSE                 · AGPLv3
+  LICENSE-CC-BY-SA-4.0    · licencia del contenido
+  NOTICE.txt              · atribuciones
+
+
+================================================================
+8. ROADMAP POST-MVP
+================================================================
+
+  - Coordenadas topológicas entre preguntas (tiempo, espacio,
+    naturaleza, función, registro).
+  - Distancia entre preguntas para elegir distractores.
+  - Grafo de conceptos navegable.
+  - Modo arquitecto (editar reglas en vivo).
+  - Comodín de llamada con institución y sesgo declarado.
+  - Modo RPG de preguntas rápidas.
+  - Colección de datos curiosos como galería.
+  - Objetivo diario y misiones.
+  - Export/import de progreso.
+
+
+================================================================
+9. CRÉDITOS Y AGRADECIMIENTOS
+================================================================
+
+  - Open Trivia Database (https://opentdb.com) por el banco
+    comunitario de preguntas bajo CC BY-SA 4.0.
+  - Web Speech API del W3C por la síntesis de voz.
+  - La persona con degeneración macular que inspiró el diseño
+    accesible desde el núcleo.
+
+
+================================================================
+FIN DEL DOCUMENTO
+================================================================
