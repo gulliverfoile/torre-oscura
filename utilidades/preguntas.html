@@ -4,15 +4,10 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
 <meta name="theme-color" content="#0a0a0a" />
-<title>Trivia · PMV</title>
+<title>Trivia · PMV v3</title>
 <style>
   /* ============================================================
      ESTILOS · Accesibilidad primero (DMAE)
-     - Alto contraste: amarillo sobre negro
-     - Texto grande (18px base, 24px+ en pregunta)
-     - Objetivos táctiles >= 56px
-     - Sin animaciones parpadeantes
-     - Foco visible fuerte
      ============================================================ */
   * { box-sizing: border-box; margin: 0; padding: 0; }
   html, body { height: 100%; }
@@ -29,8 +24,8 @@
   }
   .wrap { max-width: 720px; margin: 0 auto; }
   h1 { font-size: 1.5rem; color: #ffeb3b; margin-bottom: 4px; }
-  h2 { font-size: 1.2rem; margin-bottom: 12px; color: #ffeb3b; }
-  .sub { color: #b0b0b0; font-size: 0.95rem; margin-bottom: 20px; }
+  h2 { font-size: 1.15rem; margin-bottom: 10px; color: #ffeb3b; margin-top: 16px; }
+  .sub { color: #b0b0b0; font-size: 0.95rem; margin-bottom: 16px; }
 
   /* Botones base */
   button {
@@ -47,15 +42,41 @@
     width: 100%;
     display: block;
   }
-  button:hover, button:focus-visible {
-    border-color: #ffeb3b;
-    outline: none;
-  }
+  button:hover, button:focus-visible { border-color: #ffeb3b; outline: none; }
   button:focus-visible { outline: 3px solid #ffeb3b; outline-offset: 2px; }
-  button:disabled { opacity: .5; cursor: not-allowed; }
-  .btn-primary { background: #ffeb3b; color: #0a0a0a; border-color: #ffeb3b; font-weight: 700; }
+  button:disabled { opacity: .4; cursor: not-allowed; }
+  .btn-primary { background: #ffeb3b; color: #0a0a0a; border-color: #ffeb3b; font-weight: 700; text-align: center; }
   .btn-primary:hover, .btn-primary:focus-visible { background: #fff176; border-color: #fff176; }
-  .btn-ghost { background: transparent; }
+  .btn-ghost { background: transparent; text-align: center; }
+  .btn-small { min-height: 44px; padding: 8px 12px; font-size: 0.9rem; width: auto; }
+
+  /* Aviso ético */
+  .ethical-notice {
+    background: #1a1a2a;
+    border-left: 4px solid #888;
+    padding: 12px 16px;
+    border-radius: 8px;
+    margin-bottom: 14px;
+    font-size: 0.9rem;
+    color: #c0c0c0;
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+  }
+  .ethical-notice .icon { font-size: 1.2rem; flex-shrink: 0; }
+  .ethical-notice .text { flex: 1; }
+  .ethical-notice button {
+    background: transparent;
+    border: 2px solid #333;
+    color: #c0c0c0;
+    width: auto;
+    min-height: 32px;
+    padding: 2px 10px;
+    font-size: 0.8rem;
+    border-radius: 8px;
+    text-align: center;
+  }
+  .ethical-notice button:hover { border-color: #ffeb3b; color: #ffeb3b; }
 
   /* Opciones de respuesta */
   .opts { display: grid; gap: 10px; margin-top: 16px; }
@@ -73,10 +94,12 @@
   .opt.correct .num { background: #4caf50; color: #0a0a0a; }
   .opt.wrong { border-color: #f44336; background: #301010; }
   .opt.wrong .num { background: #f44336; color: #0a0a0a; }
+  .opt.discarded { opacity: .35; text-decoration: line-through; }
 
   /* Pregunta */
   .q-meta { display: flex; justify-content: space-between; font-size: 0.9rem; color: #b0b0b0; margin-bottom: 8px; flex-wrap: wrap; gap: 8px; }
   .q-meta .diff-3 { color: #ffeb3b; font-weight: 700; }
+  .q-meta .test-tag { background: #444; padding: 2px 8px; border-radius: 4px; font-size: 0.75rem; color: #ffeb3b; }
   .question {
     font-size: 1.35rem;
     line-height: 1.4;
@@ -101,20 +124,17 @@
   .feedback h3 { font-size: 1.1rem; margin-bottom: 8px; }
   .feedback .exp { margin-bottom: 10px; }
   .feedback .curio { color: #ffeb3b; font-style: italic; }
+  .feedback .speaking {
+    display: inline-block; margin-left: 8px;
+    font-size: 0.8rem; color: #ffeb3b; font-style: italic;
+  }
 
   /* Comodines */
-  .comodines {
-    display: flex; gap: 8px; flex-wrap: wrap; margin-top: 14px;
-  }
-  .comodin {
-    flex: 1; min-width: 130px;
-    font-size: 0.95rem; padding: 10px 12px;
-    text-align: center;
-  }
-  .comodin[disabled] { opacity: .4; }
+  .comodines { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 14px; }
+  .comodines button { flex: 1; min-width: 130px; font-size: 0.95rem; text-align: center; }
 
-  /* Tags (home) */
-  .tags { display: flex; flex-wrap: wrap; gap: 8px; margin: 12px 0 20px; }
+  /* Tags */
+  .tags { display: flex; flex-wrap: wrap; gap: 8px; margin: 12px 0 16px; }
   .tag {
     padding: 10px 16px;
     border-radius: 999px;
@@ -123,20 +143,40 @@
     cursor: pointer;
     font-size: 0.95rem;
     min-height: 44px;
-    display: inline-flex; align-items: center;
+    display: inline-flex; align-items: center; gap: 6px;
   }
   .tag.on { border-color: #ffeb3b; background: #2a2a10; color: #ffeb3b; }
-  .tag:focus-visible { outline: 3px solid #ffeb3b; outline-offset: 2px; }
+  .tag .lvl { font-size: 0.75rem; opacity: .8; }
 
   /* Progreso */
-  .bar { height: 8px; background: #222; border-radius: 4px; overflow: hidden; margin: 8px 0 20px; }
+  .bar { height: 8px; background: #222; border-radius: 4px; overflow: hidden; margin: 8px 0 16px; }
   .bar > i { display: block; height: 100%; background: #ffeb3b; transition: width .2s; }
 
-  /* Summary */
-  .summary { background: #1a1a1a; padding: 20px; border-radius: 12px; }
-  .summary .score { font-size: 2rem; color: #ffeb3b; font-weight: 700; }
+  /* Stats */
+  .stat-row {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 6px 0; border-bottom: 1px solid #1a1a1a; font-size: 0.95rem;
+  }
+  .stat-row:last-child { border-bottom: none; }
+  .stat-row .name { color: #e0e0e0; }
+  .stat-row .val { color: #b0b0b0; font-size: 0.85rem; }
+  .stat-row .lvl-badge {
+    display: inline-block; min-width: 24px; text-align: center;
+    padding: 2px 6px; border-radius: 6px;
+    background: #333; color: #ffeb3b; font-weight: 700; font-size: 0.8rem;
+    margin-right: 8px;
+  }
+
+  /* Resumen */
+  .summary { background: #1a1a1a; padding: 20px; border-radius: 12px; margin-bottom: 16px; }
+  .summary .score { font-size: 2.2rem; color: #ffeb3b; font-weight: 700; line-height: 1; }
   .summary .stat { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #222; }
   .summary .stat:last-child { border-bottom: none; }
+  .cta-box {
+    background: #2a2a10; border-left: 4px solid #ffeb3b; padding: 12px 16px;
+    border-radius: 8px; margin-bottom: 16px; font-size: 0.95rem;
+  }
+  .cta-box strong { color: #ffeb3b; }
 
   /* Utilidades */
   .row { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 12px; }
@@ -144,8 +184,75 @@
   .sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
   .hidden { display: none !important; }
   .small { font-size: 0.9rem; color: #b0b0b0; }
-  .top-actions { display: flex; gap: 8px; justify-content: flex-end; margin-bottom: 12px; }
-  .top-actions button { width: auto; min-height: 44px; padding: 8px 12px; font-size: 0.9rem; }
+  .top-actions { display: flex; gap: 8px; justify-content: flex-end; margin-bottom: 12px; flex-wrap: wrap; }
+  .top-actions button, .top-actions label { width: auto; min-height: 44px; padding: 8px 12px; font-size: 0.9rem; text-align: center; display: inline-flex; align-items: center; justify-content: center; border: 2px solid #333; border-radius: 12px; cursor: pointer; }
+  .top-actions button:hover, .top-actions label:hover { border-color: #ffeb3b; }
+
+  /* Test panel */
+  .test-panel {
+    background: #141414; border: 1px solid #333; border-radius: 12px;
+    padding: 14px; margin-bottom: 16px;
+  }
+  .test-panel h3 { color: #ffeb3b; font-size: 1rem; margin-bottom: 10px; }
+  .test-row {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 6px 0; gap: 10px; flex-wrap: wrap;
+  }
+  .test-row label { flex: 1; min-width: 120px; font-size: 0.9rem; }
+  .test-row select, .test-row input[type="checkbox"] {
+    background: #0a0a0a; color: #f0f0f0; border: 2px solid #333;
+    border-radius: 8px; padding: 6px 10px; font-size: 0.9rem; min-height: 40px;
+  }
+  .test-row select:focus { outline: 2px solid #ffeb3b; }
+  .test-stats { font-size: 0.8rem; color: #888; margin-top: 8px; }
+
+  /* Diálogos nativos */
+  dialog {
+    background: #141414;
+    color: #f0f0f0;
+    border: 2px solid #333;
+    border-radius: 14px;
+    padding: 20px;
+    max-width: 92%;
+    width: 480px;
+    max-height: 88vh;
+    overflow-y: auto;
+  }
+  dialog::backdrop { background: rgba(0,0,0,0.75); }
+  dialog h2 { color: #ffeb3b; font-size: 1.1rem; margin-bottom: 14px; margin-top: 0; }
+  dialog h3 { color: #ffeb3b; font-size: 1rem; margin-bottom: 10px; margin-top: 16px; }
+  dialog label { display: block; margin-bottom: 10px; font-size: 0.95rem; }
+  dialog select, dialog input[type="range"] {
+    width: 100%; margin-top: 4px;
+    background: #0a0a0a; color: #f0f0f0; border: 2px solid #333;
+    border-radius: 8px; padding: 8px 10px; font-size: 0.95rem; min-height: 44px;
+  }
+  dialog input[type="range"] { padding: 0; min-height: 30px; }
+  dialog .voice-quality-ok { color: #4caf50; }
+  dialog .voice-quality-warn { color: #ffa726; }
+  dialog .dialog-actions {
+    display: flex; gap: 10px; margin-top: 16px; flex-wrap: wrap;
+  }
+  dialog .dialog-actions button { flex: 1; min-width: 120px; }
+  dialog .help-text { font-size: 0.85rem; color: #aaa; line-height: 1.5; }
+  dialog .help-text p { margin-bottom: 8px; }
+  dialog .help-text strong { color: #ffeb3b; }
+  dialog .help-text em { color: #ddd; font-style: normal; background: #333; padding: 0 4px; border-radius: 4px; }
+
+  /* Barra del lector activo */
+  .speaking-indicator {
+    display: inline-block;
+    width: 8px; height: 8px;
+    background: #ffeb3b;
+    border-radius: 50%;
+    animation: pulse 1s infinite;
+    margin-right: 6px;
+    vertical-align: middle;
+  }
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.3; }
+  }
 
   @media (prefers-reduced-motion: reduce) {
     * { transition: none !important; animation: none !important; }
@@ -155,29 +262,116 @@
 <body>
 <div class="wrap" id="app"></div>
 
+<!-- Diálogo · Configuración de voz -->
+<dialog id="voiceDialog" aria-labelledby="voiceDialogTitle">
+  <h2 id="voiceDialogTitle">🎤 Configuración de voz</h2>
+
+  <label>
+    <input type="checkbox" id="voiceEnabled" style="min-height: auto; width: auto;" />
+    Activar lectura en voz alta
+  </label>
+
+  <label>
+    Voz del sistema:
+    <select id="voiceSelect"></select>
+  </label>
+
+  <label>
+    Velocidad: <span id="rateVal">1.0</span>
+    <input type="range" id="rateInput" min="0.5" max="2" step="0.05" value="1" />
+  </label>
+
+  <label>
+    Tono: <span id="pitchVal">1.0</span>
+    <input type="range" id="pitchInput" min="0.5" max="2" step="0.05" value="1" />
+  </label>
+
+  <label>
+    Estilo de voz:
+    <select id="styleSelect">
+      <option value="normal">Normal</option>
+      <option value="duendecillo">Duendecillo</option>
+      <option value="abuelito">Abuelito</option>
+      <option value="robot">Robot</option>
+      <option value="susurro">Susurro</option>
+    </select>
+  </label>
+
+  <div class="dialog-actions">
+    <button class="btn-ghost" id="voiceHelpBtn" type="button">📖 ¿Suena robótica?</button>
+    <button class="btn-primary" id="voiceCloseBtn" type="button">Cerrar</button>
+  </div>
+</dialog>
+
+<!-- Diálogo · Ayuda de voz -->
+<dialog id="voiceHelpDialog" aria-labelledby="voiceHelpTitle">
+  <h2 id="voiceHelpTitle">📖 Mejorar la voz</h2>
+  <div class="help-text">
+    <p>La calidad depende de las voces instaladas en tu dispositivo.</p>
+    <p><strong>Android:</strong> instala <em>Google Text-to-Speech</em> desde Play Store. Luego ve a <em>Ajustes → Idioma y entrada → Salida de texto a voz → Motor de Google</em>, y descarga voces en español.</p>
+    <p><strong>iOS:</strong> ve a <em>Ajustes → Accesibilidad → Contenido leído → Voces → Español</em>. Descarga una voz mejorada (Mónica, Jorge, etc.).</p>
+    <p><strong>Windows:</strong> ve a <em>Configuración → Hora e idioma → Voz</em>. Añade voces en español desde el panel de idiomas.</p>
+    <p>Después, vuelve a la configuración de voz y elige una opción marcada con ✅.</p>
+  </div>
+  <div class="dialog-actions">
+    <button class="btn-primary" id="voiceHelpCloseBtn" type="button">Entendido</button>
+  </div>
+</dialog>
+
 <script>
 /* ================================================================
-   TRIVIA PMV · Arquitectura por capas, eventos, lista para hexagonal
+   TRIVIA PMV v3
    ----------------------------------------------------------------
    Capas:
      1. DOMINIO     · reglas puras, sin DOM, sin estado global
      2. APLICACIÓN  · orquestación, bus de eventos, persistencia
      3. INFRA       · UI, TTS, carga de archivos
    ----------------------------------------------------------------
-   Migración a hexagonal:
-     - Domain → núcleo (puertos: Bank, Scoring)
-     - Application → casos de uso
-     - Infra → adaptadores (DOM, localStorage, TTS, fetch)
+   Novedades v3:
+     - Selector de voces con marca de calidad (✅/⚠️)
+     - Persistencia de configuración de voz
+     - Fallback automático a mejor voz disponible
+     - Narración por fragmentos (frase a frase, no todo de golpe)
+     - Diálogo de ayuda de voz con instrucciones por SO
+     - Aviso ético sobre IA (dismissable y persistente)
+     - Panel de configuración de voz accesible
    ================================================================ */
 
 
 /* ================================================================
-   CAPA 1 · DOMINIO (puro)
+   CAPA 1 · DOMINIO
    ================================================================ */
 const Domain = (() => {
-  const DIFF_POINTS = { 1: 10, 2: 20, 3: 30 };
 
-  // Validación mínima de una pregunta
+  const DIFF_POINTS = { 1: 10, 2: 20, 3: 30 };
+  const XP_THRESHOLDS = { 1: 0, 2: 100, 3: 300 };
+
+  const SESSION_WEIGHTS = {
+    1: { 1: 6, 2: 3, 3: 1 },
+    2: { 1: 4, 2: 4, 3: 2 },
+    3: { 1: 2, 2: 3, 3: 5 }
+  };
+
+  function levelFromXp(xp) {
+    if (xp >= XP_THRESHOLDS[3]) return 3;
+    if (xp >= XP_THRESHOLDS[2]) return 2;
+    return 1;
+  }
+
+  function xpToNextLevel(xp) {
+    const lvl = levelFromXp(xp);
+    if (lvl === 3) return null;
+    return XP_THRESHOLDS[lvl + 1] - xp;
+  }
+
+  function shuffle(arr) {
+    for (let i = arr.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [arr[i], arr[j]] = [arr[j], arr[i]];
+    }
+    return arr;
+  }
+
   function isValidQuestion(q) {
     if (!q || typeof q !== 'object') return false;
     if (!q.id || !q.enunciado) return false;
@@ -186,7 +380,6 @@ const Domain = (() => {
     return true;
   }
 
-  // Banco en memoria con índice invertido por tag
   class QuestionBank {
     constructor() {
       this.questions = [];
@@ -197,19 +390,20 @@ const Domain = (() => {
       let added = 0;
       for (const q of list) {
         if (!isValidQuestion(q)) continue;
-        if (this.byId.has(q.id)) continue;
+        if (this.byId.has(String(q.id))) continue;
+        const opciones = shuffle(q.opciones.map(o => ({
+          texto: String(o.texto),
+          correcta: !!o.correcta,
+          tag_error: o.tag_error || null
+        })));
         const clean = {
           id: String(q.id),
           tipo: q.tipo || 'trivia',
           enunciado: String(q.enunciado),
-          opciones: q.opciones.map(o => ({
-            texto: String(o.texto),
-            correcta: !!o.correcta,
-            tag_error: o.tag_error || null
-          })),
+          opciones,
           explicacion: q.explicacion || '',
           dato_curioso: q.dato_curioso || null,
-          dificultad: [1,2,3].includes(q.dificultad) ? q.dificultad : 2,
+          dificultad: [1, 2, 3].includes(q.dificultad) ? q.dificultad : 2,
           tags: Array.isArray(q.tags) ? q.tags.slice() : [],
           fuente: q.fuente || null,
           revision: q.revision || 'pendiente'
@@ -224,55 +418,108 @@ const Domain = (() => {
       }
       return added;
     }
-    getTags() {
-      return [...this.byTag.keys()].sort();
-    }
-    pick(tags, difficulty, excludeIds) {
-      const pool = [];
-      const seen = new Set();
-      for (const t of tags) {
-        const list = this.byTag.get(t) || [];
-        for (const q of list) {
-          if (seen.has(q.id)) continue;
-          seen.add(q.id);
-          if (excludeIds && excludeIds.has(q.id)) continue;
-          if (difficulty !== null && difficulty !== undefined && q.dificultad !== difficulty) continue;
-          pool.push(q);
-        }
-      }
-      if (!pool.length) return null;
-      return pool[Math.floor(Math.random() * pool.length)];
+    getTags() { return [...this.byTag.keys()].sort(); }
+    getById(id) { return this.byId.get(id); }
+    statsForTag(tag) {
+      const list = this.byTag.get(tag) || [];
+      const s = { 1: 0, 2: 0, 3: 0, total: list.length };
+      for (const q of list) s[q.dificultad]++;
+      return s;
     }
   }
 
-  // Construye una sesión: 10 preguntas (7 normales + 2 difíciles + 1 al azar)
-  function buildSession(bank, tags, opts = {}) {
+  function buildSession(bank, tags, progress, opts = {}) {
     const size = opts.size || 10;
-    const hardCount = Math.min(opts.hard || 2, Math.max(0, size - 1));
-    const normalCount = size - hardCount;
+    const forceLevel = opts.forceLevel || {};
+    const excludeRecent = opts.excludeRecent !== false;
+
+    const recent = new Set();
+    if (excludeRecent && progress.recentSessions) {
+      for (const ids of progress.recentSessions) for (const id of ids) recent.add(id);
+    }
+
+    const perTag = {};
+    const base = Math.floor(size / tags.length);
+    const extra = size % tags.length;
+    tags.forEach((t, i) => { perTag[t] = base + (i < extra ? 1 : 0); });
+
     const used = new Set();
     const picks = [];
-    for (let i = 0; i < normalCount; i++) {
-      const q = bank.pick(tags, null, used);
-      if (!q) break;
-      used.add(q.id);
-      picks.push(q);
+    const fallbackLog = [];
+
+    for (const tag of tags) {
+      const level = forceLevel[tag] || progress.getTag(tag).level || 1;
+      const weights = SESSION_WEIGHTS[Math.min(level, 3)] || SESSION_WEIGHTS[1];
+      const tagSize = perTag[tag];
+
+      const totalW = weights[1] + weights[2] + weights[3];
+      let c3 = Math.round(tagSize * weights[3] / totalW);
+      let c2 = Math.round(tagSize * weights[2] / totalW);
+      let c1 = tagSize - c2 - c3;
+      if (c1 < 0) { c1 = 0; c2 = tagSize - c3; }
+      if (c2 < 0) { c2 = 0; c1 = tagSize - c3; }
+      if (c1 < 0) { c1 = 0; }
+
+      const { picks: tagPicks, info } = pickForTag(bank, tag, { 1: c1, 2: c2, 3: c3 }, recent, used, level);
+      for (const q of tagPicks) { picks.push(q); used.add(q.id); }
+      if (info.fallback.length) fallbackLog.push({ tag, level, ...info });
     }
-    for (let i = 0; i < hardCount; i++) {
-      const q = bank.pick(tags, 3, used) || bank.pick(tags, null, used);
-      if (!q) break;
-      used.add(q.id);
-      picks.push(q);
+
+    if (picks.length < size) {
+      const all = bank.questions.filter(q => !used.has(q.id) && !recent.has(q.id));
+      shuffle(all);
+      while (picks.length < size && all.length) {
+        const q = all.pop();
+        picks.push(q);
+        used.add(q.id);
+      }
     }
-    // Barajar para que las difíciles no salgan siempre al final
-    for (let i = picks.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1));
-      [picks[i], picks[j]] = [picks[j], picks[i]];
+
+    if (picks.length < size) {
+      const all = bank.questions.filter(q => !used.has(q.id));
+      shuffle(all);
+      while (picks.length < size && all.length) {
+        const q = all.pop();
+        picks.push(q);
+        used.add(q.id);
+      }
     }
-    return picks;
+
+    shuffle(picks);
+    return { questions: picks, fallbackLog };
   }
 
-  // Puntuación por respuesta
+  function pickForTag(bank, tag, counts, recent, used, level) {
+    const all = bank.byTag.get(tag) || [];
+    const pools = { 1: [], 2: [], 3: [] };
+    for (const q of all) {
+      if (recent.has(q.id) || used.has(q.id)) continue;
+      pools[q.dificultad].push(q);
+    }
+    shuffle(pools[1]); shuffle(pools[2]); shuffle(pools[3]);
+
+    const result = [];
+    const info = {
+      requested: { ...counts },
+      actual: { 1: 0, 2: 0, 3: 0 },
+      fallback: []
+    };
+
+    let deficit = 0;
+    for (const d of [3, 2, 1]) {
+      const want = counts[d] + deficit;
+      const got = Math.min(want, pools[d].length);
+      for (let i = 0; i < got; i++) result.push(pools[d].pop());
+      info.actual[d] = got;
+      deficit = want - got;
+      if (deficit > 0 && d > 1) {
+        info.fallback.push(`dif ${d}: pedidas ${counts[d]}, faltan ${deficit}, compensadas con dif ${d - 1}`);
+      }
+    }
+
+    return { picks: result, info };
+  }
+
   function scoreAnswer(question, wasCorrect, usedComodin) {
     if (!wasCorrect) return 0;
     let pts = DIFF_POINTS[question.dificultad] || 10;
@@ -280,17 +527,22 @@ const Domain = (() => {
     return pts;
   }
 
-  // Umbral de nivel por XP
-  function levelFromXp(xp) {
-    return Math.min(5, Math.floor((xp || 0) / 100) + 1);
-  }
-
-  return { QuestionBank, buildSession, scoreAnswer, levelFromXp, DIFF_POINTS };
+  return {
+    QuestionBank,
+    buildSession,
+    scoreAnswer,
+    levelFromXp,
+    xpToNextLevel,
+    DIFF_POINTS,
+    XP_THRESHOLDS,
+    SESSION_WEIGHTS,
+    shuffle
+  };
 })();
 
 
 /* ================================================================
-   CAPA 2 · APLICACIÓN (orquestación, eventos, persistencia)
+   CAPA 2 · APLICACIÓN
    ================================================================ */
 const App = (() => {
   const EVENTS = {
@@ -302,10 +554,12 @@ const App = (() => {
     PROGRESS_UPDATED: 'progress:updated',
     COMODIN_USED: 'comodin:used',
     ERROR: 'error',
-    SCREEN_CHANGED: 'screen:changed'
+    SCREEN_CHANGED: 'screen:changed',
+    LEVEL_CHANGED: 'level:changed',
+    TTS_CONFIG_CHANGED: 'tts:configChanged',
+    TTS_STATE_CHANGED: 'tts:stateChanged'
   };
 
-  // Bus de eventos simple con unsubscribe
   class EventBus {
     constructor() { this._subs = new Map(); }
     on(ev, fn) {
@@ -322,19 +576,34 @@ const App = (() => {
     }
   }
 
-  // Progreso persistido en localStorage (una entrada por tag)
-  const STORAGE_KEY = 'trivia_pmv_progress_v1';
+  const STORAGE_KEY = 'trivia_pmv_v2_progress';
+  const TTS_STORAGE_KEY = 'trivia_pmv_v3_tts';
+  const NOTICE_STORAGE_KEY = 'trivia_pmv_v3_notice';
+
   class Progress {
     constructor() { this.data = this._load(); }
     _load() {
       try {
         const raw = localStorage.getItem(STORAGE_KEY);
         if (raw) {
-          const parsed = JSON.parse(raw);
-          if (parsed && typeof parsed === 'object' && parsed.tags) return parsed;
+          const p = JSON.parse(raw);
+          if (p && typeof p === 'object') {
+            return {
+              tags: p.tags || {},
+              sessions: p.sessions || 0,
+              recentSessions: p.recentSessions || [],
+              errors: p.errors || [],
+              curiosities: p.curiosities || [],
+              streakDays: p.streakDays || 0,
+              lastSessionDate: p.lastSessionDate || null
+            };
+          }
         }
       } catch {}
-      return { tags: {}, sessions: 0 };
+      return {
+        tags: {}, sessions: 0, recentSessions: [], errors: [],
+        curiosities: [], streakDays: 0, lastSessionDate: null
+      };
     }
     _save() {
       try { localStorage.setItem(STORAGE_KEY, JSON.stringify(this.data)); } catch {}
@@ -349,24 +618,113 @@ const App = (() => {
       else { t.fallos++; t.racha = 0; }
       t.level = Domain.levelFromXp(t.xp);
       this.data.tags[tag] = t;
-      this.data.sessions++;
       this._save();
       return t;
     }
-    reset() {
-      this.data = { tags: {}, sessions: 0 };
+    addError(questionId, tagError, tag) {
+      this.data.errors.unshift({
+        qid: questionId, tag_error: tagError, tag,
+        date: new Date().toISOString()
+      });
+      this.data.errors = this.data.errors.slice(0, 50);
       this._save();
+    }
+    addCuriosity(id) {
+      if (!this.data.curiosities.includes(id)) {
+        this.data.curiosities.push(id);
+        this._save();
+      }
+    }
+    recordSession(questionIds) {
+      this.data.recentSessions.unshift(questionIds.slice());
+      this.data.recentSessions = this.data.recentSessions.slice(0, 2);
+      this.data.sessions++;
+      const today = new Date().toISOString().slice(0, 10);
+      const last = this.data.lastSessionDate;
+      if (last !== today) {
+        const yesterday = new Date(Date.now() - 86400000).toISOString().slice(0, 10);
+        this.data.streakDays = (last === yesterday) ? this.data.streakDays + 1 : 1;
+        this.data.lastSessionDate = today;
+      }
+      this._save();
+    }
+    lowerLevel(tag) {
+      const t = this.getTag(tag);
+      if (t.level > 1) {
+        const newLevel = t.level - 1;
+        t.xp = Domain.XP_THRESHOLDS[newLevel];
+        t.level = newLevel;
+        this.data.tags[tag] = t;
+        this._save();
+      }
+      return t;
+    }
+    resetTag(tag) {
+      this.data.tags[tag] = { xp: 0, level: 1, aciertos: 0, fallos: 0, racha: 0 };
+      this._save();
+      return this.data.tags[tag];
     }
     all() { return this.data; }
   }
 
-  // Motor de juego: no toca DOM, no toca storage directamente
+  // Configuración de TTS persistente
+  class TTSSettings {
+    constructor(bus) {
+      this.bus = bus;
+      this.data = this._load();
+    }
+    _load() {
+      try {
+        const raw = localStorage.getItem(TTS_STORAGE_KEY);
+        if (raw) {
+          const p = JSON.parse(raw);
+          if (p && typeof p === 'object') {
+            return {
+              enabled: !!p.enabled,
+              vozNombre: p.vozNombre || null,
+              rate: typeof p.rate === 'number' ? p.rate : 1.0,
+              pitch: typeof p.pitch === 'number' ? p.pitch : 1.0,
+              estilo: p.estilo || 'normal'
+            };
+          }
+        }
+      } catch {}
+      return { enabled: false, vozNombre: null, rate: 1.0, pitch: 1.0, estilo: 'normal' };
+    }
+    _save() {
+      try { localStorage.setItem(TTS_STORAGE_KEY, JSON.stringify(this.data)); } catch {}
+    }
+    get() { return { ...this.data }; }
+    set(partial) {
+      this.data = { ...this.data, ...partial };
+      this._save();
+      this.bus.emit(EVENTS.TTS_CONFIG_CHANGED, this.get());
+    }
+  }
+
+  // Aviso ético persistente
+  class EthicalNotice {
+    constructor(bus) {
+      this.bus = bus;
+      this.dismissed = this._load();
+    }
+    _load() {
+      try { return localStorage.getItem(NOTICE_STORAGE_KEY) === '1'; } catch { return false; }
+    }
+    dismiss() {
+      this.dismissed = true;
+      try { localStorage.setItem(NOTICE_STORAGE_KEY, '1'); } catch {}
+    }
+    isDismissed() { return this.dismissed; }
+  }
+
   class GameEngine {
     constructor(bus, bank, progress) {
       this.bus = bus;
       this.bank = bank;
       this.progress = progress;
       this.session = null;
+      this.testMode = { active: false, forceLevel: {}, showDifficulty: false };
     }
 
     loadBank(list) {
@@ -375,12 +733,22 @@ const App = (() => {
       return added;
     }
 
+    setTestMode(active, options = {}) {
+      this.testMode.active = active;
+      if (options.forceLevel) this.testMode.forceLevel = options.forceLevel;
+      if (options.showDifficulty !== undefined) this.testMode.showDifficulty = options.showDifficulty;
+    }
+
     startSession(tags, opts = {}) {
       if (!this.bank.questions.length) {
         this.bus.emit(EVENTS.ERROR, { message: 'El banco está vacío.' });
         return;
       }
-      const questions = Domain.buildSession(this.bank, tags, opts);
+      const forceLevel = this.testMode.active ? { ...this.testMode.forceLevel } : {};
+      const { questions, fallbackLog } = Domain.buildSession(
+        this.bank, tags, this.progress,
+        { size: opts.size || 10, forceLevel, excludeRecent: true }
+      );
       if (!questions.length) {
         this.bus.emit(EVENTS.ERROR, { message: 'No hay preguntas para esos tags.' });
         return;
@@ -392,9 +760,14 @@ const App = (() => {
         answers: [],
         score: 0,
         usedComodinIn: new Set(),
-        comodines: { descartar: 2, cambiar: 1 }
+        comodines: { descartar: 2, cambiar: 1, no_se: 99 },
+        fallbackLog,
+        testMode: this.testMode.active,
+        showDifficulty: this.testMode.showDifficulty
       };
-      this.bus.emit(EVENTS.SESSION_STARTED, { total: questions.length, tags });
+      this.bus.emit(EVENTS.SESSION_STARTED, {
+        total: questions.length, tags, fallbackLog, testMode: this.testMode.active
+      });
       this._showCurrent();
     }
 
@@ -407,48 +780,79 @@ const App = (() => {
         index: this.session.index,
         total: this.session.questions.length,
         score: this.session.score,
-        comodines: { ...this.session.comodines }
+        comodines: { ...this.session.comodines },
+        showDifficulty: this.session.showDifficulty,
+        testMode: this.session.testMode
       });
     }
 
     useComodin(type) {
       if (!this.session) return false;
+      if (type === 'no_se') return true;
       if (!this.session.comodines[type] || this.session.comodines[type] <= 0) return false;
       this.session.comodines[type]--;
       this.session.usedComodinIn.add(this.session.index);
+      if (type === 'cambiar') {
+        const current = this.session.questions[this.session.index];
+        const usedIds = new Set(this.session.questions.map(q => q.id));
+        const mainTag = (current.tags && current.tags[0]) || 'general';
+        const pool = (this.bank.byTag.get(mainTag) || []).filter(q => !usedIds.has(q.id));
+        if (pool.length) {
+          this.session.questions[this.session.index] = pool[Math.floor(Math.random() * pool.length)];
+          this.bus.emit(EVENTS.COMODIN_USED, { type, left: this.session.comodines[type] });
+          this._showCurrent();
+          return true;
+        }
+      }
       this.bus.emit(EVENTS.COMODIN_USED, { type, left: this.session.comodines[type] });
       return true;
     }
 
-    // Devuelve el índice de una opción incorrecta para descartar (o -1)
     pickDiscardable() {
       if (!this.session) return -1;
       const q = this.session.questions[this.session.index];
       const wrong = q.opciones.map((o, i) => o.correcta ? -1 : i).filter(i => i >= 0);
-      if (wrong.length <= 1) return -1; // no dejar solo la correcta
+      if (wrong.length <= 1) return -1;
       return wrong[Math.floor(Math.random() * wrong.length)];
     }
 
     answer(optionIndex) {
       if (!this.session) return;
       const q = this.session.questions[this.session.index];
-      const chosen = q.opciones[optionIndex];
-      if (!chosen) return;
-      const correct = !!chosen.correcta;
+      let correct = false;
+      let tagError = null;
+      let chosen = null;
+      if (optionIndex === -1) {
+        correct = false;
+        tagError = 'no_intento';
+      } else {
+        chosen = q.opciones[optionIndex];
+        if (!chosen) return;
+        correct = !!chosen.correcta;
+        tagError = chosen.tag_error || null;
+      }
       const usedComodin = this.session.usedComodinIn.has(this.session.index);
       const points = Domain.scoreAnswer(q, correct, usedComodin);
       this.session.score += points;
-      this.session.answers.push({ questionId: q.id, optionIndex, correct, points });
+      this.session.answers.push({ questionId: q.id, optionIndex, correct, points, tagError });
 
       const mainTag = (q.tags && q.tags[0]) || 'general';
       const updated = this.progress.addResult(mainTag, correct, points);
       this.bus.emit(EVENTS.PROGRESS_UPDATED, { tag: mainTag, data: updated });
+
+      if (!correct && tagError) {
+        this.progress.addError(q.id, tagError, mainTag);
+      }
+      if (correct && q.dato_curioso) {
+        this.progress.addCuriosity(q.id);
+      }
 
       this.bus.emit(EVENTS.ANSWER_SUBMITTED, {
         question: q,
         chosenIndex: optionIndex,
         correct,
         points,
+        tagError,
         total: this.session.score
       });
     }
@@ -462,14 +866,28 @@ const App = (() => {
 
     _endSession() {
       const s = this.session;
+      if (!s) return;
       const summary = {
         score: s.score,
         correct: s.answers.filter(a => a.correct).length,
         total: s.questions.length,
         tags: s.tags.slice(),
-        answers: s.answers.slice()
+        answers: s.answers.slice(),
+        questionIds: s.questions.map(q => q.id),
+        fallbackLog: s.fallbackLog
       };
       this.session = null;
+      this.progress.recordSession(summary.questionIds);
+      const nearLevel = [];
+      for (const tag of summary.tags) {
+        const t = this.progress.getTag(tag);
+        const remaining = Domain.xpToNextLevel(t.xp);
+        if (remaining !== null && remaining <= 40) {
+          nearLevel.push({ tag, remaining, nextLevel: t.level + 1 });
+        }
+      }
+      summary.nearLevel = nearLevel;
+      summary.streakDays = this.progress.all().streakDays;
       this.bus.emit(EVENTS.SESSION_ENDED, summary);
     }
 
@@ -478,51 +896,177 @@ const App = (() => {
       this.session = null;
       this.bus.emit(EVENTS.SCREEN_CHANGED, { screen: 'home' });
     }
+
+    lowerLevel(tag) {
+      this.progress.lowerLevel(tag);
+      this.bus.emit(EVENTS.LEVEL_CHANGED, { tag, action: 'lower' });
+    }
+
+    resetTag(tag) {
+      this.progress.resetTag(tag);
+      this.bus.emit(EVENTS.LEVEL_CHANGED, { tag, action: 'reset' });
+    }
   }
 
-  return { EVENTS, EventBus, Progress, GameEngine };
+  return { EVENTS, EventBus, Progress, TTSSettings, EthicalNotice, GameEngine };
 })();
 
 
 /* ================================================================
-   CAPA 3 · INFRAESTRUCTURA (UI, TTS, carga de archivos)
+   CAPA 3 · INFRAESTRUCTURA
    ================================================================ */
 const UI = (() => {
   const EV = App.EVENTS;
   const app = document.getElementById('app');
 
-  // TTS · Web Speech API
-  const tts = {
-    enabled: false,
-    speak(text) {
-      if (!this.enabled) return;
-      if (!('speechSynthesis' in window)) return;
-      try {
-        window.speechSynthesis.cancel();
-        const u = new SpeechSynthesisUtterance(text);
-        u.lang = 'es-ES';
-        u.rate = 0.95;
-        window.speechSynthesis.speak(u);
-      } catch {}
-    },
-    stop() {
-      if ('speechSynthesis' in window) {
-        try { window.speechSynthesis.cancel(); } catch {}
-      }
-    }
-  };
+  // Referencias a diálogos
+  const voiceDialog = document.getElementById('voiceDialog');
+  const voiceHelpDialog = document.getElementById('voiceHelpDialog');
 
-  // Estado de pantalla
+  // Estado local de UI
   let screen = 'home';
   let bank = null;
   let engine = null;
   let progress = null;
+  let ttsSettings = null;
+  let ethicalNotice = null;
+  let bus = null;
+
   let selectedTags = new Set();
-  let currentQuestion = null;
   let answered = false;
   let discardedOption = -1;
+  let testPanelVisible = false;
+  let currentQuestionData = null;
 
-  // --- Helpers DOM ---
+  /* ------------------------------------------------------------
+     TTS · Modulo de voz
+     ------------------------------------------------------------
+     Responsabilidades:
+       - Envolver la Web Speech API
+       - Persistir configuración (delegada a TTSSettings)
+       - Elegir mejor voz disponible
+       - Leer por fragmentos (frase a frase) para feedback largo
+       - Cancelar cualquier lectura previa al cambiar de pantalla
+     ------------------------------------------------------------ */
+  const TTS = (() => {
+    let voices = [];
+
+    function loadVoices() {
+      voices = window.speechSynthesis ? window.speechSynthesis.getVoices() : [];
+      return voices;
+    }
+
+    function isQualityVoice(voz) {
+      if (!voz) return false;
+      const name = voz.name.toLowerCase();
+      const lang = (voz.lang || '').toLowerCase();
+      if (!lang.startsWith('es')) return false;
+      const deseables = ['google', 'microsoft', 'neural', 'premium', 'monica', 'mónica', 'jorge', 'paulina', 'helena', 'sabina'];
+      return deseables.some(d => name.includes(d));
+    }
+
+    function pickBestVoice() {
+      if (!voices.length) loadVoices();
+      const es = voices.filter(v => (v.lang || '').toLowerCase().startsWith('es'));
+      const buena = es.find(isQualityVoice);
+      if (buena) return buena;
+      if (es.length) return es[0];
+      return voices[0] || null;
+    }
+
+    function getVoicesList() { return voices; }
+
+    // Divide un texto en fragmentos (frases) para lectura pausada
+    function splitFragments(text) {
+      if (!text) return [];
+      const partes = text.match(/[^.!?¡¿]+[.!?¡¿]*/g) || [text];
+      return partes.map(s => s.trim()).filter(s => s.length > 0);
+    }
+
+    // Construye un utterance con la config actual + estilo
+    function buildUtterance(text, overrides = {}) {
+      const utt = new SpeechSynthesisUtterance(text);
+      const cfg = ttsSettings.get();
+      let rate = overrides.rate !== undefined ? overrides.rate : cfg.rate;
+      let pitch = overrides.pitch !== undefined ? overrides.pitch : cfg.pitch;
+      switch (cfg.estilo) {
+        case 'duendecillo': pitch *= 1.4; rate *= 1.15; break;
+        case 'abuelito': pitch *= 0.75; rate *= 0.85; break;
+        case 'robot': pitch *= 0.6; rate *= 1.0; break;
+        case 'susurro': pitch *= 0.9; rate *= 0.8; break;
+      }
+      utt.rate = Math.max(0.1, Math.min(2, rate));
+      utt.pitch = Math.max(0.1, Math.min(2, pitch));
+      utt.lang = 'es-ES';
+      const vozNombre = cfg.vozNombre;
+      if (vozNombre) {
+        const v = voices.find(x => x.name === vozNombre);
+        if (v) utt.voice = v;
+      }
+      return utt;
+    }
+
+    // Hablar un texto con narración por fragmentos
+    function speak(text, opts = {}) {
+      if (!ttsSettings.get().enabled) return;
+      if (!window.speechSynthesis) return;
+      cancel(); // corta cualquier lectura previa
+      const fragments = splitFragments(text);
+      if (!fragments.length) return;
+      let i = 0;
+      const onDone = opts.onDone || null;
+      function siguiente() {
+        if (i >= fragments.length) {
+          if (onDone) onDone();
+          return;
+        }
+        const frag = fragments[i++];
+        const utt = buildUtterance(frag);
+        utt.onend = siguiente;
+        utt.onerror = (e) => {
+          // Ignorar errores de cancelación (los lanza el navegador al cancelar)
+          if (e.error !== 'interrupted' && e.error !== 'canceled') {
+            console.warn('[tts] error', e.error);
+          }
+          if (i >= fragments.length) { if (onDone) onDone(); }
+          else siguiente();
+        };
+        try { window.speechSynthesis.speak(utt); } catch (err) {
+          console.warn('[tts] speak error', err);
+        }
+      }
+      siguiente();
+    }
+
+    function cancel() {
+      if (!window.speechSynthesis) return;
+      try { window.speechSynthesis.cancel(); } catch {}
+    }
+
+    function init() {
+      if (!window.speechSynthesis) return;
+      loadVoices();
+      window.speechSynthesis.onvoiceschanged = () => {
+        loadVoices();
+        // Si no hay voz seleccionada, elegir la mejor
+        if (!ttsSettings.get().vozNombre) {
+          const best = pickBestVoice();
+          if (best) ttsSettings.set({ vozNombre: best.name });
+        }
+      };
+      // Elegir voz inicial si no hay ninguna
+      if (!ttsSettings.get().vozNombre) {
+        const best = pickBestVoice();
+        if (best) ttsSettings.set({ vozNombre: best.name });
+      }
+    }
+
+    return { init, speak, cancel, buildUtterance, getVoicesList, isQualityVoice, pickBestVoice, splitFragments };
+  })();
+
+  /* ------------------------------------------------------------
+     Helpers DOM
+     ------------------------------------------------------------ */
   const el = (tag, attrs = {}, children = []) => {
     const n = document.createElement(tag);
     for (const [k, v] of Object.entries(attrs)) {
@@ -534,71 +1078,91 @@ const UI = (() => {
       else n.setAttribute(k, v);
     }
     for (const c of [].concat(children)) {
-      if (c == null) continue;
+      if (c == null || c === false) continue;
       n.appendChild(typeof c === 'string' ? document.createTextNode(c) : c);
     }
     return n;
   };
   const clear = (n) => { while (n.firstChild) n.removeChild(n.firstChild); };
-  const escape = (s) => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  const esc = (s) => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 
-  // --- Pantalla HOME ---
+  /* ------------------------------------------------------------
+     HOME
+     ------------------------------------------------------------ */
   function renderHome() {
     screen = 'home';
+    TTS.cancel();
     clear(app);
 
     const tags = bank.getTags();
+    if (!selectedTags.size) tags.slice(0, 3).forEach(t => selectedTags.add(t));
+    const data = progress.all();
 
-    // Si no hay selección, marcar los primeros 3 tags disponibles
-    if (!selectedTags.size) {
-      tags.slice(0, 3).forEach(t => selectedTags.add(t));
+    // Cabecera
+    app.appendChild(el('div', { class: 'top-actions' }, [
+      el('button', {
+        class: 'btn-small',
+        title: 'Configurar voz',
+        'aria-label': 'Configurar voz',
+        onclick: () => openVoiceDialog()
+      }, [ttsSettings.get().enabled ? '🔊 Voz' : '🔈 Voz']),
+      el('label', { class: 'btn-small', title: 'Cargar JSON', style: 'display:inline-flex;align-items:center;justify-content:center;' }, [
+        '📂 JSON',
+        el('input', {
+          type: 'file', accept: '.json,application/json', class: 'sr',
+          onchange: (e) => {
+            const f = e.target.files[0];
+            if (!f) return;
+            const r = new FileReader();
+            r.onload = (ev) => {
+              try {
+                const parsed = JSON.parse(ev.target.result);
+                const list = Array.isArray(parsed) ? parsed : (parsed.preguntas || []);
+                const added = engine.loadBank(list);
+                alert(`Añadidas ${added} preguntas. Total: ${bank.questions.length}.`);
+                renderHome();
+              } catch (err) { alert('JSON inválido: ' + err.message); }
+            };
+            r.readAsText(f);
+            e.target.value = '';
+          }
+        })
+      ]),
+      el('button', {
+        class: 'btn-small',
+        title: 'Modo test',
+        onclick: () => { testPanelVisible = !testPanelVisible; renderHome(); }
+      }, ['🧪 Test'])
+    ]));
+
+    // Aviso ético
+    if (!ethicalNotice.isDismissed()) {
+      app.appendChild(el('div', { class: 'ethical-notice', role: 'note' }, [
+        el('span', { class: 'icon' }, ['ℹ️']),
+        el('span', { class: 'text' }, [
+          'Este juego no es una persona real. Las preguntas las escribió un humano o una IA revisada. Si encuentras un error, avisa.'
+        ]),
+        el('button', {
+          onclick: () => { ethicalNotice.dismiss(); renderHome(); },
+          'aria-label': 'Cerrar aviso'
+        }, ['×'])
+      ]));
     }
 
-    const header = el('div', {}, [
-      el('div', { class: 'top-actions' }, [
-        el('button', {
-          class: 'btn-ghost',
-          'aria-pressed': tts.enabled ? 'true' : 'false',
-          onclick: (e) => {
-            tts.enabled = !tts.enabled;
-            e.currentTarget.setAttribute('aria-pressed', tts.enabled ? 'true' : 'false');
-            e.currentTarget.textContent = tts.enabled ? '🔊 Voz ON' : '🔈 Voz OFF';
-            if (!tts.enabled) tts.stop();
-          }
-        }, [tts.enabled ? '🔊 Voz ON' : '🔈 Voz OFF']),
-        el('label', { class: 'btn-ghost', style: 'display:inline-flex;align-items:center;justify-content:center;min-height:44px;padding:8px 12px;border:2px solid #333;border-radius:12px;cursor:pointer;font-size:0.9rem;' }, [
-          '📂 Cargar JSON',
-          el('input', {
-            type: 'file', accept: '.json,application/json', class: 'sr',
-            onchange: (e) => {
-              const f = e.target.files[0];
-              if (!f) return;
-              const r = new FileReader();
-              r.onload = (ev) => {
-                try {
-                  const parsed = JSON.parse(ev.target.result);
-                  const list = Array.isArray(parsed) ? parsed : (parsed.preguntas || []);
-                  const added = engine.loadBank(list);
-                  alert(`Añadidas ${added} preguntas.`);
-                  renderHome();
-                } catch (err) { alert('JSON inválido: ' + err.message); }
-              };
-              r.readAsText(f);
-              e.target.value = '';
-            }
-          })
-        ])
-      ]),
-      el('h1', {}, ['Trivia']),
-      el('p', { class: 'sub' }, [`${bank.questions.length} preguntas disponibles`])
-    ]);
-    app.appendChild(header);
+    app.appendChild(el('h1', {}, ['Trivia']));
+    app.appendChild(el('p', { class: 'sub' }, [
+      `${bank.questions.length} preguntas · ${data.sessions} sesiones · racha ${data.streakDays} día${data.streakDays === 1 ? '' : 's'}`
+    ]));
 
-    // Selector de tags
+    if (testPanelVisible) app.appendChild(renderTestPanel());
+
+    // Tags
     app.appendChild(el('h2', {}, ['Elige temas']));
     const tagWrap = el('div', { class: 'tags', role: 'group', 'aria-label': 'Selector de temas' });
     tags.forEach(t => {
       const on = selectedTags.has(t);
+      const lvl = progress.getTag(t).level;
+      const stats = bank.statsForTag(t);
       const btn = el('button', {
         type: 'button',
         class: 'tag' + (on ? ' on' : ''),
@@ -608,62 +1172,142 @@ const UI = (() => {
           else selectedTags.add(t);
           renderHome();
         }
-      }, [t]);
+      }, [t, el('span', { class: 'lvl' }, [`N${lvl} · ${stats.total}`])]);
       tagWrap.appendChild(btn);
     });
     app.appendChild(tagWrap);
 
-    // Progreso por tag
-    const prog = progress.all();
-    const tagProgress = tags.filter(t => prog.tags[t]);
+    // Progreso
+    const tagProgress = tags.filter(t => data.tags[t]);
     if (tagProgress.length) {
       app.appendChild(el('h2', {}, ['Tu progreso']));
       tagProgress.forEach(t => {
-        const d = prog.tags[t];
-        app.appendChild(el('div', { class: 'stat', style: 'display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid #222;' }, [
-          el('span', {}, [`${t} · nivel ${d.level}`]),
-          el('span', { class: 'small' }, [`${d.xp} XP · ${d.aciertos}✓ ${d.fallos}✗`])
+        const d = data.tags[t];
+        const total = d.aciertos + d.fallos;
+        const pct = total ? Math.round(d.aciertos / total * 100) : 0;
+        const remaining = Domain.xpToNextLevel(d.xp);
+        app.appendChild(el('div', { class: 'stat-row' }, [
+          el('span', { class: 'name' }, [
+            el('span', { class: 'lvl-badge' }, [`N${d.level}`]),
+            t
+          ]),
+          el('span', { class: 'val' }, [
+            `${pct}% · ${d.xp} XP${remaining !== null ? ` · faltan ${remaining} para N${d.level + 1}` : ' · MAX'}`
+          ])
         ]));
       });
-      app.appendChild(el('div', { style: 'height:12px' }));
     }
 
-    // Botón empezar
-    const startBtn = el('button', {
-      class: 'btn-primary',
-      onclick: () => {
-        if (!selectedTags.size) { alert('Selecciona al menos un tema.'); return; }
-        engine.startSession([...selectedTags]);
-      }
-    }, ['▶ Empezar sesión (10 preguntas)']);
-    app.appendChild(startBtn);
+    if (data.curiosities.length) {
+      app.appendChild(el('div', { class: 'small', style: 'margin-top:12px;' }, [
+        `💡 Datos curiosos desbloqueados: ${data.curiosities.length}`
+      ]));
+    }
 
-    app.appendChild(el('p', { class: 'small', style: 'margin-top:14px;' }, [
-      'Atajos: 1-4 elige opción · Enter siguiente · Esc salir'
+    app.appendChild(el('div', { style: 'margin-top:16px;' }, [
+      el('button', {
+        class: 'btn-primary',
+        onclick: () => {
+          if (!selectedTags.size) { alert('Selecciona al menos un tema.'); return; }
+          engine.startSession([...selectedTags]);
+        }
+      }, ['▶ Empezar sesión (10 preguntas)'])
+    ]));
+
+    app.appendChild(el('p', { class: 'small', style: 'margin-top:14px; text-align:center;' }, [
+      'Atajos: 1-4 opción · Enter siguiente · Esc salir'
     ]));
   }
 
-  // --- Pantalla SESIÓN ---
+  /* ------------------------------------------------------------
+     Panel de test
+     ------------------------------------------------------------ */
+  function renderTestPanel() {
+    const panel = el('div', { class: 'test-panel' });
+    panel.appendChild(el('h3', {}, ['🧪 Modo test · forzar niveles']));
+    panel.appendChild(el('div', { class: 'small', style: 'margin-bottom:10px;' }, [
+      'Los niveles forzados no se guardan. Sirven para probar el escalado.'
+    ]));
+
+    const tags = bank.getTags();
+    const forceLevel = engine.testMode.forceLevel;
+
+    tags.forEach(t => {
+      const stats = bank.statsForTag(t);
+      const current = forceLevel[t] || progress.getTag(t).level;
+      panel.appendChild(el('div', { class: 'test-row' }, [
+        el('label', {}, [t]),
+        el('select', {
+          onchange: (e) => { engine.testMode.forceLevel[t] = parseInt(e.target.value); }
+        }, [1, 2, 3].map(n => el('option', {
+          value: n, selected: current === n ? true : null
+        }, [`Nivel ${n}`])))
+      ]));
+      panel.appendChild(el('div', { class: 'test-stats' }, [
+        `→ disp: dif1=${stats[1]}, dif2=${stats[2]}, dif3=${stats[3]}`
+      ]));
+    });
+
+    panel.appendChild(el('div', { class: 'test-row', style: 'margin-top:10px;' }, [
+      el('label', {}, ['Mostrar dificultad en pregunta']),
+      el('input', {
+        type: 'checkbox',
+        checked: engine.testMode.showDifficulty ? true : null,
+        onchange: (e) => { engine.testMode.showDifficulty = e.target.checked; }
+      })
+    ]));
+
+    panel.appendChild(el('div', { class: 'test-row', style: 'margin-top:10px;' }, [
+      el('button', {
+        class: 'btn-small',
+        onclick: () => {
+          engine.testMode.forceLevel = {};
+          engine.testMode.showDifficulty = false;
+          renderHome();
+        }
+      }, ['Limpiar forzados'])
+    ]));
+
+    return panel;
+  }
+
+  /* ------------------------------------------------------------
+     SESIÓN · Pregunta
+     ------------------------------------------------------------ */
   function renderQuestion(payload) {
     screen = 'session';
-    currentQuestion = payload.question;
     answered = false;
     discardedOption = -1;
+    currentQuestionData = payload;
+    TTS.cancel();
     clear(app);
 
     const q = payload.question;
     const isHard = q.dificultad === 3;
 
-    // Cabecera
-    app.appendChild(el('div', { class: 'q-meta' }, [
-      el('span', {}, [`Pregunta ${payload.index + 1} / ${payload.total}`]),
-      el('span', { class: isHard ? 'diff-3' : '' }, [isHard ? '★ Difícil' : `Nivel ${q.dificultad}`])
-    ]));
+    const meta = el('div', { class: 'q-meta' }, [
+      el('span', {}, [`${payload.index + 1} / ${payload.total}`]),
+      el('span', { class: isHard ? 'diff-3' : '' }, [
+        payload.showDifficulty
+          ? (isHard ? '★ Difícil' : `Nivel ${q.dificultad}`)
+          : (isHard ? '★' : '')
+      ])
+    ]);
+    if (payload.testMode && q.tags && q.tags.length) {
+      meta.appendChild(el('span', { class: 'test-tag' }, [q.tags[0]]));
+    }
+    app.appendChild(meta);
+
     app.appendChild(el('div', { class: 'bar' }, [
-      el('i', { style: `width:${((payload.index) / payload.total) * 100}%` })
+      el('i', { style: `width:${(payload.index / payload.total) * 100}%` })
     ]));
 
-    // Enunciado
+    if (payload.score > 0) {
+      app.appendChild(el('div', { class: 'small', style: 'text-align:right; margin-bottom:8px;' }, [
+        `Puntos: ${payload.score}`
+      ]));
+    }
+
     app.appendChild(el('div', { class: 'question' + (isHard ? ' hard' : '') }, [
       q.enunciado,
       q.tags && q.tags.length
@@ -671,14 +1315,12 @@ const UI = (() => {
         : null
     ]));
 
-    // Opciones
     const optsWrap = el('div', { class: 'opts', role: 'group', 'aria-label': 'Opciones' });
     q.opciones.forEach((o, i) => {
       const btn = el('button', {
         class: 'opt',
         'data-index': i,
         type: 'button',
-        disabled: i === discardedOption,
         onclick: () => submitAnswer(i)
       }, [
         el('span', { class: 'num' }, [String(i + 1)]),
@@ -688,37 +1330,39 @@ const UI = (() => {
     });
     app.appendChild(optsWrap);
 
-    // Comodines
-    const comodines = el('div', { class: 'comodines' });
-    const desc = el('button', {
-      class: 'comodin btn-ghost',
-      disabled: !payload.comodines.descartar,
-      onclick: () => {
-        if (answered) return;
-        if (!engine.useComodin('descartar')) return;
-        const idx = engine.pickDiscardable();
-        if (idx >= 0) {
-          discardedOption = idx;
-          const target = optsWrap.querySelector(`[data-index="${idx}"]`);
-          if (target) { target.disabled = true; target.style.textDecoration = 'line-through'; }
+    const comodines = el('div', { class: 'comodines' }, [
+      el('button', {
+        class: 'btn-ghost',
+        disabled: !payload.comodines.descartar,
+        onclick: () => {
+          if (answered) return;
+          if (!engine.useComodin('descartar')) return;
+          const idx = engine.pickDiscardable();
+          if (idx >= 0) {
+            discardedOption = idx;
+            const target = optsWrap.querySelector(`[data-index="${idx}"]`);
+            if (target) { target.classList.add('discarded'); target.disabled = true; }
+          }
         }
-      }
-    }, [`🗑 Descartar (${payload.comodines.descartar})`]);
-    const camb = el('button', {
-      class: 'comodin btn-ghost',
-      disabled: !payload.comodines.cambiar,
-      onclick: () => {
-        if (answered) return;
-        if (!engine.useComodin('cambiar')) return;
-        // Saltar a la siguiente; si es la última, cerrar sesión
-        engine.next();
-      }
-    }, [`🔄 Cambiar (${payload.comodines.cambiar})`]);
-    comodines.appendChild(desc);
-    comodines.appendChild(camb);
+      }, [`🗑 Descartar (${payload.comodines.descartar})`]),
+      el('button', {
+        class: 'btn-ghost',
+        disabled: !payload.comodines.cambiar,
+        onclick: () => {
+          if (answered) return;
+          engine.useComodin('cambiar');
+        }
+      }, [`🔄 Cambiar (${payload.comodines.cambiar})`]),
+      el('button', {
+        class: 'btn-ghost',
+        onclick: () => {
+          if (answered) return;
+          submitAnswer(-1);
+        }
+      }, [`🤷 No lo sé`])
+    ]);
     app.appendChild(comodines);
 
-    // Escuchar teclado
     document.onkeydown = (e) => {
       if (screen !== 'session') return;
       if (e.key >= '1' && e.key <= '4') {
@@ -731,24 +1375,25 @@ const UI = (() => {
       }
     };
 
-    if (tts.enabled) {
-      tts.speak(q.enunciado + '. ' + q.opciones.map((o, i) => `Opción ${i + 1}: ${o.texto}`).join('. '));
+    // Leer enunciado en voz alta al mostrar
+    if (ttsSettings.get().enabled) {
+      TTS.speak(q.enunciado);
     }
   }
 
-  // --- Enviar respuesta ---
   function submitAnswer(optionIndex) {
     if (answered) return;
     answered = true;
     engine.answer(optionIndex);
   }
 
-  // --- Feedback ---
+  /* ------------------------------------------------------------
+     SESIÓN · Feedback
+     ------------------------------------------------------------ */
   function renderFeedback(payload) {
     const q = payload.question;
     const opts = app.querySelectorAll('.opt');
 
-    // Marcar correcta e incorrectas
     q.opciones.forEach((o, i) => {
       const btn = opts[i];
       if (!btn) return;
@@ -757,16 +1402,22 @@ const UI = (() => {
       btn.disabled = true;
     });
 
-    // Panel de feedback
+    const title = payload.correct
+      ? `✓ Correcto · +${payload.points} puntos`
+      : (payload.chosenIndex === -1
+          ? `🤷 No lo sabías · +0 puntos`
+          : `✗ Incorrecto · +0 puntos`);
+
+    // Texto completo a leer: título + explicación + dato curioso
+    const ttsTextParts = [];
+    ttsTextParts.push(payload.correct ? 'Correcto.' : 'Incorrecto.');
+    if (q.explicacion) ttsTextParts.push(q.explicacion);
+    if (q.dato_curioso) ttsTextParts.push('Dato curioso: ' + q.dato_curioso);
+
     const fb = el('div', { class: 'feedback' + (payload.correct ? '' : ' wrong') }, [
-      el('h3', {}, [
-        payload.correct
-          ? `✓ Correcto · +${payload.points} puntos`
-          : `✗ Incorrecto · +0 puntos`
-      ]),
+      el('h3', {}, [title]),
       q.explicacion ? el('div', { class: 'exp' }, [q.explicacion]) : null,
       q.dato_curioso ? el('div', { class: 'curio' }, ['💡 ' + q.dato_curioso]) : null,
-      // Botón siguiente
       el('div', { class: 'row' }, [
         el('button', {
           class: 'btn-primary',
@@ -775,19 +1426,20 @@ const UI = (() => {
       ])
     ]);
     app.appendChild(fb);
-
-    // Scroll al feedback para asegurar visibilidad
     fb.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
 
-    if (tts.enabled) {
-      const text = (payload.correct ? 'Correcto. ' : 'Incorrecto. ') + (q.explicacion || '');
-      tts.speak(text);
+    // Leer feedback por fragmentos
+    if (ttsSettings.get().enabled) {
+      TTS.speak(ttsTextParts.join(' '));
     }
   }
 
-  // --- Pantalla RESUMEN ---
+  /* ------------------------------------------------------------
+     RESUMEN
+     ------------------------------------------------------------ */
   function renderSummary(s) {
     screen = 'summary';
+    TTS.cancel();
     clear(app);
     const pct = Math.round((s.correct / s.total) * 100);
 
@@ -795,6 +1447,21 @@ const UI = (() => {
     app.appendChild(el('p', { class: 'sub' }, [
       `${s.correct} de ${s.total} aciertos · ${pct}%`
     ]));
+
+    if (s.nearLevel.length) {
+      const near = s.nearLevel[0];
+      app.appendChild(el('div', { class: 'cta-box' }, [
+        `¡Casi! Estás a `, el('strong', {}, [`${near.remaining} XP`]),
+        ` de subir `, el('strong', {}, [near.tag]),
+        ` a nivel ${near.nextLevel}. Una sesión más y subes.`
+      ]));
+    }
+
+    if (s.streakDays > 1) {
+      app.appendChild(el('div', { class: 'cta-box', style: 'background:#1a1a2a; border-left-color:#888;' }, [
+        `🔥 Llevas `, el('strong', {}, [`${s.streakDays} días`]), ` seguidos jugando.`
+      ]));
+    }
 
     app.appendChild(el('div', { class: 'summary' }, [
       el('div', { class: 'stat' }, [
@@ -811,47 +1478,183 @@ const UI = (() => {
       ])
     ]));
 
-    app.appendChild(el('div', { class: 'row', style: 'margin-top:16px;' }, [
+    app.appendChild(el('div', { class: 'row' }, [
       el('button', {
         class: 'btn-primary',
         onclick: () => engine.startSession([...selectedTags])
-      }, ['↻ Otra sesión']),
+      }, ['↻ Otra ronda']),
       el('button', {
         class: 'btn-ghost',
-        onclick: () => {
-          screen = 'home';
-          renderHome();
-        }
+        onclick: () => { screen = 'home'; renderHome(); }
       }, ['🏠 Inicio'])
     ]));
 
-    if (tts.enabled) {
-      tts.speak(`Sesión terminada. ${s.correct} de ${s.total} aciertos. Puntuación: ${s.score}.`);
+    app.appendChild(el('h2', {}, ['Gestionar niveles']));
+    app.appendChild(el('p', { class: 'small' }, [
+      'Si quieres reiniciar o bajar el nivel de un tema, hazlo aquí. No se puede deshacer.'
+    ]));
+
+    s.tags.forEach(tag => {
+      const t = progress.getTag(tag);
+      app.appendChild(el('div', { class: 'stat-row' }, [
+        el('span', { class: 'name' }, [
+          el('span', { class: 'lvl-badge' }, [`N${t.level}`]),
+          tag
+        ]),
+        el('span', { class: 'val' }, [
+          el('button', {
+            class: 'btn-small',
+            style: 'display:inline-block; margin-left:6px;',
+            onclick: () => {
+              if (t.level <= 1) { alert(`${tag} ya está en nivel 1.`); return; }
+              if (confirm(`¿Bajar ${tag} a nivel ${t.level - 1}? Se perderá XP.`)) {
+                engine.lowerLevel(tag);
+                renderSummary({ ...s, nearLevel: [] });
+              }
+            }
+          }, ['↓ Bajar']),
+          el('button', {
+            class: 'btn-small',
+            style: 'display:inline-block; margin-left:6px;',
+            onclick: () => {
+              if (confirm(`¿Reiniciar ${tag} por completo? Perderás todo el progreso en este tema.`)) {
+                engine.resetTag(tag);
+                renderSummary({ ...s, nearLevel: [] });
+              }
+            }
+          }, ['⨯ Reiniciar'])
+        ])
+      ]));
+    });
+
+    // Resumen hablado
+    if (ttsSettings.get().enabled) {
+      const texto = `Sesión terminada. ${s.correct} de ${s.total} aciertos. Puntuación: ${s.score}.`;
+      TTS.speak(texto);
     }
   }
 
-  // --- Suscripciones al bus ---
-  function bind(engineBus) {
-    engineBus.on(EV.BANK_LOADED, ({ total }) => {
-      console.log(`[bus] banco: ${total} preguntas`);
+  /* ------------------------------------------------------------
+     DIÁLOGO · Configuración de voz
+     ------------------------------------------------------------ */
+  function openVoiceDialog() {
+    // Refrescar lista de voces
+    const voices = TTS.getVoicesList();
+    const sel = document.getElementById('voiceSelect');
+    sel.innerHTML = '';
+    if (!voices.length) {
+      sel.appendChild(el('option', { value: '' }, ['(No hay voces disponibles)']));
+    } else {
+      voices.forEach(v => {
+        const calidad = TTS.isQualityVoice(v) ? '✅ ' : '⚠️ ';
+        sel.appendChild(el('option', { value: v.name }, [`${calidad}${v.name} (${v.lang})`]));
+      });
+    }
+
+    const cfg = ttsSettings.get();
+    document.getElementById('voiceEnabled').checked = cfg.enabled;
+    if (cfg.vozNombre) sel.value = cfg.vozNombre;
+    document.getElementById('rateInput').value = cfg.rate;
+    document.getElementById('pitchInput').value = cfg.pitch;
+    document.getElementById('styleSelect').value = cfg.estilo;
+    document.getElementById('rateVal').textContent = cfg.rate.toFixed(2);
+    document.getElementById('pitchVal').textContent = cfg.pitch.toFixed(2);
+
+    if (typeof voiceDialog.showModal === 'function') {
+      voiceDialog.showModal();
+    } else {
+      voiceDialog.setAttribute('open', '');
+    }
+  }
+
+  function closeVoiceDialog() {
+    if (typeof voiceDialog.close === 'function') voiceDialog.close();
+    else voiceDialog.removeAttribute('open');
+    // Refrescar botón de cabecera
+    if (screen === 'home') renderHome();
+  }
+
+  function bindVoiceDialog() {
+    const voiceEnabled = document.getElementById('voiceEnabled');
+    const voiceSelect = document.getElementById('voiceSelect');
+    const rateInput = document.getElementById('rateInput');
+    const pitchInput = document.getElementById('pitchInput');
+    const styleSelect = document.getElementById('styleSelect');
+    const rateVal = document.getElementById('rateVal');
+    const pitchVal = document.getElementById('pitchVal');
+
+    voiceEnabled.addEventListener('change', () => {
+      ttsSettings.set({ enabled: voiceEnabled.checked });
+      if (!voiceEnabled.checked) TTS.cancel();
     });
-    engineBus.on(EV.SESSION_STARTED, () => {
+
+    voiceSelect.addEventListener('change', () => {
+      ttsSettings.set({ vozNombre: voiceSelect.value });
+      // Previsualizar
+      if (ttsSettings.get().enabled) TTS.speak('Así suena mi voz.');
+    });
+
+    rateInput.addEventListener('input', () => {
+      rateVal.textContent = parseFloat(rateInput.value).toFixed(2);
+      ttsSettings.set({ rate: parseFloat(rateInput.value) });
+    });
+
+    pitchInput.addEventListener('input', () => {
+      pitchVal.textContent = parseFloat(pitchInput.value).toFixed(2);
+      ttsSettings.set({ pitch: parseFloat(pitchInput.value) });
+    });
+
+    styleSelect.addEventListener('change', () => {
+      ttsSettings.set({ estilo: styleSelect.value });
+      if (ttsSettings.get().enabled) TTS.speak('Así suena mi voz.');
+    });
+
+    document.getElementById('voiceCloseBtn').addEventListener('click', closeVoiceDialog);
+    document.getElementById('voiceHelpBtn').addEventListener('click', () => {
+      if (typeof voiceHelpDialog.showModal === 'function') voiceHelpDialog.showModal();
+      else voiceHelpDialog.setAttribute('open', '');
+    });
+    document.getElementById('voiceHelpCloseBtn').addEventListener('click', () => {
+      if (typeof voiceHelpDialog.close === 'function') voiceHelpDialog.close();
+      else voiceHelpDialog.removeAttribute('open');
+    });
+  }
+
+  /* ------------------------------------------------------------
+     Suscripciones al bus
+     ------------------------------------------------------------ */
+  function bind(engineBus) {
+    engineBus.on(EV.BANK_LOADED, ({ total }) => console.log(`[bus] banco: ${total} preguntas`));
+    engineBus.on(EV.SESSION_STARTED, ({ fallbackLog, testMode }) => {
+      if (testMode && fallbackLog.length) {
+        console.log('[test] fallback aplicado:', fallbackLog);
+      }
       if (screen !== 'session') renderHome();
     });
     engineBus.on(EV.QUESTION_SHOWN, renderQuestion);
     engineBus.on(EV.ANSWER_SUBMITTED, renderFeedback);
     engineBus.on(EV.SESSION_ENDED, renderSummary);
     engineBus.on(EV.ERROR, ({ message }) => alert(message));
-    engineBus.on(EV.SCREEN_CHANGED, ({ screen: s }) => {
-      if (s === 'home') renderHome();
+    engineBus.on(EV.SCREEN_CHANGED, ({ screen: s }) => { if (s === 'home') renderHome(); });
+    engineBus.on(EV.TTS_CONFIG_CHANGED, (cfg) => {
+      console.log('[tts] config actualizada', cfg);
     });
   }
 
-  function init(bus, bankInstance, progressInstance, engineInstance) {
+  /* ------------------------------------------------------------
+     Inicialización
+     ------------------------------------------------------------ */
+  function init(busInstance, bankInstance, progressInstance, ttsInstance, noticeInstance, engineInstance) {
+    bus = busInstance;
     bank = bankInstance;
     progress = progressInstance;
+    ttsSettings = ttsInstance;
+    ethicalNotice = noticeInstance;
     engine = engineInstance;
+
+    TTS.init();
     bind(bus);
+    bindVoiceDialog();
     renderHome();
   }
 
@@ -860,46 +1663,15 @@ const UI = (() => {
 
 
 /* ================================================================
-   BANCO DE PREGUNTAS DE EJEMPLO
+   BANCO DE PREGUNTAS DE EJEMPLO · 62 preguntas
+   Distribución por tag (dif1/dif2/dif3):
+     historia: 8/5/2 · ciencia: 7/3/2 · arte: 7/3/2
+     geografía: 5/5/2 · psicotécnico: 7/3/2
    ================================================================ */
 const SAMPLE_QUESTIONS = [
+  /* ----- HISTORIA ----- */
   {
-    id: "q_hist_001",
-    tipo: "trivia",
-    enunciado: "¿En qué año estalló la Revolución Francesa?",
-    opciones: [
-      { texto: "1776", correcta: false, tag_error: "confunde_con_independencia_eeuu" },
-      { texto: "1789", correcta: true, tag_error: null },
-      { texto: "1799", correcta: false, tag_error: "confunde_con_golpe_18_brumario" },
-      { texto: "1804", correcta: false, tag_error: "confunde_con_napoleon_emperador" }
-    ],
-    explicacion: "La Revolución Francesa comenzó en 1789 con la toma de la Bastilla. 1776 es la independencia de EEUU, 1799 el golpe de Napoleón y 1804 su coronación como emperador.",
-    dato_curioso: "La toma de la Bastilla ocurrió el 14 de julio, que hoy es fiesta nacional en Francia.",
-    dificultad: 2,
-    tags: ["historia", "historia_moderna"],
-    fuente: "Enciclopedia Británica",
-    revision: "verificada"
-  },
-  {
-    id: "q_hist_002",
-    tipo: "trivia",
-    enunciado: "¿Quién fue el primer emperador romano?",
-    opciones: [
-      { texto: "Julio César", correcta: false, tag_error: "confunde_dictador_con_emperador" },
-      { texto: "Augusto", correcta: true, tag_error: null },
-      { texto: "Nerón", correcta: false, tag_error: "confunde_sucesor" },
-      { texto: "Trajano", correcta: false, tag_error: "confunde_optimo" }
-    ],
-    explicacion: "Augusto (Octavio) fue el primer emperador, desde 27 a.C. Julio César fue dictador, pero nunca emperador.",
-    dato_curioso: "Augusto presumía de haber recibido Roma de barro y dejarla de mármol.",
-    dificultad: 2,
-    tags: ["historia", "historia_antigua"],
-    fuente: "Suetonio, Vidas de los doce césares",
-    revision: "verificada"
-  },
-  {
-    id: "q_hist_003",
-    tipo: "trivia",
+    id: "h01", tipo: "trivia",
     enunciado: "¿En qué año cayó el Muro de Berlín?",
     opciones: [
       { texto: "1985", correcta: false, tag_error: "confunde_con_llegada_gorbachev" },
@@ -909,14 +1681,23 @@ const SAMPLE_QUESTIONS = [
     ],
     explicacion: "El Muro cayó el 9 de noviembre de 1989. 1991 es la disolución de la URSS.",
     dato_curioso: "La noche del 9 de noviembre, los berlineses empezaron a derribar el Muro con martillos y cinceles.",
-    dificultad: 1,
-    tags: ["historia", "historia_contemporanea"],
-    fuente: "BBC",
-    revision: "verificada"
+    dificultad: 1, tags: ["historia", "historia_contemporanea"], fuente: "BBC", revision: "verificada"
   },
   {
-    id: "q_hist_004",
-    tipo: "trivia",
+    id: "h02", tipo: "trivia",
+    enunciado: "¿Quién fue el primer emperador romano?",
+    opciones: [
+      { texto: "Julio César", correcta: false, tag_error: "confunde_dictador_con_emperador" },
+      { texto: "Augusto", correcta: true, tag_error: null },
+      { texto: "Nerón", correcta: false, tag_error: "confunde_sucesor" },
+      { texto: "Trajano", correcta: false, tag_error: "confunde_optimo" }
+    ],
+    explicacion: "Augusto (Octavio) fue el primer emperador desde 27 a.C. Julio César fue dictador, pero nunca emperador.",
+    dato_curioso: "Augusto presumía de haber recibido Roma de barro y dejarla de mármol.",
+    dificultad: 1, tags: ["historia", "historia_antigua"], fuente: "Suetonio", revision: "verificada"
+  },
+  {
+    id: "h03", tipo: "trivia",
     enunciado: "¿Qué civilización construyó Machu Picchu?",
     opciones: [
       { texto: "Azteca", correcta: false, tag_error: "confunde_mesoamerica_con_andes" },
@@ -924,16 +1705,90 @@ const SAMPLE_QUESTIONS = [
       { texto: "Inca", correcta: true, tag_error: null },
       { texto: "Olmeca", correcta: false, tag_error: "confunde_preclasico" }
     ],
-    explicacion: "Machu Picchu fue construida por los incas en el siglo XV. Aztecas, mayas y olmecas son de Mesoamérica, no de los Andes.",
-    dato_curioso: "Machu Picchu fue construida sin mortero: las piedras encajan tan bien que no cabe ni una hoja de cuchillo.",
-    dificultad: 1,
-    tags: ["historia", "historia_antigua"],
-    fuente: "UNESCO",
-    revision: "verificada"
+    explicacion: "Machu Picchu fue construida por los incas en el siglo XV. Aztecas, mayas y olmecas son de Mesoamérica.",
+    dato_curioso: "Machu Picchu se construyó sin mortero: las piedras encajan tan bien que no cabe ni una hoja de cuchillo.",
+    dificultad: 1, tags: ["historia", "historia_antigua"], fuente: "UNESCO", revision: "verificada"
   },
   {
-    id: "q_hist_005",
-    tipo: "trivia",
+    id: "h04", tipo: "trivia",
+    enunciado: "¿En qué siglo llegó Colón a América?",
+    opciones: [
+      { texto: "XIV", correcta: false, tag_error: "off_by_one_siglo" },
+      { texto: "XV", correcta: true, tag_error: null },
+      { texto: "XVI", correcta: false, tag_error: "off_by_one_siglo" },
+      { texto: "XIII", correcta: false, tag_error: "confunde_edad_media" }
+    ],
+    explicacion: "Colón llegó en 1492, que pertenece al siglo XV.",
+    dato_curioso: "Colón murió convencido de haber llegado a Asia, no a un continente nuevo.",
+    dificultad: 1, tags: ["historia", "historia_moderna"], fuente: "RAE", revision: "verificada"
+  },
+  {
+    id: "h05", tipo: "trivia",
+    enunciado: "¿Quién fue el primer presidente de Estados Unidos?",
+    opciones: [
+      { texto: "Jefferson", correcta: false, tag_error: "confunde_tercero" },
+      { texto: "Washington", correcta: true, tag_error: null },
+      { texto: "Adams", correcta: false, tag_error: "confunde_segundo" },
+      { texto: "Franklin", correcta: false, tag_error: "confunde_padre_fundador" }
+    ],
+    explicacion: "George Washington fue el primer presidente (1789-1797). Adams fue el segundo, Jefferson el tercero.",
+    dato_curioso: "Washington es el único presidente de EEUU elegido por unanimidad del colegio electoral.",
+    dificultad: 1, tags: ["historia", "historia_moderna"], fuente: "White House", revision: "verificada"
+  },
+  {
+    id: "h06", tipo: "trivia",
+    enunciado: "¿En qué país nació la democracia?",
+    opciones: [
+      { texto: "Roma", correcta: false, tag_error: "confunde_republica" },
+      { texto: "Grecia", correcta: true, tag_error: null },
+      { texto: "Egipto", correcta: false, tag_error: "confunde_teocracia" },
+      { texto: "Persia", correcta: false, tag_error: "confunde_imperio" }
+    ],
+    explicacion: "La democracia nació en Atenas (Grecia) en el siglo V a.C. Roma tuvo una república, no una democracia.",
+    dato_curioso: "En Atenas solo votaban los ciudadanos varones libres: unas 30.000 personas de 250.000.",
+    dificultad: 1, tags: ["historia", "historia_antigua"], fuente: "Enciclopedia Británica", revision: "verificada"
+  },
+  {
+    id: "h07", tipo: "trivia",
+    enunciado: "¿Quién escribió la Ilíada?",
+    opciones: [
+      { texto: "Sófocles", correcta: false, tag_error: "confunde_tragedias" },
+      { texto: "Homero", correcta: true, tag_error: null },
+      { texto: "Virgilio", correcta: false, tag_error: "confunde_eneida" },
+      { texto: "Hesíodo", correcta: false, tag_error: "confunde_teogonia" }
+    ],
+    explicacion: "La Ilíada se atribuye a Homero, poeta griego del siglo VIII a.C.",
+    dato_curioso: "No se sabe con certeza si Homero existió: algunos creen que fue un nombre colectivo para varios poetas.",
+    dificultad: 1, tags: ["historia", "historia_antigua"], fuente: "Enciclopedia Británica", revision: "verificada"
+  },
+  {
+    id: "h08", tipo: "trivia",
+    enunciado: "¿Qué imperio cayó en 1453 con la toma de Constantinopla?",
+    opciones: [
+      { texto: "Romano de Occidente", correcta: false, tag_error: "confunde_476" },
+      { texto: "Bizantino", correcta: true, tag_error: null },
+      { texto: "Otomano", correcta: false, tag_error: "confunde_conquistador" },
+      { texto: "Sasánida", correcta: false, tag_error: "confunde_persia" }
+    ],
+    explicacion: "En 1453 los otomanos tomaron Constantinopla, poniendo fin al Imperio bizantino (romano de Oriente).",
+    dato_curioso: "El último emperador bizantino, Constantino XI, murió combatiendo en la muralla.",
+    dificultad: 1, tags: ["historia", "historia_moderna"], fuente: "Enciclopedia Británica", revision: "verificada"
+  },
+  {
+    id: "h09", tipo: "trivia",
+    enunciado: "¿En qué año estalló la Revolución Francesa?",
+    opciones: [
+      { texto: "1776", correcta: false, tag_error: "confunde_con_independencia_eeuu" },
+      { texto: "1789", correcta: true, tag_error: null },
+      { texto: "1799", correcta: false, tag_error: "confunde_con_golpe_18_brumario" },
+      { texto: "1804", correcta: false, tag_error: "confunde_con_napoleon_emperador" }
+    ],
+    explicacion: "La Revolución Francesa comenzó en 1789 con la toma de la Bastilla.",
+    dato_curioso: "La toma de la Bastilla ocurrió el 14 de julio, que hoy es fiesta nacional en Francia.",
+    dificultad: 2, tags: ["historia", "historia_moderna"], fuente: "Enciclopedia Británica", revision: "verificada"
+  },
+  {
+    id: "h10", tipo: "trivia",
     enunciado: "¿Quién escribió 'El príncipe'?",
     opciones: [
       { texto: "Maquiavelo", correcta: true, tag_error: null },
@@ -941,16 +1796,79 @@ const SAMPLE_QUESTIONS = [
       { texto: "Tomás Moro", correcta: false, tag_error: "confunde_utopia" },
       { texto: "Hobbes", correcta: false, tag_error: "confunde_leviatan" }
     ],
-    explicacion: "Nicolás Maquiavelo escribió 'El príncipe' en 1513. Erasmo escribió 'Elogio de la locura', Tomás Moro 'Utopía' y Hobbes 'Leviatán'.",
-    dato_curioso: "'El príncipe' fue prohibido por la Iglesia y estuvo en el Índice de Libros Prohibidos hasta el siglo XIX.",
-    dificultad: 2,
-    tags: ["historia", "historia_moderna", "filosofia"],
-    fuente: "Enciclopedia Británica",
-    revision: "verificada"
+    explicacion: "Nicolás Maquiavelo escribió 'El príncipe' en 1513. Erasmo escribió 'Elogio de la locura', Moro 'Utopía' y Hobbes 'Leviatán'.",
+    dato_curioso: "'El príncipe' estuvo en el Índice de Libros Prohibidos de la Iglesia hasta el siglo XIX.",
+    dificultad: 2, tags: ["historia", "historia_moderna", "filosofia"], fuente: "Enciclopedia Británica", revision: "verificada"
   },
   {
-    id: "q_cie_001",
-    tipo: "trivia",
+    id: "h11", tipo: "trivia",
+    enunciado: "¿Qué rey inglés rompió con Roma para divorciarse?",
+    opciones: [
+      { texto: "Enrique VII", correcta: false, tag_error: "confunde_padre" },
+      { texto: "Enrique VIII", correcta: true, tag_error: null },
+      { texto: "Carlos I", correcta: false, tag_error: "confunde_revolucion" },
+      { texto: "Jacobo I", correcta: false, tag_error: "confunde_estuardo" }
+    ],
+    explicacion: "Enrique VIII rompió con Roma en 1534 tras la negativa papal a anular su matrimonio con Catalina de Aragón.",
+    dato_curioso: "Enrique VIII tuvo seis esposas: dos divorciadas, dos ejecutadas, una muerta y una superviviente.",
+    dificultad: 2, tags: ["historia", "historia_moderna"], fuente: "Enciclopedia Británica", revision: "verificada"
+  },
+  {
+    id: "h12", tipo: "trivia",
+    enunciado: "¿Qué tratado puso fin a la Primera Guerra Mundial?",
+    opciones: [
+      { texto: "Westfalia", correcta: false, tag_error: "confunde_1648" },
+      { texto: "Versalles", correcta: true, tag_error: null },
+      { texto: "Viena", correcta: false, tag_error: "confunde_1815" },
+      { texto: "Utrecht", correcta: false, tag_error: "confunde_1713" }
+    ],
+    explicacion: "El Tratado de Versalles (1919) puso fin a la Primera Guerra Mundial.",
+    dato_curioso: "Las duras condiciones de Versalles se consideran una de las causas de la Segunda Guerra Mundial.",
+    dificultad: 2, tags: ["historia", "historia_contemporanea"], fuente: "Enciclopedia Británica", revision: "verificada"
+  },
+  {
+    id: "h13", tipo: "trivia",
+    enunciado: "¿En qué año comenzó la Revolución Rusa?",
+    opciones: [
+      { texto: "1905", correcta: false, tag_error: "confunde_intento_previo" },
+      { texto: "1917", correcta: true, tag_error: null },
+      { texto: "1921", correcta: false, tag_error: "confunde_hambruna" },
+      { texto: "1924", correcta: false, tag_error: "confunde_muerte_lenin" }
+    ],
+    explicacion: "La Revolución Rusa comenzó en 1917, con la Revolución de Febrero y la de Octubre.",
+    dato_curioso: "El crucero Aurora disparó el cañón que señaló el asalto al Palacio de Invierno.",
+    dificultad: 2, tags: ["historia", "historia_contemporanea"], fuente: "Enciclopedia Británica", revision: "verificada"
+  },
+  {
+    id: "h14", tipo: "trivia",
+    enunciado: "¿En qué año se firmó la Paz de Westfalia?",
+    opciones: [
+      { texto: "1555", correcta: false, tag_error: "confunde_augsburgo" },
+      { texto: "1648", correcta: true, tag_error: null },
+      { texto: "1713", correcta: false, tag_error: "confunde_utrecht" },
+      { texto: "1815", correcta: false, tag_error: "confunde_viena" }
+    ],
+    explicacion: "La Paz de Westfalia (1648) puso fin a la Guerra de los Treinta Años y estableció el sistema de estados soberanos.",
+    dato_curioso: "Westfalia se considera el origen del concepto moderno de soberanía nacional.",
+    dificultad: 3, tags: ["historia", "historia_moderna"], fuente: "Enciclopedia Británica", revision: "verificada"
+  },
+  {
+    id: "h15", tipo: "trivia",
+    enunciado: "¿Qué emperador romano legalizó el cristianismo?",
+    opciones: [
+      { texto: "Nerón", correcta: false, tag_error: "confunde_perseguidor" },
+      { texto: "Constantino", correcta: true, tag_error: null },
+      { texto: "Diocleciano", correcta: false, tag_error: "confunde_ultima_persecucion" },
+      { texto: "Teodosio", correcta: false, tag_error: "confunde_religion_oficial" }
+    ],
+    explicacion: "Constantino legalizó el cristianismo con el Edicto de Milán (313). Teodosio lo hizo religión oficial en 380.",
+    dato_curioso: "Constantino se bautizó solo en su lecho de muerte, en 337.",
+    dificultad: 3, tags: ["historia", "historia_antigua"], fuente: "Enciclopedia Británica", revision: "verificada"
+  },
+
+  /* ----- CIENCIA ----- */
+  {
+    id: "c01", tipo: "trivia",
     enunciado: "¿Cuál es el elemento más abundante en el universo?",
     opciones: [
       { texto: "Oxígeno", correcta: false, tag_error: "confunde_abundancia_terrestre" },
@@ -958,16 +1876,12 @@ const SAMPLE_QUESTIONS = [
       { texto: "Carbono", correcta: false, tag_error: "confunde_vida" },
       { texto: "Helio", correcta: false, tag_error: "confunde_estrella" }
     ],
-    explicacion: "El hidrógeno representa aproximadamente el 75% de la materia bariónica del universo. El helio es el segundo, con ~24%.",
+    explicacion: "El hidrógeno representa ~75% de la materia bariónica del universo. El helio es el segundo, con ~24%.",
     dato_curioso: "Casi todo el hidrógeno del universo se formó en los primeros minutos tras el Big Bang.",
-    dificultad: 2,
-    tags: ["ciencia", "ciencia_fisica"],
-    fuente: "NASA",
-    revision: "verificada"
+    dificultad: 1, tags: ["ciencia", "ciencia_fisica"], fuente: "NASA", revision: "verificada"
   },
   {
-    id: "q_cie_002",
-    tipo: "trivia",
+    id: "c02", tipo: "trivia",
     enunciado: "¿Qué órgano produce la insulina?",
     opciones: [
       { texto: "Hígado", correcta: false, tag_error: "confunde_metabolismo" },
@@ -976,15 +1890,11 @@ const SAMPLE_QUESTIONS = [
       { texto: "Tiroides", correcta: false, tag_error: "confunde_hormonas" }
     ],
     explicacion: "La insulina la producen las células beta de los islotes de Langerhans, en el páncreas.",
-    dato_curioso: "La insulina fue descubierta en 1921 por Banting y Best, y el primer paciente tratado fue un niño de 14 años.",
-    dificultad: 2,
-    tags: ["ciencia", "ciencia_biologia"],
-    fuente: "NIH",
-    revision: "verificada"
+    dato_curioso: "La insulina se descubrió en 1921. El primer paciente tratado fue un niño de 14 años.",
+    dificultad: 1, tags: ["ciencia", "ciencia_biologia"], fuente: "NIH", revision: "verificada"
   },
   {
-    id: "q_cie_003",
-    tipo: "trivia",
+    id: "c03", tipo: "trivia",
     enunciado: "¿Cuál es la velocidad de la luz en el vacío?",
     opciones: [
       { texto: "300.000 km/s", correcta: true, tag_error: null },
@@ -992,33 +1902,12 @@ const SAMPLE_QUESTIONS = [
       { texto: "1.000.000 km/s", correcta: false, tag_error: "redondeo_excesivo" },
       { texto: "30.000 km/s", correcta: false, tag_error: "falta_un_cero" }
     ],
-    explicacion: "La velocidad de la luz en el vacío es 299.792.458 m/s, aproximadamente 300.000 km/s.",
+    explicacion: "Es 299.792.458 m/s, aproximadamente 300.000 km/s.",
     dato_curioso: "La luz del Sol tarda 8 minutos y 20 segundos en llegar a la Tierra.",
-    dificultad: 1,
-    tags: ["ciencia", "ciencia_fisica"],
-    fuente: "BIPM",
-    revision: "verificada"
+    dificultad: 1, tags: ["ciencia", "ciencia_fisica"], fuente: "BIPM", revision: "verificada"
   },
   {
-    id: "q_cie_004",
-    tipo: "trivia",
-    enunciado: "¿Qué gas respiramos principalmente para vivir?",
-    opciones: [
-      { texto: "Dióxido de carbono", correcta: false, tag_error: "confunde_exhalacion" },
-      { texto: "Oxígeno", correcta: true, tag_error: null },
-      { texto: "Nitrógeno", correcta: false, tag_error: "confunde_mayoria_atmosfera" },
-      { texto: "Helio", correcta: false, tag_error: "confunde_inertes" }
-    ],
-    explicacion: "Respiramos oxígeno, aunque el aire que inhalamos es 78% nitrógeno y solo 21% oxígeno. El cuerpo solo aprovecha el oxígeno.",
-    dato_curioso: "Cada día respiramos unas 20.000 veces, moviendo unos 11.000 litros de aire.",
-    dificultad: 1,
-    tags: ["ciencia", "ciencia_biologia"],
-    fuente: "OMS",
-    revision: "verificada"
-  },
-  {
-    id: "q_cie_005",
-    tipo: "trivia",
+    id: "c04", tipo: "trivia",
     enunciado: "¿Quién formuló la teoría de la relatividad?",
     opciones: [
       { texto: "Newton", correcta: false, tag_error: "confunde_gravedad_clasica" },
@@ -1026,16 +1915,118 @@ const SAMPLE_QUESTIONS = [
       { texto: "Bohr", correcta: false, tag_error: "confunde_cuantica" },
       { texto: "Galileo", correcta: false, tag_error: "confunde_renacimiento" }
     ],
-    explicacion: "Einstein formuló la relatividad especial (1905) y general (1915). Newton formuló la gravedad clásica; Bohr, el modelo atómico.",
+    explicacion: "Einstein formuló la relatividad especial (1905) y general (1915).",
     dato_curioso: "Einstein recibió el Nobel en 1921, pero no por la relatividad, sino por el efecto fotoeléctrico.",
-    dificultad: 1,
-    tags: ["ciencia", "ciencia_fisica", "historia_contemporanea"],
-    fuente: "Nobel Prize",
-    revision: "verificada"
+    dificultad: 1, tags: ["ciencia", "ciencia_fisica"], fuente: "Nobel Prize", revision: "verificada"
   },
   {
-    id: "q_art_001",
-    tipo: "trivia",
+    id: "c05", tipo: "trivia",
+    enunciado: "¿Cuántos planetas hay en el sistema solar?",
+    opciones: [
+      { texto: "8", correcta: true, tag_error: null },
+      { texto: "9", correcta: false, tag_error: "confunde_pluton" },
+      { texto: "7", correcta: false, tag_error: "off_by_one" },
+      { texto: "10", correcta: false, tag_error: "confunde_planeta_x" }
+    ],
+    explicacion: "Hay 8 planetas desde 2006, cuando Plutón fue reclasificado como planeta enano.",
+    dato_curioso: "Plutón tiene un corazón de hielo de nitrógeno del tamaño de Texas.",
+    dificultad: 1, tags: ["ciencia", "ciencia_fisica"], fuente: "IAU", revision: "verificada"
+  },
+  {
+    id: "c06", tipo: "trivia",
+    enunciado: "¿Cuál es el metal líquido a temperatura ambiente?",
+    opciones: [
+      { texto: "Plomo", correcta: false, tag_error: "confunde_punto_fusion" },
+      { texto: "Mercurio", correcta: true, tag_error: null },
+      { texto: "Aluminio", correcta: false, tag_error: "confunde_comun" },
+      { texto: "Estaño", correcta: false, tag_error: "confunde_soldadura" }
+    ],
+    explicacion: "El mercurio es el único metal líquido a temperatura ambiente (punto de fusión: -38,8 °C).",
+    dato_curioso: "El mercurio es tóxico: los sombrereros del siglo XIX enloquecían por inhalarlo.",
+    dificultad: 1, tags: ["ciencia", "ciencia_quimica"], fuente: "IUPAC", revision: "verificada"
+  },
+  {
+    id: "c07", tipo: "trivia",
+    enunciado: "¿Cuál es la fórmula química del agua?",
+    opciones: [
+      { texto: "H2O", correcta: true, tag_error: null },
+      { texto: "CO2", correcta: false, tag_error: "confunde_dioxido" },
+      { texto: "O2", correcta: false, tag_error: "confunde_oxigeno" },
+      { texto: "H2O2", correcta: false, tag_error: "confunde_agua_oxigenada" }
+    ],
+    explicacion: "El agua es H2O: dos átomos de hidrógeno y uno de oxígeno.",
+    dato_curioso: "El agua es la única sustancia natural que existe en los tres estados en la Tierra.",
+    dificultad: 1, tags: ["ciencia", "ciencia_quimica"], fuente: "IUPAC", revision: "verificada"
+  },
+  {
+    id: "c08", tipo: "trivia",
+    enunciado: "¿Qué científico propuso la teoría de la evolución por selección natural?",
+    opciones: [
+      { texto: "Lamarck", correcta: false, tag_error: "confunde_herencia_caracteres" },
+      { texto: "Darwin", correcta: true, tag_error: null },
+      { texto: "Mendel", correcta: false, tag_error: "confunde_genetica" },
+      { texto: "Linneo", correcta: false, tag_error: "confunde_taxonomia" }
+    ],
+    explicacion: "Charles Darwin publicó 'El origen de las especies' en 1859. Lamarck propuso una teoría distinta; Mendel, las leyes de la herencia.",
+    dato_curioso: "Darwin tardó 20 años en publicar su teoría por miedo a la reacción religiosa.",
+    dificultad: 2, tags: ["ciencia", "ciencia_biologia"], fuente: "Enciclopedia Británica", revision: "verificada"
+  },
+  {
+    id: "c09", tipo: "trivia",
+    enunciado: "¿Cuál es el hueso más largo del cuerpo humano?",
+    opciones: [
+      { texto: "Tibia", correcta: false, tag_error: "confunde_segundo" },
+      { texto: "Fémur", correcta: true, tag_error: null },
+      { texto: "Húmero", correcta: false, tag_error: "confunde_brazo" },
+      { texto: "Peroné", correcta: false, tag_error: "confunde_paralelo" }
+    ],
+    explicacion: "El fémur es el hueso más largo y resistente del cuerpo humano.",
+    dato_curioso: "El fémur puede soportar hasta 30 veces el peso corporal antes de romperse.",
+    dificultad: 2, tags: ["ciencia", "ciencia_biologia"], fuente: "Gray's Anatomy", revision: "verificada"
+  },
+  {
+    id: "c10", tipo: "trivia",
+    enunciado: "¿En qué año se describió la estructura de doble hélice del ADN?",
+    opciones: [
+      { texto: "1935", correcta: false, tag_error: "confunde_otro_hito" },
+      { texto: "1953", correcta: true, tag_error: null },
+      { texto: "1969", correcta: false, tag_error: "confunde_luna" },
+      { texto: "1978", correcta: false, tag_error: "confunde_otro_hito" }
+    ],
+    explicacion: "Watson y Crick publicaron la estructura de doble hélice del ADN en 1953, basándose en las imágenes de Rosalind Franklin.",
+    dato_curioso: "Rosalind Franklin murió antes de recibir el Nobel que se llevaron Watson, Crick y Wilkins.",
+    dificultad: 3, tags: ["ciencia", "ciencia_biologia", "historia_contemporanea"], fuente: "Nature", revision: "verificada"
+  },
+  {
+    id: "c11", tipo: "trivia",
+    enunciado: "¿Cuál es la constante de Planck aproximada?",
+    opciones: [
+      { texto: "6,626 × 10⁻³⁴ J·s", correcta: true, tag_error: null },
+      { texto: "3,00 × 10⁸ m/s", correcta: false, tag_error: "confunde_velocidad_luz" },
+      { texto: "9,81 m/s²", correcta: false, tag_error: "confunde_gravedad" },
+      { texto: "1,60 × 10⁻¹⁹ C", correcta: false, tag_error: "confunde_carga_electron" }
+    ],
+    explicacion: "La constante de Planck es h ≈ 6,626 × 10⁻³⁴ J·s.",
+    dato_curioso: "Planck la introdujo en 1900 a regañadientes: la llamó 'un acto de desesperación'.",
+    dificultad: 3, tags: ["ciencia", "ciencia_fisica"], fuente: "CODATA", revision: "verificada"
+  },
+  {
+    id: "c12", tipo: "trivia",
+    enunciado: "¿Cuántos cromosomas tiene una célula humana normal?",
+    opciones: [
+      { texto: "23", correcta: false, tag_error: "confunde_pares" },
+      { texto: "46", correcta: true, tag_error: null },
+      { texto: "48", correcta: false, tag_error: "confunde_chimpance" },
+      { texto: "44", correcta: false, tag_error: "off_by_one_par" }
+    ],
+    explicacion: "Los humanos tenemos 46 cromosomas: 23 pares. Los chimpancés tienen 48.",
+    dato_curioso: "Los humanos tenemos dos cromosomas fusionados respecto a los grandes simios: por eso tenemos 46 y no 48.",
+    dificultad: 2, tags: ["ciencia", "ciencia_biologia"], fuente: "NIH", revision: "verificada"
+  },
+
+  /* ----- ARTE ----- */
+  {
+    id: "a01", tipo: "trivia",
     enunciado: "¿Quién pintó la Gioconda?",
     opciones: [
       { texto: "Miguel Ángel", correcta: false, tag_error: "confunde_renacimiento_italiano" },
@@ -1043,16 +2034,90 @@ const SAMPLE_QUESTIONS = [
       { texto: "Rafael", correcta: false, tag_error: "confunde_renacimiento_italiano" },
       { texto: "Botticelli", correcta: false, tag_error: "confunde_quattrocento" }
     ],
-    explicacion: "La Gioconda fue pintada por Leonardo da Vinci entre 1503 y 1519. Todos los demás también son renacentistas italianos.",
-    dato_curioso: "La Gioconda se exhibe en el Louvre tras un cristal blindado, y fue robada en 1911 por un empleado del museo.",
-    dificultad: 1,
-    tags: ["arte", "arte_pintura"],
-    fuente: "Louvre",
-    revision: "verificada"
+    explicacion: "La Gioconda fue pintada por Leonardo da Vinci entre 1503 y 1519.",
+    dato_curioso: "La Gioconda fue robada del Louvre en 1911 por un empleado del museo.",
+    dificultad: 1, tags: ["arte", "arte_pintura"], fuente: "Louvre", revision: "verificada"
   },
   {
-    id: "q_art_002",
-    tipo: "trivia",
+    id: "a02", tipo: "trivia",
+    enunciado: "¿Quién esculpió el David de mármol de Florencia?",
+    opciones: [
+      { texto: "Donatello", correcta: false, tag_error: "confunde_david_bronce" },
+      { texto: "Miguel Ángel", correcta: true, tag_error: null },
+      { texto: "Bernini", correcta: false, tag_error: "confunde_barroco" },
+      { texto: "Verrocchio", correcta: false, tag_error: "confunde_maestro_leonardo" }
+    ],
+    explicacion: "El David de mármol (1501-1504) es de Miguel Ángel. Donatello hizo otro David, pero en bronce y un siglo antes.",
+    dato_curioso: "Miguel Ángel esculpió el David en un bloque que otro escultor había rechazado 40 años antes.",
+    dificultad: 1, tags: ["arte", "arte_escultura"], fuente: "Galería Uffizi", revision: "verificada"
+  },
+  {
+    id: "a03", tipo: "trivia",
+    enunciado: "¿Quién pintó 'La noche estrellada'?",
+    opciones: [
+      { texto: "Monet", correcta: false, tag_error: "confunde_impresionismo" },
+      { texto: "Van Gogh", correcta: true, tag_error: null },
+      { texto: "Gauguin", correcta: false, tag_error: "confunde_postimpresionismo" },
+      { texto: "Cézanne", correcta: false, tag_error: "confunde_postimpresionismo" }
+    ],
+    explicacion: "'La noche estrellada' la pintó Van Gogh en 1889, desde el sanatorio de Saint-Rémy.",
+    dato_curioso: "Van Gogh pintó 'La noche estrellada' mirando de memoria, no del natural.",
+    dificultad: 1, tags: ["arte", "arte_pintura"], fuente: "MoMA", revision: "verificada"
+  },
+  {
+    id: "a04", tipo: "trivia",
+    enunciado: "¿En qué museo está la Gioconda?",
+    opciones: [
+      { texto: "Uffizi", correcta: false, tag_error: "confunde_florencia" },
+      { texto: "Louvre", correcta: true, tag_error: null },
+      { texto: "Prado", correcta: false, tag_error: "confunde_madrid" },
+      { texto: "British Museum", correcta: false, tag_error: "confunde_londres" }
+    ],
+    explicacion: "La Gioconda está en el Museo del Louvre, en París.",
+    dato_curioso: "La Gioconda se exhibe tras un cristal blindado desde 1974.",
+    dificultad: 1, tags: ["arte", "arte_pintura"], fuente: "Louvre", revision: "verificada"
+  },
+  {
+    id: "a05", tipo: "trivia",
+    enunciado: "¿Quién compuso 'Las cuatro estaciones'?",
+    opciones: [
+      { texto: "Bach", correcta: false, tag_error: "confunde_barroco_aleman" },
+      { texto: "Vivaldi", correcta: true, tag_error: null },
+      { texto: "Mozart", correcta: false, tag_error: "confunde_clasicismo" },
+      { texto: "Handel", correcta: false, tag_error: "confunde_barroco_ingles" }
+    ],
+    explicacion: "Antonio Vivaldi compuso 'Las cuatro estaciones' hacia 1723.",
+    dato_curioso: "Vivaldi era conocido como 'el cura pelirrojo' por su pelo y su ordenación sacerdotal.",
+    dificultad: 1, tags: ["arte", "arte_musica"], fuente: "Enciclopedia Británica", revision: "verificada"
+  },
+  {
+    id: "a06", tipo: "trivia",
+    enunciado: "¿Qué pintor se cortó parte de una oreja?",
+    opciones: [
+      { texto: "Van Gogh", correcta: true, tag_error: null },
+      { texto: "Gauguin", correcta: false, tag_error: "confunde_amigo" },
+      { texto: "Munch", correcta: false, tag_error: "confunde_ansiedad" },
+      { texto: "Klimt", correcta: false, tag_error: "confunde_modernismo" }
+    ],
+    explicacion: "Van Gogh se cortó parte de la oreja izquierda en 1888, tras una discusión con Gauguin.",
+    dato_curioso: "Van Gogh solo vendió un cuadro en vida: 'El viñedo rojo'.",
+    dificultad: 1, tags: ["arte", "arte_pintura"], fuente: "Van Gogh Museum", revision: "verificada"
+  },
+  {
+    id: "a07", tipo: "trivia",
+    enunciado: "¿Quién pintó el techo de la Capilla Sixtina?",
+    opciones: [
+      { texto: "Rafael", correcta: false, tag_error: "confunde_estancias" },
+      { texto: "Miguel Ángel", correcta: true, tag_error: null },
+      { texto: "Leonardo", correcta: false, tag_error: "confunde_ultima_cena" },
+      { texto: "Botticelli", correcta: false, tag_error: "confunde_pared" }
+    ],
+    explicacion: "Miguel Ángel pintó el techo de la Capilla Sixtina entre 1508 y 1512.",
+    dato_curioso: "Miguel Ángel consideraba la pintura inferior a la escultura, y aceptó el encargo a regañadientes.",
+    dificultad: 1, tags: ["arte", "arte_pintura"], fuente: "Museos Vaticanos", revision: "verificada"
+  },
+  {
+    id: "a08", tipo: "trivia",
     enunciado: "¿A qué movimiento artístico pertenece 'Las señoritas de Avignon'?",
     opciones: [
       { texto: "Impresionismo", correcta: false, tag_error: "confunde_siglo_xix" },
@@ -1062,31 +2127,23 @@ const SAMPLE_QUESTIONS = [
     ],
     explicacion: "Picasso pintó 'Las señoritas de Avignon' en 1907, obra clave del cubismo.",
     dato_curioso: "El nombre viene de una calle de Barcelona, aunque Picasso siempre la llamó 'El burdel de Avinyó'.",
-    dificultad: 2,
-    tags: ["arte", "arte_pintura", "historia_contemporanea"],
-    fuente: "MoMA",
-    revision: "verificada"
+    dificultad: 2, tags: ["arte", "arte_pintura"], fuente: "MoMA", revision: "verificada"
   },
   {
-    id: "q_art_003",
-    tipo: "trivia",
-    enunciado: "¿Quién esculpió el David?",
+    id: "a09", tipo: "trivia",
+    enunciado: "¿Quién esculpió 'El pensador'?",
     opciones: [
-      { texto: "Miguel Ángel", correcta: true, tag_error: null },
-      { texto: "Donatello", correcta: false, tag_error: "confunde_david_anterior" },
+      { texto: "Rodin", correcta: true, tag_error: null },
       { texto: "Bernini", correcta: false, tag_error: "confunde_barroco" },
-      { texto: "Rodin", correcta: false, tag_error: "confunde_siglo_xix" }
+      { texto: "Miguel Ángel", correcta: false, tag_error: "confunde_renacimiento" },
+      { texto: "Brancusi", correcta: false, tag_error: "confunde_moderna" }
     ],
-    explicacion: "El David de Miguel Ángel (1501-1504) está en Florencia. Donatello también hizo un David, pero un siglo antes y en bronce.",
-    dato_curioso: "Miguel Ángel esculpió el David en un bloque de mármol que otro escultor había rechazado 40 años antes.",
-    dificultad: 2,
-    tags: ["arte", "arte_escultura"],
-    fuente: "Galería Uffizi",
-    revision: "verificada"
+    explicacion: "'El pensador' es de Auguste Rodin, esculpido entre 1880 y 1904.",
+    dato_curioso: "En realidad, 'El pensador' representa a Dante meditando sobre su obra 'La Divina Comedia'.",
+    dificultad: 2, tags: ["arte", "arte_escultura"], fuente: "Musée Rodin", revision: "verificada"
   },
   {
-    id: "q_art_004",
-    tipo: "trivia",
+    id: "a10", tipo: "trivia",
     enunciado: "¿Qué compositor quedó sordo y siguió componiendo?",
     opciones: [
       { texto: "Mozart", correcta: false, tag_error: "confunde_epoca" },
@@ -1094,16 +2151,40 @@ const SAMPLE_QUESTIONS = [
       { texto: "Bach", correcta: false, tag_error: "confunde_barroco" },
       { texto: "Chopin", correcta: false, tag_error: "confunde_romanticismo" }
     ],
-    explicacion: "Beethoven empezó a perder audición a los 26 años y compuso sus obras más importantes estando prácticamente sordo.",
-    dato_curioso: "La Novena Sinfonía se estrenó con Beethoven dirigiendo, pero tuvo que ser girado por un amigo para ver los aplausos del público.",
-    dificultad: 2,
-    tags: ["arte", "arte_musica"],
-    fuente: "Deutsche Welle",
-    revision: "verificada"
+    explicacion: "Beethoven empezó a perder audición a los 26 y compuso sus obras más importantes estando prácticamente sordo.",
+    dato_curioso: "La Novena Sinfonía se estrenó con Beethoven dirigiendo, pero tuvo que ser girado por un amigo para ver los aplausos.",
+    dificultad: 2, tags: ["arte", "arte_musica"], fuente: "Deutsche Welle", revision: "verificada"
   },
   {
-    id: "q_geo_001",
-    tipo: "trivia",
+    id: "a11", tipo: "trivia",
+    enunciado: "¿En qué año pintó Picasso el Guernica?",
+    opciones: [
+      { texto: "1927", correcta: false, tag_error: "confunde_otro_hito" },
+      { texto: "1937", correcta: true, tag_error: null },
+      { texto: "1945", correcta: false, tag_error: "confunde_fin_guerra" },
+      { texto: "1951", correcta: false, tag_error: "confunde_otro_hito" }
+    ],
+    explicacion: "Picasso pintó el Guernica en 1937, tras el bombardeo de la ciudad vasca durante la Guerra Civil.",
+    dato_curioso: "El Guernica estuvo en el MoMA de Nueva York hasta 1981: Picasso no quería que volviera a España mientras viviera Franco.",
+    dificultad: 3, tags: ["arte", "arte_pintura", "historia_contemporanea"], fuente: "Museo Reina Sofía", revision: "verificada"
+  },
+  {
+    id: "a12", tipo: "trivia",
+    enunciado: "¿Quién pintó 'Las meninas'?",
+    opciones: [
+      { texto: "Goya", correcta: false, tag_error: "confunde_siglo_xviii" },
+      { texto: "Velázquez", correcta: true, tag_error: null },
+      { texto: "El Greco", correcta: false, tag_error: "confunde_manierismo" },
+      { texto: "Murillo", correcta: false, tag_error: "confunde_barroco_sevillano" }
+    ],
+    explicacion: "'Las meninas' la pintó Diego Velázquez en 1656.",
+    dato_curioso: "Velázquez se autorretrata en el cuadro, mirando al espectador como si él fuera el rey.",
+    dificultad: 3, tags: ["arte", "arte_pintura"], fuente: "Museo del Prado", revision: "verificada"
+  },
+
+  /* ----- GEOGRAFÍA ----- */
+  {
+    id: "g01", tipo: "trivia",
     enunciado: "¿Cuál es el río más largo del mundo?",
     opciones: [
       { texto: "Nilo", correcta: false, tag_error: "confunde_africa" },
@@ -1111,16 +2192,12 @@ const SAMPLE_QUESTIONS = [
       { texto: "Yangtsé", correcta: false, tag_error: "confunde_asia" },
       { texto: "Misisipi", correcta: false, tag_error: "confunde_america_norte" }
     ],
-    explicacion: "El Amazonas es el río más largo (unos 7.000 km) y el más caudaloso. El Nilo es el segundo.",
-    dato_curioso: "El Amazonas vierte al océano tanta agua dulce que se puede beber a 200 km mar adentro.",
-    dificultad: 2,
-    tags: ["geografia", "geografia_fisica"],
-    fuente: "USGS",
-    revision: "verificada"
+    explicacion: "El Amazonas es el río más largo (~7.000 km) y el más caudaloso. El Nilo es el segundo.",
+    dato_curioso: "El Amazonas vierte tanta agua dulce que se puede beber a 200 km mar adentro.",
+    dificultad: 2, tags: ["geografia", "geografia_fisica"], fuente: "USGS", revision: "verificada"
   },
   {
-    id: "q_geo_002",
-    tipo: "trivia",
+    id: "g02", tipo: "trivia",
     enunciado: "¿Cuál es el país más grande del mundo por superficie?",
     opciones: [
       { texto: "China", correcta: false, tag_error: "confunde_poblacion" },
@@ -1130,14 +2207,10 @@ const SAMPLE_QUESTIONS = [
     ],
     explicacion: "Rusia tiene unos 17 millones de km², casi el doble que Canadá, el segundo.",
     dato_curioso: "Rusia tiene 11 husos horarios: cuando es medianoche en Moscú, en Kamchatka ya es mediodía del día siguiente.",
-    dificultad: 1,
-    tags: ["geografia", "geografia_politica"],
-    fuente: "CIA World Factbook",
-    revision: "verificada"
+    dificultad: 1, tags: ["geografia", "geografia_politica"], fuente: "CIA World Factbook", revision: "verificada"
   },
   {
-    id: "q_geo_003",
-    tipo: "trivia",
+    id: "g03", tipo: "trivia",
     enunciado: "¿Cuál es la capital de Australia?",
     opciones: [
       { texto: "Sídney", correcta: false, tag_error: "confunde_ciudad_mas_poblada" },
@@ -1147,14 +2220,129 @@ const SAMPLE_QUESTIONS = [
     ],
     explicacion: "Canberra es la capital desde 1913. Sídney y Melbourne se disputaban serlo, así que se construyó una ciudad nueva entre ambas.",
     dato_curioso: "Canberra significa 'lugar de reunión' en lengua aborigen ngunnawal.",
-    dificultad: 2,
-    tags: ["geografia", "geografia_politica"],
-    fuente: "Gobierno de Australia",
-    revision: "verificada"
+    dificultad: 2, tags: ["geografia", "geografia_politica"], fuente: "Gobierno de Australia", revision: "verificada"
   },
   {
-    id: "q_psi_001",
-    tipo: "psicotecnico",
+    id: "g04", tipo: "trivia",
+    enunciado: "¿Cuál es el océano más grande?",
+    opciones: [
+      { texto: "Atlántico", correcta: false, tag_error: "confunde_segundo" },
+      { texto: "Índico", correcta: false, tag_error: "confunde_tercero" },
+      { texto: "Pacífico", correcta: true, tag_error: null },
+      { texto: "Ártico", correcta: false, tag_error: "confunde_menor" }
+    ],
+    explicacion: "El Pacífico es el océano más grande, con 165 millones de km².",
+    dato_curioso: "El Pacífico contiene el punto más profundo de la Tierra: la Fosa de las Marianas, con 11.034 m.",
+    dificultad: 1, tags: ["geografia", "geografia_fisica"], fuente: "NOAA", revision: "verificada"
+  },
+  {
+    id: "g05", tipo: "trivia",
+    enunciado: "¿Cuál es la montaña más alta del mundo?",
+    opciones: [
+      { texto: "K2", correcta: false, tag_error: "confunde_segunda" },
+      { texto: "Everest", correcta: true, tag_error: null },
+      { texto: "Kilimanjaro", correcta: false, tag_error: "confunde_africa" },
+      { texto: "Aconcagua", correcta: false, tag_error: "confunde_america" }
+    ],
+    explicacion: "El Everest tiene 8.849 m. K2 es la segunda, con 8.611 m.",
+    dato_curioso: "El Everest crece unos 4 mm al año por el choque de las placas india y euroasiática.",
+    dificultad: 1, tags: ["geografia", "geografia_fisica"], fuente: "Nepal Survey", revision: "verificada"
+  },
+  {
+    id: "g06", tipo: "trivia",
+    enunciado: "¿Cuál es la capital de Francia?",
+    opciones: [
+      { texto: "Lyon", correcta: false, tag_error: "confunde_segunda_ciudad" },
+      { texto: "París", correcta: true, tag_error: null },
+      { texto: "Marsella", correcta: false, tag_error: "confunde_puerto" },
+      { texto: "Burdeos", correcta: false, tag_error: "confunde_vino" }
+    ],
+    explicacion: "París es la capital de Francia desde el siglo X.",
+    dato_curioso: "París tiene 37 puentes sobre el Sena.",
+    dificultad: 1, tags: ["geografia", "geografia_politica"], fuente: "Gobierno de Francia", revision: "verificada"
+  },
+  {
+    id: "g07", tipo: "trivia",
+    enunciado: "¿Cuántos continentes hay?",
+    opciones: [
+      { texto: "5", correcta: false, tag_error: "modelo_antartico_sin" },
+      { texto: "6", correcta: false, tag_error: "modelo_unen_america" },
+      { texto: "7", correcta: true, tag_error: null },
+      { texto: "8", correcta: false, tag_error: "confunde_oceania" }
+    ],
+    explicacion: "El modelo más extendido reconoce 7: África, Antártida, Asia, Europa, América del Norte, América del Sur y Oceanía.",
+    dato_curioso: "En algunos países se enseña un modelo de 6 continentes, uniendo América del Norte y del Sur.",
+    dificultad: 1, tags: ["geografia", "geografia_politica"], fuente: "ONU", revision: "verificada"
+  },
+  {
+    id: "g08", tipo: "trivia",
+    enunciado: "¿Cuál es el desierto más grande del mundo?",
+    opciones: [
+      { texto: "Sahara", correcta: false, tag_error: "confunde_calido" },
+      { texto: "Antártico", correcta: true, tag_error: null },
+      { texto: "Gobi", correcta: false, tag_error: "confunde_asia" },
+      { texto: "Kalahari", correcta: false, tag_error: "confunde_africa_sur" }
+    ],
+    explicacion: "El desierto más grande del mundo es la Antártida, con 14 millones de km². El Sahara es el mayor desierto cálido.",
+    dato_curioso: "Un desierto se define por su baja precipitación, no por su temperatura.",
+    dificultad: 2, tags: ["geografia", "geografia_fisica"], fuente: "USGS", revision: "verificada"
+  },
+  {
+    id: "g09", tipo: "trivia",
+    enunciado: "¿Cuál es el lago más profundo del mundo?",
+    opciones: [
+      { texto: "Titicaca", correcta: false, tag_error: "confunde_altura" },
+      { texto: "Baikal", correcta: true, tag_error: null },
+      { texto: "Victoria", correcta: false, tag_error: "confunde_africa" },
+      { texto: "Superior", correcta: false, tag_error: "confunde_america" }
+    ],
+    explicacion: "El lago Baikal (Rusia) tiene 1.642 m de profundidad y contiene el 20% del agua dulce del mundo.",
+    dato_curioso: "El Baikal tiene más agua que todos los Grandes Lagos de América del Norte juntos.",
+    dificultad: 2, tags: ["geografia", "geografia_fisica"], fuente: "UNESCO", revision: "verificada"
+  },
+  {
+    id: "g10", tipo: "trivia",
+    enunciado: "¿Cuál es la capital de Kazajistán?",
+    opciones: [
+      { texto: "Almatý", correcta: false, tag_error: "confunde_antigua_capital" },
+      { texto: "Astana", correcta: true, tag_error: null },
+      { texto: "Taskent", correcta: false, tag_error: "confunde_uzbekistan" },
+      { texto: "Biskek", correcta: false, tag_error: "confunde_kirguistan" }
+    ],
+    explicacion: "Astana es la capital desde 1997. Almatý fue la capital hasta 1997.",
+    dato_curioso: "Astana es la segunda capital más fría del mundo, después de Ulán Bator.",
+    dificultad: 3, tags: ["geografia", "geografia_politica"], fuente: "Gobierno de Kazajistán", revision: "verificada"
+  },
+  {
+    id: "g11", tipo: "trivia",
+    enunciado: "¿Qué país tiene más husos horarios?",
+    opciones: [
+      { texto: "Rusia", correcta: false, tag_error: "confunde_mas_territorio" },
+      { texto: "EEUU", correcta: false, tag_error: "confunde_estados" },
+      { texto: "Francia", correcta: true, tag_error: null },
+      { texto: "China", correcta: false, tag_error: "confunde_un_solo_huso" }
+    ],
+    explicacion: "Francia tiene 12 husos horarios por sus territorios de ultramar. Rusia tiene 11, China solo 1.",
+    dato_curioso: "China, pese a tener el tamaño de un continente, usa un único huso horario.",
+    dificultad: 3, tags: ["geografia", "geografia_politica"], fuente: "Time and Date", revision: "verificada"
+  },
+  {
+    id: "g12", tipo: "trivia",
+    enunciado: "¿Qué país tiene más habitantes?",
+    opciones: [
+      { texto: "China", correcta: false, tag_error: "confunde_hasta_2023" },
+      { texto: "India", correcta: true, tag_error: null },
+      { texto: "EEUU", correcta: false, tag_error: "confunde_tercero" },
+      { texto: "Indonesia", correcta: false, tag_error: "confunde_cuarto" }
+    ],
+    explicacion: "India superó a China como país más poblado en 2023.",
+    dato_curioso: "India tiene más habitantes que toda África junta.",
+    dificultad: 2, tags: ["geografia", "geografia_politica"], fuente: "ONU", revision: "verificada"
+  },
+
+  /* ----- PSICOTÉCNICO ----- */
+  {
+    id: "p01", tipo: "psicotecnico",
     enunciado: "2, 4, 8, 16, ?",
     opciones: [
       { texto: "20", correcta: false, tag_error: "suma_constante" },
@@ -1164,32 +2352,11 @@ const SAMPLE_QUESTIONS = [
     ],
     explicacion: "Cada número es el doble del anterior: 2×2=4, 4×2=8, 8×2=16, 16×2=32.",
     dato_curioso: "Las potencias de 2 crecen tan rápido que 2^64 supera el número estimado de granos de arena de la Tierra.",
-    dificultad: 1,
-    tags: ["psicotecnico", "psicotecnico_numerico"],
-    fuente: "Generado",
-    revision: "verificada"
+    dificultad: 1, tags: ["psicotecnico", "psicotecnico_numerico"], fuente: "Generado", revision: "verificada"
   },
   {
-    id: "q_psi_002",
-    tipo: "psicotecnico",
-    enunciado: "1, 1, 2, 3, 5, 8, ?",
-    opciones: [
-      { texto: "11", correcta: false, tag_error: "suma_constante" },
-      { texto: "12", correcta: false, tag_error: "suma_cuatro" },
-      { texto: "13", correcta: true, tag_error: null },
-      { texto: "16", correcta: false, tag_error: "doble" }
-    ],
-    explicacion: "Es la sucesión de Fibonacci: cada número es la suma de los dos anteriores. 5+8=13.",
-    dato_curioso: "La proporción entre números consecutivos de Fibonacci se acerca a la proporción áurea (1,618...).",
-    dificultad: 2,
-    tags: ["psicotecnico", "psicotecnico_numerico"],
-    fuente: "Generado",
-    revision: "verificada"
-  },
-  {
-    id: "q_psi_003",
-    tipo: "psicotecnico",
-    enunciado: "Si A=1, B=2, C=3..., ¿qué número corresponde a la letra J?",
+    id: "p02", tipo: "psicotecnico",
+    enunciado: "Si A=1, B=2, C=3..., ¿qué número corresponde a J?",
     opciones: [
       { texto: "9", correcta: false, tag_error: "off_by_one" },
       { texto: "10", correcta: true, tag_error: null },
@@ -1197,11 +2364,138 @@ const SAMPLE_QUESTIONS = [
       { texto: "8", correcta: false, tag_error: "salto" }
     ],
     explicacion: "A=1, B=2, C=3, D=4, E=5, F=6, G=7, H=8, I=9, J=10.",
-    dato_curioso: "Este sistema se usa en cifrados básicos y en algunos juegos de mesa para esconder mensajes.",
-    dificultad: 1,
-    tags: ["psicotecnico", "psicotecnico_logico"],
-    fuente: "Generado",
-    revision: "verificada"
+    dato_curioso: "Este sistema se usa en cifrados básicos y en juegos de mesa para esconder mensajes.",
+    dificultad: 1, tags: ["psicotecnico", "psicotecnico_logico"], fuente: "Generado", revision: "verificada"
+  },
+  {
+    id: "p03", tipo: "psicotecnico",
+    enunciado: "5, 10, 15, 20, ?",
+    opciones: [
+      { texto: "22", correcta: false, tag_error: "salto_irregular" },
+      { texto: "25", correcta: true, tag_error: null },
+      { texto: "30", correcta: false, tag_error: "salto_doble" },
+      { texto: "35", correcta: false, tag_error: "salto_triple" }
+    ],
+    explicacion: "Es la tabla del 5: cada número aumenta de 5 en 5.",
+    dato_curioso: "Multiplicar por 5 es fácil: multiplica por 10 y divide entre 2.",
+    dificultad: 1, tags: ["psicotecnico", "psicotecnico_numerico"], fuente: "Generado", revision: "verificada"
+  },
+  {
+    id: "p04", tipo: "psicotecnico",
+    enunciado: "10, 9, 8, 7, ?",
+    opciones: [
+      { texto: "6", correcta: true, tag_error: null },
+      { texto: "5", correcta: false, tag_error: "salto_doble" },
+      { texto: "8", correcta: false, tag_error: "repite" },
+      { texto: "4", correcta: false, tag_error: "salto_triple" }
+    ],
+    explicacion: "Cuenta atrás: 10, 9, 8, 7, 6.",
+    dato_curioso: "Los niños aprenden antes a contar hacia atrás que a restar.",
+    dificultad: 1, tags: ["psicotecnico", "psicotecnico_numerico"], fuente: "Generado", revision: "verificada"
+  },
+  {
+    id: "p05", tipo: "psicotecnico",
+    enunciado: "2, 4, 6, 8, ?",
+    opciones: [
+      { texto: "9", correcta: false, tag_error: "off_by_one" },
+      { texto: "10", correcta: true, tag_error: null },
+      { texto: "12", correcta: false, tag_error: "salto_doble" },
+      { texto: "16", correcta: false, tag_error: "confunde_con_potencias" }
+    ],
+    explicacion: "Números pares consecutivos: 2, 4, 6, 8, 10.",
+    dato_curioso: "La suma de los primeros n números pares es n(n+1).",
+    dificultad: 1, tags: ["psicotecnico", "psicotecnico_numerico"], fuente: "Generado", revision: "verificada"
+  },
+  {
+    id: "p06", tipo: "psicotecnico",
+    enunciado: "1, 4, 9, 16, ?",
+    opciones: [
+      { texto: "20", correcta: false, tag_error: "suma_constante" },
+      { texto: "25", correcta: true, tag_error: null },
+      { texto: "24", correcta: false, tag_error: "confunde_factorial" },
+      { texto: "32", correcta: false, tag_error: "confunde_potencias_2" }
+    ],
+    explicacion: "Cuadrados perfectos: 1²=1, 2²=4, 3²=9, 4²=16, 5²=25.",
+    dato_curioso: "La diferencia entre cuadrados consecutivos es la suma de sus raíces: 25-16 = 5+4 = 9.",
+    dificultad: 1, tags: ["psicotecnico", "psicotecnico_numerico"], fuente: "Generado", revision: "verificada"
+  },
+  {
+    id: "p07", tipo: "psicotecnico",
+    enunciado: "Si A=1, B=2..., ¿qué letra corresponde a 26?",
+    opciones: [
+      { texto: "Y", correcta: false, tag_error: "off_by_one" },
+      { texto: "Z", correcta: true, tag_error: null },
+      { texto: "X", correcta: false, tag_error: "off_by_one_abajo" },
+      { texto: "W", correcta: false, tag_error: "salto" }
+    ],
+    explicacion: "El alfabeto inglés tiene 26 letras: Z=26.",
+    dato_curioso: "En español la Ñ ocupa el lugar 15, por eso el alfabeto tiene 27 letras.",
+    dificultad: 1, tags: ["psicotecnico", "psicotecnico_logico"], fuente: "Generado", revision: "verificada"
+  },
+  {
+    id: "p08", tipo: "psicotecnico",
+    enunciado: "1, 3, 5, 7, ?",
+    opciones: [
+      { texto: "8", correcta: false, tag_error: "confunde_par" },
+      { texto: "9", correcta: true, tag_error: null },
+      { texto: "10", correcta: false, tag_error: "salto_doble" },
+      { texto: "11", correcta: false, tag_error: "salto_triple" }
+    ],
+    explicacion: "Números impares consecutivos: 1, 3, 5, 7, 9.",
+    dato_curioso: "La suma de los primeros n impares es n²: 1+3+5+7 = 16 = 4².",
+    dificultad: 1, tags: ["psicotecnico", "psicotecnico_numerico"], fuente: "Generado", revision: "verificada"
+  },
+  {
+    id: "p09", tipo: "psicotecnico",
+    enunciado: "A, C, E, G, ?",
+    opciones: [
+      { texto: "H", correcta: false, tag_error: "salto_uno" },
+      { texto: "I", correcta: true, tag_error: null },
+      { texto: "J", correcta: false, tag_error: "salto_dos" },
+      { texto: "K", correcta: false, tag_error: "salto_tres" }
+    ],
+    explicacion: "Letras saltando una: A, C, E, G, I.",
+    dato_curioso: "En el alfabeto español moderno hay 27 letras, contando la Ñ.",
+    dificultad: 2, tags: ["psicotecnico", "psicotecnico_logico"], fuente: "Generado", revision: "verificada"
+  },
+  {
+    id: "p10", tipo: "psicotecnico",
+    enunciado: "1, 1, 2, 3, 5, 8, ?",
+    opciones: [
+      { texto: "11", correcta: false, tag_error: "suma_constante" },
+      { texto: "12", correcta: false, tag_error: "suma_cuatro" },
+      { texto: "13", correcta: true, tag_error: null },
+      { texto: "16", correcta: false, tag_error: "doble" }
+    ],
+    explicacion: "Sucesión de Fibonacci: cada número es la suma de los dos anteriores. 5+8=13.",
+    dato_curioso: "La proporción entre términos consecutivos se acerca a la proporción áurea (1,618...).",
+    dificultad: 2, tags: ["psicotecnico", "psicotecnico_numerico"], fuente: "Generado", revision: "verificada"
+  },
+  {
+    id: "p11", tipo: "psicotecnico",
+    enunciado: "3, 6, 12, 24, ?",
+    opciones: [
+      { texto: "30", correcta: false, tag_error: "suma_seis" },
+      { texto: "36", correcta: false, tag_error: "confunde_cuadrados" },
+      { texto: "48", correcta: true, tag_error: null },
+      { texto: "56", correcta: false, tag_error: "suma_ocho" }
+    ],
+    explicacion: "Cada número es el doble del anterior: 3×2=6, 6×2=12, 12×2=24, 24×2=48.",
+    dato_curioso: "Esta secuencia aparece en la leyenda del ajedrez: los granos se doblaban en cada casilla.",
+    dificultad: 2, tags: ["psicotecnico", "psicotecnico_numerico"], fuente: "Generado", revision: "verificada"
+  },
+  {
+    id: "p12", tipo: "psicotecnico",
+    enunciado: "2, 3, 5, 7, 11, ?",
+    opciones: [
+      { texto: "12", correcta: false, tag_error: "salto_uno" },
+      { texto: "13", correcta: true, tag_error: null },
+      { texto: "14", correcta: false, tag_error: "salto_dos" },
+      { texto: "15", correcta: false, tag_error: "salto_tres" }
+    ],
+    explicacion: "Números primos: 2, 3, 5, 7, 11, 13.",
+    dato_curioso: "Euclides demostró hace 2.300 años que hay infinitos números primos.",
+    dificultad: 3, tags: ["psicotecnico", "psicotecnico_numerico"], fuente: "Generado", revision: "verificada"
   }
 ];
 
@@ -1213,17 +2507,20 @@ const SAMPLE_QUESTIONS = [
   const bus = new App.EventBus();
   const bank = new Domain.QuestionBank();
   const progress = new App.Progress();
+  const ttsSettings = new App.TTSSettings(bus);
+  const ethicalNotice = new App.EthicalNotice(bus);
   const engine = new App.GameEngine(bus, bank, progress);
 
-  // Cargar banco inicial
   engine.loadBank(SAMPLE_QUESTIONS);
 
-  // Inicializar UI (solo la UI toca DOM)
-  UI.init(bus, bank, progress, engine);
+  UI.init(bus, bank, progress, ttsSettings, ethicalNotice, engine);
 
-  // Exponer para depuración en consola
-  window.__trivia = { bus, bank, progress, engine, EVENTS: App.EVENTS };
-  console.log('[trivia] PMV listo. Preguntas cargadas:', bank.questions.length);
+  window.__trivia = { bus, bank, progress, ttsSettings, ethicalNotice, engine, EVENTS: App.EVENTS };
+  console.log('[trivia] PMV v3 listo. Preguntas cargadas:', bank.questions.length);
+
+  const stats = {};
+  for (const t of bank.getTags()) stats[t] = bank.statsForTag(t);
+  console.table(stats);
 })();
 </script>
 </body>
