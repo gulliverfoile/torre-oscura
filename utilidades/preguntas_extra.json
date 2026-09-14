@@ -1,0 +1,667 @@
+{
+  "version": "1.0",
+  "idioma": "es",
+  "descripcion": "Banco adicional de preguntas para completar el escalado por niveles. 50 preguntas nuevas.",
+  "preguntas": [
+
+    /* ===== HISTORIA (+5) ===== */
+    {
+      "id": "h16", "tipo": "trivia",
+      "enunciado": "¿Qué general cruzó el río Rubicón en el 49 a.C.?",
+      "opciones": [
+        { "texto": "Pompeyo", "correcta": false, "tag_error": "confunde_rival" },
+        { "texto": "Julio César", "correcta": true, "tag_error": null },
+        { "texto": "Augusto", "correcta": false, "tag_error": "confunde_sucesor" },
+        { "texto": "Marco Antonio", "correcta": false, "tag_error": "confunde_aliado" }
+      ],
+      "explicacion": "Julio César cruzó el Rubicón en el 49 a.C., iniciando la guerra civil contra Pompeyo.",
+      "dato_curioso": "La frase 'cruzar el Rubicón' significa tomar una decisión irreversible.",
+      "dificultad": 1, "tags": ["historia", "historia_antigua"], "fuente": "Suetonio", "revision": "verificada"
+    },
+    {
+      "id": "h17", "tipo": "trivia",
+      "enunciado": "¿En qué año terminó la Segunda Guerra Mundial?",
+      "opciones": [
+        { "texto": "1943", "correcta": false, "tag_error": "confunde_italia" },
+        { "texto": "1945", "correcta": true, "tag_error": null },
+        { "texto": "1947", "correcta": false, "tag_error": "confunde_postguerra" },
+        { "texto": "1950", "correcta": false, "tag_error": "confunde_corea" }
+      ],
+      "explicacion": "La Segunda Guerra Mundial terminó en 1945: en Europa en mayo y en Asia en septiembre.",
+      "dato_curioso": "El soldado japonés Hiroo Onoda siguió combatiendo hasta 1974 porque no le creyeron que la guerra había terminado.",
+      "dificultad": 1, "tags": ["historia", "historia_contemporanea"], "fuente": "Enciclopedia Británica", "revision": "verificada"
+    },
+    {
+      "id": "h18", "tipo": "trivia",
+      "enunciado": "¿Quién fue el último zar de Rusia?",
+      "opciones": [
+        { "texto": "Alejandro III", "correcta": false, "tag_error": "confunde_padre" },
+        { "texto": "Nicolás II", "correcta": true, "tag_error": null },
+        { "texto": "Pedro III", "correcta": false, "tag_error": "confunde_siglo_xviii" },
+        { "texto": "Pablo I", "correcta": false, "tag_error": "confunde_anterior" }
+      ],
+      "explicacion": "Nicolás II fue el último zar. Abdicó en 1917 y fue ejecutado con su familia en 1918.",
+      "dato_curioso": "La hija menor, Anastasia, inspiró decenas de impostoras que decían haber sobrevivido.",
+      "dificultad": 2, "tags": ["historia", "historia_contemporanea"], "fuente": "Enciclopedia Británica", "revision": "verificada"
+    },
+    {
+      "id": "h19", "tipo": "trivia",
+      "enunciado": "¿Qué civilización inventó la escritura cuneiforme?",
+      "opciones": [
+        { "texto": "Egipcia", "correcta": false, "tag_error": "confunde_jeroglificos" },
+        { "texto": "Sumeria", "correcta": true, "tag_error": null },
+        { "texto": "Fenicia", "correcta": false, "tag_error": "confunde_alfabeto" },
+        { "texto": "China", "correcta": false, "tag_error": "confunde_oriente" }
+      ],
+      "explicacion": "Los sumerios inventaron la escritura cuneiforme hacia el 3200 a.C. en Mesopotamia.",
+      "dato_curioso": "La escritura nació para llevar cuentas de grano y ganado, no para poesía.",
+      "dificultad": 2, "tags": ["historia", "historia_antigua"], "fuente": "UNESCO", "revision": "verificada"
+    },
+    {
+      "id": "h20", "tipo": "trivia",
+      "enunciado": "¿Qué tratado dividió el mundo entre España y Portugal en 1494?",
+      "opciones": [
+        { "texto": "Zaragoza", "correcta": false, "tag_error": "confunde_1529" },
+        { "texto": "Tordesillas", "correcta": true, "tag_error": null },
+        { "texto": "Alcáçovas", "correcta": false, "tag_error": "confunde_1479" },
+        { "texto": "Utrecht", "correcta": false, "tag_error": "confunde_1713" }
+      ],
+      "explicacion": "El Tratado de Tordesillas (1494) dividió las zonas de exploración entre España y Portugal con una línea a 370 leguas al oeste de Cabo Verde.",
+      "dato_curioso": "Por ese tratado, Brasil quedó del lado portugués, y por eso hoy se habla portugués allí.",
+      "dificultad": 3, "tags": ["historia", "historia_moderna"], "fuente": "Archivo de Indias", "revision": "verificada"
+    },
+
+    /* ===== CIENCIA (+10) ===== */
+    {
+      "id": "c13", "tipo": "trivia",
+      "enunciado": "¿Qué planeta es conocido como el planeta rojo?",
+      "opciones": [
+        { "texto": "Venus", "correcta": false, "tag_error": "confunde_brillo" },
+        { "texto": "Marte", "correcta": true, "tag_error": null },
+        { "texto": "Júpiter", "correcta": false, "tag_error": "confunde_gigante" },
+        { "texto": "Mercurio", "correcta": false, "tag_error": "confunde_pequeno" }
+      ],
+      "explicacion": "Marte es rojo por el óxido de hierro (herrumbre) de su superficie.",
+      "dato_curioso": "Marte tiene el volcán más alto del sistema solar: el Monte Olimpo, de 22 km.",
+      "dificultad": 1, "tags": ["ciencia", "ciencia_fisica"], "fuente": "NASA", "revision": "verificada"
+    },
+    {
+      "id": "c14", "tipo": "trivia",
+      "enunciado": "¿Cuántos corazones tiene un pulpo?",
+      "opciones": [
+        { "texto": "1", "correcta": false, "tag_error": "confunde_humano" },
+        { "texto": "2", "correcta": false, "tag_error": "off_by_one" },
+        { "texto": "3", "correcta": true, "tag_error": null },
+        { "texto": "4", "correcta": false, "tag_error": "off_by_one_arriba" }
+      ],
+      "explicacion": "Los pulpos tienen 3 corazones: dos branquiales y uno sistémico.",
+      "dato_curioso": "Su sangre es azul porque usa hemocianina (cobre) en vez de hemoglobina (hierro).",
+      "dificultad": 1, "tags": ["ciencia", "ciencia_biologia"], "fuente": "Smithsonian", "revision": "verificada"
+    },
+    {
+      "id": "c15", "tipo": "trivia",
+      "enunciado": "¿Cuál es el metal más conductor de electricidad?",
+      "opciones": [
+        { "texto": "Cobre", "correcta": false, "tag_error": "confunde_uso_industrial" },
+        { "texto": "Oro", "correcta": false, "tag_error": "confunde_joyeria" },
+        { "texto": "Plata", "correcta": true, "tag_error": null },
+        { "texto": "Aluminio", "correcta": false, "tag_error": "confunde_lígero" }
+      ],
+      "explicacion": "La plata es el mejor conductor. El cobre se usa más porque es mucho más barato.",
+      "dato_curioso": "En 2021, el precio del cobre subió tanto que hubo olas de robos de cable en muchos países.",
+      "dificultad": 1, "tags": ["ciencia", "ciencia_fisica"], "fuente": "NIST", "revision": "verificada"
+    },
+    {
+      "id": "c16", "tipo": "trivia",
+      "enunciado": "¿Cuál es el animal más grande del planeta?",
+      "opciones": [
+        { "texto": "Elefante africano", "correcta": false, "tag_error": "confunde_terrestre" },
+        { "texto": "Ballena azul", "correcta": true, "tag_error": null },
+        { "texto": "Cachalote", "correcta": false, "tag_error": "confunde_depredador" },
+        { "texto": "Tiburón ballena", "correcta": false, "tag_error": "confunde_pez" }
+      ],
+      "explicacion": "La ballena azul es el animal más grande: hasta 30 m y 180 toneladas.",
+      "dato_curioso": "Su corazón pesa tanto como un coche pequeño.",
+      "dificultad": 1, "tags": ["ciencia", "ciencia_biologia"], "fuente": "WWF", "revision": "verificada"
+    },
+    {
+      "id": "c17", "tipo": "trivia",
+      "enunciado": "¿Qué gas es el más abundante en la atmósfera terrestre?",
+      "opciones": [
+        { "texto": "Oxígeno", "correcta": false, "tag_error": "confunde_respiracion" },
+        { "texto": "Nitrógeno", "correcta": true, "tag_error": null },
+        { "texto": "Dióxido de carbono", "correcta": false, "tag_error": "confunde_efecto_invernadero" },
+        { "texto": "Argón", "correcta": false, "tag_error": "confunde_inerte" }
+      ],
+      "explicacion": "El nitrógeno es el 78% del aire. El oxígeno solo el 21%.",
+      "dato_curioso": "Si la atmósfera fuera 100 moléculas, 78 serían de nitrógeno y solo 21 de oxígeno.",
+      "dificultad": 2, "tags": ["ciencia", "ciencia_quimica"], "fuente": "NOAA", "revision": "verificada"
+    },
+    {
+      "id": "c18", "tipo": "trivia",
+      "enunciado": "¿Cuál es el pH del agua pura a 25 °C?",
+      "opciones": [
+        { "texto": "5", "correcta": false, "tag_error": "confunde_acido" },
+        { "texto": "7", "correcta": true, "tag_error": null },
+        { "texto": "9", "correcta": false, "tag_error": "confunde_basico" },
+        { "texto": "14", "correcta": false, "tag_error": "confunde_maximo" }
+      ],
+      "explicacion": "El agua pura tiene pH 7 (neutro). Por debajo de 7 es ácido, por encima es básico.",
+      "dato_curioso": "El jugo de limón tiene pH 2 y la lejía pH 13. Ambos queman, pero por motivos opuestos.",
+      "dificultad": 2, "tags": ["ciencia", "ciencia_quimica"], "fuente": "IUPAC", "revision": "verificada"
+    },
+    {
+      "id": "c19", "tipo": "trivia",
+      "enunciado": "¿Qué científico propuso el modelo atómico con electrones orbitando el núcleo?",
+      "opciones": [
+        { "texto": "Dalton", "correcta": false, "tag_error": "confunde_esfera_solida" },
+        { "texto": "Thomson", "correcta": false, "tag_error": "confunde_pudin" },
+        { "texto": "Bohr", "correcta": true, "tag_error": null },
+        { "texto": "Rutherford", "correcta": false, "tag_error": "confunde_nucleo" }
+      ],
+      "explicacion": "Bohr propuso en 1913 el modelo de electrones en órbitas cuantizadas alrededor del núcleo.",
+      "dato_curioso": "Bohr recibió el Nobel en 1922. Su hijo Aage también lo recibió en 1975: un caso raro.",
+      "dificultad": 2, "tags": ["ciencia", "ciencia_fisica", "historia_contemporanea"], "fuente": "Nobel Prize", "revision": "verificada"
+    },
+    {
+      "id": "c20", "tipo": "trivia",
+      "enunciado": "¿Cuál es la unidad del SI para la cantidad de sustancia?",
+      "opciones": [
+        { "texto": "Gramo", "correcta": false, "tag_error": "confunde_masa" },
+        { "texto": "Mol", "correcta": true, "tag_error": null },
+        { "texto": "Litro", "correcta": false, "tag_error": "confunde_volumen" },
+        { "texto": "Kelvin", "correcta": false, "tag_error": "confunde_temperatura" }
+      ],
+      "explicacion": "El mol es la unidad del SI para cantidad de sustancia. Un mol contiene 6,022 × 10²³ entidades.",
+      "dato_curioso": "El número de Avogadro es tan grande que un mol de granos de arena cubriría toda la Tierra con una capa de varios metros.",
+      "dificultad": 3, "tags": ["ciencia", "ciencia_quimica"], "fuente": "BIPM", "revision": "verificada"
+    },
+    {
+      "id": "c21", "tipo": "trivia",
+      "enunciado": "¿Qué ley de la termodinámica dice que la entropía de un sistema aislado nunca disminuye?",
+      "opciones": [
+        { "texto": "Primera", "correcta": false, "tag_error": "confunde_conservacion" },
+        { "texto": "Segunda", "correcta": true, "tag_error": null },
+        { "texto": "Tercera", "correcta": false, "tag_error": "confunde_cero_absoluto" },
+        { "texto": "Zeroth", "correcta": false, "tag_error": "confunde_equilibrio" }
+      ],
+      "explicacion": "La Segunda Ley dice que la entropía de un sistema aislado tiende a aumentar. La Primera es la conservación de la energía.",
+      "dato_curioso": "La Segunda Ley es la única ley de la física que distingue el pasado del futuro.",
+      "dificultad": 3, "tags": ["ciencia", "ciencia_fisica"], "fuente": "Enciclopedia Británica", "revision": "verificada"
+    },
+    {
+      "id": "c22", "tipo": "trivia",
+      "enunciado": "¿Qué órgano del cuerpo humano produce la bilis?",
+      "opciones": [
+        { "texto": "Páncreas", "correcta": false, "tag_error": "confunde_enzimas" },
+        { "texto": "Hígado", "correcta": true, "tag_error": null },
+        { "texto": "Estómago", "correcta": false, "tag_error": "confunde_acido" },
+        { "texto": "Vesícula biliar", "correcta": false, "tag_error": "confunde_almacen" }
+      ],
+      "explicacion": "El hígado produce la bilis. La vesícula biliar solo la almacena y la libera.",
+      "dato_curioso": "El hígado es el único órgano interno que puede regenerarse casi por completo.",
+      "dificultad": 2, "tags": ["ciencia", "ciencia_biologia"], "fuente": "NIH", "revision": "verificada"
+    },
+
+    /* ===== ARTE (+10) ===== */
+    {
+      "id": "a13", "tipo": "trivia",
+      "enunciado": "¿Quién pintó 'El grito'?",
+      "opciones": [
+        { "texto": "Klimt", "correcta": false, "tag_error": "confunde_modernismo" },
+        { "texto": "Munch", "correcta": true, "tag_error": null },
+        { "texto": "Kandinsky", "correcta": false, "tag_error": "confunde_abstracto" },
+        { "texto": "Schiele", "correcta": false, "tag_error": "confunde_expresionismo_austriaco" }
+      ],
+      "explicacion": "'El grito' (1893) lo pintó Edvard Munch, pintor noruego expresionista.",
+      "dato_curioso": "Munch escribió en su diario que sintió 'un grito infinito atravesando la naturaleza' antes de pintarlo.",
+      "dificultad": 1, "tags": ["arte", "arte_pintura"], "fuente": "National Gallery Oslo", "revision": "verificada"
+    },
+    {
+      "id": "a14", "tipo": "trivia",
+      "enunciado": "¿Quién pintó 'La última cena'?",
+      "opciones": [
+        { "texto": "Rafael", "correcta": false, "tag_error": "confunde_renacimiento" },
+        { "texto": "Leonardo da Vinci", "correcta": true, "tag_error": null },
+        { "texto": "Miguel Ángel", "correcta": false, "tag_error": "confunde_capilla" },
+        { "texto": "Botticelli", "correcta": false, "tag_error": "confunde_quattrocento" }
+      ],
+      "explicacion": "'La última cena' (1495-1498) la pintó Leonardo da Vinci en el refectorio de Santa Maria delle Grazie, Milán.",
+      "dato_curioso": "Leonardo tardó 3 años y a veces se quedaba mirando horas sin pintar. El prior se quejó al duque.",
+      "dificultad": 1, "tags": ["arte", "arte_pintura"], "fuente": "UNESCO", "revision": "verificada"
+    },
+    {
+      "id": "a15", "tipo": "trivia",
+      "enunciado": "¿Quién pintó 'El nacimiento de Venus'?",
+      "opciones": [
+        { "texto": "Botticelli", "correcta": true, "tag_error": null },
+        { "texto": "Rafael", "correcta": false, "tag_error": "confunde_renacimiento" },
+        { "texto": "Tiziano", "correcta": false, "tag_error": "confunde_venus_urbino" },
+        { "texto": "Miguel Ángel", "correcta": false, "tag_error": "confunde_escultura" }
+      ],
+      "explicacion": "'El nacimiento de Venus' (1485) es de Sandro Botticelli, en la Galería Uffizi.",
+      "dato_curioso": "Botticelli murió en la pobreza y su obra se olvidó hasta el siglo XIX, cuando los prerrafaelitas la redescubrieron.",
+      "dificultad": 2, "tags": ["arte", "arte_pintura"], "fuente": "Uffizi", "revision": "verificada"
+    },
+    {
+      "id": "a16", "tipo": "trivia",
+      "enunciado": "¿A qué movimiento artístico pertenece Salvador Dalí?",
+      "opciones": [
+        { "texto": "Cubismo", "correcta": false, "tag_error": "confunde_picasso" },
+        { "texto": "Surrealismo", "correcta": true, "tag_error": null },
+        { "texto": "Impresionismo", "correcta": false, "tag_error": "confunde_monet" },
+        { "texto": "Expresionismo", "correcta": false, "tag_error": "confunde_munch" }
+      ],
+      "explicacion": "Dalí fue uno de los principales surrealistas, con obras como 'La persistencia de la memoria'.",
+      "dato_curioso": "Dalí fue expulsado del grupo surrealista por su apoyo a Franco y su obsesión con el dinero.",
+      "dificultad": 2, "tags": ["arte", "arte_pintura", "historia_contemporanea"], "fuente": "MoMA", "revision": "verificada"
+    },
+    {
+      "id": "a17", "tipo": "trivia",
+      "enunciado": "¿Quién pintó 'El jardín de las delicias'?",
+      "opciones": [
+        { "texto": "El Bosco", "correcta": true, "tag_error": null },
+        { "texto": "Brueghel", "correcta": false, "tag_error": "confunde_flamenco" },
+        { "texto": "Van Eyck", "correcta": false, "tag_error": "confunde_primitivo_flamenco" },
+        { "texto": "Rubens", "correcta": false, "tag_error": "confunde_barroco" }
+      ],
+      "explicacion": "'El jardín de las delicias' (1490-1500) es de El Bosco. Está en el Museo del Prado.",
+      "dato_curioso": "Nadie ha descifrado del todo su significado: es una de las obras más enigmáticas de la historia.",
+      "dificultad": 2, "tags": ["arte", "arte_pintura"], "fuente": "Museo del Prado", "revision": "verificada"
+    },
+    {
+      "id": "a18", "tipo": "trivia",
+      "enunciado": "¿Quién es el arquitecto de la Sagrada Familia de Barcelona?",
+      "opciones": [
+        { "texto": "Gaudí", "correcta": true, "tag_error": null },
+        { "texto": "Le Corbusier", "correcta": false, "tag_error": "confunde_moderno" },
+        { "texto": "Frank Lloyd Wright", "correcta": false, "tag_error": "confunde_americano" },
+        { "texto": "Mies van der Rohe", "correcta": false, "tag_error": "confunde_bauhaus" }
+      ],
+      "explicacion": "Antoni Gaudí diseñó la Sagrada Familia, en construcción desde 1882.",
+      "dato_curioso": "Gaudí murió atropellado por un tranvía en 1926. Está enterrado en la cripta del templo.",
+      "dificultad": 3, "tags": ["arte", "arte_arquitectura", "historia_contemporanea"], "fuente": "Basílica Sagrada Familia", "revision": "verificada"
+    },
+    {
+      "id": "a19", "tipo": "trivia",
+      "enunciado": "¿Qué artista firmó un urinario como 'Fuente' y lo presentó como obra de arte?",
+      "opciones": [
+        { "texto": "Picasso", "correcta": false, "tag_error": "confunde_cubismo" },
+        { "texto": "Duchamp", "correcta": true, "tag_error": null },
+        { "texto": "Dalí", "correcta": false, "tag_error": "confunde_surrealismo" },
+        { "texto": "Warhol", "correcta": false, "tag_error": "confunde_pop" }
+      ],
+      "explicacion": "Marcel Duchamp presentó 'Fuente' (1917): un urinario firmado con el seudónimo 'R. Mutt'. Es la obra clave del arte conceptual.",
+      "dato_curioso": "Fue rechazada del salón de la Sociedad de Artistas Independientes, que decía aceptar todo.",
+      "dificultad": 3, "tags": ["arte", "arte_contemporaneo", "historia_contemporanea"], "fuente": "Tate", "revision": "verificada"
+    },
+    {
+      "id": "a20", "tipo": "trivia",
+      "enunciado": "¿Quién esculpió 'El discóbolo'?",
+      "opciones": [
+        { "texto": "Fidias", "correcta": false, "tag_error": "confunde_partenon" },
+        { "texto": "Mirón", "correcta": true, "tag_error": null },
+        { "texto": "Policleto", "correcta": false, "tag_error": "confunde_doríforo" },
+        { "texto": "Praxiteles", "correcta": false, "tag_error": "confunde_afrodita" }
+      ],
+      "explicacion": "Mirón esculpió 'El discóbolo' hacia el 460 a.C. Solo se conservan copias romanas.",
+      "dato_curioso": "El original de bronce se perdió: todo lo que queda son copias de mármol romanas.",
+      "dificultad": 3, "tags": ["arte", "arte_escultura", "historia_antigua"], "fuente": "Enciclopedia Británica", "revision": "verificada"
+    },
+    {
+      "id": "a21", "tipo": "trivia",
+      "enunciado": "¿En qué museo está 'Las meninas' de Velázquez?",
+      "opciones": [
+        { "texto": "Louvre", "correcta": false, "tag_error": "confunde_parís" },
+        { "texto": "Museo del Prado", "correcta": true, "tag_error": null },
+        { "texto": "Reina Sofía", "correcta": false, "tag_error": "confunde_moderno" },
+        { "texto": "Uffizi", "correcta": false, "tag_error": "confunde_florencia" }
+      ],
+      "explicacion": "'Las meninas' (1656) está en el Museo del Prado, Madrid.",
+      "dato_curioso": "Picasso hizo 58 variaciones sobre 'Las meninas' en 1957, una por cada figura del cuadro.",
+      "dificultad": 1, "tags": ["arte", "arte_pintura"], "fuente": "Museo del Prado", "revision": "verificada"
+    },
+    {
+      "id": "a22", "tipo": "trivia",
+      "enunciado": "¿Quién escribió la ópera 'La flauta mágica'?",
+      "opciones": [
+        { "texto": "Mozart", "correcta": true, "tag_error": null },
+        { "texto": "Beethoven", "correcta": false, "tag_error": "confunde_fidelio" },
+        { "texto": "Verdi", "correcta": false, "tag_error": "confunde_italiano" },
+        { "texto": "Wagner", "correcta": false, "tag_error": "confunde_aleman" }
+      ],
+      "explicacion": "Mozart compuso 'La flauta mágica' en 1791, el año de su muerte.",
+      "dato_curioso": "Mozart dirigió el estreno enfermo y murió dos meses después. No llegó a ver el éxito que tendría.",
+      "dificultad": 2, "tags": ["arte", "arte_musica"], "fuente": "Enciclopedia Británica", "revision": "verificada"
+    },
+
+    /* ===== GEOGRAFÍA (+10) ===== */
+    {
+      "id": "g13", "tipo": "trivia",
+      "enunciado": "¿Cuál es el país más pequeño del mundo?",
+      "opciones": [
+        { "texto": "Mónaco", "correcta": false, "tag_error": "confunde_segundo" },
+        { "texto": "Vaticano", "correcta": true, "tag_error": null },
+        { "texto": "San Marino", "correcta": false, "tag_error": "confunde_italia" },
+        { "texto": "Liechtenstein", "correcta": false, "tag_error": "confunde_alpes" }
+      ],
+      "explicacion": "El Vaticano tiene 0,44 km². Mónaco es el segundo, con 2 km².",
+      "dato_curioso": "Cabe 8 veces en el Parque del Retiro de Madrid.",
+      "dificultad": 1, "tags": ["geografia", "geografia_politica"], "fuente": "ONU", "revision": "verificada"
+    },
+    {
+      "id": "g14", "tipo": "trivia",
+      "enunciado": "¿Cuál es la capital de Italia?",
+      "opciones": [
+        { "texto": "Milán", "correcta": false, "tag_error": "confunde_economica" },
+        { "texto": "Roma", "correcta": true, "tag_error": null },
+        { "texto": "Nápoles", "correcta": false, "tag_error": "confunde_sur" },
+        { "texto": "Florencia", "correcta": false, "tag_error": "confunde_arte" }
+      ],
+      "explicacion": "Roma es la capital de Italia desde 1871.",
+      "dato_curioso": "Roma tiene un estado dentro: el Vaticano, el país más pequeño del mundo.",
+      "dificultad": 1, "tags": ["geografia", "geografia_politica"], "fuente": "Gobierno de Italia", "revision": "verificada"
+    },
+    {
+      "id": "g15", "tipo": "trivia",
+      "enunciado": "¿Cuál es el río más caudaloso del mundo?",
+      "opciones": [
+        { "texto": "Nilo", "correcta": false, "tag_error": "confunde_largo" },
+        { "texto": "Amazonas", "correcta": true, "tag_error": null },
+        { "texto": "Congo", "correcta": false, "tag_error": "confunde_africa" },
+        { "texto": "Yangtsé", "correcta": false, "tag_error": "confunde_asia" }
+      ],
+      "explicacion": "El Amazonas es el más caudaloso: vierte unos 209.000 m³/s al océano.",
+      "dato_curioso": "Su caudal es mayor que el de los 7 ríos más grandes del mundo juntos.",
+      "dificultad": 1, "tags": ["geografia", "geografia_fisica"], "fuente": "USGS", "revision": "verificada"
+    },
+    {
+      "id": "g16", "tipo": "trivia",
+      "enunciado": "¿Qué país tiene forma de bota?",
+      "opciones": [
+        { "texto": "Grecia", "correcta": false, "tag_error": "confunde_peninsula" },
+        { "texto": "Italia", "correcta": true, "tag_error": null },
+        { "texto": "Portugal", "correcta": false, "tag_error": "confunde_iberica" },
+        { "texto": "Chile", "correcta": false, "tag_error": "confunde_largo" }
+      ],
+      "explicacion": "Italia tiene forma de bota: la península itálica se extiende hacia el Mediterráneo.",
+      "dato_curioso": "La 'punta' de la bota es la región de Calabria, y el 'tacón' es Puglia.",
+      "dificultad": 1, "tags": ["geografia", "geografia_fisica"], "fuente": "IGN", "revision": "verificada"
+    },
+    {
+      "id": "g17", "tipo": "trivia",
+      "enunciado": "¿Cuál es el país más poblado de África?",
+      "opciones": [
+        { "texto": "Egipto", "correcta": false, "tag_error": "confunde_norte" },
+        { "texto": "Nigeria", "correcta": true, "tag_error": null },
+        { "texto": "Etiopía", "correcta": false, "tag_error": "confunde_cuerno" },
+        { "texto": "Sudáfrica", "correcta": false, "tag_error": "confunde_economia" }
+      ],
+      "explicacion": "Nigeria tiene ~220 millones de habitantes, el más poblado de África.",
+      "dato_curioso": "Nollywood, la industria de cine nigeriana, es la segunda del mundo por número de películas, después de Bollywood.",
+      "dificultad": 2, "tags": ["geografia", "geografia_politica"], "fuente": "ONU", "revision": "verificada"
+    },
+    {
+      "id": "g18", "tipo": "trivia",
+      "enunciado": "¿Qué estrecho separa Europa de África?",
+      "opciones": [
+        { "texto": "Bósforo", "correcta": false, "tag_error": "confunde_asia_europa" },
+        { "texto": "Gibraltar", "correcta": true, "tag_error": null },
+        { "texto": "Mesina", "correcta": false, "tag_error": "confunde_sicilia" },
+        { "texto": "Oresund", "correcta": false, "tag_error": "confunde_dinamarca" }
+      ],
+      "explicacion": "El estrecho de Gibraltar separa España de Marruecos, Europa de África. Solo 14 km en su punto más estrecho.",
+      "dato_curioso": "En días claros se ve Marruecos desde Tarifa sin prismáticos.",
+      "dificultad": 2, "tags": ["geografia", "geografia_fisica"], "fuente": "IGN", "revision": "verificada"
+    },
+    {
+      "id": "g19", "tipo": "trivia",
+      "enunciado": "¿Cuál es la montaña más alta de África?",
+      "opciones": [
+        { "texto": "Ruwenzori", "correcta": false, "tag_error": "confunde_uganda" },
+        { "texto": "Kilimanjaro", "correcta": true, "tag_error": null },
+        { "texto": "Atlas", "correcta": false, "tag_error": "confunde_marruecos" },
+        { "texto": "Monte Kenia", "correcta": false, "tag_error": "confunde_segundo" }
+      ],
+      "explicacion": "El Kilimanjaro (Tanzania) tiene 5.895 m. Es la montaña más alta de África y un volcán dormido.",
+      "dato_curioso": "Tiene nieve en la cima pese a estar en el ecuador. Hemingway escribió 'Las nieves del Kilimanjaro'.",
+      "dificultad": 3, "tags": ["geografia", "geografia_fisica"], "fuente": "UNESCO", "revision": "verificada"
+    },
+    {
+      "id": "g20", "tipo": "trivia",
+      "enunciado": "¿Qué país tiene más islas en el mundo?",
+      "opciones": [
+        { "texto": "Indonesia", "correcta": false, "tag_error": "confunde_archipielago" },
+        { "texto": "Filipinas", "correcta": false, "tag_error": "confunde_otro_archipielago" },
+        { "texto": "Suecia", "correcta": true, "tag_error": null },
+        { "texto": "Canadá", "correcta": false, "tag_error": "confunde_norte" }
+      ],
+      "explicacion": "Suecia tiene más de 267.000 islas, aunque la mayoría son pequeñas y deshabitadas.",
+      "dato_curioso": "Solo unas 1.000 islas suecas están habitadas todo el año.",
+      "dificultad": 3, "tags": ["geografia", "geografia_politica"], "fuente": "Statistics Sweden", "revision": "verificada"
+    },
+    {
+      "id": "g21", "tipo": "trivia",
+      "enunciado": "¿Cuántos países hay en América del Sur?",
+      "opciones": [
+        { "texto": "10", "correcta": false, "tag_error": "off_by_two" },
+        { "texto": "12", "correcta": true, "tag_error": null },
+        { "texto": "14", "correcta": false, "tag_error": "confunde_con_dependencias" },
+        { "texto": "16", "correcta": false, "tag_error": "confunde_con_centroamerica" }
+      ],
+      "explicacion": "Hay 12 países independientes en América del Sur. Si contamos territorios dependientes, son 14.",
+      "dato_curioso": "América del Sur tiene el país más austral del mundo: Chile llega hasta la Antártida.",
+      "dificultad": 2, "tags": ["geografia", "geografia_politica"], "fuente": "ONU", "revision": "verificada"
+    },
+    {
+      "id": "g22", "tipo": "trivia",
+      "enunciado": "¿Cuál es el desierto cálido más grande del mundo?",
+      "opciones": [
+        { "texto": "Gobi", "correcta": false, "tag_error": "confunde_asia" },
+        { "texto": "Sahara", "correcta": true, "tag_error": null },
+        { "texto": "Kalahari", "correcta": false, "tag_error": "confunde_africa_sur" },
+        { "texto": "Atacama", "correcta": false, "tag_error": "confunde_chile" }
+      ],
+      "explicacion": "El Sahara tiene 9,2 millones de km², casi el tamaño de Estados Unidos.",
+      "dato_curioso": "Hace 6.000 años el Sahara era verde, con lagos y ríos. Se secó por cambios orbitales.",
+      "dificultad": 2, "tags": ["geografia", "geografia_fisica"], "fuente": "NASA", "revision": "verificada"
+    },
+
+    /* ===== PSICOTÉCNICO (+15) ===== */
+    {
+      "id": "p08", "tipo": "psicotecnico",
+      "enunciado": "1, 3, 5, 7, ?",
+      "opciones": [
+        { "texto": "8", "correcta": false, "tag_error": "confunde_par" },
+        { "texto": "9", "correcta": true, "tag_error": null },
+        { "texto": "10", "correcta": false, "tag_error": "salto_doble" },
+        { "texto": "11", "correcta": false, "tag_error": "salto_triple" }
+      ],
+      "explicacion": "Números impares consecutivos: 1, 3, 5, 7, 9.",
+      "dato_curioso": "La suma de los primeros n impares es n²: 1+3+5+7 = 16 = 4².",
+      "dificultad": 1, "tags": ["psicotecnico", "psicotecnico_numerico"], "fuente": "Generado", "revision": "verificada"
+    },
+    {
+      "id": "p09", "tipo": "psicotecnico",
+      "enunciado": "A, C, E, G, ?",
+      "opciones": [
+        { "texto": "H", "correcta": false, "tag_error": "salto_uno" },
+        { "texto": "I", "correcta": true, "tag_error": null },
+        { "texto": "J", "correcta": false, "tag_error": "salto_dos" },
+        { "texto": "K", "correcta": false, "tag_error": "salto_tres" }
+      ],
+      "explicacion": "Letras saltando una: A, C, E, G, I.",
+      "dato_curioso": "En el alfabeto español moderno hay 27 letras, contando la Ñ.",
+      "dificultad": 1, "tags": ["psicotecnico", "psicotecnico_logico"], "fuente": "Generado", "revision": "verificada"
+    },
+    {
+      "id": "p10", "tipo": "psicotecnico",
+      "enunciado": "10, 20, 30, 40, ?",
+      "opciones": [
+        { "texto": "45", "correcta": false, "tag_error": "salto_irregular" },
+        { "texto": "50", "correcta": true, "tag_error": null },
+        { "texto": "60", "correcta": false, "tag_error": "salto_doble" },
+        { "texto": "80", "correcta": false, "tag_error": "salto_triple" }
+      ],
+      "explicacion": "La tabla del 10: cada número aumenta de 10 en 10.",
+      "dato_curioso": "Contar de 10 en 10 es el sistema decimal, basado en los 10 dedos de las manos.",
+      "dificultad": 1, "tags": ["psicotecnico", "psicotecnico_numerico"], "fuente": "Generado", "revision": "verificada"
+    },
+    {
+      "id": "p11", "tipo": "psicotecnico",
+      "enunciado": "5, 4, 3, 2, ?",
+      "opciones": [
+        { "texto": "0", "correcta": false, "tag_error": "salto_doble" },
+        { "texto": "1", "correcta": true, "tag_error": null },
+        { "texto": "-1", "correcta": false, "tag_error": "confunde_negativos" },
+        { "texto": "3", "correcta": false, "tag_error": "repite" }
+      ],
+      "explicacion": "Cuenta atrás: 5, 4, 3, 2, 1.",
+      "dato_curioso": "El 1 tardó siglos en ser aceptado como número en Europa, por influencia árabe.",
+      "dificultad": 1, "tags": ["psicotecnico", "psicotecnico_numerico"], "fuente": "Generado", "revision": "verificada"
+    },
+    {
+      "id": "p12", "tipo": "psicotecnico",
+      "enunciado": "1, 1, 2, 3, 5, 8, ?",
+      "opciones": [
+        { "texto": "11", "correcta": false, "tag_error": "suma_constante" },
+        { "texto": "12", "correcta": false, "tag_error": "suma_cuatro" },
+        { "texto": "13", "correcta": true, "tag_error": null },
+        { "texto": "16", "correcta": false, "tag_error": "doble" }
+      ],
+      "explicacion": "Sucesión de Fibonacci: cada número es la suma de los dos anteriores. 5+8=13.",
+      "dato_curioso": "La proporción entre términos consecutivos se acerca a la proporción áurea (1,618...).",
+      "dificultad": 2, "tags": ["psicotecnico", "psicotecnico_numerico"], "fuente": "Generado", "revision": "verificada"
+    },
+    {
+      "id": "p13", "tipo": "psicotecnico",
+      "enunciado": "3, 6, 12, 24, ?",
+      "opciones": [
+        { "texto": "30", "correcta": false, "tag_error": "suma_seis" },
+        { "texto": "36", "correcta": false, "tag_error": "confunde_cuadrados" },
+        { "texto": "48", "correcta": true, "tag_error": null },
+        { "texto": "56", "correcta": false, "tag_error": "suma_ocho" }
+      ],
+      "explicacion": "Cada número es el doble del anterior: 3×2=6, 6×2=12, 12×2=24, 24×2=48.",
+      "dato_curioso": "Esta secuencia se usa en la leyenda del ajedrez: los granos se doblaban en cada casilla.",
+      "dificultad": 2, "tags": ["psicotecnico", "psicotecnico_numerico"], "fuente": "Generado", "revision": "verificada"
+    },
+    {
+      "id": "p14", "tipo": "psicotecnico",
+      "enunciado": "1, 2, 4, 7, 11, ?",
+      "opciones": [
+        { "texto": "14", "correcta": false, "tag_error": "suma_tres" },
+        { "texto": "16", "correcta": true, "tag_error": null },
+        { "texto": "18", "correcta": false, "tag_error": "suma_siete" },
+        { "texto": "22", "correcta": false, "tag_error": "doble" }
+      ],
+      "explicacion": "Las diferencias aumentan de uno en uno: +1, +2, +3, +4, +5. 11+5=16.",
+      "dato_curioso": "La fórmula es n(n-1)/2 + 1. Para n=6: 6×5/2+1 = 16.",
+      "dificultad": 2, "tags": ["psicotecnico", "psicotecnico_numerico"], "fuente": "Generado", "revision": "verificada"
+    },
+    {
+      "id": "p15", "tipo": "psicotecnico",
+      "enunciado": "Si A=1, B=2, C=3..., ¿qué número corresponde a R?",
+      "opciones": [
+        { "texto": "17", "correcta": false, "tag_error": "confunde_ñ" },
+        { "texto": "18", "correcta": true, "tag_error": null },
+        { "texto": "19", "correcta": false, "tag_error": "cuenta_ñ" },
+        { "texto": "20", "correcta": false, "tag_error": "off_by_two" }
+      ],
+      "explicacion": "En el alfabeto inglés (sin Ñ): A=1, ..., Q=17, R=18.",
+      "dato_curioso": "En el alfabeto español, R=19 porque la Ñ ocupa el lugar 15.",
+      "dificultad": 2, "tags": ["psicotecnico", "psicotecnico_logico"], "fuente": "Generado", "revision": "verificada"
+    },
+    {
+      "id": "p16", "tipo": "psicotecnico",
+      "enunciado": "2, 6, 12, 20, 30, ?",
+      "opciones": [
+        { "texto": "36", "correcta": false, "tag_error": "suma_seis" },
+        { "texto": "40", "correcta": false, "tag_error": "suma_diez" },
+        { "texto": "42", "correcta": true, "tag_error": null },
+        { "texto": "48", "correcta": false, "tag_error": "doble" }
+      ],
+      "explicacion": "Es n(n+1): 1×2=2, 2×3=6, 3×4=12, 4×5=20, 5×6=30, 6×7=42.",
+      "dato_curioso": "Estos son los números oblongos, la suma de los primeros n números pares.",
+      "dificultad": 2, "tags": ["psicotecnico", "psicotecnico_numerico"], "fuente": "Generado", "revision": "verificada"
+    },
+    {
+      "id": "p17", "tipo": "psicotecnico",
+      "enunciado": "Z, Y, X, W, ?",
+      "opciones": [
+        { "texto": "T", "correcta": false, "tag_error": "salto_dos" },
+        { "texto": "U", "correcta": false, "tag_error": "salto_uno" },
+        { "texto": "V", "correcta": true, "tag_error": null },
+        { "texto": "W", "correcta": false, "tag_error": "repite" }
+      ],
+      "explicacion": "Alfabeto hacia atrás: Z, Y, X, W, V.",
+      "dato_curioso": "El alfabeto fenicio, origen del nuestro, se escribía de derecha a izquierda.",
+      "dificultad": 2, "tags": ["psicotecnico", "psicotecnico_logico"], "fuente": "Generado", "revision": "verificada"
+    },
+    {
+      "id": "p18", "tipo": "psicotecnico",
+      "enunciado": "2, 3, 5, 7, 11, ?",
+      "opciones": [
+        { "texto": "12", "correcta": false, "tag_error": "salto_uno" },
+        { "texto": "13", "correcta": true, "tag_error": null },
+        { "texto": "14", "correcta": false, "tag_error": "salto_dos" },
+        { "texto": "15", "correcta": false, "tag_error": "salto_tres" }
+      ],
+      "explicacion": "Números primos: 2, 3, 5, 7, 11, 13.",
+      "dato_curioso": "Euclides demostró hace 2.300 años que hay infinitos números primos.",
+      "dificultad": 2, "tags": ["psicotecnico", "psicotecnico_numerico"], "fuente": "Generado", "revision": "verificada"
+    },
+    {
+      "id": "p19", "tipo": "psicotecnico",
+      "enunciado": "1, 4, 9, 16, 25, ?",
+      "opciones": [
+        { "texto": "30", "correcta": false, "tag_error": "salto_irregular" },
+        { "texto": "36", "correcta": true, "tag_error": null },
+        { "texto": "49", "correcta": false, "tag_error": "salto_doble" },
+        { "texto": "64", "correcta": false, "tag_error": "salto_triple" }
+      ],
+      "explicacion": "Cuadrados perfectos: 1², 2², 3², 4², 5², 6²=36.",
+      "dato_curioso": "La diferencia entre cuadrados consecutivos son los números impares: 36-25=11.",
+      "dificultad": 3, "tags": ["psicotecnico", "psicotecnico_numerico"], "fuente": "Generado", "revision": "verificada"
+    },
+    {
+      "id": "p20", "tipo": "psicotecnico",
+      "enunciado": "1, 8, 27, 64, ?",
+      "opciones": [
+        { "texto": "100", "correcta": false, "tag_error": "confunde_cien" },
+        { "texto": "121", "correcta": false, "tag_error": "confunde_cuadrados" },
+        { "texto": "125", "correcta": true, "tag_error": null },
+        { "texto": "144", "correcta": false, "tag_error": "confunde_doce" }
+      ],
+      "explicacion": "Cubos perfectos: 1³, 2³, 3³, 4³, 5³=125.",
+      "dato_curioso": "Los cubos crecen más rápido que los cuadrados: por eso el volumen de un cubo explota al doblar su lado.",
+      "dificultad": 3, "tags": ["psicotecnico", "psicotecnico_numerico"], "fuente": "Generado", "revision": "verificada"
+    },
+    {
+      "id": "p21", "tipo": "psicotecnico",
+      "enunciado": "1, 1, 2, 6, 24, ?",
+      "opciones": [
+        { "texto": "48", "correcta": false, "tag_error": "doble" },
+        { "texto": "96", "correcta": false, "tag_error": "cuadruple" },
+        { "texto": "120", "correcta": true, "tag_error": null },
+        { "texto": "144", "correcta": false, "tag_error": "confunde_factorial_5" }
+      ],
+      "explicacion": "Factoriales: 1!=1, 2!=2, 3!=6, 4!=24, 5!=120.",
+      "dato_curioso": "20! tiene 19 cifras. 100! tendría 158 cifras, más que átomos en el universo observable.",
+      "dificultad": 3, "tags": ["psicotecnico", "psicotecnico_numerico"], "fuente": "Generado", "revision": "verificada"
+    },
+    {
+      "id": "p22", "tipo": "psicotecnico",
+      "enunciado": "1, 2, 6, 24, 120, ?",
+      "opciones": [
+        { "texto": "240", "correcta": false, "tag_error": "doble_ultimo" },
+        { "texto": "360", "correcta": false, "tag_error": "multiplica_por_tres" },
+        { "texto": "720", "correcta": true, "tag_error": null },
+        { "texto": "840", "correcta": false, "tag_error": "suma_120" }
+      ],
+      "explicacion": "Factoriales desde 1: 1!=1, 2!=2, 3!=6, 4!=24, 5!=120, 6!=720.",
+      "dato_curioso": "6! = 720 es el número de formas de ordenar 6 libros distintos.",
+      "dificultad": 3, "tags": ["psicotecnico", "psicotecnico_numerico"], "fuente": "Generado", "revision": "verificada"
+    }
+  ]
+}
