@@ -1,1872 +1,2107 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Torre Oscura – Árbol de Personaje v9 (Feedback Visual + Atributos)</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link href="https://fonts.googleapis.com/css2?family=Inter:opsz@14..32&family=Orbitron:wght@400;700&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" />
-    <style>
-        :root {
-            --bg-primary: #0b0b1a;
-            --bg-panel: rgba(22, 33, 62, 0.92);
-            --accent: #e94560;
-            --accent-hover: #c0392b;
-            --text-primary: #eee;
-            --text-muted: #aaa;
-            --border-subtle: rgba(255, 255, 255, 0.08);
-            --shadow-panel: 0 8px 32px rgba(0, 0, 0, 0.6);
-            --radius-panel: 16px;
-            --radius-card: 12px;
-            --transition: 0.25s ease;
-            --good: #4ecca3;
-            --warn: #f9ca24;
-            /* Rareza colores */
-            --color-common: #5a7a9a;
-            --color-rare: #4a9eff;
-            --color-epic: #b44aff;
-            --color-legendary: #ffaa00;
-            --color-max: #ffd700;
-            --color-unlockable: #f39c12;
-        }
-        * { box-sizing: border-box; margin: 0; padding: 0; }
-        body {
-            font-family: 'Inter', system-ui, sans-serif;
-            background: radial-gradient(ellipse at 20% 20%, #0f0c29, #302b63, #24243e);
-            color: var(--text-primary);
-            min-height: 100vh;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            padding: 1.5rem 1rem;
-        }
-        h1 {
-            font-family: 'Orbitron', monospace;
-            font-size: 2rem;
-            background: linear-gradient(135deg, var(--accent), #f9ca24);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            background-clip: text;
-            margin-bottom: 1.2rem;
-            letter-spacing: 0.05em;
-        }
-        .main-container {
-            display: flex;
-            gap: 1.2rem;
-            width: 100%;
-            max-width: 1800px;
-            flex-wrap: wrap;
-        }
-        .panel {
-            background: var(--bg-panel);
-            backdrop-filter: blur(8px);
-            border: 1px solid var(--border-subtle);
-            border-radius: var(--radius-panel);
-            padding: 1.2rem 1.4rem;
-            flex: 1 1 280px;
-            max-height: 92vh;
-            overflow-y: auto;
-            box-shadow: var(--shadow-panel);
-            transition: box-shadow var(--transition);
-        }
-        .panel:hover { box-shadow: 0 8px 40px rgba(0, 0, 0, 0.7); }
-        .panel h2 {
-            font-family: 'Orbitron', monospace;
-            font-size: 1.1rem;
-            margin-bottom: 0.8rem;
-            border-bottom: 1px solid var(--border-subtle);
-            padding-bottom: 0.5rem;
-            display: flex;
-            align-items: center;
-            gap: 0.5rem;
-            letter-spacing: 0.03em;
-        }
-        .panel h2 i { color: var(--accent); font-size: 1.1rem; }
-        .stat-grid {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 0.3rem 0.8rem;
-            font-size: 0.82rem;
-            margin: 0.4rem 0;
-        }
-        .stat-item {
-            display: flex;
-            justify-content: space-between;
-            padding: 0.05rem 0.2rem;
-            border-radius: 4px;
-            background: rgba(255, 255, 255, 0.02);
-        }
-        .stat-item .value {
-            font-weight: bold;
-            font-family: 'Orbitron', monospace;
-            font-size: 0.78rem;
-        }
-        .stat-group-title {
-            font-size: 0.7rem;
-            text-transform: uppercase;
-            letter-spacing: 0.08em;
-            color: var(--text-muted);
-            border-bottom: 1px solid var(--border-subtle);
-            padding-bottom: 0.2rem;
-            margin: 0.4rem 0 0.2rem 0;
-        }
-        .stat-group { margin: 0.2rem 0; }
-        .affinity-bar {
-            display: flex;
-            flex-direction: column;
-            gap: 0.2rem;
-            margin: 0.3rem 0;
-            max-height: 150px;
-            overflow-y: auto;
-            padding-right: 0.2rem;
-        }
-        .affinity-row {
-            display: flex;
-            align-items: center;
-            gap: 0.4rem;
-            font-size: 0.72rem;
-            border-radius: 4px;
-            padding: 0.05rem 0.2rem;
-        }
-        .affinity-row .tag-label { width: 70px; flex-shrink: 0; color: var(--text-muted); text-transform: capitalize; }
-        .affinity-track { flex: 1; height: 5px; background: rgba(255,255,255,0.08); border-radius: 4px; overflow: hidden; }
-        .affinity-fill { height: 100%; border-radius: 4px; width: 0%; transition: width 0.4s ease; }
-        .affinity-row .affinity-value {
-            font-family: 'Orbitron', monospace;
-            font-size: 0.7rem;
-            color: var(--text-primary);
-            width: 28px;
-            text-align: right;
-        }
-        .affinity-train-btn {
-            background: var(--warn);
-            border: none;
-            border-radius: 12px;
-            color: #000;
-            font-size: 0.55rem;
-            padding: 0.05rem 0.5rem;
-            cursor: pointer;
-            font-weight: 600;
-            transition: all 0.2s;
-            opacity: 0;
-            pointer-events: none;
-        }
-        .affinity-row:hover .affinity-train-btn { opacity: 1; pointer-events: auto; }
-        .affinity-train-btn:hover { transform: scale(1.1); }
-        .affinity-train-btn:disabled { opacity: 0.3; cursor: not-allowed; }
-        .button {
-            background: var(--accent);
-            color: #fff;
-            border: none;
-            padding: 0.5rem 1rem;
-            border-radius: 8px;
-            cursor: pointer;
-            font-weight: 600;
-            font-size: 0.85rem;
-            transition: all var(--transition);
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            gap: 0.4rem;
-            width: 100%;
-            margin: 0.25rem 0;
-            font-family: 'Inter', sans-serif;
-        }
-        .button:hover { background: var(--accent-hover); transform: scale(1.02); box-shadow: 0 4px 16px rgba(233,69,96,0.4); }
-        .button.secondary { background: #2d6a9f; }
-        .button.secondary:hover { background: #1f4a7a; }
-        .button.good { background: var(--good); color: #000; }
-        .button.good:hover { background: #3ab88a; }
-        .button.warn { background: var(--warn); color: #000; }
-        .button.warn:hover { background: #e6b800; }
-        .button.attr { background: #4a6a8a; color: #fff; width: auto; padding: 0.2rem 0.8rem; font-size: 0.75rem; margin: 0.1rem 0; }
-        .button.attr:hover { background: #5a8aaa; }
-        .flex-row {
-            display: flex;
-            gap: 0.4rem;
-            flex-wrap: wrap;
-            align-items: center;
-            margin: 0.3rem 0;
-        }
-        .flex-row .button { width: auto; flex: 1 1 auto; }
-        .stat-badge {
-            background: rgba(255,255,255,0.06);
-            padding: 0.2rem 0.7rem;
-            border-radius: 20px;
-            font-size: 0.8rem;
-            font-family: 'Orbitron', monospace;
-            border: 1px solid var(--border-subtle);
-        }
-        .message {
-            min-height: 2.2rem;
-            font-style: italic;
-            color: var(--warn);
-            margin: 0.4rem 0;
-            padding: 0.2rem 0.6rem;
-            border-left: 3px solid var(--warn);
-            background: rgba(249,202,36,0.05);
-            border-radius: 4px;
-            font-size: 0.85rem;
-        }
-        .log-list {
-            display: flex;
-            flex-direction: column;
-            gap: 0.2rem;
-            max-height: 140px;
-            overflow-y: auto;
-            margin-top: 0.3rem;
-        }
-        .log-entry {
-            font-size: 0.75rem;
-            border-bottom: 1px solid var(--border-subtle);
-            padding: 0.2rem 0;
-            display: flex;
-            align-items: center;
-            gap: 0.4rem;
-        }
-        .log-entry i { width: 16px; font-size: 0.7rem; }
-        .log-entry.unlock { color: var(--good); }
-        .log-entry.synergy { color: var(--color-epic); }
-        .log-entry.combo { color: var(--color-legendary); }
-        .log-entry.event { color: #85c1e9; }
-        .log-entry.mission { color: #f39c12; }
-        .log-entry.attr { color: #4a9eff; }
-        .tabs {
-            display: flex;
-            gap: 0.3rem;
-            margin-bottom: 0.7rem;
-            flex-wrap: wrap;
-        }
-        .tab-btn {
-            background: transparent;
-            border: 1px solid var(--border-subtle);
-            border-radius: 8px;
-            padding: 0.3rem 1rem;
-            color: var(--text-muted);
-            cursor: pointer;
-            font-weight: 600;
-            font-size: 0.8rem;
-            transition: all var(--transition);
-            font-family: 'Inter', sans-serif;
-        }
-        .tab-btn:hover { background: rgba(255,255,255,0.04); color: #fff; }
-        .tab-btn.active { background: var(--good); color: #000; border-color: var(--good); }
-        .constellation-container {
-            position: relative;
-            width: 100%;
-            min-height: 450px;
-            border: 1px solid var(--border-subtle);
-            border-radius: var(--radius-card);
-            background: rgba(0,0,0,0.2);
-            overflow: auto;
-            padding: 1rem;
-        }
-        .constellation-container svg {
-            display: block;
-            width: 100%;
-            height: auto;
-            min-height: 450px;
-        }
-        .node-svg {
-            cursor: pointer;
-            transition: r 0.2s, fill 0.2s, stroke-width 0.2s;
-        }
-        .node-svg:hover { r: 24; }
-        .node-svg.locked { fill: #444; stroke: #666; }
-        .node-svg.unlockable { fill: var(--color-unlockable); stroke: #fff; stroke-width: 2; animation: pulse-border 1.5s infinite; }
-        .node-svg.unlocked { fill: var(--color-common); stroke: #fff; stroke-width: 2; }
-        .node-svg.maxed { fill: var(--color-legendary); stroke: #ffd700; stroke-width: 3; }
-        .node-svg.epic { fill: var(--color-epic); }
-        .node-svg.legendary { fill: var(--color-legendary); }
-        .node-svg.rare { fill: var(--color-rare); }
-        @keyframes pulse-border {
-            0% { stroke-width: 2; stroke: #fff; }
-            50% { stroke-width: 4; stroke: var(--color-unlockable); }
-            100% { stroke-width: 2; stroke: #fff; }
-        }
-        .node-label {
-            font-size: 7px;
-            fill: #fff;
-            text-anchor: middle;
-            dominant-baseline: central;
-            pointer-events: none;
-            font-weight: 600;
-            text-shadow: 0 0 4px #000;
-        }
-        .edge-line { stroke: #555; stroke-width: 2; opacity: 0.4; }
-        .edge-line.active { stroke: var(--good); opacity: 0.8; }
-        .edge-line.ascend { stroke: var(--color-epic); opacity: 0.9; }
-        .edge-line.required { stroke: #f39c12; opacity: 0.6; stroke-dasharray: 4 4; }
-        .ruleta-container {
-            display: flex;
-            gap: 0.8rem;
-            flex-wrap: wrap;
-            margin: 0.5rem 0;
-        }
-        .ruleta-opcion {
-            flex: 1 1 160px;
-            background: rgba(31,42,68,0.7);
-            border: 2px solid var(--border-subtle);
-            border-radius: var(--radius-card);
-            padding: 0.8rem;
-            cursor: pointer;
-            transition: all var(--transition);
-            text-align: center;
-            backdrop-filter: blur(4px);
-            box-shadow: 0 2px 8px rgba(0,0,0,0.2);
-            position: relative;
-        }
-        .ruleta-opcion:hover { border-color: var(--good); transform: translateY(-4px); }
-        .ruleta-opcion .nombre { font-weight: 700; font-size: 0.9rem; }
-        .ruleta-opcion .detalles { font-size: 0.65rem; color: var(--text-muted); }
-        .ruleta-opcion .rarity-badge {
-            display: inline-block;
-            padding: 0.05rem 0.5rem;
-            border-radius: 12px;
-            font-size: 0.55rem;
-            font-weight: 600;
-            text-transform: uppercase;
-            margin-top: 0.2rem;
-        }
-        .rarity-common { background: var(--color-common); color: #fff; }
-        .rarity-rare { background: var(--color-rare); color: #fff; }
-        .rarity-epic { background: var(--color-epic); color: #fff; }
-        .rarity-legendary { background: var(--color-legendary); color: #000; }
-        .ruleta-opcion .btn-elegir {
-            margin-top: 0.4rem;
-            padding: 0.15rem 1rem;
-            font-size: 0.75rem;
-            border-radius: 6px;
-            background: var(--good);
-            color: #000;
-            border: none;
-            cursor: pointer;
-            font-weight: 600;
-            transition: all var(--transition);
-        }
-        .ruleta-opcion .btn-elegir:hover { transform: scale(1.05); background: #3ab88a; }
-        .ruleta-opcion .max-tag {
-            position: absolute;
-            top: -6px;
-            right: -6px;
-            background: var(--color-max);
-            color: #000;
-            font-size: 0.55rem;
-            font-weight: 700;
-            padding: 0.05rem 0.4rem;
-            border-radius: 10px;
-            border: 1px solid #fff;
-        }
-        .node-list {
-            max-height: 380px;
-            overflow-y: auto;
-            display: flex;
-            flex-direction: column;
-            gap: 0.4rem;
-            padding-right: 0.2rem;
-        }
-        .node-card {
-            background: rgba(31,42,68,0.7);
-            border: 1px solid var(--border-subtle);
-            border-radius: var(--radius-card);
-            padding: 0.5rem 0.7rem;
-            transition: all var(--transition);
-            backdrop-filter: blur(4px);
-            box-shadow: 0 2px 8px rgba(0,0,0,0.2);
-            position: relative;
-        }
-        .node-card .name { font-weight: 700; font-size: 0.9rem; display: flex; align-items: center; gap: 0.3rem; }
-        .node-card .tags { font-size: 0.6rem; color: var(--text-muted); }
-        .node-card .rarity-badge {
-            display: inline-block;
-            padding: 0.05rem 0.4rem;
-            border-radius: 12px;
-            font-size: 0.55rem;
-            font-weight: 600;
-            text-transform: uppercase;
-            margin: 0.1rem 0;
-        }
-        .node-card .effects { font-size: 0.65rem; color: var(--text-primary); margin-top: 0.15rem; opacity: 0.9; }
-        .node-card .reqs { font-size: 0.55rem; color: var(--text-muted); margin-top: 0.15rem; line-height: 1.3; }
-        .node-card .cost-badge {
-            background: rgba(255,255,255,0.08);
-            color: var(--text-muted);
-            font-size: 0.55rem;
-            padding: 0.05rem 0.4rem;
-            border-radius: 10px;
-            display: inline-block;
-            margin-top: 0.15rem;
-        }
-        .node-card .btn-unlock-node {
-            margin-top: 0.3rem;
-            padding: 0.1rem 0.6rem;
-            font-size: 0.7rem;
-            border-radius: 6px;
-            background: var(--good);
-            color: #000;
-            border: none;
-            cursor: pointer;
-            font-weight: 600;
-            transition: all var(--transition);
-        }
-        .node-card .btn-unlock-node:hover { transform: scale(1.05); background: #3ab88a; }
-        .node-card .max-tag {
-            position: absolute;
-            top: 4px;
-            right: 6px;
-            background: var(--color-max);
-            color: #000;
-            font-size: 0.55rem;
-            font-weight: 700;
-            padding: 0.05rem 0.4rem;
-            border-radius: 10px;
-        }
-        .toast-container {
-            position: fixed;
-            bottom: 20px;
-            right: 20px;
-            z-index: 999;
-            display: flex;
-            flex-direction: column;
-            gap: 0.5rem;
-            max-width: 300px;
-            pointer-events: none;
-        }
-        .toast {
-            background: rgba(22,33,62,0.95);
-            backdrop-filter: blur(8px);
-            border: 1px solid var(--border-subtle);
-            border-radius: var(--radius-card);
-            padding: 0.6rem 1rem;
-            box-shadow: var(--shadow-panel);
-            color: var(--text-primary);
-            font-size: 0.85rem;
-            pointer-events: auto;
-            animation: slideIn 0.3s ease;
-            border-left: 4px solid var(--good);
-        }
-        .toast.error { border-left-color: var(--accent); }
-        .toast.warn { border-left-color: var(--warn); }
-        @keyframes slideIn { from { opacity:0; transform:translateX(40px); } to { opacity:1; transform:translateX(0); } }
-        @media (max-width: 768px) {
-            .main-container { flex-direction: column; }
-            .panel { max-height: none; flex: none; }
-            .stat-grid { grid-template-columns: 1fr 1fr; }
-            .ruleta-opcion { flex: 1 1 100%; }
-            h1 { font-size: 1.4rem; }
-        }
-        .branch-summary {
-            display: flex;
-            gap: 0.4rem;
-            flex-wrap: wrap;
-            font-size: 0.65rem;
-            margin: 0.2rem 0;
-        }
-        .branch-tag {
-            background: rgba(255,255,255,0.05);
-            padding: 0.05rem 0.5rem;
-            border-radius: 12px;
-            border: 1px solid var(--border-subtle);
-        }
-        .branch-tag .count { color: var(--good); font-weight: 700; }
-        .points-warning {
-            color: var(--warn);
-            font-weight: 700;
-            margin: 0.3rem 0;
-            font-size: 0.9rem;
-        }
-        .progress-bar-global {
-            height: 4px;
-            background: rgba(255,255,255,0.08);
-            border-radius: 2px;
-            margin: 0.4rem 0;
-            overflow: hidden;
-        }
-        .progress-bar-global .fill {
-            height: 100%;
-            background: linear-gradient(90deg, var(--accent), var(--good));
-            border-radius: 2px;
-            transition: width 0.5s ease;
-        }
-        .hito-indicator {
-            color: var(--warn);
-            font-weight: 700;
-            margin: 0.2rem 0;
-            font-size: 0.8rem;
-        }
-        .attr-panel {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 0.3rem 0.6rem;
-            margin: 0.3rem 0;
-        }
-        .attr-item {
-            background: rgba(255,255,255,0.04);
-            border-radius: 6px;
-            padding: 0.15rem 0.4rem;
-            display: flex;
-            align-items: center;
-            gap: 0.3rem;
-            font-size: 0.75rem;
-        }
-        .attr-item .attr-value {
-            font-weight: bold;
-            color: var(--good);
-            min-width: 20px;
-            text-align: center;
-        }
-        .attr-item .btn-attr {
-            background: #4a6a8a;
-            border: none;
-            color: #fff;
-            border-radius: 10px;
-            padding: 0.05rem 0.4rem;
-            cursor: pointer;
-            font-size: 0.6rem;
-            font-weight: bold;
-            transition: background 0.2s;
-        }
-        .attr-item .btn-attr:hover { background: #5a8aaa; }
-        .attr-item .btn-attr:disabled { opacity: 0.3; cursor: not-allowed; }
-    </style>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Torre Oscura · Núcleo v10.1 (Event Sourcing · Hexagonal)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=Orbitron:wght@400;700&display=swap" rel="stylesheet" />
+<style>
+  /* =====================================================================
+     UI · estilos. No son el foco del prototipo; se mantienen sobrios para
+     no distraer del comportamiento del núcleo.
+     ===================================================================== */
+  :root {
+    --bg: #0b0b1a;
+    --panel: rgba(22, 33, 62, 0.92);
+    --border: rgba(255, 255, 255, 0.08);
+    --text: #eee;
+    --muted: #94a3b8;
+    --accent: #e94560;
+    --accent-hover: #c0392b;
+    --good: #4ecca3;
+    --warn: #f9ca24;
+    --rare: #4a9eff;
+    --epic: #b44aff;
+    --legend: #ffaa00;
+    --radius: 12px;
+    --shadow: 0 8px 32px rgba(0, 0, 0, 0.55);
+    --mono: ui-monospace, SFMono-Regular, Menlo, monospace;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Inter', system-ui, sans-serif;
+    background: radial-gradient(ellipse at 20% 20%, #0f0c29, #302b63, #24243e);
+    color: var(--text);
+    min-height: 100vh;
+    padding: 1.25rem 1rem;
+    font-size: 14px;
+  }
+  h1 {
+    font-family: 'Orbitron', monospace;
+    font-size: 1.6rem;
+    background: linear-gradient(135deg, var(--accent), #f9ca24);
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+    margin-bottom: 1rem;
+    letter-spacing: 0.05em;
+    text-align: center;
+  }
+  .grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 2fr) minmax(0, 1fr);
+    gap: 1rem;
+    max-width: 1800px;
+    margin: 0 auto;
+  }
+  @media (max-width: 1100px) {
+    .grid { grid-template-columns: 1fr 1fr; }
+    .grid > .panel.center { grid-column: 1 / -1; }
+  }
+  @media (max-width: 720px) {
+    .grid { grid-template-columns: 1fr; }
+  }
+  .panel {
+    background: var(--panel);
+    backdrop-filter: blur(8px);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 1rem 1.1rem;
+    box-shadow: var(--shadow);
+    max-height: 92vh;
+    overflow-y: auto;
+  }
+  .panel h2 {
+    font-family: 'Orbitron', monospace;
+    font-size: 0.95rem;
+    margin-bottom: 0.6rem;
+    padding-bottom: 0.4rem;
+    border-bottom: 1px solid var(--border);
+    color: var(--accent);
+    letter-spacing: 0.03em;
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+  }
+  .panel h2:not(:first-child) { margin-top: 1rem; }
+  .row { display: flex; gap: 0.4rem; flex-wrap: wrap; align-items: center; margin: 0.25rem 0; }
+  .row.between { justify-content: space-between; }
+  .badge {
+    background: rgba(255, 255, 255, 0.06);
+    padding: 0.15rem 0.6rem;
+    border-radius: 20px;
+    font-family: var(--mono);
+    font-size: 0.75rem;
+    border: 1px solid var(--border);
+  }
+  .button {
+    background: var(--accent);
+    color: #fff;
+    border: none;
+    padding: 0.5rem 1rem;
+    border-radius: 8px;
+    cursor: pointer;
+    font-weight: 600;
+    font-size: 0.82rem;
+    transition: all 0.2s ease;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.4rem;
+    width: 100%;
+    margin: 0.2rem 0;
+    font-family: inherit;
+  }
+  .button:hover:not(:disabled) { background: var(--accent-hover); transform: scale(1.01); }
+  .button:disabled { opacity: 0.4; cursor: not-allowed; }
+  .button.secondary { background: #2d6a9f; }
+  .button.secondary:hover:not(:disabled) { background: #1f4a7a; }
+  .button.good { background: var(--good); color: #000; }
+  .button.good:hover:not(:disabled) { background: #3ab88a; }
+  .button.warn { background: var(--warn); color: #000; }
+  .button.warn:hover:not(:disabled) { background: #e6b800; }
+  .button.ghost { background: transparent; border: 1px solid var(--border); color: var(--text); }
+  .button.ghost:hover:not(:disabled) { background: rgba(255,255,255,0.05); }
+  .button.small { padding: 0.2rem 0.6rem; font-size: 0.72rem; width: auto; }
+  .stat-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.15rem 0.6rem;
+    font-size: 0.78rem;
+    margin: 0.3rem 0;
+  }
+  .stat-item {
+    display: flex;
+    justify-content: space-between;
+    padding: 0.1rem 0.25rem;
+    border-radius: 4px;
+    background: rgba(255, 255, 255, 0.02);
+  }
+  .stat-item .v { font-family: var(--mono); font-weight: 600; color: var(--good); }
+  .stat-group-title {
+    font-size: 0.66rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--muted);
+    margin: 0.5rem 0 0.15rem 0;
+    padding-bottom: 0.15rem;
+    border-bottom: 1px solid var(--border);
+  }
+  .affinity-row {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    font-size: 0.72rem;
+    padding: 0.1rem 0.2rem;
+    border-radius: 4px;
+  }
+  .affinity-row .tag { width: 72px; flex-shrink: 0; color: var(--muted); text-transform: capitalize; }
+  .affinity-row .track { flex: 1; height: 6px; background: rgba(255,255,255,0.08); border-radius: 4px; overflow: hidden; }
+  .affinity-row .fill { height: 100%; border-radius: 4px; transition: width 0.3s; }
+  .affinity-row .num { font-family: var(--mono); width: 32px; text-align: right; font-weight: 600; }
+  .affinity-row .btn-train {
+    background: var(--warn); color: #000; border: none;
+    border-radius: 10px; padding: 0.05rem 0.45rem; cursor: pointer;
+    font-size: 0.62rem; font-weight: 700;
+  }
+  .affinity-row .btn-train:disabled { opacity: 0.3; cursor: not-allowed; }
+  .log-box {
+    font-family: var(--mono);
+    font-size: 0.7rem;
+    max-height: 140px;
+    overflow-y: auto;
+    background: rgba(0,0,0,0.25);
+    border-radius: 6px;
+    padding: 0.4rem 0.5rem;
+    line-height: 1.5;
+    color: #cbd5e1;
+  }
+  .log-entry { padding: 0.05rem 0; border-bottom: 1px solid rgba(255,255,255,0.04); }
+  .log-entry:last-child { border-bottom: none; }
+  .log-entry .ts { color: #475569; margin-right: 0.4rem; }
+  .tabs { display: flex; gap: 0.3rem; margin-bottom: 0.6rem; }
+  .tab {
+    flex: 1;
+    background: transparent;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 0.35rem 0.6rem;
+    color: var(--muted);
+    cursor: pointer;
+    font-weight: 600;
+    font-size: 0.75rem;
+    font-family: inherit;
+    transition: all 0.2s;
+  }
+  .tab.active { background: var(--good); color: #000; border-color: var(--good); }
+  .constellation {
+    width: 100%;
+    min-height: 480px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    background: rgba(0,0,0,0.2);
+    overflow: auto;
+    position: relative;
+  }
+  .constellation svg { display: block; width: 100%; height: auto; min-height: 480px; }
+  .node { cursor: pointer; transition: r 0.2s; }
+  .node:hover { r: 22; }
+  .node.locked { fill: #444; stroke: #666; stroke-width: 1.5; }
+  .node.available { fill: var(--warn); stroke: #fff; stroke-width: 2; }
+  .node.unlocked { fill: var(--good); stroke: #fff; stroke-width: 2; }
+  .node.maxed { fill: #27ae60; stroke: #f9ca24; stroke-width: 3; }
+  .node-label {
+    font-size: 9px;
+    fill: #fff;
+    text-anchor: middle;
+    dominant-baseline: central;
+    pointer-events: none;
+    font-weight: 600;
+    paint-order: stroke;
+    stroke: #000;
+    stroke-width: 2px;
+  }
+  .edge { stroke: #555; stroke-width: 2; opacity: 0.35; }
+  .edge.active { stroke: var(--good); opacity: 0.85; }
+  .edge.ascend { stroke: var(--epic); opacity: 0.9; }
+  .ruleta-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.6rem; margin-top: 0.6rem; }
+  @media (max-width: 720px) { .ruleta-grid { grid-template-columns: 1fr; } }
+  .ruleta-card {
+    background: rgba(31, 42, 68, 0.85);
+    border: 2px solid var(--border);
+    border-radius: var(--radius);
+    padding: 0.7rem;
+    text-align: center;
+    transition: all 0.2s;
+    position: relative;
+  }
+  .ruleta-card:hover { border-color: var(--good); transform: translateY(-3px); }
+  .ruleta-card .role {
+    position: absolute; top: -8px; left: 50%; transform: translateX(-50%);
+    background: var(--accent); color: #fff;
+    font-size: 0.55rem; font-weight: 700;
+    padding: 0.1rem 0.5rem; border-radius: 10px;
+    text-transform: uppercase; letter-spacing: 0.05em;
+  }
+  .ruleta-card .name { font-weight: 700; font-size: 0.85rem; margin-top: 0.3rem; }
+  .ruleta-card .meta { font-size: 0.65rem; color: var(--muted); margin: 0.15rem 0; }
+  .ruleta-card .effects { font-size: 0.68rem; color: var(--good); }
+  .ruleta-card button {
+    margin-top: 0.4rem; padding: 0.2rem 0.8rem;
+    background: var(--good); color: #000;
+    border: none; border-radius: 6px; cursor: pointer;
+    font-weight: 700; font-size: 0.72rem;
+  }
+  .ruleta-card button:disabled { opacity: 0.4; cursor: not-allowed; }
+  .node-card {
+    background: rgba(31, 42, 68, 0.75);
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--border);
+    border-radius: var(--radius);
+    padding: 0.5rem 0.65rem;
+    margin-bottom: 0.4rem;
+    font-size: 0.75rem;
+  }
+  .node-card.unlocked { border-left-color: var(--good); }
+  .node-card.available { border-left-color: var(--warn); }
+  .node-card .title { font-weight: 700; font-size: 0.85rem; display: flex; justify-content: space-between; align-items: center; }
+  .node-card .tags { font-size: 0.62rem; color: var(--muted); }
+  .node-card .effects { color: var(--good); font-size: 0.68rem; margin-top: 0.1rem; }
+  .node-card .reqs { color: var(--muted); font-size: 0.62rem; margin-top: 0.1rem; }
+  .node-card .cost { font-family: var(--mono); font-size: 0.65rem; color: var(--muted); }
+  .rarity {
+    font-size: 0.58rem; padding: 0.05rem 0.4rem; border-radius: 10px;
+    text-transform: uppercase; font-weight: 700;
+    background: rgba(255,255,255,0.06);
+  }
+  .rarity.common { color: #aaa; }
+  .rarity.rare { color: var(--rare); }
+  .rarity.epic { color: var(--epic); }
+  .rarity.legendary { color: var(--legend); }
+  .empty { color: #475569; font-style: italic; font-size: 0.78rem; }
+  .status { font-size: 0.75rem; color: var(--muted); margin-top: 0.4rem; min-height: 1rem; }
+  .status.ok { color: var(--good); }
+  .status.err { color: #f87171; }
+  .toasts {
+    position: fixed; bottom: 20px; right: 20px;
+    display: flex; flex-direction: column; gap: 0.4rem;
+    max-width: 320px; z-index: 999; pointer-events: none;
+  }
+  .toast {
+    background: rgba(22,33,62,0.96);
+    border: 1px solid var(--border);
+    border-left: 4px solid var(--good);
+    border-radius: var(--radius);
+    padding: 0.55rem 0.9rem;
+    font-size: 0.8rem;
+    box-shadow: var(--shadow);
+    pointer-events: auto;
+    animation: slideIn 0.25s ease;
+  }
+  .toast.error { border-left-color: #f87171; }
+  .toast.warn { border-left-color: var(--warn); }
+  @keyframes slideIn { from { opacity: 0; transform: translateX(40px); } to { opacity: 1; transform: translateX(0); } }
+  .lineage-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.4rem; margin: 0.4rem 0; }
+  .lineage-btn {
+    background: rgba(255,255,255,0.04);
+    border: 2px solid var(--border);
+    border-radius: 8px;
+    padding: 0.5rem;
+    color: var(--text);
+    cursor: pointer;
+    font-weight: 600;
+    font-size: 0.75rem;
+    font-family: inherit;
+    transition: all 0.2s;
+    text-align: center;
+  }
+  .lineage-btn:hover { border-color: var(--accent); }
+  .lineage-btn.active { border-color: var(--good); background: rgba(78,204,163,0.12); }
+  .hint { font-size: 0.68rem; color: var(--muted); margin-bottom: 0.4rem; }
+</style>
 </head>
 <body>
-    <h1><i class="fas fa-tower-broadcast"></i> Árbol de Personaje v9 – Feedback Visual + Atributos</h1>
-    <div class="main-container">
-        <!-- Panel izquierdo -->
-        <div class="panel">
-            <h2><i class="fas fa-chart-simple"></i> Estadísticas</h2>
-            <div id="statsContainer"></div>
-            <div class="flex-row">
-                <span class="stat-badge"><i class="fas fa-level-up-alt"></i> Nv. <strong id="levelDisplay">1</strong></span>
-                <span class="stat-badge"><i class="fas fa-coins"></i> Pts. <strong id="pointsDisplay">0</strong></span>
-                <span class="stat-badge"><i class="fas fa-gem"></i> Poder <strong id="powerRankDisplay">1</strong></span>
-            </div>
-            <div id="pointsWarning" class="points-warning" style="display:none;">⚠️ Puntos acumulados: <span id="unusedPoints">0</span></div>
-            <div id="hitoIndicator" class="hito-indicator">🎯 Próximo hito: nivel <span id="nextHito">5</span></div>
-            <div class="progress-bar-global"><div class="fill" id="progressFill" style="width:0%;"></div></div>
-            <div style="display:flex; justify-content:space-between; font-size:0.65rem; color:var(--text-muted);">
-                <span>Progreso: <span id="progressPercent">0%</span></span>
-                <span><span id="unlockedCount">0</span>/<span id="totalNodes">0</span></span>
-            </div>
-            <button class="button" id="btnLevelUp"><i class="fas fa-arrow-up"></i> Subir nivel (+1 punto)</button>
-            <button class="button good" id="btnUnlockAll"><i class="fas fa-unlock"></i> Desbloquear todo (test)</button>
-            <button class="button secondary" id="btnReset"><i class="fas fa-undo"></i> Reiniciar</button>
 
-            <h2 style="margin-top:0.8rem;"><i class="fas fa-arrow-up"></i> Atributos Base</h2>
-            <div class="attr-panel" id="attrPanel"></div>
+<h1>⬡ Torre Oscura · Núcleo v10.1</h1>
 
-            <h2 style="margin-top:0.8rem;"><i class="fas fa-tags"></i> Afinidades</h2>
-            <div style="font-size:0.7rem; color:var(--text-muted); margin-bottom:0.3rem;">Pasa el ratón y haz clic en <span style="color:var(--warn);">+</span> para entrenar.</div>
-            <div class="affinity-bar" id="affinityBar"></div>
-
-            <h2 style="margin-top:0.8rem;"><i class="fas fa-trophy"></i> Misiones</h2>
-            <div class="log-list" id="missionList"></div>
-
-            <h2 style="margin-top:0.8rem;"><i class="fas fa-history"></i> Registro</h2>
-            <div class="log-list" id="logList"></div>
-            <div class="message" id="message"></div>
-        </div>
-
-        <!-- Panel central -->
-        <div class="panel" style="flex:2;">
-            <div class="tabs">
-                <button class="tab-btn active" id="tabTree"><i class="fas fa-star"></i> Constelación</button>
-                <button class="tab-btn" id="tabRuleta"><i class="fas fa-dice"></i> Ruleta (Hito)</button>
-            </div>
-            <div id="tabContentTree">
-                <h2><i class="fas fa-sitemap"></i> Constelación de Poder</h2>
-                <div class="constellation-container" id="constellationContainer"></div>
-                <div style="margin-top:0.5rem; display:flex; gap:0.5rem; flex-wrap:wrap; justify-content:center; font-size:0.7rem;">
-                    <span style="background:rgba(255,255,255,0.05); padding:0.1rem 0.5rem; border-radius:12px;"><span style="color:#2ecc71;">●</span> Desbloqueado</span>
-                    <span style="background:rgba(255,255,255,0.05); padding:0.1rem 0.5rem; border-radius:12px;"><span style="color:var(--color-unlockable);">●</span> Disponible</span>
-                    <span style="background:rgba(255,255,255,0.05); padding:0.1rem 0.5rem; border-radius:12px;"><span style="color:#666;">●</span> Bloqueado</span>
-                    <span style="background:rgba(255,255,255,0.05); padding:0.1rem 0.5rem; border-radius:12px;"><span style="color:var(--color-rare);">●</span> Raro</span>
-                    <span style="background:rgba(255,255,255,0.05); padding:0.1rem 0.5rem; border-radius:12px;"><span style="color:var(--color-epic);">●</span> Épico</span>
-                    <span style="background:rgba(255,255,255,0.05); padding:0.1rem 0.5rem; border-radius:12px;"><span style="color:var(--color-legendary);">●</span> Legendario</span>
-                    <span style="background:rgba(255,255,255,0.05); padding:0.1rem 0.5rem; border-radius:12px;"><span style="color:var(--color-max);">★</span> Máximo</span>
-                </div>
-            </div>
-            <div id="tabContentRuleta" style="display:none;">
-                <h2><i class="fas fa-dice-d6"></i> Ruleta de Nodos (Hito)</h2>
-                <p class="info-text" style="font-size:0.8rem;color:var(--text-muted);margin-bottom:0.5rem;">
-                    ¡Hito alcanzado! Elige un nodo para desbloquear. Las opciones se basan en tus afinidades y poder.
-                </p>
-                <div id="ruletaContainer" class="ruleta-container">
-                    <p class="info-text" style="color:var(--text-muted);">Sube de nivel hasta el siguiente hito para ver opciones.</p>
-                </div>
-            </div>
-        </div>
-
-        <!-- Panel derecho -->
-        <div class="panel">
-            <h2><i class="fas fa-book"></i> Catálogo de nodos</h2>
-            <div class="node-list" id="catalogNodes"></div>
-            <h2 style="margin-top:1rem;"><i class="fas fa-link"></i> Sinergias activas</h2>
-            <div id="synergyList" class="log-list"></div>
-            <h2 style="margin-top:1rem;"><i class="fas fa-bolt"></i> Combos</h2>
-            <div id="comboList" class="log-list"></div>
-            <h2 style="margin-top:1rem;"><i class="fas fa-layer-group"></i> Resumen de ramas</h2>
-            <div id="branchSummary" class="branch-summary"></div>
-        </div>
+<div class="grid">
+  <!-- Panel izquierdo: personaje -->
+  <div class="panel">
+    <h2>Personaje</h2>
+    <div id="charSummary"></div>
+    <div class="row">
+      <span class="badge">Nv. <strong id="level">1</strong></span>
+      <span class="badge">Pts. <strong id="points">0</strong></span>
+      <span class="badge">♻ <strong id="reinc">0</strong></span>
+      <span class="badge">Esencia <strong id="essence">0</strong></span>
     </div>
-    <div class="toast-container" id="toastContainer"></div>
+    <div id="lineageInfo"></div>
 
-    <script>
-    // ================================================================
-    // 1. INFRAESTRUCTURA (EventBus, Persistence)
-    // ================================================================
-    class EventBus {
-        constructor() { this.listeners = {}; }
-        on(event, cb) { if (!this.listeners[event]) this.listeners[event] = []; this.listeners[event].push(cb); }
-        emit(event, data) { (this.listeners[event] || []).forEach(cb => cb(data)); }
+    <div id="statsBlock"></div>
+
+    <h2>Atributos base</h2>
+    <div id="attrBlock"></div>
+
+    <h2>Afinidades</h2>
+    <div class="hint">Entrenar cuesta 1 punto. Nivelar aplica un decay del 5% a todas.</div>
+    <div id="affinityBlock"></div>
+
+    <h2>Acciones</h2>
+    <button class="button" id="btnLevelUp">▲ Subir nivel (+1 punto, +decay)</button>
+    <button class="button warn" id="btnReincarnate">♻ Reencarnar</button>
+    <button class="button ghost" id="btnRebuild">↻ Reconstruir desde el log</button>
+    <button class="button ghost" id="btnHardReset">✖ Reinicio duro (borra todo)</button>
+
+    <h2>Misiones</h2>
+    <div id="missionBlock"></div>
+  </div>
+
+  <!-- Panel central: árbol + ruleta -->
+  <div class="panel center">
+    <div class="tabs">
+      <button class="tab active" id="tabTree">Constelación</button>
+      <button class="tab" id="tabRuleta">Ruleta</button>
+    </div>
+    <div id="treeView">
+      <h2>Árbol de habilidad</h2>
+      <div class="constellation" id="constellation"></div>
+    </div>
+    <div id="ruletaView" style="display:none">
+      <h2>Ruleta de hito</h2>
+      <p class="hint">Se ofrecen tres roles: <b>reforzar</b> tu afinidad dominante, <b>pivotar</b> hacia una intermedia, o <b>explorar</b> una nueva. La diversidad la garantiza el sistema, no la suerte.</p>
+      <div class="ruleta-grid" id="ruletaGrid"></div>
+    </div>
+
+    <h2>Sinergias activas</h2>
+    <div id="synergyBlock"></div>
+    <h2>Combos activos</h2>
+    <div id="comboBlock"></div>
+  </div>
+
+  <!-- Panel derecho: catálogo + log -->
+  <div class="panel">
+    <h2>Catálogo de nodos</h2>
+    <div id="catalog"></div>
+
+    <h2>Log de eventos</h2>
+    <div class="log-box" id="logBox"><div class="empty">Sin eventos.</div></div>
+    <div class="status" id="status"></div>
+  </div>
+</div>
+
+<div class="toasts" id="toasts"></div>
+
+<script>
+'use strict';
+
+/* ============================================================================
+ * TORRE OSCURA · NÚCLEO v10.1
+ * ----------------------------------------------------------------------------
+ * Correcciones respecto a v10:
+ *   - `makeEventFactory` recibe un objeto con `.next()`, no una función.
+ *   - Se elimina `type="module"` para poder abrir el archivo desde file://
+ *   - El reducer `AttributeIncreased` vive dentro del objeto `reducers`
+ *     (antes se registraba después, lo cual era frágil por orden de carga).
+ *   - `spendAttribute` ya no emite un placeholder sin sentido.
+ *   - Convención unificada: `emit`/`emitAll` NUNCA notifican. Cada comando
+ *     público llama a `this.notify()` UNA vez al final. Se evitan notifies
+ *     dobles y renders redundantes.
+ *   - Se añade `LocalStorageEventStore` para que el log persista entre
+ *     recargas — es el adaptador natural de un event store para un
+ *     prototipo en navegador y demuestra el patrón hexagonal.
+ *
+ * Arquitectura por capas (de dentro hacia fuera):
+ *
+ *   [ DOMINIO ]    Catálogo, eventos, reducers, proyecciones, servicios.
+ *                  Sin DOM, sin localStorage, sin Math.random. Puro.
+ *
+ *   [ PUERTOS ]    Contratos abstractos: EventStore, SnapshotStorage,
+ *                  Clock, Random, Logger.
+ *
+ *   [ ADAPTADORES ] Implementaciones concretas: LocalStorageEventStore,
+ *                  LocalStorageSnapshot, SystemClock, MathRandom,
+ *                  ConsoleLogger.
+ *
+ *   [ APLICACIÓN ] GameEngine: orquesta comandos → eventos → store →
+ *                  reducers → proyecciones. Único punto donde se conectan
+ *                  puertos y dominio.
+ *
+ *   [ UI ]         Adaptador DOM. Traduce intenciones a comandos y pinta
+ *                  read models. No contiene reglas de negocio.
+ * ========================================================================== */
+
+
+/* ============================================================================
+ * 1. PUERTOS (contratos)
+ * ----------------------------------------------------------------------------
+ * En JS no hay interfaces nativas. Usamos clases base que lanzan si no se
+ * sobrescriben, a modo de documentación ejecutable.
+ * ========================================================================== */
+
+/**
+ * EventStore — persistencia append-only del log de eventos.
+ * El dominio solo pide "append", "all", "clear". No sabe si detrás hay
+ * memoria, localStorage, SQLite o Kafka.
+ */
+class EventStorePort {
+  append(_event) { throw new Error('EventStorePort.append no implementado'); }
+  all() { throw new Error('EventStorePort.all no implementado'); }
+  clear() { throw new Error('EventStorePort.clear no implementado'); }
+}
+
+/**
+ * SnapshotStorage — cache opcional del estado derivado.
+ * Sirve para acelerar la reconstrucción en logs largos. La verdad sigue
+ * siendo el log; el snapshot se puede descartar en cualquier momento.
+ * En este prototipo es opcional: el motor funciona sin él.
+ */
+class SnapshotStoragePort {
+  save(_state) { throw new Error('SnapshotStoragePort.save no implementado'); }
+  load() { throw new Error('SnapshotStoragePort.load no implementado'); }
+  clear() { throw new Error('SnapshotStoragePort.clear no implementado'); }
+}
+
+/** Clock — fuente de tiempo. Inyectada para tests deterministas. */
+class ClockPort {
+  now() { throw new Error('ClockPort.now no implementado'); }
+}
+
+/** Random — fuente de aleatoriedad. Inyectada para tests deterministas. */
+class RandomPort {
+  float() { throw new Error('RandomPort.float no implementado'); }
+  int(_min, _max) { throw new Error('RandomPort.int no implementado'); }
+  pick(_arr) { throw new Error('RandomPort.pick no implementado'); }
+}
+
+/** Logger — salida de diagnóstico. */
+class LoggerPort {
+  info(_msg, _meta) { throw new Error('LoggerPort.info no implementado'); }
+  warn(_msg, _meta) { throw new Error('LoggerPort.warn no implementado'); }
+  error(_msg, _meta) { throw new Error('LoggerPort.error no implementado'); }
+}
+
+
+/* ============================================================================
+ * 2. DOMINIO · CATÁLOGO
+ * ----------------------------------------------------------------------------
+ * Datos puros del juego. Cada nodo lleva:
+ *   - level        : profundidad en el árbol (0-5).
+ *   - reqs         : ids de nodos que deben estar desbloqueados.
+ *   - affinityReq  : umbral de afinidad con un tag.
+ *   - ascendFrom   : al desbloquear, reemplaza al nodo indicado.
+ *   - tags         : alimentan sinergias, combos y afinidades derivadas.
+ *   - requiresReincarnation : solo visible tras N reencarnaciones.
+ * ========================================================================== */
+
+const NODE_CATALOG = Object.freeze([
+  // ---- Nivel 0 · Base ------------------------------------------------------
+  { id: 'vitality',      name: 'Vitalidad',     level: 0, rarity: 'common', cost: 1, maxLevel: 5,
+    desc: '+20 vida por nivel',        tags: ['vida', 'fisico'],  effects: { maxHp: 20 },
+    reqs: [], affinityReq: null, ascendFrom: null, branch: 'guerrero' },
+  { id: 'mana_pool',     name: 'Maná',          level: 0, rarity: 'common', cost: 1, maxLevel: 5,
+    desc: '+15 maná por nivel',        tags: ['mana', 'magia'],   effects: { maxMana: 15 },
+    reqs: [], affinityReq: null, ascendFrom: null, branch: 'mago' },
+  { id: 'strength',      name: 'Fuerza',        level: 0, rarity: 'common', cost: 1, maxLevel: 5,
+    desc: '+5 daño por nivel',         tags: ['fisico', 'melee'], effects: { damage: 5 },
+    reqs: [], affinityReq: null, ascendFrom: null, branch: 'guerrero' },
+  { id: 'intellect',     name: 'Intelecto',     level: 0, rarity: 'common', cost: 1, maxLevel: 5,
+    desc: '+5 daño mágico por nivel',  tags: ['magia', 'proyectil'], effects: { damage: 5 },
+    reqs: [], affinityReq: null, ascendFrom: null, branch: 'mago' },
+  { id: 'agility',       name: 'Agilidad',      level: 0, rarity: 'common', cost: 1, maxLevel: 5,
+    desc: '+8 velocidad por nivel',    tags: ['aire', 'movilidad'], effects: { speed: 8 },
+    reqs: [], affinityReq: null, ascendFrom: null, branch: 'picaro' },
+  { id: 'guardian_base', name: 'Guardián',      level: 0, rarity: 'common', cost: 1, maxLevel: 5,
+    desc: '+5 defensa por nivel',      tags: ['tierra', 'defensa'], effects: { defense: 5 },
+    reqs: [], affinityReq: null, ascendFrom: null, branch: 'guerrero' },
+
+  // ---- Nivel 1 · Especialización ------------------------------------------
+  { id: 'fire_affinity', name: 'Afinidad Ígnea', level: 1, rarity: 'rare', cost: 2, maxLevel: 3,
+    desc: '+10% daño fuego por nivel', tags: ['fuego'], effects: { fireDamage: 0.1 },
+    reqs: ['strength', 'intellect'], affinityReq: null, ascendFrom: null, branch: 'mago' },
+  { id: 'ice_affinity',  name: 'Afinidad Gélida', level: 1, rarity: 'rare', cost: 2, maxLevel: 3,
+    desc: '+10% daño hielo por nivel', tags: ['hielo'], effects: { iceDamage: 0.1 },
+    reqs: ['mana_pool', 'intellect'], affinityReq: null, ascendFrom: null, branch: 'mago' },
+  { id: 'blood_thirst',  name: 'Sed de Sangre',  level: 1, rarity: 'rare', cost: 2, maxLevel: 3,
+    desc: '+5% robo de vida por nivel', tags: ['sangre', 'vida'], effects: { lifeSteal: 0.05 },
+    reqs: ['strength', 'vitality'], affinityReq: null, ascendFrom: null, branch: 'guerrero' },
+  { id: 'swiftness',     name: 'Rapidez',        level: 1, rarity: 'rare', cost: 2, maxLevel: 3,
+    desc: '+15 velocidad por nivel',   tags: ['aire', 'velocidad'], effects: { speed: 15 },
+    reqs: ['agility', 'vitality'], affinityReq: null, ascendFrom: null, branch: 'picaro' },
+  { id: 'frost_armor',   name: 'Armadura Gélida', level: 1, rarity: 'rare', cost: 2, maxLevel: 3,
+    desc: '+15 defensa por nivel, ralentiza', tags: ['hielo', 'defensa'], effects: { defense: 15, slowChance: 0.1 },
+    reqs: ['guardian_base', 'mana_pool'], affinityReq: null, ascendFrom: null, branch: 'guerrero' },
+
+  // ---- Nivel 2 · Maestría --------------------------------------------------
+  { id: 'elemental_synergy', name: 'Sinergia Elemental', level: 2, rarity: 'epic', cost: 3, maxLevel: 2,
+    desc: '+15% daño fuego, hielo y rayo por nivel',
+    tags: ['fuego', 'hielo', 'rayo'],
+    effects: { fireDamage: 0.15, iceDamage: 0.15, lightningDamage: 0.15 },
+    reqs: ['fire_affinity', 'ice_affinity'], affinityReq: { tag: 'magia', min: 15 },
+    ascendFrom: null, branch: 'mago' },
+  { id: 'berserker',     name: 'Berserker',     level: 2, rarity: 'epic', cost: 3, maxLevel: 2,
+    desc: '+30% daño bajo 30% vida por nivel', tags: ['sangre', 'melee'],
+    effects: { berserkerDamage: 0.3 },
+    reqs: ['blood_thirst', 'strength'], affinityReq: { tag: 'sangre', min: 15 },
+    ascendFrom: null, branch: 'guerrero' },
+  { id: 'arcane_mastery', name: 'Maestría Arcana', level: 2, rarity: 'epic', cost: 3, maxLevel: 2,
+    desc: '-20% coste de maná por nivel', tags: ['magia', 'mana'],
+    effects: { manaCostReduction: 0.2 },
+    reqs: ['fire_affinity', 'ice_affinity'], affinityReq: { tag: 'magia', min: 15 },
+    ascendFrom: null, branch: 'mago' },
+  { id: 'lightning_fury', name: 'Furia Relámpago', level: 2, rarity: 'epic', cost: 3, maxLevel: 2,
+    desc: '+20% rayo, +10 velocidad por nivel', tags: ['rayo', 'velocidad'],
+    effects: { lightningDamage: 0.2, speed: 10 },
+    reqs: ['swiftness', 'ice_affinity'], affinityReq: { tag: 'rayo', min: 15 },
+    ascendFrom: null, branch: 'picaro' },
+  { id: 'guardian_master', name: 'Guardián Épico', level: 2, rarity: 'epic', cost: 3, maxLevel: 2,
+    desc: '+20 defensa, +10% resistencia por nivel', tags: ['tierra', 'defensa'],
+    effects: { defense: 20, allResist: 0.1 },
+    reqs: ['frost_armor', 'vitality'], affinityReq: { tag: 'tierra', min: 15 },
+    ascendFrom: null, branch: 'guerrero' },
+
+  // ---- Nivel 3 · Ascendencia (reemplaza al nodo base) ----------------------
+  { id: 'fire_ascend',  name: 'Ascendencia Ígnea',  level: 3, rarity: 'legendary', cost: 4, maxLevel: 1,
+    desc: '+30% fuego, quemadura por nivel', tags: ['fuego'],
+    effects: { fireDamage: 0.3, burnChance: 0.15 },
+    reqs: ['elemental_synergy', 'arcane_mastery'], affinityReq: { tag: 'fuego', min: 30 },
+    ascendFrom: 'fire_affinity', branch: 'mago' },
+  { id: 'ice_ascend',   name: 'Ascendencia Gélida', level: 3, rarity: 'legendary', cost: 4, maxLevel: 1,
+    desc: '+25% hielo, ralentiza más', tags: ['hielo'],
+    effects: { iceDamage: 0.25, slowChance: 0.2 },
+    reqs: ['elemental_synergy', 'lightning_fury'], affinityReq: { tag: 'hielo', min: 30 },
+    ascendFrom: 'ice_affinity', branch: 'mago' },
+  { id: 'blood_ascend', name: 'Vampirismo',         level: 3, rarity: 'legendary', cost: 4, maxLevel: 1,
+    desc: 'Robas 15% vida, curas aliados', tags: ['sangre', 'vida'],
+    effects: { lifeSteal: 0.15, healAlly: 0.1 },
+    reqs: ['berserker', 'guardian_master'], affinityReq: { tag: 'sangre', min: 30 },
+    ascendFrom: 'blood_thirst', branch: 'guerrero' },
+  { id: 'shadow_ascend', name: 'Paso de Sombra',    level: 3, rarity: 'legendary', cost: 4, maxLevel: 1,
+    desc: '+30% evasión por nivel', tags: ['sombra', 'movilidad'],
+    effects: { evasion: 0.3 },
+    reqs: ['lightning_fury', 'swiftness'], affinityReq: { tag: 'sombra', min: 30 },
+    ascendFrom: 'swiftness', branch: 'picaro' },
+
+  // ---- Nivel 4 · Despertar ------------------------------------------------
+  { id: 'awaken_fire',  name: 'Despertar Ígneo',      level: 4, rarity: 'legendary', cost: 5, maxLevel: 1,
+    desc: 'Todos los ataques queman', tags: ['fuego'],
+    effects: { burnChance: 0.3, fireDamage: 0.4 },
+    reqs: ['fire_ascend'], affinityReq: { tag: 'fuego', min: 50 },
+    ascendFrom: null, branch: 'mago' },
+  { id: 'awaken_blood', name: 'Despertar Sanguinario', level: 4, rarity: 'legendary', cost: 5, maxLevel: 1,
+    desc: 'Robo de vida constante, +50% daño bajo 30%', tags: ['sangre'],
+    effects: { lifeSteal: 0.25, berserkerDamage: 0.5 },
+    reqs: ['blood_ascend'], affinityReq: { tag: 'sangre', min: 50 },
+    ascendFrom: null, branch: 'guerrero' },
+
+  // ---- Nivel 5 · Exclusivos de reencarnación ------------------------------
+  { id: 'echo_fire',  name: 'Eco de Llamas',   level: 5, rarity: 'legendary', cost: 6, maxLevel: 3,
+    desc: 'Bonus permanente al fuego, escala con reencarnaciones',
+    tags: ['fuego', 'eco'], effects: { fireDamage: 0.2, burnChance: 0.05 },
+    reqs: [], affinityReq: null, ascendFrom: null, branch: 'mago',
+    requiresReincarnation: 1 },
+  { id: 'echo_blood', name: 'Eco de Sangre',   level: 5, rarity: 'legendary', cost: 6, maxLevel: 3,
+    desc: 'Bonus permanente al robo de vida',
+    tags: ['sangre', 'eco'], effects: { lifeSteal: 0.1, berserkerDamage: 0.2 },
+    reqs: [], affinityReq: null, ascendFrom: null, branch: 'guerrero',
+    requiresReincarnation: 1 },
+  { id: 'echo_wind',  name: 'Eco del Viento',  level: 5, rarity: 'legendary', cost: 6, maxLevel: 3,
+    desc: 'Bonus permanente a velocidad y evasión',
+    tags: ['aire', 'eco'], effects: { speed: 20, evasion: 0.1 },
+    reqs: [], affinityReq: null, ascendFrom: null, branch: 'picaro',
+    requiresReincarnation: 1 },
+]);
+
+/** Lookup rápido por id. */
+const NODE_BY_ID = Object.fromEntries(NODE_CATALOG.map(n => [n.id, n]));
+
+/** Sinergias: dos o más nodos presentes activan un bonus pasivo. */
+const SYNERGY_CATALOG = Object.freeze([
+  { id: 'syn_fire_ice',        name: 'Cambio Térmico',
+    desc: 'Fuego y hielo se potencian', required: ['fire_affinity', 'ice_affinity'],
+    effects: { fireDamage: 0.1, iceDamage: 0.1 } },
+  { id: 'syn_blood_berserker', name: 'Furia Sanguinaria',
+    desc: 'Robo de vida reforzado', required: ['blood_thirst', 'berserker'],
+    effects: { lifeSteal: 0.2 } },
+  { id: 'syn_lightning_swift', name: 'Tormenta Veloz',
+    desc: 'Velocidad y rayo combinados', required: ['lightning_fury', 'swiftness'],
+    effects: { speed: 20, lightningDamage: 0.1 } },
+  { id: 'syn_ascend_awaken',   name: 'Llamas Eternas',
+    desc: 'Quemadura garantizada', required: ['fire_ascend', 'awaken_fire'],
+    effects: { fireDamage: 0.5, burnChance: 0.3 } },
+]);
+
+/** Combos: cuentan cuántos nodos tienen un tag y aplican bonus por umbral. */
+const COMBO_CATALOG = Object.freeze([
+  { id: 'combo_fire_3',   name: 'Inferno',              requiredTags: { fuego: 3 },  effects: { fireDamage: 0.2 } },
+  { id: 'combo_ice_3',    name: 'Glaciar',              requiredTags: { hielo: 3 },  effects: { iceDamage: 0.2 } },
+  { id: 'combo_sangre_3', name: 'Sed Insaciable',       requiredTags: { sangre: 3 }, effects: { lifeSteal: 0.15 } },
+  { id: 'combo_magia_3',  name: 'Concentración Arcana', requiredTags: { magia: 3 },  effects: { manaCostReduction: 0.15 } },
+]);
+
+/** Misiones: condiciones declarativas sobre el estado. */
+const MISSION_CATALOG = Object.freeze([
+  { id: 'mission_fire_3',   name: 'Aprendiz de Fuego',  desc: '3 nodos con tag fuego',
+    condition: s => countNodesWithTag(s, 'fuego') >= 3,
+    reward: { points: 2, affinity: { tag: 'fuego', value: 10 } } },
+  { id: 'mission_ice_3',    name: 'Aprendiz de Hielo',  desc: '3 nodos con tag hielo',
+    condition: s => countNodesWithTag(s, 'hielo') >= 3,
+    reward: { points: 2, affinity: { tag: 'hielo', value: 10 } } },
+  { id: 'mission_level_5',  name: 'Ascenso',            desc: 'Alcanza nivel 5',
+    condition: s => s.character.level >= 5,
+    reward: { points: 3, affinity: { tag: 'magia', value: 15 } } },
+  { id: 'mission_ascend_1', name: 'Despertar del Poder', desc: 'Desbloquea una ascendencia',
+    condition: s => s.tree.unlocked['fire_ascend'] || s.tree.unlocked['ice_ascend'] ||
+                    s.tree.unlocked['blood_ascend'] || s.tree.unlocked['shadow_ascend'],
+    reward: { points: 5, affinity: { tag: 'sangre', value: 10 } } },
+]);
+
+/** Linajes: definen el estado inicial del personaje. */
+const LINEAGE_CATALOG = Object.freeze([
+  { id: 'guerrero', name: 'Guerrero',
+    baseStats: { maxHp: 40, damage: 5, defense: 5 },
+    affinities: { fisico: 10, melee: 8, tierra: 5 } },
+  { id: 'mago',     name: 'Mago',
+    baseStats: { maxMana: 30, damage: 3, fireDamage: 0.05 },
+    affinities: { magia: 10, proyectil: 6, fuego: 5 } },
+  { id: 'picaro',   name: 'Pícaro',
+    baseStats: { speed: 8, damage: 4, evasion: 0.05 },
+    affinities: { aire: 8, sombra: 6, movilidad: 5 } },
+]);
+
+/** Tags conocidos. Fuente única para afinidades y validación. */
+const ALL_TAGS = Object.freeze([
+  'fuego', 'hielo', 'rayo', 'tierra', 'naturaleza', 'aire', 'veneno',
+  'fisico', 'sangre', 'melee', 'proyectil', 'magia', 'luz', 'sombra',
+  'vida', 'mana', 'defensa', 'velocidad', 'movilidad', 'eco',
+]);
+
+/** Constantes de balance. Centralizadas para poder iterar sin tocar lógica. */
+const BALANCE = Object.freeze({
+  POINTS_PER_LEVEL: 1,
+  AFFINITY_DECAY_PER_LEVEL: 0.05,   // 5% sobre cada afinidad al subir nivel
+  TRAIN_COST: 1,                    // coste en puntos de entrenar una afinidad
+  TRAIN_AMOUNT: 3,                  // +3 fijo (menos casino que el +2..+6 de v9)
+  REINCARNATION_LEVEL: 15,          // nivel mínimo para reencarnar
+  REINCARNATION_KEEP: 0.25,         // 25% de afinidades se conservan
+  REINCARNATION_ESSENCE_PER: 5,     // 1 esencia por cada 5 niveles al reencarnar
+  ESSENCE_STAT_BONUS: { maxHp: 5, damage: 1 }, // por punto de esencia
+});
+
+
+/* ============================================================================
+ * 3. DOMINIO · EVENTOS Y REDUCERS
+ * ----------------------------------------------------------------------------
+ * Todo cambio de estado pasa por un evento. Los reducers son puros:
+ * (state, event) → newState. Nunca mutan.
+ * ========================================================================== */
+
+const EventType = Object.freeze({
+  GAME_STARTED:         'GameStarted',
+  LINEAGE_CHOSEN:       'LineageChosen',
+  LEVEL_UP:             'LevelUp',
+  POINTS_GAINED:        'PointsGained',
+  POINTS_SPENT:         'PointsSpent',
+  AFFINITY_TRAINED:     'AffinityTrained',
+  AFFINITIES_DECAYED:   'AffinitiesDecayed',
+  ATTRIBUTE_INCREASED:  'AttributeIncreased',
+  NODE_UNLOCKED:        'NodeUnlocked',
+  NODE_UPGRADED:        'NodeUpgraded',
+  NODE_ASCENDED:        'NodeAscended',
+  SYNERGY_ACTIVATED:    'SynergyActivated',
+  COMBO_ACTIVATED:      'ComboActivated',
+  MISSION_COMPLETED:    'MissionCompleted',
+  RANDOM_EVENT:         'RandomEvent',
+  RULETA_ROLLED:        'RuletaRolled',
+  RULETA_CLEARED:       'RuletaCleared',
+  REINCARNATED:         'Reincarnated',
+  HARD_RESET:           'HardReset',
+});
+
+/**
+ * Fábrica de eventos. Recibe dependencias inyectadas para poder testear
+ * de forma determinista (clock y generador de ids).
+ *
+ * CORRECCIÓN v10.1: el parámetro se llama `idGenerator` y se espera un
+ * objeto con `.next()`, no una función. Antes se llamaba `idGen()` sobre
+ * un objeto, de ahí el `TypeError: idGen is not a function`.
+ */
+function makeEventFactory({ clock, idGenerator }) {
+  if (!idGenerator || typeof idGenerator.next !== 'function') {
+    throw new Error('makeEventFactory: se requiere un idGenerator con .next()');
+  }
+  return function createEvent(type, payload = {}, version = 1) {
+    return {
+      id: idGenerator.next(),
+      type,
+      payload,
+      ts: clock.now(),
+      version,
+    };
+  };
+}
+
+/** Estado inicial: lo que existe antes de cualquier evento. */
+function initialState() {
+  return {
+    meta: {
+      started: false,
+      startedAt: null,
+      reincarnations: 0,
+      essence: 0,
+      lineageId: null,
+      version: 1,
+    },
+    character: {
+      level: 1,
+      points: 0,
+      affinities: Object.fromEntries(ALL_TAGS.map(t => [t, 0])),
+      baseAttributes: { hp: 0, mana: 0, damage: 0, defense: 0, speed: 0 },
+    },
+    tree: {
+      // unlocked: { [nodeId]: level }. Nivel 0 significa "no desbloqueado".
+      unlocked: {},
+    },
+    progress: {
+      synergies: [],
+      combos: [],
+      missions: [],
+    },
+    ruleta: {
+      options: [],     // ids de nodos ofrecidos
+      roles: {},       // { [nodeId]: 'reinforce'|'pivot'|'explore' }
+    },
+  };
+}
+
+/**
+ * Reducers puros. Cada uno devuelve un estado NUEVO. Nunca mutamos.
+ * Es la regla de oro de Event Sourcing: el estado es una función del log.
+ *
+ * CORRECCIÓN v10.1: el reducer de AttributeIncreased vive aquí dentro,
+ * junto al resto. Antes se registraba después de definir `reducers` y
+ * funcionaba por orden de carga, lo cual era frágil.
+ */
+const reducers = {
+  [EventType.GAME_STARTED]: (s, ev) => ({
+    ...s,
+    meta: { ...s.meta, started: true, startedAt: ev.ts },
+  }),
+
+  [EventType.LINEAGE_CHOSEN]: (s, ev) => {
+    const lineage = LINEAGE_CATALOG.find(l => l.id === ev.payload.lineageId);
+    if (!lineage) return s;
+    const affinities = { ...s.character.affinities };
+    for (const [tag, val] of Object.entries(lineage.affinities)) {
+      affinities[tag] = (affinities[tag] || 0) + val;
     }
-    const eventBus = new EventBus();
-
-    const Persistence = {
-        save(state) {
-            try {
-                const data = {
-                    unlockedNodes: state.unlockedNodes,
-                    nodeLevels: state.nodeLevels,
-                    generatedNodes: state.generatedNodes,
-                    synergies: state.synergies,
-                    combos: state.combos,
-                    missions: state.missions,
-                    log: state.log,
-                    stats: {
-                        level: state.stats.level,
-                        points: state.stats.points,
-                        powerRank: state.stats.powerRank,
-                        affinities: state.stats.affinities,
-                        baseStats: state.stats.baseStats
-                    }
-                };
-                localStorage.setItem('torreOscura_v9', JSON.stringify(data));
-            } catch(e) { /* ignore */ }
-        },
-        load() {
-            try {
-                const raw = localStorage.getItem('torreOscura_v9');
-                if (!raw) return null;
-                return JSON.parse(raw);
-            } catch(e) { return null; }
-        },
-        clear() { localStorage.removeItem('torreOscura_v9'); }
+    return {
+      ...s,
+      meta: { ...s.meta, lineageId: lineage.id },
+      character: { ...s.character, affinities },
     };
+  },
 
-    // ================================================================
-    // 2. DOMINIO – TABLAS DE GENERACIÓN (sin cambios)
-    // ================================================================
-    const TAG_DATA = {
-        fuego: {
-            prefixes: ['Ígneo', 'Llameante', 'Ardiente', 'Piro', 'Candente', 'Encendido'],
-            suffixes: ['de Fuego', 'de la Llama', 'Ígneo', 'del Calor', 'Piro'],
-            effects: { fireDamage: 0.1, burnChance: 0.05 }
+  [EventType.LEVEL_UP]: (s, ev) => ({
+    ...s,
+    character: { ...s.character, level: ev.payload.to },
+  }),
+
+  [EventType.POINTS_GAINED]: (s, ev) => ({
+    ...s,
+    character: { ...s.character, points: s.character.points + ev.payload.amount },
+  }),
+
+  [EventType.POINTS_SPENT]: (s, ev) => ({
+    ...s,
+    character: { ...s.character, points: Math.max(0, s.character.points - ev.payload.amount) },
+  }),
+
+  [EventType.AFFINITY_TRAINED]: (s, ev) => {
+    const { tag, amount } = ev.payload;
+    return {
+      ...s,
+      character: {
+        ...s.character,
+        affinities: {
+          ...s.character.affinities,
+          [tag]: Math.max(0, (s.character.affinities[tag] || 0) + amount),
         },
-        hielo: {
-            prefixes: ['Gélido', 'Glacial', 'Frío', 'Cristalino', 'Escarchado', 'Níveo'],
-            suffixes: ['de Hielo', 'de la Escarcha', 'Gélido', 'del Frío', 'Glacial'],
-            effects: { iceDamage: 0.1, slowChance: 0.1 }
-        },
-        sangre: {
-            prefixes: ['Sangriento', 'Carmesí', 'Sanguinario', 'Vampírico', 'Crómico', 'Encarnado'],
-            suffixes: ['de Sangre', 'del Vampiro', 'Sangriento', 'del Torrente', 'Crómico'],
-            effects: { lifeSteal: 0.05 }
-        },
-        magia: {
-            prefixes: ['Arcano', 'Místico', 'Ethereal', 'Mágico', 'Sobrenatural', 'Enigmático'],
-            suffixes: ['de Magia', 'del Arcano', 'Místico', 'del Conocimiento', 'Ethereal'],
-            effects: { manaCostReduction: 0.05, damage: 3 }
-        },
-        fisico: {
-            prefixes: ['Férreo', 'Robusto', 'Tenaz', 'Poderoso', 'Atlético', 'Hércules'],
-            suffixes: ['Físico', 'de la Fuerza', 'del Cuerpo', 'Robusto'],
-            effects: { damage: 5, defense: 2 }
-        },
-        aire: {
-            prefixes: ['Eólico', 'Veloz', 'Céfiro', 'Ventoso', 'Raudo', 'Sutil'],
-            suffixes: ['de Aire', 'del Viento', 'Eólico', 'de la Brisa', 'Veloz'],
-            effects: { speed: 10, evasion: 0.05 }
-        },
-        tierra: {
-            prefixes: ['Pétreo', 'Sólido', 'Macizo', 'Terrestre', 'Robusto', 'Granítico'],
-            suffixes: ['de Tierra', 'del Roca', 'Pétreo', 'del Suelo', 'Sólido'],
-            effects: { defense: 8, allResist: 0.05 }
-        },
-        naturaleza: {
-            prefixes: ['Verdoso', 'Florido', 'Vital', 'Silvestre', 'Frondoso', 'Primaveral'],
-            suffixes: ['de Naturaleza', 'de la Vida', 'Vital', 'del Bosque', 'Silvestre'],
-            effects: { regenHp: 0.02, regenMana: 0.02 }
-        },
-        sombra: {
-            prefixes: ['Oscuro', 'Umbrío', 'Sombrío', 'Tenebroso', 'Nocturno', 'Espectral'],
-            suffixes: ['de Sombra', 'de la Oscuridad', 'Sombrío', 'del Sigilo', 'Tenebroso'],
-            effects: { evasion: 0.1, chaosChance: 0.05 }
-        },
-        luz: {
-            prefixes: ['Luminoso', 'Brillante', 'Radiante', 'Divino', 'Sagrado', 'Cegador'],
-            suffixes: ['de Luz', 'de la Aurora', 'Luminoso', 'del Alba', 'Radiante'],
-            effects: { healAlly: 0.05, allResist: 0.05 }
-        }
+      },
     };
-    const TAG_LIST = Object.keys(TAG_DATA);
-    const ALL_TAGS = TAG_LIST;
+  },
 
-    // ================================================================
-    // 3. PLANTILLAS BASE (sin cambios)
-    // ================================================================
-    const TEMPLATES = [
-        { id: 'vitality', name: 'Vitalidad', baseEffect: { maxHp: 20 }, level: 0, baseRarity: 'common', cost: 1, maxLevel: 5, icon: 'fa-heart' },
-        { id: 'mana_pool', name: 'Maná', baseEffect: { maxMana: 15 }, level: 0, baseRarity: 'common', cost: 1, maxLevel: 5, icon: 'fa-bolt' },
-        { id: 'strength', name: 'Fuerza', baseEffect: { damage: 5 }, level: 0, baseRarity: 'common', cost: 1, maxLevel: 5, icon: 'fa-fist-raised' },
-        { id: 'intellect', name: 'Inteligencia', baseEffect: { damage: 5 }, level: 0, baseRarity: 'common', cost: 1, maxLevel: 5, icon: 'fa-brain' },
-        { id: 'agility', name: 'Agilidad', baseEffect: { speed: 8 }, level: 0, baseRarity: 'common', cost: 1, maxLevel: 5, icon: 'fa-wind' },
-        { id: 'guardian_base', name: 'Guardián', baseEffect: { defense: 5 }, level: 0, baseRarity: 'common', cost: 1, maxLevel: 5, icon: 'fa-shield' },
-        { id: 'fire_affinity', name: 'Afinidad Ígnea', baseEffect: { fireDamage: 0.1 }, level: 1, baseRarity: 'rare', cost: 2, maxLevel: 3, icon: 'fa-fire' },
-        { id: 'ice_affinity', name: 'Afinidad Gélida', baseEffect: { iceDamage: 0.1 }, level: 1, baseRarity: 'rare', cost: 2, maxLevel: 3, icon: 'fa-snowflake' },
-        { id: 'blood_thirst', name: 'Sed de Sangre', baseEffect: { lifeSteal: 0.05 }, level: 1, baseRarity: 'rare', cost: 2, maxLevel: 3, icon: 'fa-droplet' },
-        { id: 'swiftness', name: 'Rapidez', baseEffect: { speed: 15 }, level: 1, baseRarity: 'rare', cost: 2, maxLevel: 3, icon: 'fa-feather' },
-        { id: 'elemental_synergy', name: 'Sinergia Elemental', baseEffect: { fireDamage: 0.15, iceDamage: 0.15, lightningDamage: 0.15 }, level: 2, baseRarity: 'epic', cost: 3, maxLevel: 2, icon: 'fa-bolt' },
-        { id: 'berserker', name: 'Berserker', baseEffect: { berserkerDamage: 0.3 }, level: 2, baseRarity: 'epic', cost: 3, maxLevel: 2, icon: 'fa-axe' },
-        { id: 'arcane_mastery', name: 'Maestría Arcana', baseEffect: { manaCostReduction: 0.2 }, level: 2, baseRarity: 'epic', cost: 3, maxLevel: 2, icon: 'fa-hat-wizard' },
-        { id: 'lightning_fury', name: 'Furia Relámpago', baseEffect: { lightningDamage: 0.2, speed: 10 }, level: 2, baseRarity: 'epic', cost: 3, maxLevel: 2, icon: 'fa-cloud-bolt' },
-        { id: 'guardian_master', name: 'Guardián Épico', baseEffect: { defense: 20, allResist: 0.1 }, level: 2, baseRarity: 'epic', cost: 3, maxLevel: 2, icon: 'fa-shield' }
-    ];
-
-    // ================================================================
-    // 4. SINERGIAS, COMBOS, MISIONES (sin cambios)
-    // ================================================================
-    const SYNERGY_CATALOG = [
-        { id: 'syn_fire_ice', name: 'Cambio Térmico', desc: 'Golpe fuego → siguiente hielo +50% daño',
-            requiredTags: ['fuego','hielo'], effects: { fireDamage: 0.1, iceDamage: 0.1 } },
-        { id: 'syn_blood_berserker', name: 'Furia Sanguinaria', desc: 'Vida<30% → robo de vida +20%',
-            requiredTags: ['sangre'], effects: { lifeSteal: 0.2 } },
-        { id: 'syn_lightning_swift', name: 'Tormenta Veloz', desc: '+20% velocidad, +10% rayo',
-            requiredTags: ['rayo','aire'], effects: { speed: 20, lightningDamage: 0.1 } },
-        { id: 'syn_shadow_magic', name: 'Magia Sombra', desc: '+15% daño de sombra, +10% caos',
-            requiredTags: ['sombra','magia'], effects: { chaosDamage: 0.15 } }
-    ];
-    const COMBO_CATALOG = [
-        { id: 'combo_fire_3', name: 'Inferno', desc: '3 nodos fuego → +20% daño fuego',
-            requiredTags: { fuego: 3 }, effects: { fireDamage: 0.2 } },
-        { id: 'combo_ice_3', name: 'Glaciar', desc: '3 nodos hielo → +20% daño hielo',
-            requiredTags: { hielo: 3 }, effects: { iceDamage: 0.2 } },
-        { id: 'combo_sangre_3', name: 'Sed Insaciable', desc: '3 nodos sangre → +15% robo de vida',
-            requiredTags: { sangre: 3 }, effects: { lifeSteal: 0.15 } },
-        { id: 'combo_magia_3', name: 'Concentración Arcana', desc: '3 nodos magia → -15% coste maná',
-            requiredTags: { magia: 3 }, effects: { manaCostReduction: 0.15 } }
-    ];
-    const MISSION_CATALOG = [
-        { id: 'mission_fire_3', name: 'Aprendiz de Fuego', desc: 'Desbloquea 3 nodos con tag "fuego"',
-            condition: (state) => state.generatedNodes.filter(n => n.tags.includes('fuego')).length >= 3,
-            reward: { points: 2, affinity: { tag: 'fuego', value: 10 } } },
-        { id: 'mission_ice_3', name: 'Aprendiz de Hielo', desc: 'Desbloquea 3 nodos con tag "hielo"',
-            condition: (state) => state.generatedNodes.filter(n => n.tags.includes('hielo')).length >= 3,
-            reward: { points: 2, affinity: { tag: 'hielo', value: 10 } } },
-        { id: 'mission_level_5', name: 'Ascenso', desc: 'Alcanza el nivel 5',
-            condition: (state) => state.stats.level >= 5,
-            reward: { points: 3, affinity: { tag: 'magia', value: 15 } } },
-        { id: 'mission_ascend_1', name: 'Despertar del Poder', desc: 'Desbloquea una ascendencia (nivel ≥ 3)',
-            condition: (state) => state.generatedNodes.some(n => n.level >= 3),
-            reward: { points: 5, affinity: { tag: 'sangre', value: 10 } } }
-    ];
-
-    // ================================================================
-    // 5. ESTADO BASE Y OBSERVABLE
-    // ================================================================
-    function buildBaseStats() {
-        const stats = {
-            level: 1,
-            points: 0,
-            powerRank: 1,
-            maxHp: 100,
-            maxMana: 50,
-            damage: 10,
-            defense: 5,
-            speed: 10,
-            fireDamage: 0,
-            iceDamage: 0,
-            lightningDamage: 0,
-            lifeSteal: 0,
-            chaosChance: 0,
-            chaosDamage: 0,
-            allResist: 0,
-            manaCostReduction: 0,
-            poisonDamage: 0,
-            evasion: 0,
-            regenHp: 0,
-            regenMana: 0,
-            healAlly: 0,
-            berserkerDamage: 0,
-            slowChance: 0,
-            burnChance: 0,
-            critChance: 0,
-            critDamage: 0,
-            blockChance: 0,
-            affinities: {},
-            baseStats: { hp: 0, mana: 0, damage: 0, defense: 0, speed: 0 }
-        };
-        ALL_TAGS.forEach(t => stats.affinities[t] = 0);
-        return stats;
+  [EventType.AFFINITIES_DECAYED]: (s, ev) => {
+    const factor = 1 - ev.payload.rate;
+    const affinities = {};
+    for (const [tag, val] of Object.entries(s.character.affinities)) {
+      affinities[tag] = Math.floor(val * factor);
     }
+    return { ...s, character: { ...s.character, affinities } };
+  },
 
-    const saved = Persistence.load();
-    let initialState = {
-        stats: buildBaseStats(),
-        unlockedNodes: [],
-        nodeLevels: {},
-        generatedNodes: [],
-        synergies: [],
-        combos: [],
-        missions: [],
-        log: [],
-        message: '',
-        availableNodes: []
-    };
-    if (saved) {
-        try {
-            const stats = buildBaseStats();
-            stats.level = saved.stats.level || 1;
-            stats.points = saved.stats.points || 0;
-            stats.powerRank = saved.stats.powerRank || 1;
-            if (saved.stats.affinities) Object.assign(stats.affinities, saved.stats.affinities);
-            if (saved.stats.baseStats) Object.assign(stats.baseStats, saved.stats.baseStats);
-            initialState = {
-                stats,
-                unlockedNodes: saved.unlockedNodes || [],
-                nodeLevels: saved.nodeLevels || {},
-                generatedNodes: saved.generatedNodes || [],
-                synergies: saved.synergies || [],
-                combos: saved.combos || [],
-                missions: saved.missions || [],
-                log: saved.log || [],
-                message: '',
-                availableNodes: []
-            };
-        } catch(e) { /* fallback */ }
+  [EventType.ATTRIBUTE_INCREASED]: (s, ev) => {
+    const ba = { ...s.character.baseAttributes };
+    ba[ev.payload.attr] = (ba[ev.payload.attr] || 0) + 1;
+    return { ...s, character: { ...s.character, baseAttributes: ba } };
+  },
+
+  [EventType.NODE_UNLOCKED]: (s, ev) => ({
+    ...s,
+    tree: {
+      ...s.tree,
+      unlocked: { ...s.tree.unlocked, [ev.payload.nodeId]: 1 },
+    },
+  }),
+
+  [EventType.NODE_UPGRADED]: (s, ev) => ({
+    ...s,
+    tree: {
+      ...s.tree,
+      unlocked: { ...s.tree.unlocked, [ev.payload.nodeId]: ev.payload.to },
+    },
+  }),
+
+  [EventType.NODE_ASCENDED]: (s, ev) => {
+    const { fromId, toId } = ev.payload;
+    const unlocked = { ...s.tree.unlocked };
+    delete unlocked[fromId];       // el nodo base desaparece
+    unlocked[toId] = 1;            // el ascendido entra a nivel 1
+    return { ...s, tree: { ...s.tree, unlocked } };
+  },
+
+  [EventType.SYNERGY_ACTIVATED]: (s, ev) => ({
+    ...s,
+    progress: {
+      ...s.progress,
+      synergies: [...new Set([...s.progress.synergies, ev.payload.synergyId])],
+    },
+  }),
+
+  [EventType.COMBO_ACTIVATED]: (s, ev) => ({
+    ...s,
+    progress: {
+      ...s.progress,
+      combos: [...new Set([...s.progress.combos, ev.payload.comboId])],
+    },
+  }),
+
+  [EventType.MISSION_COMPLETED]: (s, ev) => ({
+    ...s,
+    progress: {
+      ...s.progress,
+      missions: [...new Set([...s.progress.missions, ev.payload.missionId])],
+    },
+  }),
+
+  [EventType.RANDOM_EVENT]: (s, ev) => {
+    const affinities = { ...s.character.affinities };
+    if (ev.payload.affinity) {
+      affinities[ev.payload.affinity.tag] =
+        (affinities[ev.payload.affinity.tag] || 0) + ev.payload.affinity.value;
     }
+    const points = s.character.points + (ev.payload.points || 0);
+    return { ...s, character: { ...s.character, affinities, points } };
+  },
 
-    const state = {
-        stats: initialState.stats,
-        unlockedNodes: initialState.unlockedNodes,
-        nodeLevels: initialState.nodeLevels,
-        generatedNodes: initialState.generatedNodes,
-        synergies: initialState.synergies,
-        combos: initialState.combos,
-        missions: initialState.missions,
-        log: initialState.log,
-        message: initialState.message,
-        availableNodes: initialState.availableNodes
+  [EventType.RULETA_ROLLED]: (s, ev) => ({
+    ...s,
+    ruleta: { options: [...ev.payload.options], roles: { ...ev.payload.roles } },
+  }),
+
+  [EventType.RULETA_CLEARED]: (s) => ({
+    ...s,
+    ruleta: { options: [], roles: {} },
+  }),
+
+  [EventType.REINCARNATED]: (s, ev) => {
+    const fresh = initialState();
+    return {
+      ...fresh,
+      meta: {
+        ...fresh.meta,
+        started: true,
+        startedAt: s.meta.startedAt,
+        reincarnations: s.meta.reincarnations + 1,
+        essence: s.meta.essence + ev.payload.essenceGained,
+        lineageId: ev.payload.lineageId ?? s.meta.lineageId,
+      },
+      character: {
+        ...fresh.character,
+        affinities: { ...fresh.character.affinities, ...ev.payload.keptAffinities },
+      },
     };
+  },
 
-    const stateProxy = new Proxy(state, {
-        set(target, prop, value) {
-            target[prop] = value;
-            const events = {
-                stats: 'StatsActualizados',
-                unlockedNodes: 'NodosActualizados',
-                nodeLevels: 'NodosActualizados',
-                generatedNodes: 'NodosActualizados',
-                synergies: 'SynergiasActualizadas',
-                combos: 'CombosActualizados',
-                missions: 'MisionesActualizadas',
-                log: 'LogActualizado',
-                message: 'MensajeActualizado',
-                availableNodes: 'RuletaActualizada'
-            };
-            if (events[prop]) eventBus.emit(events[prop], { prop, value });
-            if (['stats','unlockedNodes','nodeLevels','generatedNodes','synergies','combos','missions','log'].includes(prop)) {
-                Persistence.save({
-                    stats: {
-                        level: state.stats.level,
-                        points: state.stats.points,
-                        powerRank: state.stats.powerRank,
-                        affinities: state.stats.affinities,
-                        baseStats: state.stats.baseStats
-                    },
-                    unlockedNodes: state.unlockedNodes,
-                    nodeLevels: state.nodeLevels,
-                    generatedNodes: state.generatedNodes,
-                    synergies: state.synergies,
-                    combos: state.combos,
-                    missions: state.missions,
-                    log: state.log
-                });
-            }
-            return true;
-        }
+  [EventType.HARD_RESET]: () => initialState(),
+};
+
+/** Aplica un evento al estado. Función total: siempre devuelve un estado. */
+function applyEvent(state, event) {
+  const reducer = reducers[event.type];
+  return reducer ? reducer(state, event) : state;
+}
+
+/** Reconstruye el estado a partir de una secuencia de eventos. */
+function foldEvents(events, from = initialState()) {
+  return events.reduce(applyEvent, from);
+}
+
+
+/* ============================================================================
+ * 4. DOMINIO · PROYECCIONES (read models)
+ * ----------------------------------------------------------------------------
+ * Las proyecciones derivan vistas del estado. Son puras y sin efectos.
+ * Cada una responde a UNA pregunta. La UI las consume tal cual.
+ * ========================================================================== */
+
+/** Utilidades puras de consulta sobre el estado. */
+function countNodesWithTag(state, tag) {
+  return Object.keys(state.tree.unlocked).reduce((acc, nodeId) => {
+    const node = NODE_BY_ID[nodeId];
+    return acc + (node && node.tags.includes(tag) ? 1 : 0);
+  }, 0);
+}
+
+function getNodeLevel(state, nodeId) {
+  return state.tree.unlocked[nodeId] || 0;
+}
+
+/** Efectos efectivos de un nodo según su nivel actual. */
+function getNodeEffects(state, nodeId) {
+  const node = NODE_BY_ID[nodeId];
+  if (!node) return {};
+  const level = getNodeLevel(state, nodeId) || 1;
+  const out = {};
+  for (const [k, v] of Object.entries(node.effects)) {
+    out[k] = typeof v === 'number' ? v * level : v;
+  }
+  return out;
+}
+
+/** ¿Cumple un nodo los requisitos para ser desbloqueado? */
+function isNodeAvailable(state, node) {
+  if (state.tree.unlocked[node.id]) return false;
+
+  if (node.requiresReincarnation && state.meta.reincarnations < node.requiresReincarnation) {
+    return false;
+  }
+  for (const reqId of node.reqs || []) {
+    if (!state.tree.unlocked[reqId]) return false;
+  }
+  if (node.affinityReq) {
+    const cur = state.character.affinities[node.affinityReq.tag] || 0;
+    if (cur < node.affinityReq.min) return false;
+  }
+  if (node.ascendFrom && !state.tree.unlocked[node.ascendFrom]) return false;
+  return true;
+}
+
+/** Stats base absolutas (antes de linaje, atributos, nodos, etc.). */
+function buildBaseStats() {
+  return {
+    maxHp: 100, maxMana: 50, damage: 10, defense: 5, speed: 10,
+    fireDamage: 0, iceDamage: 0, lightningDamage: 0, lifeSteal: 0,
+    chaosChance: 0, chaosDamage: 0, allResist: 0, manaCostReduction: 0,
+    poisonDamage: 0, evasion: 0, regenHp: 0, regenMana: 0, healAlly: 0,
+    berserkerDamage: 0, slowChance: 0, burnChance: 0,
+  };
+}
+
+/** Proyección: hoja de personaje con stats agregadas. */
+function projectCharacterSheet(state) {
+  const base = buildBaseStats();
+  const lineage = LINEAGE_CATALOG.find(l => l.id === state.meta.lineageId);
+
+  // Sumar bonus del linaje
+  if (lineage) {
+    for (const [k, v] of Object.entries(lineage.baseStats)) {
+      base[k] = (base[k] || 0) + v;
+    }
+  }
+
+  // Sumar atributos base invertidos por el jugador
+  const ba = state.character.baseAttributes;
+  base.maxHp     += ba.hp * 5;
+  base.maxMana   += ba.mana * 3;
+  base.damage    += ba.damage * 1;
+  base.defense   += ba.defense * 1;
+  base.speed     += ba.speed * 2;
+
+  // Sumar esencia (bonus permanente de reencarnaciones)
+  base.maxHp  += state.meta.essence * BALANCE.ESSENCE_STAT_BONUS.maxHp;
+  base.damage += state.meta.essence * BALANCE.ESSENCE_STAT_BONUS.damage;
+
+  // Sumar efectos de nodos
+  for (const nodeId of Object.keys(state.tree.unlocked)) {
+    const eff = getNodeEffects(state, nodeId);
+    for (const [k, v] of Object.entries(eff)) {
+      base[k] = (base[k] || 0) + v;
+    }
+  }
+  // Sumar sinergias
+  for (const synId of state.progress.synergies) {
+    const syn = SYNERGY_CATALOG.find(s => s.id === synId);
+    if (syn) for (const [k, v] of Object.entries(syn.effects)) base[k] = (base[k] || 0) + v;
+  }
+  // Sumar combos
+  for (const comboId of state.progress.combos) {
+    const c = COMBO_CATALOG.find(x => x.id === comboId);
+    if (c) for (const [k, v] of Object.entries(c.effects)) base[k] = (base[k] || 0) + v;
+  }
+
+  // Redondeo a 2 decimales para presentación
+  for (const k of Object.keys(base)) {
+    if (typeof base[k] === 'number') base[k] = Math.round(base[k] * 100) / 100;
+  }
+  return base;
+}
+
+/** Proyección: opciones de ruleta con roles. */
+function projectRuleta(state) {
+  return state.ruleta.options.map(nodeId => {
+    const node = NODE_BY_ID[nodeId];
+    return {
+      nodeId,
+      role: state.ruleta.roles[nodeId] || 'explore',
+      name: node?.name || nodeId,
+      tags: node?.tags || [],
+      rarity: node?.rarity || 'common',
+      effects: getNodeEffects(state, nodeId),
+      cost: node?.cost || 1,
+      level: getNodeLevel(state, nodeId),
+      maxLevel: node?.maxLevel || 1,
+    };
+  });
+}
+
+/**
+ * Proyección: log legible derivado de los eventos.
+ * Cada tipo de evento sabe describirse; los desconocidos caen al tipo.
+ */
+function projectLog(events, limit = 30) {
+  const describe = {
+    [EventType.GAME_STARTED]:       () => '▶ Partida iniciada',
+    [EventType.LINEAGE_CHOSEN]:     ev => `🎭 Linaje: ${ev.payload.lineageId}`,
+    [EventType.LEVEL_UP]:           ev => `▲ Nivel ${ev.payload.to}`,
+    [EventType.POINTS_GAINED]:      ev => `+${ev.payload.amount} puntos (${ev.payload.source})`,
+    [EventType.POINTS_SPENT]:       ev => `-${ev.payload.amount} puntos (${ev.payload.reason})`,
+    [EventType.AFFINITY_TRAINED]:   ev => `🏋 ${ev.payload.tag} +${ev.payload.amount}`,
+    [EventType.AFFINITIES_DECAYED]: ev => `↓ Decay ${(ev.payload.rate*100).toFixed(0)}% en afinidades`,
+    [EventType.ATTRIBUTE_INCREASED]:ev => `📊 ${ev.payload.attr} +1`,
+    [EventType.NODE_UNLOCKED]:      ev => `🔓 ${NODE_BY_ID[ev.payload.nodeId]?.name || ev.payload.nodeId}`,
+    [EventType.NODE_UPGRADED]:      ev => `↑ ${NODE_BY_ID[ev.payload.nodeId]?.name} → nivel ${ev.payload.to}`,
+    [EventType.NODE_ASCENDED]:      ev => `⬆ ${NODE_BY_ID[ev.payload.fromId]?.name} → ${NODE_BY_ID[ev.payload.toId]?.name}`,
+    [EventType.SYNERGY_ACTIVATED]:  ev => `🔗 Sinergia: ${ev.payload.synergyId}`,
+    [EventType.COMBO_ACTIVATED]:    ev => `⚡ Combo: ${ev.payload.comboId}`,
+    [EventType.MISSION_COMPLETED]:  ev => `🏆 Misión: ${ev.payload.missionId}`,
+    [EventType.RANDOM_EVENT]:       ev => `✨ ${ev.payload.description}`,
+    [EventType.RULETA_ROLLED]:      () => '🎲 Ruleta generada',
+    [EventType.RULETA_CLEARED]:     () => '🎲 Ruleta resuelta',
+    [EventType.REINCARNATED]:       ev => `♻ Reencarnación #${ev.payload.to} · +${ev.payload.essenceGained} esencia`,
+    [EventType.HARD_RESET]:         () => '✖ Reinicio duro',
+  };
+  return events.slice(-limit).reverse().map(ev => {
+    const fn = describe[ev.type];
+    const text = fn ? fn(ev) : ev.type;
+    return { id: ev.id, ts: ev.ts, type: ev.type, text };
+  });
+}
+
+
+/* ============================================================================
+ * 5. DOMINIO · SERVICIOS
+ * ----------------------------------------------------------------------------
+ * Reglas de negocio puras que no encajan en un reducer porque dependen del
+ * estado para decidir QUÉ eventos generar. Reciben estado, devuelven eventos
+ * (no los aplican). Así son testeables y componibles.
+ * ========================================================================== */
+
+/**
+ * Servicio de ruleta. Genera 3 opciones con roles garantizados:
+ *   - reinforce : refuerza la afinidad dominante
+ *   - pivot     : empuja hacia una afinidad intermedia
+ *   - explore   : introduce una afinidad baja o inexistente
+ *
+ * Regla anti-monocultivo: si no hay suficientes nodos disponibles para
+ * cubrir los 3 roles, se rellenan con aleatorios. Nunca devuelve menos
+ * de 3 opciones si hay al menos 3 nodos disponibles en total.
+ */
+function rollRuleta(state, { random }) {
+  const available = NODE_CATALOG.filter(n => isNodeAvailable(state, n));
+  if (available.length === 0) return { options: [], roles: {} };
+
+  // Clasificar tags por afinidad acumulada
+  const affEntries = Object.entries(state.character.affinities)
+    .sort((a, b) => b[1] - a[1]);
+  const highTags = affEntries.slice(0, 2).map(([t]) => t);
+  const midTags  = affEntries.slice(2, 5).map(([t]) => t);
+  const lowTags  = affEntries.filter(([, v]) => v === 0).map(([t]) => t);
+
+  // Puntúa cada nodo contra un conjunto de tags
+  const scoreByTags = (node, tags) => {
+    if (tags.length === 0) return 0;
+    return node.tags.reduce((acc, t) => acc + (tags.includes(t) ? 1 : 0), 0);
+  };
+
+  const pickBest = (pool, tags) => {
+    const scored = pool
+      .map(n => ({ n, s: scoreByTags(n, tags) + random.float() * 0.5 }))
+      .sort((a, b) => b.s - a.s);
+    return scored[0]?.n;
+  };
+
+  const used = new Set();
+  const options = [];
+  const roles = {};
+
+  // Rol 1: reforzar
+  let reinforce = pickBest(available, highTags);
+  if (!reinforce) reinforce = random.pick(available);
+  if (reinforce && !used.has(reinforce.id)) {
+    options.push(reinforce.id); roles[reinforce.id] = 'reinforce';
+    used.add(reinforce.id);
+  }
+
+  // Rol 2: pivotar
+  const pool2 = available.filter(n => !used.has(n.id));
+  let pivot = pickBest(pool2, midTags);
+  if (!pivot) pivot = random.pick(pool2);
+  if (pivot) { options.push(pivot.id); roles[pivot.id] = 'pivot'; used.add(pivot.id); }
+
+  // Rol 3: explorar
+  const pool3 = available.filter(n => !used.has(n.id));
+  let explore = pickBest(pool3, lowTags);
+  if (!explore) explore = random.pick(pool3);
+  if (explore) { options.push(explore.id); roles[explore.id] = 'explore'; used.add(explore.id); }
+
+  // Relleno si faltan (poco probable con catálogo grande)
+  while (options.length < 3) {
+    const pool = available.filter(n => !used.has(n.id));
+    if (pool.length === 0) break;
+    const n = random.pick(pool);
+    options.push(n.id); roles[n.id] = 'explore'; used.add(n.id);
+  }
+
+  return { options, roles };
+}
+
+/**
+ * Detecta sinergias y combos recién activados. Devuelve los eventos
+ * correspondientes sin aplicarlos.
+ */
+function detectProgressEvents(state, createEvent) {
+  const events = [];
+
+  // Sinergias
+  for (const syn of SYNERGY_CATALOG) {
+    if (state.progress.synergies.includes(syn.id)) continue;
+    const hasAll = syn.required.every(id => state.tree.unlocked[id]);
+    if (hasAll) events.push(createEvent(EventType.SYNERGY_ACTIVATED, { synergyId: syn.id }));
+  }
+
+  // Combos
+  for (const combo of COMBO_CATALOG) {
+    if (state.progress.combos.includes(combo.id)) continue;
+    let met = true;
+    for (const [tag, required] of Object.entries(combo.requiredTags)) {
+      if (countNodesWithTag(state, tag) < required) { met = false; break; }
+    }
+    if (met) events.push(createEvent(EventType.COMBO_ACTIVATED, { comboId: combo.id }));
+  }
+
+  return events;
+}
+
+/**
+ * Detecta misiones completadas. El "estado" que recibe la condición es
+ * un adaptador mínimo con las props que las misiones esperan.
+ */
+function detectMissionEvents(state, createEvent) {
+  const events = [];
+  const missionState = {
+    character: state.character,
+    tree: state.tree,
+    meta: state.meta,
+  };
+  for (const mission of MISSION_CATALOG) {
+    if (state.progress.missions.includes(mission.id)) continue;
+    if (mission.condition(missionState)) {
+      events.push(createEvent(EventType.MISSION_COMPLETED, { missionId: mission.id }));
+      if (mission.reward.points) {
+        events.push(createEvent(EventType.POINTS_GAINED, {
+          amount: mission.reward.points, source: `mission:${mission.id}`,
+        }));
+      }
+      if (mission.reward.affinity) {
+        events.push(createEvent(EventType.AFFINITY_TRAINED, {
+          tag: mission.reward.affinity.tag,
+          amount: mission.reward.affinity.value,
+        }));
+      }
+    }
+  }
+  return events;
+}
+
+/**
+ * Calcula la reencarnación: qué se conserva, cuánta esencia se gana.
+ * Puro. No aplica nada, solo describe.
+ */
+function planReincarnation(state) {
+  const keptAffinities = {};
+  for (const [tag, val] of Object.entries(state.character.affinities)) {
+    const kept = Math.floor(val * BALANCE.REINCARNATION_KEEP);
+    if (kept > 0) keptAffinities[tag] = kept;
+  }
+  const essenceGained = Math.floor(state.character.level / BALANCE.REINCARNATION_ESSENCE_PER);
+  return { keptAffinities, essenceGained };
+}
+
+/**
+ * Elige un evento aleatorio. En v9 era puro casino; aquí limitamos a
+ * eventos que no rompan el balance (nada de +10 afinidad aleatoria).
+ */
+function rollRandomEvent({ random }) {
+  const pool = [
+    { description: '💎 Estrella fugaz: +1 punto', points: 1 },
+    { description: '📖 Grimorio menor: +3 afinidad de magia',
+      affinity: { tag: 'magia', value: 3 } },
+    { description: '🔥 Chispa elemental: +3 afinidad de fuego',
+      affinity: { tag: 'fuego', value: 3 } },
+    { description: '❄ Aliento del norte: +3 afinidad de hielo',
+      affinity: { tag: 'hielo', value: 3 } },
+    { description: '🩸 Ritual menor: +2 afinidad de sangre',
+      affinity: { tag: 'sangre', value: 2 } },
+  ];
+  return random.pick(pool);
+}
+
+
+/* ============================================================================
+ * 6. ADAPTADORES
+ * ----------------------------------------------------------------------------
+ * Implementaciones concretas de los puertos. Aquí sí hay efectos secundarios.
+ * ========================================================================== */
+
+/**
+ * Event store en memoria. El más simple, útil para tests y para cuando no
+ * queremos persistir nada.
+ */
+class InMemoryEventStore extends EventStorePort {
+  constructor() { super(); this._events = []; }
+  append(event) { this._events.push(event); return event; }
+  all() { return [...this._events]; }
+  clear() { this._events = []; }
+}
+
+/**
+ * Event store en localStorage. Persiste el log entre recargas.
+ * Es el adaptador natural para un prototipo en navegador: cumple la misma
+ * interfaz que InMemoryEventStore, así que se puede intercambiar sin tocar
+ * el motor.
+ */
+class LocalStorageEventStore extends EventStorePort {
+  constructor(key) {
+    super();
+    this.key = key;
+    this._events = this._load();
+  }
+  _load() {
+    try {
+      const raw = localStorage.getItem(this.key);
+      return raw ? JSON.parse(raw) : [];
+    } catch (e) {
+      console.warn('[EventStore] No se pudo leer el log; se parte de cero.', e);
+      return [];
+    }
+  }
+  _persist() {
+    try { localStorage.setItem(this.key, JSON.stringify(this._events)); }
+    catch (e) { /* cuota llena o modo privado: la sesión no persiste */ }
+  }
+  append(event) { this._events.push(event); this._persist(); return event; }
+  all() { return [...this._events]; }
+  clear() { this._events = []; this._persist(); }
+}
+
+/**
+ * Snapshot en localStorage. Opcional: el motor reconstruye desde el log
+ * al arrancar, así que si el snapshot falta o está corrupto, no pasa nada.
+ */
+class LocalStorageSnapshot extends SnapshotStoragePort {
+  constructor(key) { super(); this.key = key; }
+  save(state) {
+    try { localStorage.setItem(this.key, JSON.stringify(state)); }
+    catch (e) { /* ignorar */ }
+  }
+  load() {
+    try {
+      const raw = localStorage.getItem(this.key);
+      return raw ? JSON.parse(raw) : null;
+    } catch (e) { return null; }
+  }
+  clear() {
+    try { localStorage.removeItem(this.key); } catch (e) { /* ignorar */ }
+  }
+}
+
+class SystemClock extends ClockPort {
+  now() { return Date.now(); }
+}
+
+class MathRandom extends RandomPort {
+  float() { return Math.random(); }
+  int(min, max) { return Math.floor(Math.random() * (max - min + 1)) + min; }
+  pick(arr) { return arr[Math.floor(Math.random() * arr.length)]; }
+}
+
+class ConsoleLogger extends LoggerPort {
+  info(msg, meta)  { console.log(`[INFO]  ${msg}`, meta ?? ''); }
+  warn(msg, meta)  { console.warn(`[WARN]  ${msg}`, meta ?? ''); }
+  error(msg, meta) { console.error(`[ERROR] ${msg}`, meta ?? ''); }
+}
+
+/**
+ * Generador de ids monótono y sin colisiones dentro de una sesión.
+ * Expone `.next()` en lugar de ser una función, para que la fábrica de
+ * eventos pueda llamarlo sin ambigüedad.
+ */
+class SequentialIdGenerator {
+  constructor() { this._n = 0; }
+  next() { this._n++; return `${Date.now()}-${this._n.toString(36)}`; }
+}
+
+
+/* ============================================================================
+ * 7. APLICACIÓN · GameEngine
+ * ----------------------------------------------------------------------------
+ * Orquesta: recibe comandos, ejecuta servicios de dominio, produce eventos,
+ * los persiste y actualiza el estado. Es el único punto donde el dominio
+ * ve los puertos (eventStore, clock, random, logger, snapshot).
+ *
+ * NO tiene lógica de negocio. Solo coordina.
+ *
+ * Convención de notificación (v10.1):
+ *   - `emit` y `emitAll` NUNCA notifican. Solo aplican.
+ *   - Cada comando público llama a `this.notify()` UNA vez al final.
+ *   - Así se evitan notifies dobles y renders redundantes.
+ * ========================================================================== */
+
+class GameEngine {
+  constructor({ eventStore, snapshot, clock, random, logger }) {
+    this.eventStore = eventStore;
+    this.snapshot = snapshot;
+    this.clock = clock;
+    this.random = random;
+    this.logger = logger;
+    this.createEvent = makeEventFactory({
+      clock,
+      idGenerator: new SequentialIdGenerator(),
     });
 
-    // ================================================================
-    // 6. LÓGICA DE GENERACIÓN, PROGRESIÓN Y ATRIBUTOS
-    // ================================================================
-    function pickRandom(arr) { return arr[Math.floor(Math.random() * arr.length)]; }
+    this.listeners = new Set();
+    this.state = this.foldAll();
+  }
 
-    function generateNodeName(tags, templateName) {
-        if (!tags || tags.length === 0) return templateName;
-        const mainTag = tags[0];
-        const tagInfo = TAG_DATA[mainTag];
-        if (!tagInfo) return templateName;
-        const prefix = pickRandom(tagInfo.prefixes);
-        if (tags.length === 1) return `${prefix} ${templateName}`;
-        const secondTag = tags[1];
-        const tagInfo2 = TAG_DATA[secondTag];
-        if (tagInfo2) {
-            const p2 = pickRandom(tagInfo2.prefixes);
-            return `${prefix} ${p2}`;
-        }
-        return `${prefix} ${templateName}`;
+  /** Reconstruye el estado desde cero (log completo). */
+  foldAll() {
+    return foldEvents(this.eventStore.all());
+  }
+
+  /** Aplica un evento al log y al estado, sin notificar. */
+  _apply(event) {
+    this.eventStore.append(event);
+    this.state = applyEvent(this.state, event);
+  }
+
+  /** Aplica un único evento (sin notificar). */
+  emit(event) {
+    this._apply(event);
+  }
+
+  /** Aplica varios eventos en orden (sin notificar). */
+  emitAll(events) {
+    for (const ev of events) this._apply(ev);
+  }
+
+  /**
+   * Notifica a los suscriptores. Guarda snapshot (si lo hay) y llama a
+   * cada listener protegido por try/catch para que un fallo de UI no
+   * rompa el motor.
+   */
+  notify() {
+    this.snapshot?.save?.(this.state);
+    for (const fn of this.listeners) {
+      try { fn(this.state); }
+      catch (e) { this.logger.error('Error en listener', e); }
+    }
+  }
+
+  /**
+   * Recalcula sinergias, combos y misiones a partir del estado actual.
+   * Emite los eventos necesarios SIN notificar: el comando que lo invoca
+   * es el responsable de llamar a `notify()` al final.
+   */
+  recomputeProgress() {
+    const events = [
+      ...detectProgressEvents(this.state, this.createEvent),
+      ...detectMissionEvents(this.state, this.createEvent),
+    ];
+    if (events.length) this.emitAll(events);
+  }
+
+  /* ---- Comandos públicos (los que llamará el adaptador UI) -------------- */
+
+  startGame() {
+    if (this.state.meta.started) return;
+    this.emit(this.createEvent(EventType.GAME_STARTED, {}));
+    this.notify();
+  }
+
+  chooseLineage(lineageId) {
+    if (!LINEAGE_CATALOG.find(l => l.id === lineageId)) return;
+    this.emit(this.createEvent(EventType.LINEAGE_CHOSEN, { lineageId }));
+    this.recomputeProgress();
+    this.notify();
+  }
+
+  levelUp() {
+    const to = this.state.character.level + 1;
+    const events = [
+      this.createEvent(EventType.LEVEL_UP, { to }),
+      this.createEvent(EventType.POINTS_GAINED, {
+        amount: BALANCE.POINTS_PER_LEVEL, source: 'levelup',
+      }),
+      this.createEvent(EventType.AFFINITIES_DECAYED, {
+        rate: BALANCE.AFFINITY_DECAY_PER_LEVEL,
+      }),
+    ];
+
+    // Hito: cada 5 niveles, ruleta
+    if (to % 5 === 0) {
+      const { options, roles } = rollRuleta(this.state, { random: this.random });
+      events.push(this.createEvent(EventType.RULETA_ROLLED, { options, roles }));
     }
 
-    function getEffectiveEffects(nodeObj) {
-        const lvl = nodeObj.level || 1;
-        const base = { ...nodeObj.baseEffect };
-        for (let k in base) {
-            if (typeof base[k] === 'number') {
-                const powerMult = 1 + Math.log2(nodeObj.powerRank + 1) * 0.15;
-                base[k] = Math.round(base[k] * lvl * powerMult * 10) / 10;
-            }
-        }
-        return base;
+    // Evento aleatorio con probabilidad baja
+    if (this.random.float() < 0.15) {
+      const evt = rollRandomEvent({ random: this.random });
+      events.push(this.createEvent(EventType.RANDOM_EVENT, evt));
     }
 
-    function generateNodeFromTemplate(template, selectedTags, powerRank) {
-        const tags = selectedTags.slice(0, 2);
-        const baseEffect = { ...template.baseEffect };
-        for (const tag of tags) {
-            const tagInfo = TAG_DATA[tag];
-            if (tagInfo) {
-                for (const [key, val] of Object.entries(tagInfo.effects)) {
-                    baseEffect[key] = (baseEffect[key] || 0) + val;
-                }
-            }
-        }
-        let rarity = template.baseRarity;
-        if (powerRank >= 3 && rarity === 'common') rarity = 'rare';
-        if (powerRank >= 5 && rarity === 'rare') rarity = 'epic';
-        if (powerRank >= 8 && rarity === 'epic') rarity = 'legendary';
-        const name = generateNodeName(tags, template.name);
-        const id = `gen_${Date.now()}_${Math.random().toString(36).substr(2,6)}`;
-        return {
-            id, templateId: template.id, name, tags, baseEffect, rarity,
-            level: 1, maxLevel: template.maxLevel || 3,
-            cost: template.cost || 1, icon: template.icon || 'fa-circle',
-            powerRank: powerRank, isGenerated: true
+    this.emitAll(events);
+    this.recomputeProgress();
+    this.notify();
+  }
+
+  trainAffinity(tag) {
+    if (!ALL_TAGS.includes(tag)) return;
+    if (this.state.character.points < BALANCE.TRAIN_COST) return;
+    this.emitAll([
+      this.createEvent(EventType.POINTS_SPENT, {
+        amount: BALANCE.TRAIN_COST, reason: `train:${tag}`,
+      }),
+      this.createEvent(EventType.AFFINITY_TRAINED, {
+        tag, amount: BALANCE.TRAIN_AMOUNT,
+      }),
+    ]);
+    this.recomputeProgress();
+    this.notify();
+  }
+
+  spendAttribute(attrKey) {
+    if (!['hp', 'mana', 'damage', 'defense', 'speed'].includes(attrKey)) return;
+    if (this.state.character.points < 1) return;
+    this.emitAll([
+      this.createEvent(EventType.POINTS_SPENT, { amount: 1, reason: `attr:${attrKey}` }),
+      this.createEvent(EventType.ATTRIBUTE_INCREASED, { attr: attrKey }),
+    ]);
+    this.notify();
+  }
+
+  /**
+   * Construye los eventos necesarios para desbloquear o mejorar un nodo.
+   * Extraído como helper para reutilizarlo en `unlockNode` y en
+   * `pickRuletaOption` sin duplicar la lógica de ascendencias.
+   */
+  _buildUnlockEvents(nodeId, reason) {
+    const node = NODE_BY_ID[nodeId];
+    const level = getNodeLevel(this.state, nodeId);
+    const isNew = level === 0;
+    const events = [
+      this.createEvent(EventType.POINTS_SPENT, { amount: node.cost, reason }),
+    ];
+    if (isNew && node.ascendFrom && this.state.tree.unlocked[node.ascendFrom]) {
+      events.push(this.createEvent(EventType.NODE_ASCENDED, {
+        fromId: node.ascendFrom, toId: nodeId,
+      }));
+    } else if (isNew) {
+      events.push(this.createEvent(EventType.NODE_UNLOCKED, { nodeId }));
+    } else {
+      events.push(this.createEvent(EventType.NODE_UPGRADED, { nodeId, to: level + 1 }));
+    }
+    return events;
+  }
+
+  unlockNode(nodeId) {
+    const node = NODE_BY_ID[nodeId];
+    if (!node) return;
+
+    const level = getNodeLevel(this.state, nodeId);
+    const isNew = level === 0;
+    if (!isNew && level >= node.maxLevel) return;
+    if (this.state.character.points < node.cost) return;
+    if (isNew && !isNodeAvailable(this.state, node)) return;
+
+    this.emitAll(this._buildUnlockEvents(nodeId, `unlock:${nodeId}`));
+    this.recomputeProgress();
+    this.notify();
+  }
+
+  pickRuletaOption(nodeId) {
+    if (!this.state.ruleta.options.includes(nodeId)) return;
+    const node = NODE_BY_ID[nodeId];
+    if (!node) return;
+
+    const level = getNodeLevel(this.state, nodeId);
+    const isNew = level === 0;
+    if (!isNew && level >= node.maxLevel) return;
+    if (this.state.character.points < node.cost) return;
+
+    const events = [
+      ...this._buildUnlockEvents(nodeId, `ruleta:${nodeId}`),
+      this.createEvent(EventType.RULETA_CLEARED, {}),
+    ];
+    this.emitAll(events);
+    this.recomputeProgress();
+    this.notify();
+  }
+
+  canReincarnate() {
+    return this.state.character.level >= BALANCE.REINCARNATION_LEVEL;
+  }
+
+  reincarnate() {
+    if (!this.canReincarnate()) return;
+    const { keptAffinities, essenceGained } = planReincarnation(this.state);
+    this.emit(this.createEvent(EventType.REINCARNATED, {
+      to: this.state.meta.reincarnations + 1,
+      keptAffinities,
+      essenceGained,
+      lineageId: this.state.meta.lineageId,
+    }));
+    this.recomputeProgress();
+    this.notify();
+  }
+
+  hardReset() {
+    this.eventStore.clear();
+    this.snapshot?.clear?.();
+    this.state = initialState();
+    // El HARD_RESET queda registrado para que el log nunca esté vacío
+    // y para que sea evidente que hubo un reinicio.
+    this.emit(this.createEvent(EventType.HARD_RESET, {}));
+    this.notify();
+  }
+
+  /** Fuerza reconstrucción completa desde el log. Útil para depurar. */
+  rebuild() {
+    this.state = this.foldAll();
+    this.notify();
+  }
+
+  /* ---- Suscripciones ---------------------------------------------------- */
+
+  subscribe(fn) {
+    this.listeners.add(fn);
+    return () => this.listeners.delete(fn);
+  }
+
+  /** Read models listos para la UI. */
+  projections() {
+    return {
+      state: this.state,
+      sheet: projectCharacterSheet(this.state),
+      ruleta: projectRuleta(this.state),
+      log: projectLog(this.eventStore.all(), 40),
+      availableNodes: NODE_CATALOG.filter(n => isNodeAvailable(this.state, n)).map(n => n.id),
+      isAvailable: (nodeId) => {
+        const n = NODE_BY_ID[nodeId];
+        return n ? isNodeAvailable(this.state, n) : false;
+      },
+      nodeLevel: (nodeId) => getNodeLevel(this.state, nodeId),
+      nodeEffects: (nodeId) => getNodeEffects(this.state, nodeId),
+    };
+  }
+}
+
+
+/* ============================================================================
+ * 8. UI ADAPTER
+ * ----------------------------------------------------------------------------
+ * Traduce intenciones del usuario a comandos y pinta read models.
+ * Ninguna regla de negocio vive aquí.
+ * ========================================================================== */
+
+const UI = (() => {
+  const $ = id => document.getElementById(id);
+
+  function esc(s) {
+    return String(s).replace(/[&<>"']/g, c => (
+      { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]
+    ));
+  }
+
+  function toast(msg, type = 'info') {
+    const container = $('toasts');
+    const el = document.createElement('div');
+    el.className = `toast ${type}`;
+    el.textContent = msg;
+    container.appendChild(el);
+    setTimeout(() => {
+      el.style.opacity = '0';
+      el.style.transform = 'translateX(40px)';
+      setTimeout(() => el.remove(), 250);
+    }, 3000);
+  }
+
+  function setStatus(msg, kind = '') {
+    const el = $('status');
+    el.textContent = msg;
+    el.className = `status ${kind}`;
+  }
+
+  const fmtPct = v => `${Math.round((v || 0) * 100)}%`;
+  const fmtNum = v => typeof v === 'number' ? Math.round(v * 100) / 100 : v;
+
+  /* ---------------------------------------------------------------------- */
+  /* Render del panel izquierdo                                              */
+  /* ---------------------------------------------------------------------- */
+  function renderCharacter(state, sheet) {
+    $('level').textContent = state.character.level;
+    $('points').textContent = state.character.points;
+    $('reinc').textContent = state.meta.reincarnations;
+    $('essence').textContent = state.meta.essence;
+
+    const groups = {
+      'Recursos':   [['Vida', sheet.maxHp], ['Maná', sheet.maxMana],
+                     ['Regen HP', fmtPct(sheet.regenHp)], ['Regen MP', fmtPct(sheet.regenMana)]],
+      'Ofensiva':   [['Daño', sheet.damage], ['Fuego', fmtPct(sheet.fireDamage)],
+                     ['Hielo', fmtPct(sheet.iceDamage)], ['Rayo', fmtPct(sheet.lightningDamage)],
+                     ['Veneno', fmtPct(sheet.poisonDamage)], ['Caos', fmtPct(sheet.chaosDamage)]],
+      'Defensa':    [['Defensa', sheet.defense], ['Resist.', fmtPct(sheet.allResist)],
+                     ['Evasión', fmtPct(sheet.evasion)], ['Robo vida', fmtPct(sheet.lifeSteal)]],
+      'Movilidad':  [['Velocidad', sheet.speed]],
+      'Especiales': [['Reduc. maná', fmtPct(sheet.manaCostReduction)],
+                     ['Berserker', fmtPct(sheet.berserkerDamage)],
+                     ['Quemadura', fmtPct(sheet.burnChance)],
+                     ['Ralentización', fmtPct(sheet.slowChance)],
+                     ['Cura aliados', fmtPct(sheet.healAlly)]],
+    };
+    let html = '';
+    for (const [name, items] of Object.entries(groups)) {
+      const visible = items.filter(([, v]) => typeof v === 'string' || v !== 0);
+      if (!visible.length) continue;
+      html += `<div class="stat-group-title">${name}</div><div class="stat-grid">`;
+      for (const [label, val] of visible) {
+        html += `<div class="stat-item"><span>${label}</span><span class="v">${fmtNum(val)}</span></div>`;
+      }
+      html += `</div>`;
+    }
+    $('charSummary').innerHTML = html;
+
+    const lineage = LINEAGE_CATALOG.find(l => l.id === state.meta.lineageId);
+    if (lineage) {
+      $('lineageInfo').innerHTML =
+        `<div class="row"><span class="badge">Linaje: <strong>${lineage.name}</strong></span></div>`;
+    } else {
+      $('lineageInfo').innerHTML =
+        `<div class="row"><span class="empty">Elige un linaje:</span></div>` +
+        `<div class="lineage-grid">` +
+        LINEAGE_CATALOG.map(l =>
+          `<button class="lineage-btn" data-action="lineage" data-id="${l.id}">${l.name}</button>`
+        ).join('') + `</div>`;
+    }
+  }
+
+  function renderAttributes(state) {
+    const ba = state.character.baseAttributes;
+    const labels = { hp: 'Vida', mana: 'Maná', damage: 'Daño', defense: 'Defensa', speed: 'Velocidad' };
+    const canSpend = state.character.points > 0;
+    let html = '';
+    for (const [k, label] of Object.entries(labels)) {
+      html += `<div class="affinity-row">
+        <span class="tag">${label}</span>
+        <span class="num" style="flex:1; text-align:left;">${ba[k] || 0}</span>
+        <button class="btn-train" data-action="attr" data-attr="${k}"
+          ${canSpend ? '' : 'disabled'}>+1</button>
+      </div>`;
+    }
+    $('attrBlock').innerHTML = html;
+  }
+
+  function renderAffinities(state) {
+    const aff = state.character.affinities;
+    const entries = Object.entries(aff).filter(([, v]) => v > 0).sort((a, b) => b[1] - a[1]);
+    const canTrain = state.character.points >= BALANCE.TRAIN_COST;
+
+    if (!entries.length) {
+      $('affinityBlock').innerHTML = '<span class="empty">Sin afinidades todavía.</span>';
+      return;
+    }
+    const max = Math.max(...entries.map(([, v]) => v), 1);
+    const colorMap = {
+      fuego: '#ff6b35', hielo: '#4fc3f7', rayo: '#f9ca24', sangre: '#e94560',
+      magia: '#c084fc', sombra: '#8e44ad', aire: '#85c1e9', tierra: '#a67c52',
+      naturaleza: '#2ecc71', luz: '#f1c40f', fisico: '#f39c12', melee: '#e67e22',
+      proyectil: '#3498db', vida: '#e74c3c', mana: '#3498db', defensa: '#95a5a6',
+      velocidad: '#f39c12', movilidad: '#1abc9c', eco: '#f1c40f', veneno: '#27ae60',
+    };
+
+    let html = '';
+    for (const [tag, val] of entries) {
+      const pct = Math.min(100, (val / max) * 100);
+      const color = colorMap[tag] || '#4ecca3';
+      html += `<div class="affinity-row">
+        <span class="tag">${esc(tag)}</span>
+        <div class="track"><div class="fill" style="width:${pct}%;background:${color};"></div></div>
+        <span class="num">${val}</span>
+        <button class="btn-train" data-action="train" data-tag="${esc(tag)}"
+          ${canTrain ? '' : 'disabled'} title="Entrenar (+${BALANCE.TRAIN_AMOUNT}, cuesta ${BALANCE.TRAIN_COST})">+</button>
+      </div>`;
+    }
+    $('affinityBlock').innerHTML = html;
+  }
+
+  function renderMissions(state) {
+    let html = '';
+    for (const m of MISSION_CATALOG) {
+      const done = state.progress.missions.includes(m.id);
+      html += `<div style="font-size:0.72rem; padding:0.15rem 0; opacity:${done ? 0.5 : 1};">
+        ${done ? '✓' : '·'} <b>${esc(m.name)}</b>
+        <span style="color:var(--muted);"> — ${esc(m.desc)}</span>
+        <span style="color:var(--good); float:right;">+${m.reward.points || 0}p</span>
+      </div>`;
+    }
+    $('missionBlock').innerHTML = html || '<span class="empty">Sin misiones.</span>';
+  }
+
+  /* ---------------------------------------------------------------------- */
+  /* Render del panel central                                                */
+  /* ---------------------------------------------------------------------- */
+  function renderConstellation(state, readModels) {
+    const nodes = NODE_CATALOG;
+    const width = 900, height = 520;
+    const levels = [0, 1, 2, 3, 4, 5];
+
+    // Agrupar por nivel y calcular posiciones en anillos concéntricos
+    const positions = {};
+    const centerX = width / 2, centerY = height / 2;
+    for (const lvl of levels) {
+      const list = nodes.filter(n => n.level === lvl);
+      if (!list.length) continue;
+      const radius = lvl === 0 ? 0 : 60 + lvl * 55;
+      const count = list.length;
+      for (let i = 0; i < count; i++) {
+        const angle = (i / count) * 2 * Math.PI - Math.PI / 2;
+        positions[list[i].id] = {
+          x: centerX + radius * Math.cos(angle),
+          y: centerY + radius * Math.sin(angle),
         };
+      }
     }
 
-    function getNextHito() {
-        const lvl = stateProxy.stats.level;
-        return Math.ceil(lvl / 5) * 5;
+    let svg = `<svg viewBox="0 0 ${width} ${height}" xmlns="http://www.w3.org/2000/svg">`;
+
+    // Aristas primero (debajo de los nodos)
+    const drawn = new Set();
+    for (const node of nodes) {
+      for (const reqId of node.reqs || []) {
+        const from = positions[reqId], to = positions[node.id];
+        if (!from || !to) continue;
+        const key = `${reqId}->${node.id}`;
+        if (drawn.has(key)) continue;
+        drawn.add(key);
+        const active = !!state.tree.unlocked[node.id];
+        const ascend = node.ascendFrom === reqId;
+        const cls = ['edge', active && 'active', ascend && 'ascend'].filter(Boolean).join(' ');
+        svg += `<line x1="${from.x}" y1="${from.y}" x2="${to.x}" y2="${to.y}" class="${cls}" />`;
+      }
+      // Arista de ascendencia explícita (por si el ascendFrom no está en reqs)
+      if (node.ascendFrom && positions[node.ascendFrom] && positions[node.id]) {
+        const from = positions[node.ascendFrom], to = positions[node.id];
+        const key = `asc:${node.ascendFrom}->${node.id}`;
+        if (!drawn.has(key)) {
+          drawn.add(key);
+          svg += `<line x1="${from.x}" y1="${from.y}" x2="${to.x}" y2="${to.y}" class="edge ascend" />`;
+        }
+      }
     }
 
-    function generateRuletaOptions() {
-        const affinities = stateProxy.stats.affinities;
-        const sortedTags = Object.entries(affinities).sort((a,b) => b[1] - a[1]).map(e => e[0]);
-        const topTags = sortedTags.slice(0, 2);
-        const mainTag = topTags[0] || pickRandom(ALL_TAGS);
-        let secondTag = topTags[1] || pickRandom(ALL_TAGS.filter(t => t !== mainTag));
-        let surpriseTag = pickRandom(ALL_TAGS.filter(t => t !== mainTag && t !== secondTag));
-        const usedTags = [mainTag];
-        if (secondTag && !usedTags.includes(secondTag)) usedTags.push(secondTag);
-        else secondTag = pickRandom(ALL_TAGS.filter(t => !usedTags.includes(t)));
-        usedTags.push(secondTag);
-        if (surpriseTag && !usedTags.includes(surpriseTag)) usedTags.push(surpriseTag);
-        else surpriseTag = pickRandom(ALL_TAGS.filter(t => !usedTags.includes(t)));
+    // Nodos
+    for (const node of nodes) {
+      const pos = positions[node.id];
+      if (!pos) continue;
+      const level = getNodeLevel(state, node.id);
+      const maxLevel = node.maxLevel || 1;
+      const isMaxed = level >= maxLevel;
+      const isUnlocked = level > 0;
+      const isAvail = readModels.isAvailable(node.id);
+      const cls = isMaxed ? 'maxed' : isUnlocked ? 'unlocked' : isAvail ? 'available' : 'locked';
+      const radius = isUnlocked ? 17 : isAvail ? 15 : 11;
 
-        const templates = TEMPLATES.filter(t => t.level <= Math.floor(stateProxy.stats.powerRank / 2) + 1);
-        if (templates.length === 0) return [];
-        const powerRank = stateProxy.stats.powerRank;
-        const t1 = pickRandom(templates);
-        const node1 = generateNodeFromTemplate(t1, [mainTag], powerRank);
-        const t2 = pickRandom(templates.filter(t => t.id !== t1.id));
-        const node2 = generateNodeFromTemplate(t2, [secondTag], powerRank);
-        const t3 = pickRandom(templates.filter(t => t.id !== t1.id && t.id !== t2.id));
-        const node3 = generateNodeFromTemplate(t3, [surpriseTag], powerRank);
-        return [node1, node2, node3];
+      const dimmed = node.requiresReincarnation
+        && state.meta.reincarnations < node.requiresReincarnation;
+
+      svg += `<circle cx="${pos.x}" cy="${pos.y}" r="${radius}" class="node ${cls}"
+        data-node-id="${node.id}" ${dimmed ? 'opacity="0.35"' : ''} />`;
+      const shortName = node.name.length > 9 ? node.name.slice(0, 8) + '…' : node.name;
+      const lvText = level > 1 ? ` ${level}` : '';
+      svg += `<text x="${pos.x}" y="${pos.y}" class="node-label">${esc(shortName)}${lvText}</text>`;
     }
 
-    // Sistema de atributos base
-    function spendAttr(attrName, cost = 1) {
-        if (stateProxy.stats.points < cost) {
-            showToast('⚠️ No tienes suficientes puntos.', 'error');
-            return;
+    svg += `</svg>`;
+    $('constellation').innerHTML = svg;
+
+    // Click: desbloquear / mejorar
+    $('constellation').querySelectorAll('.node').forEach(el => {
+      el.addEventListener('click', () => {
+        const nodeId = el.dataset.nodeId;
+        const node = NODE_BY_ID[nodeId];
+        if (!node) return;
+        const level = getNodeLevel(state, nodeId);
+        if (level >= node.maxLevel) {
+          toast(`${node.name} ya está al máximo`, 'warn'); return;
         }
-        stateProxy.stats.points -= cost;
-        stateProxy.stats.baseStats[attrName] = (stateProxy.stats.baseStats[attrName] || 0) + 1;
-        stateProxy.stats = computeTotalStats();
-        stateProxy.log.unshift(`⬆️ Atributo ${attrName} +1 (gastado 1 punto)`);
-        eventBus.emit('StatsActualizados', {});
-        eventBus.emit('LogActualizado', {});
-        showToast(`⬆️ ${attrName} +1`, 'success');
+        if (state.character.points < node.cost) {
+          toast(`Faltan puntos (${node.cost})`, 'error'); return;
+        }
+        if (level === 0 && !readModels.isAvailable(nodeId)) {
+          toast(`${node.name} no está disponible`, 'warn'); return;
+        }
+        engine.unlockNode(nodeId);
+      });
+    });
+  }
+
+  function renderRuleta(state, readModels) {
+    const opts = readModels.ruleta;
+    if (!opts.length) {
+      $('ruletaGrid').innerHTML =
+        '<div class="empty" style="grid-column: 1/-1;">Sin opciones. Sube a un múltiplo de 5 para generar una ruleta.</div>';
+      return;
     }
-
-    // ================================================================
-    // 7. UNLOCK, LEVEL UP, STATS
-    // ================================================================
-    function unlockNode(nodeObj) {
-        if (stateProxy.unlockedNodes.includes(nodeObj.id)) {
-            const existing = stateProxy.generatedNodes.find(n => n.id === nodeObj.id);
-            if (existing && existing.level < existing.maxLevel) {
-                const cost = existing.cost || 1;
-                if (stateProxy.stats.points < cost) {
-                    showToast(`⚠️ Necesitas ${cost} puntos para mejorar.`, 'error');
-                    return;
-                }
-                stateProxy.stats.points -= cost;
-                existing.level += 1;
-                stateProxy.log.unshift(`⬆️ Mejorado: ${existing.name} (nivel ${existing.level})`);
-                stateProxy.stats = computeTotalStats();
-                stateProxy.availableNodes = [];
-                stateProxy.message = `✅ "${existing.name}" mejorado a nivel ${existing.level}`;
-                showToast(`✅ ${existing.name} mejorado a nivel ${existing.level}`, 'success');
-                checkSynergiesAndCombos();
-                checkMissions();
-                eventBus.emit('StatsActualizados', {});
-                eventBus.emit('NodosActualizados', {});
-                eventBus.emit('LogActualizado', {});
-                return;
-            } else {
-                showToast(`⚠️ "${nodeObj.name}" ya está al máximo.`, 'warn');
-                return;
-            }
-        }
-        const cost = nodeObj.cost || 1;
-        if (stateProxy.stats.points < cost) {
-            showToast(`⚠️ Necesitas ${cost} puntos para desbloquear.`, 'error');
-            return;
-        }
-        if (nodeObj.level && nodeObj.level > stateProxy.stats.level) {
-            showToast(`⚠️ Necesitas nivel ${nodeObj.level} para desbloquear.`, 'error');
-            return;
-        }
-        stateProxy.stats.points -= cost;
-        if (nodeObj.isGenerated) {
-            stateProxy.generatedNodes.push({ ...nodeObj });
-            stateProxy.unlockedNodes.push(nodeObj.id);
-            stateProxy.nodeLevels[nodeObj.id] = 1;
-            stateProxy.log.unshift(`🔓 Desbloqueado: ${nodeObj.name} (${nodeObj.tags.join(', ')})`);
-        } else {
-            stateProxy.unlockedNodes.push(nodeObj.id);
-            stateProxy.nodeLevels[nodeObj.id] = 1;
-            stateProxy.log.unshift(`🔓 Desbloqueado: ${nodeObj.name}`);
-        }
-        stateProxy.stats = computeTotalStats();
-        stateProxy.availableNodes = [];
-        stateProxy.message = `✅ "${nodeObj.name}" desbloqueado. Puntos restantes: ${stateProxy.stats.points}`;
-        showToast(`✅ ${nodeObj.name} desbloqueado`, 'success');
-        checkSynergiesAndCombos();
-        checkMissions();
-        eventBus.emit('StatsActualizados', {});
-        eventBus.emit('NodosActualizados', {});
-        eventBus.emit('LogActualizado', {});
+    const roleLabels = { reinforce: 'Reforzar', pivot: 'Pivotar', explore: 'Explorar' };
+    let html = '';
+    for (const o of opts) {
+      const effects = Object.entries(o.effects)
+        .map(([k, v]) => `${k}: ${typeof v === 'number' ? '+' + v : v}`).join(', ');
+      html += `<div class="ruleta-card">
+        <div class="role">${roleLabels[o.role] || o.role}</div>
+        <div class="name">${esc(o.name)}</div>
+        <div class="meta">${esc(o.tags.join(', '))} · <span class="rarity ${o.rarity}">${o.rarity}</span></div>
+        <div class="effects">${esc(effects)}</div>
+        <div class="meta">${o.level > 0 ? `Nivel ${o.level}/${o.maxLevel}` : 'Nuevo'} · ${o.cost} punto(s)</div>
+        <button data-action="ruleta" data-node-id="${o.nodeId}">${o.level > 0 ? 'Mejorar' : 'Desbloquear'}</button>
+      </div>`;
     }
+    $('ruletaGrid').innerHTML = html;
+    $('ruletaGrid').querySelectorAll('button[data-action="ruleta"]').forEach(btn => {
+      btn.addEventListener('click', () => engine.pickRuletaOption(btn.dataset.nodeId));
+    });
+  }
 
-    function levelUp() {
-        stateProxy.stats.level += 1;
-        stateProxy.stats.points += 1;
-        const hito = getNextHito();
-        if (stateProxy.stats.level >= hito) {
-            const options = generateRuletaOptions();
-            if (options.length > 0) {
-                stateProxy.availableNodes = options;
-                stateProxy.message = `🎯 ¡Hito alcanzado! Elige un nodo.`;
-                showToast(`🎯 ¡Hito nivel ${hito}! Elige un nodo en la ruleta.`, 'success');
-            } else {
-                stateProxy.message = '⚠️ No hay nodos disponibles para generar.';
-            }
-            const unlockedCount = stateProxy.unlockedNodes.length;
-            stateProxy.stats.powerRank = Math.floor(unlockedCount / 3) + 1;
-        }
-        stateProxy.log.unshift(`⬆️ Subiste al nivel ${stateProxy.stats.level}`);
-        eventBus.emit('StatsActualizados', {});
-        eventBus.emit('RuletaActualizada', {});
-        eventBus.emit('LogActualizado', {});
-        if (Math.random() < 0.15) triggerRandomEvent();
-        checkMissions();
+  function renderSynergiesCombos(state) {
+    const syns = state.progress.synergies
+      .map(id => SYNERGY_CATALOG.find(s => s.id === id)).filter(Boolean);
+    $('synergyBlock').innerHTML = syns.length
+      ? syns.map(s =>
+          `<div style="font-size:0.72rem; color:var(--epic);">🔗 ${esc(s.name)} — <span style="color:var(--muted);">${esc(s.desc)}</span></div>`
+        ).join('')
+      : '<div class="empty">Sin sinergias activas.</div>';
+
+    const combos = state.progress.combos
+      .map(id => COMBO_CATALOG.find(c => c.id === id)).filter(Boolean);
+    $('comboBlock').innerHTML = combos.length
+      ? combos.map(c =>
+          `<div style="font-size:0.72rem; color:var(--legend);">⚡ ${esc(c.name)} — <span style="color:var(--muted);">${JSON.stringify(c.requiredTags)}</span></div>`
+        ).join('')
+      : '<div class="empty">Sin combos activos.</div>';
+  }
+
+  /* ---------------------------------------------------------------------- */
+  /* Render del panel derecho                                                */
+  /* ---------------------------------------------------------------------- */
+  function renderCatalog(state, readModels) {
+    let html = '';
+    for (const node of NODE_CATALOG) {
+      const level = readModels.nodeLevel(node.id);
+      const isUnlocked = level > 0;
+      const isAvail = readModels.isAvailable(node.id);
+      const isMaxed = isUnlocked && level >= node.maxLevel;
+      const effects = Object.entries(readModels.nodeEffects(node.id))
+        .map(([k, v]) => `${k}: ${typeof v === 'number' ? '+' + v : v}`).join(', ');
+      const reqs = (node.reqs || []).map(r => NODE_BY_ID[r]?.name || r).join(', ');
+      const affReq = node.affinityReq ? `${node.affinityReq.tag} ≥ ${node.affinityReq.min}` : '';
+      const ascend = node.ascendFrom ? `⬆ ${NODE_BY_ID[node.ascendFrom]?.name}` : '';
+
+      const cls = isMaxed ? 'unlocked' : isUnlocked ? 'unlocked' : isAvail ? 'available' : '';
+      const status = isMaxed ? '★ máx.' : isUnlocked ? `nivel ${level}/${node.maxLevel}` : isAvail ? 'disponible' : 'bloqueado';
+      html += `<div class="node-card ${cls}">
+        <div class="title">
+          <span>${esc(node.name)}</span>
+          <span class="rarity ${node.rarity}">${node.rarity}</span>
+        </div>
+        <div class="tags">${esc(node.tags.join(', '))} · ${status}</div>
+        <div class="effects">${esc(effects) || '—'}</div>
+        <div class="reqs">${esc(reqs)} ${esc(affReq)} ${esc(ascend)}</div>
+        <div class="cost">${node.cost} pts · ${node.desc}</div>
+      </div>`;
     }
+    $('catalog').innerHTML = html;
+  }
 
-    function computeTotalStats() {
-        const stats = buildBaseStats();
-        stats.level = stateProxy.stats.level;
-        stats.points = stateProxy.stats.points;
-        stats.powerRank = stateProxy.stats.powerRank;
-        const bs = stateProxy.stats.baseStats || { hp:0, mana:0, damage:0, defense:0, speed:0 };
-        stats.maxHp += bs.hp * 5;
-        stats.maxMana += bs.mana * 3;
-        stats.damage += bs.damage * 1;
-        stats.defense += bs.defense * 1;
-        stats.speed += bs.speed * 2;
-        for (const node of stateProxy.generatedNodes) {
-            const eff = getEffectiveEffects(node);
-            for (const [key, val] of Object.entries(eff)) {
-                if (key === 'affinities') continue;
-                stats[key] = (stats[key] || 0) + val;
-            }
-            if (node.tags) {
-                for (const tag of node.tags) {
-                    stats.affinities[tag] = (stats.affinities[tag] || 0) + 1;
-                }
-            }
-        }
-        for (const synId of stateProxy.synergies) {
-            const syn = SYNERGY_CATALOG.find(s => s.id === synId);
-            if (syn) {
-                for (const [key, val] of Object.entries(syn.effects)) {
-                    stats[key] = (stats[key] || 0) + val;
-                }
-            }
-        }
-        for (const combo of stateProxy.combos) {
-            const c = COMBO_CATALOG.find(c => c.id === combo);
-            if (c) {
-                for (const [key, val] of Object.entries(c.effects)) {
-                    stats[key] = (stats[key] || 0) + val;
-                }
-            }
-        }
-        for (const k of Object.keys(stats)) {
-            if (typeof stats[k] === 'number') stats[k] = Math.round(stats[k] * 100) / 100;
-        }
-        return stats;
+  function renderLog(readModels) {
+    const log = readModels.log;
+    if (!log.length) {
+      $('logBox').innerHTML = '<div class="empty">Sin eventos.</div>';
+      return;
     }
+    $('logBox').innerHTML = log.map(e => {
+      const t = new Date(e.ts).toISOString().slice(11, 19);
+      return `<div class="log-entry"><span class="ts">${t}</span>${esc(e.text)}</div>`;
+    }).join('');
+  }
 
-    // ================================================================
-    // 8. SINERGIAS, COMBOS, MISIONES, EVENTOS (sin cambios)
-    // ================================================================
-    function checkSynergiesAndCombos() {
-        let activeSyn = [];
-        for (const syn of SYNERGY_CATALOG) {
-            const hasAll = syn.requiredTags.every(tag => 
-                stateProxy.generatedNodes.some(n => n.tags.includes(tag))
-            );
-            if (hasAll && !stateProxy.synergies.includes(syn.id)) {
-                activeSyn.push(syn.id);
-                stateProxy.log.unshift(`🔗 Sinergia: ${syn.name}`);
-                showToast(`🔗 ¡Sinergia activada: ${syn.name}!`, 'success');
-            }
-        }
-        if (activeSyn.length) {
-            stateProxy.synergies = [...new Set([...stateProxy.synergies, ...activeSyn])];
-            stateProxy.stats = computeTotalStats();
-            eventBus.emit('StatsActualizados', {});
-            eventBus.emit('SynergiasActualizadas', {});
-            eventBus.emit('LogActualizado', {});
-        }
+  /* ---------------------------------------------------------------------- */
+  /* Handlers globales                                                       */
+  /* ---------------------------------------------------------------------- */
+  function bindIntents() {
+    document.addEventListener('click', (e) => {
+      const target = e.target.closest('[data-action]');
+      if (!target) return;
+      const action = target.dataset.action;
+      switch (action) {
+        case 'lineage':
+          engine.chooseLineage(target.dataset.id);
+          toast(`Linaje: ${target.dataset.id}`, 'info');
+          break;
+        case 'train':
+          engine.trainAffinity(target.dataset.tag);
+          break;
+        case 'attr':
+          engine.spendAttribute(target.dataset.attr);
+          break;
+      }
+    });
 
-        let activeCombos = [];
-        for (const combo of COMBO_CATALOG) {
-            const tagCounts = {};
-            for (const node of stateProxy.generatedNodes) {
-                for (const tag of node.tags || []) {
-                    tagCounts[tag] = (tagCounts[tag] || 0) + 1;
-                }
-            }
-            let met = true;
-            for (const [tag, required] of Object.entries(combo.requiredTags)) {
-                if ((tagCounts[tag] || 0) < required) { met = false; break; }
-            }
-            if (met && !stateProxy.combos.includes(combo.id)) {
-                activeCombos.push(combo.id);
-                stateProxy.log.unshift(`⚡ Combo: ${combo.name}`);
-                showToast(`⚡ ¡Combo activado: ${combo.name}!`, 'success');
-            }
-        }
-        if (activeCombos.length) {
-            stateProxy.combos = [...new Set([...stateProxy.combos, ...activeCombos])];
-            stateProxy.stats = computeTotalStats();
-            eventBus.emit('StatsActualizados', {});
-            eventBus.emit('CombosActualizados', {});
-            eventBus.emit('LogActualizado', {});
-        }
-    }
+    $('btnLevelUp').addEventListener('click', () => engine.levelUp());
 
-    function checkMissions() {
-        let anyDone = false;
-        for (const mission of MISSION_CATALOG) {
-            if (stateProxy.missions.includes(mission.id)) continue;
-            if (mission.condition(stateProxy)) {
-                stateProxy.missions.push(mission.id);
-                stateProxy.log.unshift(`🏆 Misión completada: ${mission.name}`);
-                if (mission.reward.points) {
-                    stateProxy.stats.points += mission.reward.points;
-                    showToast(`🏆 +${mission.reward.points} puntos por misión!`, 'success');
-                }
-                if (mission.reward.affinity) {
-                    stateProxy.stats.affinities[mission.reward.affinity.tag] =
-                        (stateProxy.stats.affinities[mission.reward.affinity.tag] || 0) + mission.reward.affinity.value;
-                    showToast(`🏆 +${mission.reward.affinity.value} de ${mission.reward.affinity.tag}`, 'success');
-                }
-                anyDone = true;
-            }
-        }
-        if (anyDone) {
-            stateProxy.stats = computeTotalStats();
-            eventBus.emit('StatsActualizados', {});
-            eventBus.emit('MisionesActualizadas', {});
-            eventBus.emit('LogActualizado', {});
-        }
-    }
+    $('btnReincarnate').addEventListener('click', () => {
+      if (!engine.canReincarnate()) {
+        toast(`Necesitas nivel ${BALANCE.REINCARNATION_LEVEL}`, 'warn'); return;
+      }
+      if (confirm(`¿Reencarnar? Conservarás el ${BALANCE.REINCARNATION_KEEP * 100}% de tus afinidades y ganarás esencia.`)) {
+        engine.reincarnate();
+        toast('♻ Has reencarnado', 'info');
+      }
+    });
 
-    function triggerRandomEvent() {
-        const events = [
-            { msg: '🍀 Encuentras un grimorio antiguo: +5 afinidad de magia.', effect: () => { stateProxy.stats.affinities.magia = (stateProxy.stats.affinities.magia || 0) + 5; } },
-            { msg: '💎 Una estrella fugaz te concede +3 puntos.', effect: () => { stateProxy.stats.points += 3; } },
-            { msg: '🔥 Un espíritu de fuego te bendice: +10 afinidad de fuego.', effect: () => { stateProxy.stats.affinities.fuego = (stateProxy.stats.affinities.fuego || 0) + 10; } },
-            { msg: '❄️ El viento del norte te fortalece: +10 afinidad de hielo.', effect: () => { stateProxy.stats.affinities.hielo = (stateProxy.stats.affinities.hielo || 0) + 10; } },
-            { msg: '🩸 Un ritual de sangre te otorga +5% robo de vida.', effect: () => { stateProxy.stats.lifeSteal = (stateProxy.stats.lifeSteal || 0) + 0.05; } },
-        ];
-        const evt = events[Math.floor(Math.random() * events.length)];
-        evt.effect();
-        stateProxy.log.unshift(`✨ Evento: ${evt.msg}`);
-        stateProxy.stats = computeTotalStats();
-        showToast(`✨ ${evt.msg}`, 'warn');
-        eventBus.emit('StatsActualizados', {});
-        eventBus.emit('LogActualizado', {});
-    }
+    $('btnRebuild').addEventListener('click', () => {
+      engine.rebuild();
+      toast('↻ Estado reconstruido desde el log', 'info');
+    });
 
-    function trainAffinity(tag) {
-        if (!tag) return;
-        const gain = 2 + Math.floor(Math.random() * 5);
-        stateProxy.stats.affinities[tag] = (stateProxy.stats.affinities[tag] || 0) + gain;
-        stateProxy.log.unshift(`🏋️ Entrenamiento: ${tag} +${gain}`);
-        stateProxy.stats = computeTotalStats();
-        eventBus.emit('StatsActualizados', {});
-        eventBus.emit('LogActualizado', {});
-        showToast(`🏋️ Afinidad ${tag} +${gain}`, 'success');
-        const btn = document.querySelector(`.affinity-train-btn[data-tag="${tag}"]`);
-        if (btn) { btn.disabled = true; setTimeout(() => btn.disabled = false, 2000); }
-    }
+    $('btnHardReset').addEventListener('click', () => {
+      if (confirm('¿Borrar TODO el progreso? El log se vaciará.')) {
+        engine.hardReset();
+        toast('✖ Reinicio duro', 'warn');
+      }
+    });
 
-    function unlockAllNodes() {
-        const allTags = ALL_TAGS;
-        const templates = TEMPLATES;
-        let count = 0;
-        for (const template of templates) {
-            for (let i = 0; i < Math.min(3, allTags.length); i++) {
-                const tags = [allTags[i % allTags.length]];
-                if (i % 2 === 0 && i < allTags.length-1) tags.push(allTags[(i+1) % allTags.length]);
-                const node = generateNodeFromTemplate(template, tags, stateProxy.stats.powerRank + 5);
-                if (!stateProxy.generatedNodes.some(n => n.id === node.id)) {
-                    stateProxy.generatedNodes.push(node);
-                    stateProxy.unlockedNodes.push(node.id);
-                    stateProxy.nodeLevels[node.id] = 1;
-                    count++;
-                }
-            }
-        }
-        stateProxy.stats = computeTotalStats();
-        stateProxy.stats.points = 99;
-        stateProxy.log.unshift(`🔓 ¡${count} nodos generados y desbloqueados! (test)`);
-        stateProxy.message = `✅ ${count} nodos generados.`;
-        stateProxy.availableNodes = [];
-        checkSynergiesAndCombos();
-        checkMissions();
-        eventBus.emit('StatsActualizados', {});
-        eventBus.emit('NodosActualizados', {});
-        eventBus.emit('RuletaActualizada', {});
-        eventBus.emit('LogActualizado', {});
-        eventBus.emit('MensajeActualizado', {});
-        showToast(`🔓 ${count} nodos generados (test)`, 'success');
-    }
+    // Tabs
+    $('tabTree').addEventListener('click', () => {
+      $('tabTree').classList.add('active');
+      $('tabRuleta').classList.remove('active');
+      $('treeView').style.display = '';
+      $('ruletaView').style.display = 'none';
+    });
+    $('tabRuleta').addEventListener('click', () => {
+      $('tabRuleta').classList.add('active');
+      $('tabTree').classList.remove('active');
+      $('treeView').style.display = 'none';
+      $('ruletaView').style.display = '';
+    });
+  }
 
-    function resetGame() {
-        if (!confirm('¿Reiniciar todo el progreso?')) return;
-        stateProxy.unlockedNodes = [];
-        stateProxy.nodeLevels = {};
-        stateProxy.generatedNodes = [];
-        stateProxy.synergies = [];
-        stateProxy.combos = [];
-        stateProxy.missions = [];
-        stateProxy.log = [];
-        stateProxy.message = '';
-        stateProxy.availableNodes = [];
-        stateProxy.stats = buildBaseStats();
-        stateProxy.stats.points = 0;
-        stateProxy.stats.powerRank = 1;
-        stateProxy.log.unshift('🔄 Personaje reiniciado.');
-        Persistence.clear();
-        eventBus.emit('StatsActualizados', {});
-        eventBus.emit('NodosActualizados', {});
-        eventBus.emit('RuletaActualizada', {});
-        eventBus.emit('SynergiasActualizadas', {});
-        eventBus.emit('CombosActualizados', {});
-        eventBus.emit('MisionesActualizadas', {});
-        eventBus.emit('LogActualizado', {});
-        eventBus.emit('MensajeActualizado', {});
-        showToast('🔄 Progreso reiniciado.', 'warn');
-    }
+  function render(state, readModels) {
+    renderCharacter(state, readModels.sheet);
+    renderAttributes(state);
+    renderAffinities(state);
+    renderMissions(state);
+    renderConstellation(state, readModels);
+    renderRuleta(state, readModels);
+    renderSynergiesCombos(state);
+    renderCatalog(state, readModels);
+    renderLog(readModels);
+  }
 
-    // ================================================================
-    // 9. UI CON COLORES, ESTADOS Y ATRIBUTOS
-    // ================================================================
-    function showToast(msg, type='info') {
-        const container = document.getElementById('toastContainer');
-        const toast = document.createElement('div');
-        toast.className = `toast ${type}`;
-        toast.textContent = msg;
-        container.appendChild(toast);
-        setTimeout(() => {
-            toast.style.opacity = '0';
-            toast.style.transform = 'translateX(40px)';
-            setTimeout(() => toast.remove(), 300);
-        }, 3500);
-    }
+  return { render, bindIntents, toast, setStatus };
+})();
 
-    function rarityColor(rarity) {
-        const map = { common: 'var(--color-common)', rare: 'var(--color-rare)', epic: 'var(--color-epic)', legendary: 'var(--color-legendary)' };
-        return map[rarity] || 'var(--color-common)';
-    }
 
-    const UI = {
-        init() {
-            this.statsContainer = document.getElementById('statsContainer');
-            this.levelDisplay = document.getElementById('levelDisplay');
-            this.pointsDisplay = document.getElementById('pointsDisplay');
-            this.powerRankDisplay = document.getElementById('powerRankDisplay');
-            this.pointsWarning = document.getElementById('pointsWarning');
-            this.unusedPoints = document.getElementById('unusedPoints');
-            this.affinityBar = document.getElementById('affinityBar');
-            this.constellationContainer = document.getElementById('constellationContainer');
-            this.ruletaContainer = document.getElementById('ruletaContainer');
-            this.catalogNodes = document.getElementById('catalogNodes');
-            this.synergyList = document.getElementById('synergyList');
-            this.comboList = document.getElementById('comboList');
-            this.logList = document.getElementById('logList');
-            this.message = document.getElementById('message');
-            this.missionList = document.getElementById('missionList');
-            this.progressFill = document.getElementById('progressFill');
-            this.progressPercent = document.getElementById('progressPercent');
-            this.unlockedCount = document.getElementById('unlockedCount');
-            this.totalNodes = document.getElementById('totalNodes');
-            this.branchSummary = document.getElementById('branchSummary');
-            this.nextHito = document.getElementById('nextHito');
-            this.attrPanel = document.getElementById('attrPanel');
+/* ============================================================================
+ * 9. BOOTSTRAP
+ * ----------------------------------------------------------------------------
+ * Composición del grafo de dependencias y arranque. Este es el único sitio
+ * donde se decide qué adaptador concreto se usa para cada puerto.
+ * ========================================================================== */
 
-            document.getElementById('btnLevelUp').addEventListener('click', levelUp);
-            document.getElementById('btnUnlockAll').addEventListener('click', unlockAllNodes);
-            document.getElementById('btnReset').addEventListener('click', resetGame);
+const engine = new GameEngine({
+  // LocalStorageEventStore: el log persiste entre recargas. Sustituible por
+  // InMemoryEventStore para una sesión efímera (útil en tests).
+  eventStore: new LocalStorageEventStore('torreOscura_v10_log'),
+  snapshot:   new LocalStorageSnapshot('torreOscura_v10_snapshot'),
+  clock:      new SystemClock(),
+  random:     new MathRandom(),
+  logger:     new ConsoleLogger(),
+});
 
-            document.getElementById('tabTree').addEventListener('click', () => {
-                document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-                document.getElementById('tabTree').classList.add('active');
-                document.getElementById('tabContentTree').style.display = 'block';
-                document.getElementById('tabContentRuleta').style.display = 'none';
-                this.renderConstellation();
-            });
-            document.getElementById('tabRuleta').addEventListener('click', () => {
-                document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-                document.getElementById('tabRuleta').classList.add('active');
-                document.getElementById('tabContentTree').style.display = 'none';
-                document.getElementById('tabContentRuleta').style.display = 'block';
-                this.renderRuleta();
-            });
+// Arrancar el juego si no lo estaba (idempotente: solo emite GAME_STARTED
+// una vez; si el log ya tiene uno, no hace nada).
+engine.startGame();
 
-            eventBus.on('StatsActualizados', () => { this.renderStats(); this.renderAffinities(); this.renderAttrPanel(); });
-            eventBus.on('NodosActualizados', () => { this.renderConstellation(); this.renderCatalog(); this.renderBranchSummary(); this.renderProgress(); });
-            eventBus.on('RuletaActualizada', () => this.renderRuleta());
-            eventBus.on('SynergiasActualizadas', () => this.renderSynergies());
-            eventBus.on('CombosActualizados', () => this.renderCombos());
-            eventBus.on('MisionesActualizadas', () => this.renderMissions());
-            eventBus.on('LogActualizado', () => this.renderLog());
-            eventBus.on('MensajeActualizado', () => this.renderMessage());
+// Suscribir la UI a cambios de estado
+engine.subscribe((state) => {
+  UI.render(state, engine.projections());
+});
 
-            this.renderAll();
-            if (stateProxy.stats.points === 0 && stateProxy.stats.level === 1) {
-                stateProxy.stats.points = 1;
-                stateProxy.message = '🎯 Tienes 1 punto. Sube de nivel o invierte en atributos.';
-                eventBus.emit('StatsActualizados', {});
-                eventBus.emit('MensajeActualizado', {});
-            }
-            this.nextHito.textContent = getNextHito();
-            checkMissions();
-            this.renderProgress();
-            this.renderBranchSummary();
-            this.totalNodes.textContent = stateProxy.generatedNodes.length;
-        },
+// Activar handlers del DOM
+UI.bindIntents();
 
-        renderAll() {
-            this.renderStats();
-            this.renderAffinities();
-            this.renderConstellation();
-            this.renderRuleta();
-            this.renderCatalog();
-            this.renderSynergies();
-            this.renderCombos();
-            this.renderMissions();
-            this.renderLog();
-            this.renderMessage();
-            this.renderBranchSummary();
-            this.renderProgress();
-            this.renderAttrPanel();
-        },
+// Primer render manual (la suscripción solo dispara en notify() posteriores)
+UI.render(engine.state, engine.projections());
 
-        renderStats() {
-            const stats = stateProxy.stats;
-            const groups = {
-                'Vida y Recursos': [
-                    ['Vida', stats.maxHp],
-                    ['Maná', stats.maxMana],
-                    ['Regen Vida', `${(stats.regenHp * 100).toFixed(0)}%`],
-                    ['Regen Maná', `${(stats.regenMana * 100).toFixed(0)}%`]
-                ],
-                'Ofensivas': [
-                    ['Daño Base', stats.damage],
-                    ['Daño Fuego', `${(stats.fireDamage * 100).toFixed(0)}%`],
-                    ['Daño Hielo', `${(stats.iceDamage * 100).toFixed(0)}%`],
-                    ['Daño Rayo', `${(stats.lightningDamage * 100).toFixed(0)}%`],
-                    ['Daño Caos', `${(stats.chaosDamage * 100).toFixed(0)}%`],
-                    ['Daño Veneno', `${(stats.poisonDamage * 100).toFixed(0)}%`],
-                    ['Crítico (prob.)', `${(stats.critChance * 100).toFixed(0)}%`],
-                    ['Crítico (daño)', `${(stats.critDamage * 100).toFixed(0)}%`]
-                ],
-                'Defensivas': [
-                    ['Defensa', stats.defense],
-                    ['Resist. Total', `${(stats.allResist * 100).toFixed(0)}%`],
-                    ['Evasión', `${(stats.evasion * 100).toFixed(0)}%`],
-                    ['Bloqueo', `${(stats.blockChance * 100).toFixed(0)}%`],
-                    ['Robo de Vida', `${(stats.lifeSteal * 100).toFixed(0)}%`]
-                ],
-                'Movilidad': [['Velocidad', stats.speed]],
-                'Especiales': [
-                    ['Reduc. Maná', `${(stats.manaCostReduction * 100).toFixed(0)}%`],
-                    ['Berserker', `${(stats.berserkerDamage * 100).toFixed(0)}%`],
-                    ['Ralentización', `${(stats.slowChance * 100).toFixed(0)}%`],
-                    ['Quemadura', `${(stats.burnChance * 100).toFixed(0)}%`],
-                    ['Sanación Aliados', `${(stats.healAlly * 100).toFixed(0)}%`],
-                    ['Caos (prob.)', `${(stats.chaosChance * 100).toFixed(0)}%`]
-                ]
-            };
-            let html = '';
-            for (const [groupName, items] of Object.entries(groups)) {
-                const filtered = items.filter(([label, val]) => {
-                    if (typeof val === 'string') return true;
-                    return val !== 0 && val !== undefined;
-                });
-                if (filtered.length === 0) continue;
-                html += `<div class="stat-group"><div class="stat-group-title">${groupName}</div><div class="stat-grid">`;
-                for (const [label, val] of filtered) {
-                    const display = typeof val === 'string' ? val : Math.round(val * 100) / 100;
-                    html += `<div class="stat-item"><span>${label}</span><span class="value">${display}</span></div>`;
-                }
-                html += `</div></div>`;
-            }
-            this.statsContainer.innerHTML = html;
-            this.levelDisplay.textContent = stats.level;
-            this.pointsDisplay.textContent = stats.points;
-            this.powerRankDisplay.textContent = stats.powerRank || 1;
-            if (stats.points > 0) {
-                this.pointsWarning.style.display = 'block';
-                this.unusedPoints.textContent = stats.points;
-            } else {
-                this.pointsWarning.style.display = 'none';
-            }
-            this.nextHito.textContent = getNextHito();
-        },
+// Diagnóstico en consola: útil para inspeccionar el log y probar comandos
+window.__torre = {
+  engine,
+  state: () => engine.state,
+  events: () => engine.eventStore.all(),
+  rebuild: () => engine.rebuild(),
+  reset: () => engine.hardReset(),
+};
 
-        renderAttrPanel() {
-            const attrs = stateProxy.stats.baseStats || { hp:0, mana:0, damage:0, defense:0, speed:0 };
-            const labels = { hp: 'Vida', mana: 'Maná', damage: 'Daño', defense: 'Defensa', speed: 'Velocidad' };
-            let html = '';
-            for (const [key, label] of Object.entries(labels)) {
-                const val = attrs[key] || 0;
-                html += `
-                    <div class="attr-item">
-                        <span>${label}</span>
-                        <span class="attr-value">${val}</span>
-                        <button class="btn-attr" data-attr="${key}" ${stateProxy.stats.points < 1 ? 'disabled' : ''}>+1</button>
-                    </div>
-                `;
-            }
-            this.attrPanel.innerHTML = html;
-            this.attrPanel.querySelectorAll('.btn-attr').forEach(btn => {
-                btn.addEventListener('click', () => {
-                    const attr = btn.dataset.attr;
-                    spendAttr(attr);
-                });
-            });
-        },
+console.info(
+  '%c⬡ Torre Oscura v10.1 · Event Sourcing + Hexagonal',
+  'color:#e94560; font-weight:bold; font-size:14px;'
+);
+console.info('Explora el log con: __torre.events()');
+console.info('Inspecciona el estado: __torre.state()');
+console.info('Reconstruye desde 0: __torre.rebuild()');
+console.info('Reinicio duro: __torre.reset()');
+</script>
 
-        renderAffinities() {
-            const aff = stateProxy.stats.affinities || {};
-            const sorted = Object.entries(aff).sort((a,b) => b[1] - a[1]);
-            let html = '';
-            if (sorted.every(([_,v]) => v === 0)) {
-                html = '<span class="info-text" style="color:var(--text-muted);font-size:0.8rem;">Sin afinidades aún.</span>';
-            } else {
-                const colorMap = {
-                    fuego: '#ff6b35', hielo: '#4fc3f7', rayo: '#f9ca24', sangre: '#e94560',
-                    magia: '#c084fc', sombra: '#8e44ad', aire: '#85c1e9', tierra: '#a67c52',
-                    veneno: '#27ae60', fisico: '#f39c12', melee: '#e67e22', proyectil: '#3498db',
-                    naturaleza: '#2ecc71', luz: '#f1c40f'
-                };
-                for (const [tag, val] of sorted) {
-                    if (val === 0) continue;
-                    const pct = Math.min(100, (val / 60) * 100);
-                    const color = colorMap[tag] || '#4ecca3';
-                    html += `
-                        <div class="affinity-row" data-tag="${tag}">
-                            <span class="tag-label">${tag}</span>
-                            <div class="affinity-track">
-                                <div class="affinity-fill" style="width:${pct}%;background:${color};"></div>
-                            </div>
-                            <span class="affinity-value">${val}</span>
-                            <button class="affinity-train-btn" data-tag="${tag}" title="Entrenar ${tag} (+2 a +6)">+</button>
-                        </div>
-                    `;
-                }
-            }
-            this.affinityBar.innerHTML = html;
-            this.affinityBar.querySelectorAll('.affinity-train-btn').forEach(btn => {
-                btn.addEventListener('click', (e) => {
-                    e.stopPropagation();
-                    const tag = btn.dataset.tag;
-                    if (tag) trainAffinity(tag);
-                });
-            });
-        },
-
-        renderConstellation() {
-            const container = this.constellationContainer;
-            const nodes = stateProxy.generatedNodes;
-            if (nodes.length === 0) {
-                container.innerHTML = '<p class="info-text" style="color:var(--text-muted);">Desbloquea nodos para ver tu constelación.</p>';
-                return;
-            }
-            // Organizar por niveles (0-4) en filas horizontales
-            const levels = [0, 1, 2, 3, 4];
-            const grouped = {};
-            for (const lvl of levels) grouped[lvl] = nodes.filter(n => n.level === lvl);
-            const width = 900;
-            const height = 500;
-            const positions = {};
-            const yStart = 60;
-            const yStep = 90;
-            for (const lvl of levels) {
-                const list = grouped[lvl] || [];
-                const count = list.length;
-                if (count === 0) continue;
-                const y = yStart + lvl * yStep;
-                const xStep = Math.min(150, (width - 100) / count);
-                const xStart = (width - xStep * (count - 1)) / 2;
-                for (let i = 0; i < count; i++) {
-                    const x = xStart + i * xStep;
-                    positions[list[i].id] = { x, y };
-                }
-            }
-
-            let svg = `<svg viewBox="0 0 ${width} ${height}" xmlns="http://www.w3.org/2000/svg">`;
-            const drawnEdges = new Set();
-            for (const node of nodes) {
-                if (node.reqs) {
-                    for (const reqId of node.reqs) {
-                        const from = positions[reqId];
-                        const to = positions[node.id];
-                        if (from && to) {
-                            const key = `${reqId}-${node.id}`;
-                            if (!drawnEdges.has(key)) {
-                                drawnEdges.add(key);
-                                const unlocked = stateProxy.unlockedNodes.includes(node.id);
-                                const ascend = node.ascendFrom === reqId;
-                                const reqMet = stateProxy.unlockedNodes.includes(reqId);
-                                let cls = 'edge-line';
-                                if (unlocked) cls += ' active';
-                                if (ascend) cls += ' ascend';
-                                if (!reqMet) cls += ' required';
-                                svg += `<line x1="${from.x}" y1="${from.y}" x2="${to.x}" y2="${to.y}" class="${cls}" />`;
-                            }
-                        }
-                    }
-                }
-            }
-
-            for (const node of nodes) {
-                const pos = positions[node.id];
-                if (!pos) continue;
-                const unlocked = stateProxy.unlockedNodes.includes(node.id);
-                const lvl = stateProxy.nodeLevels[node.id] || 1;
-                const maxLvl = node.maxLevel || 3;
-                const isMaxed = unlocked && lvl >= maxLvl;
-                const isUnlockable = !unlocked && isNodeUnlockable(node);
-                let state = 'locked';
-                if (isMaxed) state = 'maxed';
-                else if (unlocked) state = 'unlocked';
-                else if (isUnlockable) state = 'unlockable';
-                const cls = `node-svg ${state === 'unlocked' ? 'unlocked' : (state === 'maxed' ? 'maxed' : (state === 'unlockable' ? 'unlockable' : 'locked'))}`;
-                const r = (state === 'unlocked' || state === 'maxed') ? 18 : (state === 'unlockable' ? 16 : 12);
-                let fill = '#666';
-                if (state === 'unlocked') fill = rarityColor(node.rarity);
-                else if (state === 'maxed') fill = 'var(--color-max)';
-                else if (state === 'unlockable') fill = 'var(--color-unlockable)';
-                else if (node.rarity === 'epic') fill = 'var(--color-epic)';
-                else if (node.rarity === 'legendary') fill = 'var(--color-legendary)';
-                else if (node.rarity === 'rare') fill = 'var(--color-rare)';
-                svg += `
-                    <circle cx="${pos.x}" cy="${pos.y}" r="${r}" class="${cls}" fill="${fill}" data-node-id="${node.id}" style="cursor:pointer;" />
-                    <text x="${pos.x}" y="${pos.y}" class="node-label" fill="#fff" font-size="7" text-anchor="middle" dominant-baseline="central">${node.name.slice(0,6)}</text>
-                `;
-            }
-            svg += `</svg>`;
-            container.innerHTML = svg;
-
-            container.querySelectorAll('.node-svg').forEach(el => {
-                const id = el.dataset.nodeId;
-                const node = stateProxy.generatedNodes.find(n => n.id === id);
-                if (!node) return;
-                el.addEventListener('click', () => {
-                    const unlocked = stateProxy.unlockedNodes.includes(id);
-                    if (unlocked) {
-                        const lvl = stateProxy.nodeLevels[id] || 1;
-                        const maxLvl = node.maxLevel || 3;
-                        showToast(`${node.name} (nivel ${lvl}/${maxLvl}) - ${node.rarity}`, 'info');
-                    } else if (isNodeUnlockable(node)) {
-                        const cost = node.cost || 1;
-                        if (stateProxy.stats.points < cost) {
-                            showToast(`⚠️ Necesitas ${cost} puntos para desbloquear.`, 'error');
-                            return;
-                        }
-                        if (confirm(`¿Desbloquear "${node.name}" por ${cost} punto(s)?`)) {
-                            unlockNode(node);
-                        }
-                    } else {
-                        showToast(`${node.name} - Bloqueado.`, 'warn');
-                    }
-                });
-            });
-        },
-
-        isNodeUnlockable(node) {
-            if (stateProxy.unlockedNodes.includes(node.id)) return false;
-            if (node.reqs) {
-                for (const reqId of node.reqs) {
-                    if (!stateProxy.unlockedNodes.includes(reqId)) return false;
-                }
-            }
-            if (node.affinityReq) {
-                const current = stateProxy.stats.affinities[node.affinityReq.tag] || 0;
-                if (current < node.affinityReq.min) return false;
-            }
-            if (node.ascendFrom) {
-                if (!stateProxy.unlockedNodes.includes(node.ascendFrom)) return false;
-            }
-            return true;
-        },
-
-        renderRuleta() {
-            const container = this.ruletaContainer;
-            const options = stateProxy.availableNodes;
-            if (!options || options.length === 0) {
-                container.innerHTML = '<p class="info-text" style="color:var(--text-muted);">Sube de nivel hasta el siguiente hito para generar opciones.</p>';
-                return;
-            }
-            let html = '';
-            for (const node of options) {
-                const effects = getEffectiveEffects(node);
-                const effectsStr = Object.entries(effects).map(([k,v]) => `${k}: +${v}`).join(', ');
-                const cost = node.cost || 1;
-                const isMaxed = stateProxy.unlockedNodes.includes(node.id) && stateProxy.nodeLevels[node.id] >= node.maxLevel;
-                html += `
-                    <div class="ruleta-opcion" data-node-id="${node.id}">
-                        ${isMaxed ? '<span class="max-tag">MAX</span>' : ''}
-                        <div class="nombre"><i class="fas ${node.icon || 'fa-circle'}"></i> ${node.name}</div>
-                        <div class="detalles">${node.tags.join(', ')}</div>
-                        <div class="rarity-badge rarity-${node.rarity}">${node.rarity}</div>
-                        <div class="detalles">${effectsStr}</div>
-                        <div class="detalles"><i class="fas fa-coins"></i> ${cost} punto(s)</div>
-                        ${!isMaxed ? `<button class="btn-elegir" data-action="unlock-ruleta">${stateProxy.unlockedNodes.includes(node.id) ? 'Mejorar' : 'Desbloquear'}</button>` : '<span style="color:var(--color-max);font-size:0.6rem;">Máximo</span>'}
-                    </div>
-                `;
-            }
-            container.innerHTML = html;
-            container.querySelectorAll('[data-action="unlock-ruleta"]').forEach(btn => {
-                btn.addEventListener('click', (e) => {
-                    e.stopPropagation();
-                    const card = btn.closest('.ruleta-opcion');
-                    const nodeId = card.dataset.nodeId;
-                    const node = stateProxy.availableNodes.find(n => n.id === nodeId);
-                    if (!node) return;
-                    if (stateProxy.stats.points < (node.cost || 1)) {
-                        showToast('⚠️ No tienes puntos suficientes.', 'error');
-                        return;
-                    }
-                    unlockNode(node);
-                });
-            });
-        },
-
-        renderCatalog() {
-            const container = this.catalogNodes;
-            const nodes = stateProxy.generatedNodes;
-            if (nodes.length === 0) {
-                container.innerHTML = '<p class="info-text" style="color:var(--text-muted);">Aún no hay nodos generados.</p>';
-                return;
-            }
-            let html = '';
-            for (const node of nodes) {
-                const unlocked = stateProxy.unlockedNodes.includes(node.id);
-                const effects = getEffectiveEffects(node);
-                const effectsStr = Object.entries(effects).map(([k,v]) => `${k}: +${v}`).join(', ');
-                const lvl = stateProxy.nodeLevels[node.id] || 1;
-                const maxLvl = node.maxLevel || 3;
-                const isMaxed = unlocked && lvl >= maxLvl;
-                const isUnlockable = !unlocked && this.isNodeUnlockable(node);
-                html += `
-                    <div class="node-card" style="opacity:${unlocked ? 1 : 0.6}; border-left: 3px solid ${unlocked ? (isMaxed ? 'var(--color-max)' : rarityColor(node.rarity)) : (isUnlockable ? 'var(--color-unlockable)' : 'var(--border-subtle)')};">
-                        ${isMaxed ? '<span class="max-tag">MAX</span>' : ''}
-                        <div class="name"><i class="fas ${node.icon || 'fa-circle'}" style="color:${unlocked ? 'var(--good)' : 'var(--text-muted)'};"></i> ${node.name} ${unlocked ? `(nivel ${lvl})` : '(bloqueado)'}</div>
-                        <div class="tags">${node.tags.join(', ')}</div>
-                        <div class="rarity-badge rarity-${node.rarity}">${node.rarity}</div>
-                        <div class="effects">${effectsStr}</div>
-                        <div class="cost-badge"><i class="fas fa-coins"></i> ${node.cost || 1} punto(s) | Nivel ${lvl}/${maxLvl}</div>
-                        ${unlocked && !isMaxed ? `<button class="btn-unlock-node" data-action="upgrade-catalog" data-node-id="${node.id}">Mejorar (${node.cost || 1} pts)</button>` : ''}
-                        ${!unlocked && isUnlockable ? `<button class="btn-unlock-node" data-action="unlock-catalog" data-node-id="${node.id}">Desbloquear (${node.cost || 1} pts)</button>` : ''}
-                        ${isMaxed ? '<span style="color:var(--color-max);font-size:0.6rem;">Máximo nivel</span>' : ''}
-                    </div>
-                `;
-            }
-            container.innerHTML = html;
-            container.querySelectorAll('[data-action="unlock-catalog"], [data-action="upgrade-catalog"]').forEach(btn => {
-                btn.addEventListener('click', (e) => {
-                    e.stopPropagation();
-                    const nodeId = btn.dataset.nodeId;
-                    const node = stateProxy.generatedNodes.find(n => n.id === nodeId);
-                    if (!node) return;
-                    if (stateProxy.stats.points < (node.cost || 1)) {
-                        showToast('⚠️ No tienes puntos suficientes.', 'error');
-                        return;
-                    }
-                    unlockNode(node);
-                });
-            });
-        },
-
-        renderSynergies() {
-            const container = this.synergyList;
-            const syns = stateProxy.synergies;
-            if (syns.length === 0) {
-                container.innerHTML = '<p class="info-text" style="color:var(--text-muted);font-size:0.8rem;">Sin sinergias activas.</p>';
-                return;
-            }
-            let html = '';
-            for (const id of syns) {
-                const syn = SYNERGY_CATALOG.find(s => s.id === id);
-                if (syn) {
-                    html += `<div class="log-entry synergy"><i class="fas fa-link"></i> ${syn.name}: ${syn.desc}</div>`;
-                }
-            }
-            container.innerHTML = html;
-        },
-
-        renderCombos() {
-            const container = this.comboList;
-            const combos = stateProxy.combos;
-            if (combos.length === 0) {
-                container.innerHTML = '<p class="info-text" style="color:var(--text-muted);font-size:0.8rem;">Sin combos activos.</p>';
-                return;
-            }
-            let html = '';
-            for (const id of combos) {
-                const c = COMBO_CATALOG.find(c => c.id === id);
-                if (c) {
-                    html += `<div class="log-entry combo"><i class="fas fa-bolt"></i> ${c.name}: ${c.desc}</div>`;
-                }
-            }
-            container.innerHTML = html;
-        },
-
-        renderMissions() {
-            const container = this.missionList;
-            let html = '';
-            for (const mission of MISSION_CATALOG) {
-                const done = stateProxy.missions.includes(mission.id);
-                const cls = done ? 'mission-item done' : 'mission-item';
-                const progress = done ? '✓' : '⏳';
-                html += `
-                    <div class="${cls}">
-                        <span>${progress} ${mission.name}</span>
-                        <span class="reward">+${mission.reward.points || 0} pts</span>
-                    </div>
-                `;
-            }
-            container.innerHTML = html || '<p class="info-text" style="color:var(--text-muted);font-size:0.8rem;">Sin misiones.</p>';
-        },
-
-        renderLog() {
-            const container = this.logList;
-            const logs = stateProxy.log;
-            if (logs.length === 0) {
-                container.innerHTML = '<p class="info-text" style="color:var(--text-muted);font-size:0.8rem;">Sin eventos.</p>';
-                return;
-            }
-            let html = '';
-            for (const entry of logs.slice(0, 25)) {
-                let cls = '', icon = 'fa-circle';
-                if (entry.includes('🔓')) { cls = 'unlock'; icon = 'fa-unlock'; }
-                else if (entry.includes('⬆️') && !entry.includes('Subiste')) { cls = 'upgrade'; icon = 'fa-arrow-up'; }
-                else if (entry.includes('🔗')) { cls = 'synergy'; icon = 'fa-link'; }
-                else if (entry.includes('⚡')) { cls = 'combo'; icon = 'fa-bolt'; }
-                else if (entry.includes('✨')) { cls = 'event'; icon = 'fa-star'; }
-                else if (entry.includes('🏆')) { cls = 'mission'; icon = 'fa-trophy'; }
-                else if (entry.includes('🏋️')) { icon = 'fa-dumbbell'; }
-                else if (entry.includes('Atributo')) { cls = 'attr'; icon = 'fa-arrow-up'; }
-                html += `<div class="log-entry ${cls}"><i class="fas ${icon}"></i> ${entry}</div>`;
-            }
-            container.innerHTML = html;
-        },
-
-        renderMessage() {
-            this.message.textContent = stateProxy.message || '';
-        },
-
-        renderProgress() {
-            const total = stateProxy.generatedNodes.length;
-            const unlocked = stateProxy.unlockedNodes.length;
-            const pct = total > 0 ? Math.round((unlocked / total) * 100) : 0;
-            this.progressFill.style.width = pct + '%';
-            this.progressPercent.textContent = pct + '%';
-            this.unlockedCount.textContent = unlocked;
-            this.totalNodes.textContent = total;
-        },
-
-        renderBranchSummary() {
-            const container = this.branchSummary;
-            const branches = {};
-            for (const node of stateProxy.generatedNodes) {
-                if (node.tags) {
-                    for (const tag of node.tags) {
-                        branches[tag] = (branches[tag] || 0) + 1;
-                    }
-                }
-            }
-            let html = '';
-            for (const [branch, count] of Object.entries(branches)) {
-                html += `<span class="branch-tag">${branch} <span class="count">${count}</span></span>`;
-            }
-            container.innerHTML = html || '<span style="color:var(--text-muted);font-size:0.7rem;">Sin nodos generados.</span>';
-        }
-    };
-
-    // ================================================================
-    // 10. INICIALIZACIÓN
-    // ================================================================
-    window.onload = () => {
-        UI.init();
-        if (stateProxy.generatedNodes.length === 0 && stateProxy.stats.affinities.fuego === 0) {
-            stateProxy.stats.affinities.fuego = 10;
-            stateProxy.stats.affinities.magia = 8;
-            stateProxy.stats.affinities.sangre = 5;
-            eventBus.emit('StatsActualizados', {});
-        }
-        if (stateProxy.stats.points > 0 && stateProxy.availableNodes.length === 0) {
-            const opts = generateRuletaOptions();
-            if (opts.length) stateProxy.availableNodes = opts;
-        }
-        eventBus.emit('RuletaActualizada', {});
-        showToast('🎯 ¡Bienvenido! Entrena afinidades, sube de nivel y alcanza hitos.', 'info');
-    };
-    </script>
 </body>
 </html>
