@@ -1,1499 +1,3080 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Torre Oscura – Progresión Refactorizada</title>
-    <style>
-        /* ===== ESTILOS (ligeramente mejorados) ===== */
-        :root {
-            --bg: #1a1a2e;
-            --panel: #16213e;
-            --accent: #e94560;
-            --text: #eee;
-            --muted: #aaa;
-            --border: #2a2a4a;
-            --good: #4ecca3;
-            --bad: #ff6b6b;
-            --warn: #f9ca24;
-            --chaos: #c084fc;
-            --hp: #ff6b6b;
-            --stamina: #4ecca3;
-        }
-        * {
-            box-sizing: border-box;
-            margin: 0;
-            padding: 0;
-        }
-        body {
-            font-family: 'Segoe UI', system-ui, sans-serif;
-            background: var(--bg);
-            color: var(--text);
-            min-height: 100vh;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            padding: 1rem;
-        }
-        h1 {
-            margin-bottom: 1rem;
-            font-size: 1.8rem;
-            color: var(--accent);
-        }
-        .main-container {
-            display: flex;
-            gap: 1rem;
-            width: 100%;
-            max-width: 1400px;
-            flex-wrap: wrap;
-        }
-        .panel {
-            background: var(--panel);
-            border: 1px solid var(--border);
-            border-radius: 12px;
-            padding: 1rem;
-            flex: 1 1 280px;
-            max-height: 80vh;
-            overflow-y: auto;
-        }
-        .panel h2 {
-            font-size: 1.2rem;
-            margin-bottom: 0.8rem;
-            border-bottom: 1px solid var(--border);
-            padding-bottom: 0.4rem;
-        }
-        .skills-list,
-        .offers-list,
-        .affinity-list,
-        .traits-list,
-        .log-list {
-            display: flex;
-            flex-direction: column;
-            gap: 0.6rem;
-        }
-        .skill-card,
-        .offer-card,
-        .trait-card,
-        .log-entry {
-            background: #1f2a44;
-            border: 1px solid var(--border);
-            border-radius: 8px;
-            padding: 0.6rem 0.8rem;
-            transition: all 0.2s;
-        }
-        .skill-card {
-            cursor: pointer;
-        }
-        .skill-card:hover {
-            border-color: var(--accent);
-        }
-        .skill-card.selected {
-            border-color: var(--good);
-            box-shadow: 0 0 8px rgba(78, 204, 163, 0.5);
-        }
-        .skill-card.fusion-slot {
-            border-color: var(--warn);
-            box-shadow: 0 0 8px rgba(249, 202, 36, 0.5);
-        }
-        .skill-card .tags {
-            font-size: 0.8rem;
-            color: var(--muted);
-            margin: 0.2rem 0;
-        }
-        .stat-row {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 0.3rem;
-            font-size: 0.8rem;
-        }
-        .stat {
-            background: #16213e;
-            padding: 0.2rem 0.5rem;
-            border-radius: 4px;
-        }
-        .action-btn {
-            margin-top: 0.3rem;
-            padding: 0.2rem 0.6rem;
-            background: var(--accent);
-            border: none;
-            border-radius: 4px;
-            color: white;
-            cursor: pointer;
-            font-weight: bold;
-            font-size: 0.75rem;
-        }
-        .action-btn:hover {
-            background: #c0392b;
-        }
-        .action-btn.secondary {
-            background: #2d6a9f;
-        }
-        .action-btn.secondary:hover {
-            background: #1f4a7a;
-        }
-        .apply-btn {
-            margin-top: 0.5rem;
-            padding: 0.3rem 0.8rem;
-            background: var(--accent);
-            border: none;
-            border-radius: 4px;
-            color: white;
-            cursor: pointer;
-            font-weight: bold;
-            font-size: 0.8rem;
-        }
-        .apply-btn:hover {
-            background: #c0392b;
-        }
-        .affinity-tag {
-            background: #0f3460;
-            border-radius: 20px;
-            padding: 0.3rem 0.8rem;
-            font-size: 0.8rem;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-        .affinity-value {
-            font-weight: bold;
-            color: var(--good);
-        }
-        .affinity-bar {
-            width: 80px;
-            height: 8px;
-            background: #333;
-            border-radius: 4px;
-            overflow: hidden;
-            display: inline-block;
-        }
-        .affinity-bar-fill {
-            height: 100%;
-            background: var(--good);
-            transition: width 0.3s;
-        }
-        .button {
-            background: var(--accent);
-            color: white;
-            border: none;
-            padding: 0.6rem 1.2rem;
-            border-radius: 6px;
-            cursor: pointer;
-            font-weight: bold;
-            margin: 0.5rem 0;
-            width: 100%;
-        }
-        .button:hover {
-            background: #c0392b;
-        }
-        .info-text {
-            font-size: 0.85rem;
-            color: var(--muted);
-            margin: 0.5rem 0;
-        }
-        .message {
-            min-height: 1.5rem;
-            font-style: italic;
-            color: var(--warn);
-        }
-        .hp-bar,
-        .stability-bar {
-            width: 100%;
-            height: 20px;
-            background: #333;
-            border-radius: 10px;
-            overflow: hidden;
-            margin: 0.3rem 0;
-        }
-        .hp-fill {
-            height: 100%;
-            background: var(--hp);
-            transition: width 0.3s;
-        }
-        .stability-fill {
-            height: 100%;
-            background: var(--stamina);
-            transition: width 0.3s;
-        }
-        .fuse-area {
-            display: flex;
-            gap: 0.5rem;
-            align-items: center;
-            flex-wrap: wrap;
-        }
-        .fuse-slot {
-            background: #0f3460;
-            border-radius: 8px;
-            padding: 0.5rem;
-            min-width: 120px;
-            text-align: center;
-            border: 1px dashed var(--border);
-        }
-        .fuse-slot.filled {
-            border-color: var(--good);
-        }
-        .tabs {
-            display: flex;
-            gap: 0.5rem;
-            margin-bottom: 0.5rem;
-            flex-wrap: wrap;
-        }
-        .tab-btn {
-            background: var(--panel);
-            border: 1px solid var(--border);
-            border-radius: 4px;
-            padding: 0.4rem 1rem;
-            color: var(--text);
-            cursor: pointer;
-            font-weight: bold;
-        }
-        .tab-btn.active {
-            background: var(--good);
-            color: #000;
-            border-color: var(--good);
-        }
-        .tab-btn:hover {
-            background: var(--accent);
-        }
-        .log-entry {
-            font-size: 0.8rem;
-            color: var(--muted);
-        }
-        .modal-overlay {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: rgba(0, 0, 0, 0.7);
-            display: none;
-            justify-content: center;
-            align-items: center;
-            z-index: 1000;
-        }
-        .modal-content {
-            background: var(--panel);
-            border: 2px solid var(--accent);
-            border-radius: 12px;
-            padding: 1.5rem;
-            max-width: 700px;
-            width: 90%;
-            max-height: 80vh;
-            overflow-y: auto;
-            display: flex;
-            flex-direction: column;
-            gap: 1rem;
-        }
-        .fusion-options {
-            display: flex;
-            gap: 1rem;
-            flex-wrap: wrap;
-        }
-        .fusion-option {
-            flex: 1;
-            min-width: 200px;
-            background: #1f2a44;
-            border: 1px solid var(--border);
-            border-radius: 8px;
-            padding: 0.8rem;
-            cursor: pointer;
-            transition: all 0.2s;
-        }
-        .fusion-option:hover {
-            border-color: var(--good);
-        }
-        #combatLog {
-            max-height: 120px;
-            overflow-y: auto;
-            font-size: 0.85rem;
-            margin-top: 0.5rem;
-            background: #0a0a1a;
-            border-radius: 6px;
-            padding: 0.5rem;
-        }
-        .enemy-hp-bar {
-            width: 100%;
-            height: 16px;
-            background: #333;
-            border-radius: 8px;
-            overflow: hidden;
-            margin: 0.3rem 0;
-        }
-        .enemy-hp-fill {
-            height: 100%;
-            background: var(--bad);
-            transition: width 0.3s;
-        }
-        .inventory-list {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 0.4rem;
-        }
-        .inventory-item {
-            background: #2d6a9f;
-            border-radius: 12px;
-            padding: 0.2rem 0.6rem;
-            font-size: 0.8rem;
-            display: flex;
-            align-items: center;
-            gap: 0.3rem;
-        }
-        .inventory-item button {
-            background: var(--accent);
-            border: none;
-            border-radius: 4px;
-            color: white;
-            cursor: pointer;
-            font-size: 0.7rem;
-            padding: 0.1rem 0.4rem;
-        }
-        .inventory-item button:hover {
-            background: #c0392b;
-        }
-        .affinity-progress {
-            display: flex;
-            align-items: center;
-            gap: 0.5rem;
-            width: 100%;
-        }
-        .affinity-progress span {
-            min-width: 50px;
-        }
-        .affinity-progress .bar {
-            flex: 1;
-            height: 6px;
-            background: #333;
-            border-radius: 3px;
-            overflow: hidden;
-        }
-        .affinity-progress .bar .fill {
-            height: 100%;
-            background: var(--good);
-            transition: width 0.2s;
-        }
-        .affinity-progress .value {
-            min-width: 30px;
-            text-align: right;
-            font-weight: bold;
-            color: var(--good);
-        }
-        .resource-row {
-            display: flex;
-            justify-content: space-between;
-            gap: 1rem;
-            flex-wrap: wrap;
-        }
-        .resource-item {
-            display: flex;
-            align-items: center;
-            gap: 0.3rem;
-        }
-        .new-skill {
-            border-color: var(--highlight);
-            box-shadow: 0 0 16px rgba(78, 204, 163, 0.9);
-            animation: pulse 1s ease-in-out 2;
-        }
-        @keyframes pulse {
-            0% { transform: scale(1); }
-            50% { transform: scale(1.03); }
-            100% { transform: scale(1); }
-        }
-    </style>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Torre Oscura · Núcleo v13 (Arena + Repertorio + Combate)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=Orbitron:wght@400;700&display=swap" rel="stylesheet" />
+<style>
+  /* =====================================================================
+     UI · estilos. El foco está en la arena, el repertorio y la información
+     de combate. Todo oscuro y sobrio para no distraer.
+     ===================================================================== */
+  :root {
+    --bg: #0b0b1a;
+    --panel: rgba(22, 33, 62, 0.92);
+    --panel-2: #1f2a44;
+    --border: rgba(255, 255, 255, 0.08);
+    --text: #eee;
+    --muted: #94a3b8;
+    --accent: #e94560;
+    --accent-hover: #c0392b;
+    --good: #4ecca3;
+    --warn: #f9ca24;
+    --bad: #f87171;
+    --rare: #4a9eff;
+    --epic: #b44aff;
+    --legend: #ffaa00;
+    --chaos: #c084fc;
+    --radius: 12px;
+    --shadow: 0 8px 32px rgba(0, 0, 0, 0.55);
+    --mono: ui-monospace, SFMono-Regular, Menlo, monospace;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Inter', system-ui, sans-serif;
+    background: radial-gradient(ellipse at 20% 20%, #0f0c29, #302b63, #24243e);
+    color: var(--text);
+    min-height: 100vh;
+    padding: 1.25rem 1rem;
+    font-size: 14px;
+  }
+  h1 {
+    font-family: 'Orbitron', monospace;
+    font-size: 1.5rem;
+    background: linear-gradient(135deg, var(--accent), #f9ca24);
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+    margin-bottom: 1rem;
+    letter-spacing: 0.05em;
+    text-align: center;
+  }
+  .grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 2fr) minmax(0, 1fr);
+    gap: 1rem;
+    max-width: 1900px;
+    margin: 0 auto;
+  }
+  @media (max-width: 1200px) {
+    .grid { grid-template-columns: 1fr 1fr; }
+    .grid > .panel.center { grid-column: 1 / -1; }
+  }
+  @media (max-width: 720px) { .grid { grid-template-columns: 1fr; } }
+  .panel {
+    background: var(--panel);
+    backdrop-filter: blur(8px);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 1rem 1.1rem;
+    box-shadow: var(--shadow);
+    max-height: 92vh;
+    overflow-y: auto;
+  }
+  .panel h2 {
+    font-family: 'Orbitron', monospace;
+    font-size: 0.95rem;
+    margin-bottom: 0.6rem;
+    padding-bottom: 0.4rem;
+    border-bottom: 1px solid var(--border);
+    color: var(--accent);
+    letter-spacing: 0.03em;
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+  }
+  .panel h2:not(:first-child) { margin-top: 1rem; }
+  .row { display: flex; gap: 0.4rem; flex-wrap: wrap; align-items: center; margin: 0.25rem 0; }
+  .row.between { justify-content: space-between; }
+  .badge {
+    background: rgba(255, 255, 255, 0.06);
+    padding: 0.15rem 0.6rem;
+    border-radius: 20px;
+    font-family: var(--mono);
+    font-size: 0.75rem;
+    border: 1px solid var(--border);
+  }
+  .button {
+    background: var(--accent);
+    color: #fff;
+    border: none;
+    padding: 0.5rem 1rem;
+    border-radius: 8px;
+    cursor: pointer;
+    font-weight: 600;
+    font-size: 0.82rem;
+    transition: all 0.2s ease;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.4rem;
+    width: 100%;
+    margin: 0.2rem 0;
+    font-family: inherit;
+  }
+  .button:hover:not(:disabled) { background: var(--accent-hover); transform: scale(1.01); }
+  .button:disabled { opacity: 0.4; cursor: not-allowed; }
+  .button.good { background: var(--good); color: #000; }
+  .button.good:hover:not(:disabled) { background: #3ab88a; }
+  .button.warn { background: var(--warn); color: #000; }
+  .button.warn:hover:not(:disabled) { background: #e6b800; }
+  .button.ghost { background: transparent; border: 1px solid var(--border); color: var(--text); }
+  .button.ghost:hover:not(:disabled) { background: rgba(255,255,255,0.05); }
+  .button.small { padding: 0.25rem 0.6rem; font-size: 0.72rem; width: auto; }
+  .stat-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.15rem 0.6rem;
+    font-size: 0.78rem;
+    margin: 0.3rem 0;
+  }
+  .stat-item {
+    display: flex;
+    justify-content: space-between;
+    padding: 0.1rem 0.25rem;
+    border-radius: 4px;
+    background: rgba(255, 255, 255, 0.02);
+  }
+  .stat-item .v { font-family: var(--mono); font-weight: 600; color: var(--good); }
+  .stat-group-title {
+    font-size: 0.66rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--muted);
+    margin: 0.5rem 0 0.15rem 0;
+    padding-bottom: 0.15rem;
+    border-bottom: 1px solid var(--border);
+  }
+  .affinity-row {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    font-size: 0.72rem;
+    padding: 0.1rem 0.2rem;
+  }
+  .affinity-row .tag { width: 80px; flex-shrink: 0; color: var(--muted); text-transform: capitalize; }
+  .affinity-row .track { flex: 1; height: 6px; background: rgba(255,255,255,0.08); border-radius: 4px; overflow: hidden; }
+  .affinity-row .fill { height: 100%; border-radius: 4px; transition: width 0.3s; }
+  .affinity-row .num { font-family: var(--mono); width: 42px; text-align: right; font-weight: 600; font-size: 0.68rem; }
+  .affinity-row .btn-train { background: var(--warn); color: #000; border: none; border-radius: 10px; padding: 0.05rem 0.45rem; cursor: pointer; font-size: 0.62rem; font-weight: 700; }
+  .affinity-row .btn-train:disabled { opacity: 0.3; cursor: not-allowed; }
+  .log-box {
+    font-family: var(--mono);
+    font-size: 0.7rem;
+    max-height: 170px;
+    overflow-y: auto;
+    background: rgba(0,0,0,0.25);
+    border-radius: 6px;
+    padding: 0.4rem 0.5rem;
+    line-height: 1.5;
+    color: #cbd5e1;
+  }
+  .log-entry { padding: 0.05rem 0; border-bottom: 1px solid rgba(255,255,255,0.04); }
+  .log-entry:last-child { border-bottom: none; }
+  .log-entry .ts { color: #475569; margin-right: 0.4rem; }
+  .tabs { display: flex; gap: 0.3rem; margin-bottom: 0.6rem; flex-wrap: wrap; }
+  .tab {
+    flex: 1; min-width: 80px;
+    background: transparent;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 0.35rem 0.6rem;
+    color: var(--muted);
+    cursor: pointer;
+    font-weight: 600;
+    font-size: 0.72rem;
+    font-family: inherit;
+    transition: all 0.2s;
+  }
+  .tab.active { background: var(--good); color: #000; border-color: var(--good); }
+
+  /* ============ Arena ============ */
+  .arena {
+    width: 100%;
+    height: 240px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    background: linear-gradient(180deg, rgba(15,12,41,0.6), rgba(36,36,62,0.6));
+    position: relative;
+    overflow: hidden;
+  }
+  .arena svg { display: block; width: 100%; height: 100%; }
+  .arena-hp-bar {
+    position: absolute;
+    top: 12px; left: 50%;
+    transform: translateX(-50%);
+    width: 60%;
+    height: 14px;
+    background: rgba(0,0,0,0.5);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    overflow: hidden;
+  }
+  .arena-hp-fill { height: 100%; background: linear-gradient(90deg, #f87171, #ef4444); transition: width 0.3s; }
+  .arena-hp-label {
+    position: absolute;
+    top: 12px; left: 50%; transform: translateX(-50%);
+    width: 60%;
+    text-align: center;
+    font-family: var(--mono);
+    font-size: 0.7rem;
+    color: #fff;
+    text-shadow: 0 0 4px #000;
+    line-height: 14px;
+    pointer-events: none;
+  }
+  .dmg-float {
+    position: absolute;
+    font-family: 'Orbitron', monospace;
+    font-weight: 700;
+    font-size: 1.2rem;
+    pointer-events: none;
+    animation: dmgFloat 1s ease-out forwards;
+    text-shadow: 0 0 6px #000, 0 0 12px currentColor;
+  }
+  @keyframes dmgFloat {
+    0% { opacity: 0; transform: translateY(0) scale(0.6); }
+    20% { opacity: 1; transform: translateY(-10px) scale(1.1); }
+    100% { opacity: 0; transform: translateY(-50px) scale(1); }
+  }
+  .arena-controls { display: flex; gap: 0.4rem; margin-top: 0.5rem; flex-wrap: wrap; }
+  .arena-controls .button { width: auto; flex: 1 1 auto; }
+
+  /* ============ Repertorio ============ */
+  .skill-list { display: flex; flex-direction: column; gap: 0.4rem; }
+  .skill-card {
+    background: var(--panel-2);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 0.6rem 0.7rem;
+    transition: all 0.2s;
+    cursor: pointer;
+    position: relative;
+  }
+  .skill-card:hover { border-color: var(--accent); }
+  .skill-card.selected { border-color: var(--good); box-shadow: 0 0 8px rgba(78,204,163,0.4); }
+  .skill-card.fusion-slot { border-color: var(--warn); box-shadow: 0 0 8px rgba(249,202,36,0.5); }
+  .skill-card.new { animation: pulse 1s ease-in-out 2; border-color: var(--good); }
+  @keyframes pulse {
+    0%, 100% { transform: scale(1); box-shadow: 0 0 0 rgba(78,204,163,0); }
+    50% { transform: scale(1.02); box-shadow: 0 0 20px rgba(78,204,163,0.7); }
+  }
+  .skill-card .name { font-weight: 700; font-size: 0.9rem; display: flex; justify-content: space-between; align-items: center; }
+  .skill-card .tags { font-size: 0.62rem; color: var(--muted); margin: 0.15rem 0; }
+  .skill-card .stats-row { display: flex; flex-wrap: wrap; gap: 0.25rem; margin-top: 0.2rem; }
+  .skill-card .stat-chip {
+    background: rgba(255,255,255,0.05);
+    padding: 0.05rem 0.4rem;
+    border-radius: 4px;
+    font-size: 0.65rem;
+    font-family: var(--mono);
+  }
+  .skill-card .mutators { font-size: 0.62rem; color: var(--accent); margin-top: 0.2rem; }
+  .skill-card .impregnation { font-size: 0.62rem; color: var(--warn); margin-top: 0.1rem; }
+  .skill-card .actions { display: flex; gap: 0.3rem; margin-top: 0.35rem; }
+
+  /* ============ Ofertas ============ */
+  .offers-list { display: flex; flex-direction: column; gap: 0.4rem; }
+  .offer-card {
+    background: var(--panel-2);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 0.5rem 0.7rem;
+  }
+  .offer-card .name { font-weight: 700; font-size: 0.85rem; }
+  .offer-card .tag { font-size: 0.65rem; color: var(--muted); }
+  .offer-card .desc { font-size: 0.72rem; margin: 0.2rem 0; }
+  .offer-card .distance { font-size: 0.65rem; font-family: var(--mono); color: var(--warn); }
+
+  /* ============ Fusión ============ */
+  .fuse-area { display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap; margin: 0.4rem 0; }
+  .fuse-slot {
+    background: rgba(15,52,96,0.6);
+    border: 1px dashed var(--border);
+    border-radius: 8px;
+    padding: 0.5rem 0.7rem;
+    min-width: 130px;
+    text-align: center;
+    font-size: 0.8rem;
+  }
+  .fuse-slot.filled { border-color: var(--good); border-style: solid; }
+
+  /* ============ Modal ============ */
+  .modal-overlay {
+    position: fixed; inset: 0;
+    background: rgba(0,0,0,0.75);
+    display: flex; justify-content: center; align-items: center;
+    z-index: 1000;
+  }
+  .modal-content {
+    background: var(--panel);
+    border: 2px solid var(--accent);
+    border-radius: var(--radius);
+    padding: 1.25rem;
+    max-width: 820px; width: 90%;
+    max-height: 85vh; overflow-y: auto;
+  }
+  .fusion-options { display: grid; grid-template-columns: 1fr 1fr; gap: 0.7rem; margin: 0.8rem 0; }
+  @media (max-width: 720px) { .fusion-options { grid-template-columns: 1fr; } }
+  .fusion-option {
+    background: var(--panel-2);
+    border: 2px solid var(--border);
+    border-radius: 10px;
+    padding: 0.7rem;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .fusion-option:hover { border-color: var(--good); transform: translateY(-2px); }
+
+  /* ============ Misc ============ */
+  .empty { color: #475569; font-style: italic; font-size: 0.78rem; }
+  .status { font-size: 0.75rem; color: var(--muted); margin-top: 0.4rem; min-height: 1rem; }
+  .hint { font-size: 0.68rem; color: var(--muted); margin-bottom: 0.4rem; }
+  .title-display {
+    background: linear-gradient(135deg, rgba(233,69,96,0.15), rgba(249,202,36,0.15));
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 0.5rem 0.7rem;
+    margin: 0.4rem 0;
+    text-align: center;
+  }
+  .title-display .label { font-size: 0.6rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.1em; }
+  .title-display .value { font-family: 'Orbitron', monospace; font-size: 1rem; color: var(--warn); font-weight: 700; margin-top: 0.1rem; }
+  .seed-mode-row { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 0.4rem; margin-bottom: 0.5rem; }
+  .seed-mode-btn {
+    background: rgba(255,255,255,0.04);
+    border: 2px solid var(--border);
+    border-radius: 8px;
+    padding: 0.45rem 0.5rem;
+    color: var(--text);
+    cursor: pointer;
+    font-weight: 600;
+    font-size: 0.72rem;
+    font-family: inherit;
+    transition: all 0.2s;
+    text-align: center;
+  }
+  .seed-mode-btn:hover { border-color: var(--accent); }
+  .seed-mode-btn.active { border-color: var(--good); background: rgba(78,204,163,0.12); }
+  .seed-mode-btn small { display: block; font-weight: 400; color: var(--muted); font-size: 0.6rem; margin-top: 0.15rem; }
+  .tag-chips { display: flex; flex-wrap: wrap; gap: 0.3rem; margin: 0.4rem 0; }
+  .tag-chip {
+    background: rgba(255,255,255,0.05);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 0.2rem 0.6rem;
+    cursor: pointer;
+    font-size: 0.7rem;
+    text-transform: capitalize;
+    transition: all 0.15s;
+  }
+  .tag-chip:hover { background: rgba(255,255,255,0.1); }
+  .tag-chip.selected { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 700; }
+  .tag-chip.disabled { opacity: 0.35; cursor: not-allowed; }
+  .toasts {
+    position: fixed; bottom: 20px; right: 20px;
+    display: flex; flex-direction: column; gap: 0.4rem;
+    max-width: 340px; z-index: 999; pointer-events: none;
+  }
+  .toast {
+    background: rgba(22,33,62,0.96);
+    border: 1px solid var(--border);
+    border-left: 4px solid var(--good);
+    border-radius: var(--radius);
+    padding: 0.55rem 0.9rem;
+    font-size: 0.8rem;
+    box-shadow: var(--shadow);
+    pointer-events: auto;
+    animation: slideIn 0.25s ease;
+  }
+  .toast.error { border-left-color: #f87171; }
+  .toast.warn { border-left-color: var(--warn); }
+  @keyframes slideIn { from { opacity: 0; transform: translateX(40px); } to { opacity: 1; transform: translateX(0); } }
+  .stab-bar { height: 8px; background: rgba(255,255,255,0.08); border-radius: 4px; overflow: hidden; margin: 0.3rem 0; }
+  .stab-fill { height: 100%; background: linear-gradient(90deg, var(--good), var(--chaos)); transition: width 0.3s; }
+  .hp-bar-inline { height: 8px; background: rgba(255,255,255,0.08); border-radius: 4px; overflow: hidden; margin: 0.3rem 0; }
+  .hp-fill-inline { height: 100%; background: linear-gradient(90deg, #f87171, #ef4444); transition: width 0.3s; }
+  .combat-log {
+    font-family: var(--mono);
+    font-size: 0.72rem;
+    max-height: 120px;
+    overflow-y: auto;
+    background: rgba(0,0,0,0.25);
+    border-radius: 6px;
+    padding: 0.4rem 0.5rem;
+    line-height: 1.5;
+    color: #cbd5e1;
+    margin-top: 0.4rem;
+  }
+  .inventory-list { display: flex; flex-wrap: wrap; gap: 0.4rem; margin: 0.4rem 0; }
+  .inv-item {
+    background: rgba(255,255,255,0.05);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 0.3rem 0.6rem;
+    font-size: 0.72rem;
+    display: flex; align-items: center; gap: 0.4rem;
+  }
+  .inv-item button {
+    background: var(--good); color: #000;
+    border: none; border-radius: 6px;
+    padding: 0.1rem 0.5rem;
+    cursor: pointer; font-size: 0.65rem; font-weight: 700;
+  }
+</style>
 </head>
 <body>
-    <h1>⚔️ Torre Oscura – Progresión Refactorizada</h1>
-    <div class="main-container">
-        <!-- Panel Izquierdo: Habilidades -->
-        <div class="panel" id="panel-habilidades">
-            <h2>Habilidades</h2>
-            <div class="skills-list" id="skillsList"></div>
-            <button class="button" id="btnNuevaHabilidad">🃏 Generar Habilidad (30 XP)</button>
-            <button class="button" id="btnReset">🔄 Reiniciar</button>
-            <div class="message" id="message"></div>
-        </div>
 
-        <!-- Panel Central: Tabs (Mutadores / Fusión / Combate / Inventario) -->
-        <div class="panel" id="panel-central">
-            <div class="tabs">
-                <button class="tab-btn active" id="tabMutadores">Mutadores</button>
-                <button class="tab-btn" id="tabFusion">Fusión</button>
-                <button class="tab-btn" id="tabCombate">⚔️ Combate</button>
-                <button class="tab-btn" id="tabInventario">🎒 Inventario</button>
-            </div>
-            <!-- Mutadores -->
-            <div id="tabContentMutadores">
-                <h2>Mutadores Ofrecidos</h2>
-                <div class="offers-list" id="offersList"></div>
-                <p class="info-text">Selecciona una habilidad (clic en tarjeta) y aplica un mutador.</p>
-            </div>
-            <!-- Fusión -->
-            <div id="tabContentFusion" style="display:none;">
-                <h2>Fusión de Habilidades</h2>
-                <div class="fuse-area">
-                    <div class="fuse-slot" id="fuseSlot1">Habilidad A</div>
-                    <span>+</span>
-                    <div class="fuse-slot" id="fuseSlot2">Habilidad B</div>
-                </div>
-                <button class="button" id="btnFusion">🔮 Fusionar</button>
-                <p class="info-text">Coste: 50 XP, 1 catalizador, 10 estabilidad.</p>
-                <div><strong>Catalizadores:</strong> <span id="catalizadores">2</span></div>
-            </div>
-            <!-- Combate -->
-            <div id="tabContentCombate" style="display:none;">
-                <h2>⚔️ Combate</h2>
-                <div id="enemyPanel">
-                    <p><strong>Enemigo:</strong> <span id="enemyName">—</span> (Nv. <span id="enemyLevel">0</span>)</p>
-                    <div class="enemy-hp-bar">
-                        <div class="enemy-hp-fill" id="enemyHpFill" style="width:100%"></div>
-                    </div>
-                    <p>Vida: <span id="enemyHp">0</span>/<span id="enemyMaxHp">0</span></p>
-                    <p>Resistencias: <span id="enemyResistances">ninguna</span></p>
-                </div>
-                <button class="button" id="attackBtn">⚡ Atacar con seleccionada</button>
-                <button class="button" id="autoBtn">🤖 Auto-combate</button>
-                <div id="combatLog"></div>
-            </div>
-            <!-- Inventario -->
-            <div id="tabContentInventario" style="display:none;">
-                <h2>🎒 Inventario</h2>
-                <div class="inventory-list" id="inventoryList"></div>
-                <p class="info-text">Usa consumibles para restaurar vida o estabilidad.</p>
-            </div>
-        </div>
+<h1>⬡ Torre Oscura · Núcleo v13</h1>
 
-        <!-- Panel Derecho: Personaje, Afinidades, Rasgos -->
-        <div class="panel" id="panel-personaje">
-            <h2>Personaje</h2>
-            <div class="resource-row">
-                <span>Nivel: <strong id="level">1</strong></span>
-                <span>XP: <strong id="xp">0</strong>/<span id="xpToNext">20</span></span>
-            </div>
-            <div class="resource-row">
-                <span>❤️ Vida: <strong id="hp">100</strong>/<span id="maxHp">100</span></span>
-                <span>⚡ Estab.: <strong id="stability">50</strong>/<span id="maxStability">100</span></span>
-            </div>
-            <div class="hp-bar"><div class="hp-fill" id="hpFill" style="width:100%"></div></div>
-            <div class="stability-bar"><div class="stability-fill" id="stabilityFill" style="width:50%"></div></div>
-            <button class="button" id="btnDescansar">🛌 Descansar (20 XP → +10 vida y estabilidad)</button>
-            <h3>Afinidades <span style="font-size:0.8rem;color:var(--muted)">(total <span id="totalAffinity">0</span>/<span id="maxAffinity">50</span>)</span></h3>
-            <div class="affinity-list" id="affinityList"></div>
-            <h3>Rasgos</h3>
-            <div class="traits-list" id="traitsList"></div>
-            <h3>Registro</h3>
-            <div class="log-list" id="logList"></div>
-        </div>
+<div class="grid">
+  <!-- =========================== Panel izquierdo =========================== -->
+  <div class="panel">
+    <h2>Personaje</h2>
+    <div class="row">
+      <span class="badge">Nv. <strong id="level">1</strong></span>
+      <span class="badge">XP <strong id="xp">0</strong>/<strong id="xpNext">20</strong></span>
+      <span class="badge">♻ <strong id="reinc">0</strong></span>
+      <span class="badge">Esencia <strong id="essence">0</strong></span>
+    </div>
+    <div class="row between">
+      <span class="hint">❤️ Vida <strong id="hp">100</strong>/<strong id="maxHp">100</strong></span>
+    </div>
+    <div class="hp-bar-inline"><div class="hp-fill-inline" id="hpFill" style="width:100%"></div></div>
+    <div class="row between">
+      <span class="hint">⚖ Estabilidad <strong id="stability">50</strong>/<strong id="maxStability">100</strong></span>
+    </div>
+    <div class="stab-bar"><div class="stab-fill" id="stabFill" style="width:50%"></div></div>
+    <div id="titleBlock"></div>
+    <div id="seedBlock"></div>
+
+    <h2>Stats</h2>
+    <div id="statsBlock"></div>
+
+    <h2>Atributos base</h2>
+    <div id="attrBlock"></div>
+
+    <h2>Afinidades</h2>
+    <div class="hint">Entrenar cuesta 1 punto. El tope crece con el nivel.</div>
+    <div id="affinityBlock"></div>
+
+    <h2>Acciones</h2>
+    <button class="button warn" id="btnRest">🛌 Descansar (20 XP → +10 vida y estabilidad)</button>
+    <button class="button warn" id="btnReincarnate">♻ Reencarnar</button>
+    <button class="button ghost" id="btnRebuild">↻ Reconstruir desde el log</button>
+    <button class="button ghost" id="btnHardReset">✖ Reinicio duro</button>
+
+    <h2>Rasgos</h2>
+    <div id="traitBlock"></div>
+
+    <h2>Inventario</h2>
+    <div class="inventory-list" id="inventoryList"></div>
+  </div>
+
+  <!-- =========================== Panel central ============================ -->
+  <div class="panel center">
+    <h2>⚔ Arena</h2>
+    <div class="arena" id="arena">
+      <svg id="arenaSvg" viewBox="0 0 800 240" preserveAspectRatio="xMidYMid meet">
+        <!-- Fondo: suelo -->
+        <line x1="0" y1="200" x2="800" y2="200" stroke="#334155" stroke-width="2" />
+        <!-- Grupo del enemigo (se coloca en runtime) -->
+        <g id="enemyGroup" transform="translate(600, 150)">
+          <ellipse cx="0" cy="0" rx="42" ry="46" fill="#7f1d1d" stroke="#ef4444" stroke-width="2" />
+          <circle cx="-13" cy="-12" r="7" fill="#fff" />
+          <circle cx="13" cy="-12" r="7" fill="#fff" />
+          <circle cx="-13" cy="-12" r="3" fill="#000" />
+          <circle cx="13" cy="-12" r="3" fill="#000" />
+          <path d="M -12 15 Q 0 22 12 15" stroke="#000" stroke-width="2" fill="none" />
+          <text x="0" y="60" text-anchor="middle" fill="#eee" font-size="11" font-family="Inter">—</text>
+        </g>
+        <!-- Proyectiles e impactos se inyectan aquí -->
+        <g id="fxLayer"></g>
+      </svg>
+      <div class="arena-hp-bar"><div class="arena-hp-fill" id="enemyHpFill" style="width:100%"></div></div>
+      <div class="arena-hp-label" id="enemyHpLabel">— / —</div>
+    </div>
+    <div class="arena-controls">
+      <button class="button small good" id="btnAttackSelected">⚔ Atacar con seleccionada</button>
+      <button class="button small" id="btnAttackAll">⚔ Atacar con todas</button>
+      <button class="button small ghost" id="btnResetEnemy">↻ Reset enemigo</button>
+    </div>
+    <div class="hint" style="margin-top:0.3rem;">
+      Última tirada: <span id="lastRoll">—</span>
     </div>
 
-    <!-- Modal Fusión -->
-    <div id="fusionModal" class="modal-overlay">
-        <div class="modal-content">
-            <h2>Elige el resultado de la fusión</h2>
-            <div class="fusion-options" id="fusionOptions"></div>
-            <button class="button" id="btnCancelFusion">Cancelar</button>
-        </div>
+    <div class="tabs" style="margin-top:0.6rem;">
+      <button class="tab active" id="tabSkills">Repertorio</button>
+      <button class="tab" id="tabMutators">Mutadores</button>
+      <button class="tab" id="tabFusion">Fusión</button>
+      <button class="tab" id="tabTree">Árbol</button>
     </div>
 
-    <script>
-        // ================================================================
-        //  TORRE OSCURA – MÓDULO DE PROGRESIÓN REFACTORIZADO
-        //  Arquitectura por eventos, estado observable, preparado para
-        //  migrar a hexagonal. Incluye:
-        //    - Afinidades con máximo global progresivo
-        //    - Ponderación por tags (1.0, 0.6, 0.3, 0.15)
-        //    - Ganancia relativa al valor actual (catch-up natural)
-        //    - Vida y Estabilidad separadas
-        //    - Enemigos con resistencias
-        //    - Loot (pociones de vida y estabilidad)
-        //    - Mutadores, fusión, rasgos
-        // ================================================================
+    <div id="viewSkills">
+      <div class="hint">Clic en una skill para seleccionarla. Con una seleccionada puedes aplicar un mutador o probarla en la arena.</div>
+      <div class="skill-list" id="skillList"></div>
+    </div>
+    <div id="viewMutators" style="display:none">
+      <div class="hint">Se ofrecen 3 al subir de nivel. El log explica la distancia y el coste de estabilidad de cada elección.</div>
+      <div class="offers-list" id="offersList"></div>
+    </div>
+    <div id="viewFusion" style="display:none">
+      <div class="hint">Selecciona dos skills del repertorio (botón ➕) para fusionarlas. El resultado es un nombre emergente de los tags combinados.</div>
+      <div class="fuse-area">
+        <div class="fuse-slot" id="fuseSlot1">Habilidad A</div>
+        <span style="font-size:1.2rem;">+</span>
+        <div class="fuse-slot" id="fuseSlot2">Habilidad B</div>
+      </div>
+      <button class="button good" id="btnFusion">🔮 Fusionar</button>
+      <div class="hint" id="fusionInfo"></div>
+    </div>
+    <div id="viewTree" style="display:none">
+      <div class="hint">Distribución de afinidades. Sin aristas: el grafo se infiere de las consecuencias.</div>
+      <div class="constellation" style="min-height:420px; border:1px solid var(--border); border-radius:12px; background:rgba(0,0,0,0.2); overflow:auto;">
+        <svg id="treeSvg" viewBox="0 0 900 500" style="display:block;width:100%;height:auto;min-height:420px;"></svg>
+      </div>
+    </div>
 
-        // ---------- 1. INFRAESTRUCTURA: EVENT BUS ----------
-        class EventBus {
-            constructor() { this.listeners = {}; }
-            on(event, cb) { if (!this.listeners[event]) this.listeners[event] = []; this.listeners[event].push(cb); }
-            emit(event, data) { (this.listeners[event] || []).forEach(cb => cb(data)); }
+    <h2 style="margin-top:0.6rem;">Log de combate</h2>
+    <div class="combat-log" id="combatLog"><div class="empty">Sin actividad.</div></div>
+
+    <h2>Sinergias activas</h2>
+    <div id="synergyBlock"></div>
+    <h2>Combos activos</h2>
+    <div id="comboBlock"></div>
+  </div>
+
+  <!-- =========================== Panel derecho ============================ -->
+  <div class="panel">
+    <h2>Catálogo</h2>
+    <div id="catalog"></div>
+
+    <h2>Log de eventos</h2>
+    <div class="log-box" id="logBox"><div class="empty">Sin eventos.</div></div>
+    <div class="status" id="status"></div>
+  </div>
+</div>
+
+<!-- Modal de fusión -->
+<div id="fusionModal" class="modal-overlay" style="display:none;">
+  <div class="modal-content">
+    <h2>Elige el resultado de la fusión</h2>
+    <p class="hint">Cada opción es un skill nuevo con nombre emergente de sus tags.</p>
+    <div class="fusion-options" id="fusionOptions"></div>
+    <button class="button ghost" id="btnCancelFusion">Cancelar</button>
+  </div>
+</div>
+
+<div class="toasts" id="toasts"></div>
+
+<script>
+'use strict';
+
+/* ============================================================================
+ * TORRE OSCURA · NÚCLEO v13
+ * ----------------------------------------------------------------------------
+ * Fusión de dos líneas de trabajo previas:
+ *   - v12: event sourcing + hexagonal + semillas + nombres emergentes + arena.
+ *   - minijuego2: combate con enemigos, resistencias, loot, XP por kill, y
+ *                 sistema de afinidades con pesos + catch-up + cap progresivo.
+ *
+ * Objetivos:
+ *   1. Repertorio de skills como fuente de verdad, con historia.
+ *   2. Nombres emergentes estables (mismo input → mismo nombre).
+ *   3. Economía que permita usar la mecánica central (fusionar) sin romperla.
+ *   4. Arena con representación gráfica real y combate funcional.
+ *   5. Afinidades que recompensen diversidad sin castigar la especialización.
+ *   6. Log que explique el "por qué" de cada coste (migas de pan).
+ *
+ * Capas (hexagonal):
+ *   [ DOMINIO ]    catálogo, eventos, reducers, proyecciones, servicios puros.
+ *   [ PUERTOS ]    EventStore, SnapshotStorage, Clock, Random, Logger.
+ *   [ ADAPTADORES ] LocalStorage, Math, Console.
+ *   [ APLICACIÓN ] GameEngine: orquesta comandos → eventos → reducers.
+ *   [ UI ]         adaptador DOM + Arena (SVG animado) + Árbol radial.
+ * ========================================================================== */
+
+
+/* ============================================================================
+ * 1. PUERTOS
+ * ----------------------------------------------------------------------------
+ * Contratos abstractos. En JS no hay interfaces nativas, así que usamos
+ * clases base que lanzan si no se sobrescriben (documentación ejecutable).
+ * ========================================================================== */
+
+class EventStorePort {
+  append(_event) { throw new Error('EventStorePort.append no implementado'); }
+  all() { throw new Error('EventStorePort.all no implementado'); }
+  clear() { throw new Error('EventStorePort.clear no implementado'); }
+}
+
+class SnapshotStoragePort {
+  save(_state) { throw new Error('SnapshotStoragePort.save no implementado'); }
+  load() { throw new Error('SnapshotStoragePort.load no implementado'); }
+  clear() { throw new Error('SnapshotStoragePort.clear no implementado'); }
+}
+
+class ClockPort {
+  now() { throw new Error('ClockPort.now no implementado'); }
+}
+
+class RandomPort {
+  float() { throw new Error('RandomPort.float no implementado'); }
+  int(_min, _max) { throw new Error('RandomPort.int no implementado'); }
+  pick(_arr) { throw new Error('RandomPort.pick no implementado'); }
+}
+
+class LoggerPort {
+  info(_msg, _meta) { throw new Error('LoggerPort.info no implementado'); }
+  warn(_msg, _meta) { throw new Error('LoggerPort.warn no implementado'); }
+  error(_msg, _meta) { throw new Error('LoggerPort.error no implementado'); }
+}
+
+
+/* ============================================================================
+ * 2. DOMINIO · TAGS Y GRAFO
+ * ----------------------------------------------------------------------------
+ * El grafo NO se dibuja en la UI a propósito. El jugador infiere relaciones
+ * por las consecuencias (coste de estabilidad, bread crumbs en el log).
+ * Aquí vive porque el dominio lo necesita para calcular distancias.
+ * ========================================================================== */
+
+const ALL_TAGS = Object.freeze([
+  'fuego', 'agua', 'hielo', 'rayo', 'tierra', 'naturaleza', 'aire',
+  'veneno', 'fisico', 'sangre', 'melee', 'proyectil', 'magia',
+  'tecnica', 'luz', 'sombra', 'caos',
+]);
+
+const TAG_GRAPH = Object.freeze({
+  fuego:       ['magia', 'fisico', 'aire'],
+  agua:        ['hielo', 'naturaleza', 'aire'],
+  hielo:       ['agua', 'magia'],
+  rayo:        ['magia', 'proyectil', 'aire'],
+  tierra:      ['fisico', 'naturaleza'],
+  naturaleza:  ['agua', 'tierra', 'veneno'],
+  aire:        ['fuego', 'agua', 'rayo', 'proyectil'],
+  veneno:      ['naturaleza', 'sangre', 'sombra'],
+  fisico:      ['fuego', 'tierra', 'melee', 'sangre'],
+  sangre:      ['fisico', 'veneno', 'melee'],
+  melee:       ['fisico', 'sangre', 'tecnica'],
+  proyectil:   ['rayo', 'aire', 'tecnica'],
+  magia:       ['fuego', 'hielo', 'rayo', 'luz', 'sombra'],
+  tecnica:     ['melee', 'proyectil'],
+  luz:         ['magia'],
+  sombra:      ['magia', 'veneno', 'caos'],
+  caos:        ['sombra'],
+});
+
+/**
+ * Distancia BFS entre dos tags. Devuelve -1 si no hay camino (no debería
+ * ocurrir con este grafo, pero evita Infinity silencioso).
+ */
+function tagDistance(a, b) {
+  if (a === b) return 0;
+  if (!TAG_GRAPH[a] || !TAG_GRAPH[b]) return -1;
+  const queue = [[a, 0]];
+  const visited = new Set([a]);
+  while (queue.length) {
+    const [cur, d] = queue.shift();
+    for (const n of TAG_GRAPH[cur]) {
+      if (n === b) return d + 1;
+      if (!visited.has(n)) { visited.add(n); queue.push([n, d + 1]); }
+    }
+  }
+  return -1;
+}
+
+/** Etiqueta legible para una distancia. */
+function distanceLabel(d) {
+  if (d === -1) return 'sin camino';
+  if (d === 0) return 'mismo tag';
+  if (d === 1) return 'adyacente';
+  if (d === 2) return 'relacionado';
+  if (d === 3) return 'distante';
+  return 'opuesto';
+}
+
+/** Colores por tag, usados por la UI. */
+const TAG_COLORS = Object.freeze({
+  fuego: '#ff6b35', agua: '#4fc3f7', hielo: '#7dd3fc', rayo: '#fbbf24',
+  tierra: '#a67c52', naturaleza: '#4ade80', aire: '#a5f3fc', veneno: '#22c55e',
+  fisico: '#94a3b8', sangre: '#dc2626', melee: '#f97316', proyectil: '#38bdf8',
+  magia: '#c084fc', tecnica: '#64748b', luz: '#fde047', sombra: '#7c3aed',
+  caos: '#ec4899',
+});
+
+
+/* ============================================================================
+ * 3. DOMINIO · CATÁLOGO
+ * ========================================================================== */
+
+/** Plantillas de skills base. Al añadirlas al repertorio se clonan. */
+const SKILL_TEMPLATES = Object.freeze([
+  { id: 'bola_fuego',         name: 'Bola de Fuego',       tags: ['fuego', 'magia', 'proyectil'],
+    base: { damage: 20, costAmount: 10, costType: 'maná', speed: 5, projectiles: 1, area: 0, range: 20, crit: 0.05 } },
+  { id: 'descarga_hielo',     name: 'Descarga de Hielo',   tags: ['hielo', 'magia', 'proyectil'],
+    base: { damage: 15, costAmount: 8, costType: 'maná', speed: 4, projectiles: 1, area: 0, range: 25, crit: 0.05 } },
+  { id: 'golpe_brutal',       name: 'Golpe Brutal',        tags: ['fisico', 'melee'],
+    base: { damage: 25, costAmount: 5, costType: 'aguante', speed: 2, projectiles: 1, area: 0, range: 3, crit: 0.10 } },
+  { id: 'cuchillo_sangriento', name: 'Cuchillo Sangriento', tags: ['sangre', 'fisico', 'melee'],
+    base: { damage: 18, costAmount: 5, costType: 'vida', speed: 3, projectiles: 1, area: 0, range: 2, crit: 0.15 } },
+  { id: 'rayo',               name: 'Rayo',                tags: ['rayo', 'magia', 'proyectil'],
+    base: { damage: 22, costAmount: 12, costType: 'maná', speed: 8, projectiles: 1, area: 0, range: 30, crit: 0.08 } },
+  { id: 'enredadera',         name: 'Enredadera',          tags: ['naturaleza', 'magia', 'proyectil'],
+    base: { damage: 10, costAmount: 6, costType: 'maná', speed: 3, projectiles: 1, area: 1, range: 15, crit: 0.05 } },
+  { id: 'vapulear',           name: 'Vapulear',            tags: ['aire', 'fisico', 'melee'],
+    base: { damage: 16, costAmount: 6, costType: 'aguante', speed: 4, projectiles: 1, area: 2, range: 3, crit: 0.10 } },
+  { id: 'nube_toxica',        name: 'Nube Tóxica',         tags: ['veneno', 'magia', 'proyectil'],
+    base: { damage: 12, costAmount: 9, costType: 'maná', speed: 2, projectiles: 1, area: 3, range: 10, crit: 0.05 } },
+  { id: 'lanza_luz',          name: 'Lanza de Luz',        tags: ['luz', 'magia', 'proyectil'],
+    base: { damage: 24, costAmount: 14, costType: 'maná', speed: 9, projectiles: 1, area: 0, range: 35, crit: 0.08 } },
+  { id: 'puñal_sombra',       name: 'Puñal de Sombra',     tags: ['sombra', 'fisico', 'melee'],
+    base: { damage: 20, costAmount: 6, costType: 'aguante', speed: 5, projectiles: 1, area: 0, range: 2, crit: 0.20 } },
+]);
+
+/** Mutadores. Cada uno tiene un tag, se aplica a una skill y afecta stats. */
+const MUTATORS = Object.freeze([
+  { id: 'split',    name: 'Dividir',  tag: 'proyectil',  description: '+1 proyectil, -20% daño',
+    apply: (s) => ({ ...s, projectiles: (s.projectiles || 0) + 1, damage: Math.max(1, Math.round(s.damage * 0.8)) }) },
+  { id: 'sangre',   name: 'Sangre',   tag: 'sangre',     description: 'Coste pasa a vida, +30% daño',
+    apply: (s) => ({ ...s, costType: 'vida', costAmount: Math.round((s.costAmount || 0) * 1.2), damage: Math.round(s.damage * 1.3) }) },
+  { id: 'veloz',    name: 'Veloz',    tag: 'rayo',       description: '+50% velocidad, -10% daño',
+    apply: (s) => ({ ...s, speed: Math.round((s.speed || 0) * 1.5), damage: Math.max(1, Math.round(s.damage * 0.9)) }) },
+  { id: 'gigante',  name: 'Gigante',  tag: 'fisico',     description: '+50% daño, -30% velocidad',
+    apply: (s) => ({ ...s, damage: Math.round(s.damage * 1.5), speed: Math.max(1, Math.round((s.speed || 0) * 0.7)) }) },
+  { id: 'arcano',   name: 'Arcano',   tag: 'magia',      description: 'Si la skill es mágica +40% daño, si no +15%',
+    apply: (s, sk) => ({ ...s, damage: Math.round(s.damage * (sk.tags.includes('magia') ? 1.4 : 1.15)) }) },
+  { id: 'toxina',   name: 'Toxina',   tag: 'veneno',     description: 'Añade veneno (DoT) al golpear',
+    apply: (s) => ({ ...s, poison: (s.poison || 0) + 1 }) },
+  { id: 'aereo',    name: 'Aéreo',    tag: 'aire',       description: '+20% velocidad y empuje',
+    apply: (s) => ({ ...s, speed: Math.round((s.speed || 0) * 1.2), knockback: (s.knockback || 0) + 0.5 }) },
+  { id: 'igneo',    name: 'Ígneo',    tag: 'fuego',      description: '+25% daño, +15% prob. quemadura',
+    apply: (s) => ({ ...s, damage: Math.round(s.damage * 1.25), burnChance: (s.burnChance || 0) + 0.15 }) },
+  { id: 'glacial',  name: 'Glacial',  tag: 'hielo',      description: '+15% daño, ralentiza al impactar',
+    apply: (s) => ({ ...s, damage: Math.round(s.damage * 1.15), slowChance: (s.slowChance || 0) + 0.2 }) },
+  { id: 'natural',  name: 'Natural',  tag: 'naturaleza', description: '+10% daño, regenera maná al golpear',
+    apply: (s) => ({ ...s, damage: Math.round(s.damage * 1.1), manaRegen: (s.manaRegen || 0) + 2 }) },
+]);
+
+/** Traits: se desbloquean por combinación de afinidades, no por elección. */
+const TRAITS = Object.freeze([
+  { id: 'llamas_arcanas', name: 'Llamas Arcanas',   condition: a => a.fuego >= 40 && a.magia >= 40,
+    description: 'Tus habilidades de fuego ganan +15% de quemadura.' },
+  { id: 'frenesi',        name: 'Frenesí',          condition: a => a.sangre >= 50 && a.fisico >= 30,
+    description: 'Habilidades melee/sangre +30% daño condicional.' },
+  { id: 'conductividad',  name: 'Conductividad',    condition: a => a.hielo >= 40 && a.rayo >= 40,
+    description: 'Hielo y rayo se potencian entre sí.' },
+  { id: 'corrosion',      name: 'Corrosión',        condition: a => a.veneno >= 40 && a.sangre >= 30,
+    description: 'Veneno y sangre roban vida extra.' },
+  { id: 'eco_arcano',     name: 'Eco Arcano',       condition: a => a.magia >= 60 && a.luz >= 30,
+    description: 'Tus hechizos mágicos no consumen maná ocasionalmente.' },
+]);
+
+/** Sinergias: se activan por la presencia de ciertos tags en el repertorio. */
+const SYNERGIES = Object.freeze([
+  { id: 'syn_fire_ice',       name: 'Cambio Térmico',     desc: 'Fuego y hielo activos a la vez',
+    requiredTags: ['fuego', 'hielo'], effects: { fireDamage: 0.1, iceDamage: 0.1 } },
+  { id: 'syn_blood_melee',    name: 'Furia Sanguinaria',  desc: 'Melee y sangre refuerzan daño',
+    requiredTags: ['sangre', 'melee'], effects: { lifeSteal: 0.2 } },
+  { id: 'syn_lightning_wind', name: 'Tormenta Veloz',     desc: 'Rayo y aire combinados',
+    requiredTags: ['rayo', 'aire'], effects: { speed: 20, lightningDamage: 0.1 } },
+  { id: 'syn_venom_shadow',   name: 'Ponzoña Umbría',     desc: 'Veneno y sombra',
+    requiredTags: ['veneno', 'sombra'], effects: { poisonDamage: 0.15 } },
+]);
+
+/** Combos: cuentan cuántos skills del repertorio tienen un tag. */
+const COMBOS = Object.freeze([
+  { id: 'combo_fire_3',   name: 'Inferno',              requiredTags: { fuego: 3 },  effects: { fireDamage: 0.2 } },
+  { id: 'combo_ice_3',    name: 'Glaciar',              requiredTags: { hielo: 3 },  effects: { iceDamage: 0.2 } },
+  { id: 'combo_sangre_3', name: 'Sed Insaciable',       requiredTags: { sangre: 3 }, effects: { lifeSteal: 0.15 } },
+  { id: 'combo_magia_3',  name: 'Concentración Arcana', requiredTags: { magia: 3 },  effects: { manaCostReduction: 0.15 } },
+]);
+
+/** Modos de semilla. */
+const GAME_MODES = Object.freeze({ MANUAL: 'manual', RANDOM: 'random', CLEAN: 'clean' });
+
+/** Tags seleccionables como semilla. */
+const SEEDABLE_TAGS = Object.freeze([
+  'fuego', 'hielo', 'rayo', 'tierra', 'aire', 'naturaleza',
+  'sangre', 'magia', 'luz', 'sombra', 'veneno', 'fisico',
+]);
+
+/** Nombres de enemigos. */
+const ENEMY_NAMES = Object.freeze([
+  'Goblin', 'Orco', 'Esqueleto', 'Demonio', 'Araña', 'Espectro',
+  'Trol', 'Elemental', 'Gárgola', 'Nigromante', 'Quimera',
+]);
+
+/** Balance centralizado. */
+const BALANCE = Object.freeze({
+  // Progresión
+  STARTING_POINTS: 2,
+  POINTS_PER_LEVEL: 1,
+  XP_BASE: 20,                 // XP para nivel 2
+  XP_GROWTH: 1.5,              // factor multiplicativo por nivel
+  // XP
+  XP_PER_SKILL_USE: 8,         // XP por usar skill fuera de combate
+  XP_PER_SKILL_CAST: 12,       // XP por castear contra enemigo
+  XP_PER_KILL_BASE: 10,        // XP base por matar
+  XP_PER_KILL_PER_LEVEL: 2,    // XP extra por nivel del enemigo
+  XP_COST_SKILL: 20,           // XP para añadir una nueva skill del catálogo
+  XP_COST_FUSION: 25,          // XP para fusionar (rebalanceado desde 50)
+  // Atributos
+  TRAIN_COST: 1,
+  // Estabilidad
+  STABILITY_START: 50,
+  STABILITY_MAX: 100,
+  STABILITY_NEAR: 3,           // mutador cercano: +3
+  STABILITY_FAR: -3,           // mutador lejano: -3
+  STABILITY_FUSION: -5,        // fusión base: -5
+  STABILITY_FUSION_MISMATCH: -3, // penalización extra por tags muy dispares
+  REST_XP_COST: 15,
+  REST_STABILITY_GAIN: 15,
+  REST_HP_GAIN: 15,
+  // Afinidades
+  AFFINITY_CAP_BASE: 20,       // cap por afinidad al nivel 1
+  AFFINITY_CAP_PER_LEVEL: 5,   // +5 por nivel
+  AFFINITY_WEIGHTS: [1.0, 0.6, 0.3, 0.15], // peso por posición del tag
+  AFFINITY_BASE_GAIN: 0.8,     // multiplicador global
+  // Catalizadores
+  STARTING_CATALYSTS: 2,
+  CATALYST_PER_LEVELS: 3,
+  // Reencarnación
+  REINCARNATION_LEVEL: 15,
+  REINCARNATION_KEEP: 0.25,
+  REINCARNATION_ESSENCE_PER: 5,
+  ESSENCE_STAT_BONUS: { maxHp: 5, damage: 1 },
+  // Enemigos
+  ENEMY_HP_BASE: 20,
+  ENEMY_HP_PER_LEVEL: 5,
+  ENEMY_BOSS_HP_BASE: 50,
+  ENEMY_BOSS_HP_PER_LEVEL: 10,
+  ENEMY_DAMAGE_BASE: 5,
+  ENEMY_DAMAGE_PER_LEVEL: 1,
+  ENEMY_RESIST_DEBUFF: 0.7,    // daño al 70% si el enemigo resiste
+  ENEMY_RESIST_COUNT_MIN: 1,
+  ENEMY_RESIST_COUNT_MAX: 2,
+  COUNTER_DAMAGE_FACTOR: 0.5,  // factor de contraataque del enemigo
+  LOOT_HP_CHANCE: 0.30,
+  LOOT_STABILITY_CHANCE: 0.20,
+  // Personaje
+  BASE_MAX_HP: 100,
+  BASE_MAX_STABILITY: 100,
+  LEVEL_HP_BONUS: 5,
+  LEVEL_STABILITY_BONUS: 3,
+});
+
+
+/* ============================================================================
+ * 4. DOMINIO · GENERADOR DE NOMBRES EMERGENTES
+ * ----------------------------------------------------------------------------
+ * Dado un conjunto de tags + mutadores, genera un nombre único y estable.
+ * Determinista: mismos tags → mismo nombre. Permite que el jugador reconozca
+ * sus creaciones sin que el sistema las etiquete explícitamente.
+ * ========================================================================== */
+
+const NAME_PREFIXES = Object.freeze({
+  fuego:       ['Ígneo', 'Ardiente', 'Llameante', 'Candente'],
+  agua:        ['Acuoso', 'Líquido', 'Ondulante'],
+  hielo:       ['Gélido', 'Glacial', 'Escarchado', 'Níveo'],
+  rayo:        ['Eléctrico', 'Tormentoso', 'Fulgurante'],
+  tierra:      ['Pétreo', 'Tellúrico', 'Robusto'],
+  naturaleza:  ['Verdoso', 'Vital', 'Silvestre'],
+  aire:        ['Eólico', 'Ventoso', 'Etéreo'],
+  veneno:      ['Tóxico', 'Ponzoñoso', 'Corrosivo'],
+  fisico:      ['Férreo', 'Poderoso', 'Muscular'],
+  sangre:      ['Carmesí', 'Cruento', 'Sanguíneo'],
+  melee:       ['Cuerpo a cuerpo', 'Marcial'],
+  proyectil:   ['Lejano', 'Aerodinámico'],
+  magia:       ['Arcano', 'Místico', 'Rúnico'],
+  tecnica:     ['Técnico', 'Preciso'],
+  luz:         ['Luminoso', 'Radiante', 'Sagrado'],
+  sombra:      ['Umbrío', 'Sombrío', 'Nocturno'],
+  caos:        ['Caótico', 'Distorsionado', 'Aberrante'],
+});
+
+const NAME_NOUNS = Object.freeze({
+  proyectil: ['Proyectil', 'Dardo', 'Esquirla'],
+  melee:     ['Golpe', 'Tajo', 'Embestida'],
+  area:      ['Estallido', 'Onda', 'Detonación'],
+  magia:     ['Arcano', 'Hechizo', 'Runa'],
+  tecnica:   ['Maniobra', 'Técnica'],
+});
+
+/** Combinaciones especiales: pares (o tríos) que merecen nombre propio. */
+const SPECIAL_NAMES = Object.freeze({
+  'fuego+hielo':            'Esquirla Térmica',
+  'fuego+rayo':             'Descarga Ígnea',
+  'fuego+magia':            'Llama Arcana',
+  'fuego+sangre':           'Brasa Cruenta',
+  'fuego+naturaleza':       'Pira Viva',
+  'hielo+rayo':             'Tormenta Glacial',
+  'hielo+sangre':           'Escarcha Cruenta',
+  'hielo+magia':            'Cristal Arcano',
+  'rayo+aire':              'Fulgor Eólico',
+  'rayo+magia':             'Descarga Arcana',
+  'sangre+magia':           'Ritual Cruento',
+  'sangre+melee':           'Filo Sangriento',
+  'veneno+sombra':          'Ponzoña Umbría',
+  'luz+sombra':             'Eclipse',
+  'fuego+magia+proyectil':  'Bola Arcana',
+  'fuego+hielo+magia':      'Prisma Elemental',
+  'fuego+sangre+melee':     'Ritual de Fuego',
+  'luz+magia+sombra':       'Prisma Espectral',
+  'veneno+magia+proyectil': 'Dardo Tóxico',
+});
+
+/** Hash determinista de una cadena, para elegir variantes de nombre. */
+function hashString(s) {
+  let h = 5381;
+  for (let i = 0; i < s.length; i++) h = ((h << 5) + h) + s.charCodeAt(i);
+  return Math.abs(h);
+}
+
+/**
+ * Nombre emergente para un conjunto de tags. Determinista y estable.
+ * Reglas:
+ *   1. Si los tags forman una clave especial → nombre concreto.
+ *   2. Si hay un solo tag distinto → prefijo + sustantivo variantes.
+ *   3. Si hay 2+ tags → prefijo (tag 1) + sustantivo (tag 2/3).
+ */
+function generateEmergentName(tags, mutators = []) {
+  const unique = [...new Set(tags)];
+  if (unique.length === 0) return 'Esquirla';
+  const sortedKey = unique.slice().sort().join('+');
+
+  // Buscar combinación especial en cualquier orden
+  const special = Object.entries(SPECIAL_NAMES).find(([k]) => {
+    const parts = k.split('+').sort().join('+');
+    return parts === sortedKey;
+  });
+  if (special) return special[1];
+
+  const h = hashString(sortedKey + mutators.join(''));
+
+  // Nombre de un solo tag
+  if (unique.length === 1) {
+    const tag = unique[0];
+    const prefixes = NAME_PREFIXES[tag] || ['Ancestral'];
+    const variants = ['Mayor', 'Ancestral', 'Primigenio', 'Puro', 'Absoluto'];
+    return `${prefixes[h % prefixes.length]} ${variants[h % variants.length]}`;
+  }
+
+  // Nombre de dos o más tags
+  const firstTag = unique[0];
+  const secondTag = unique[1] || firstTag;
+  const prefixes = NAME_PREFIXES[firstTag] || ['Antiguo'];
+  const prefix = prefixes[h % prefixes.length];
+  const candidateNouns = NAME_NOUNS[secondTag]
+    || NAME_NOUNS[unique[2]]
+    || NAME_NOUNS[unique[unique.length - 1]]
+    || ['Esquirla', 'Runa', 'Cristal', 'Núcleo', 'Marca'];
+  const noun = candidateNouns[(h >> 3) % candidateNouns.length];
+  return `${noun} ${prefix}`;
+}
+
+
+/* ============================================================================
+ * 5. DOMINIO · EVENTOS
+ * ----------------------------------------------------------------------------
+ * Todo cambio de estado pasa por un evento. Los reducers son puros:
+ * (state, event) → newState. Nunca mutan.
+ * ========================================================================== */
+
+const EventType = Object.freeze({
+  // Ciclo de vida
+  GAME_STARTED: 'GameStarted',
+  SEED_CHOSEN: 'SeedChosen',
+  HARD_RESET: 'HardReset',
+  REINCARNATED: 'Reincarnated',
+  // Progresión
+  LEVEL_UP: 'LevelUp',
+  XP_GAINED: 'XpGained',
+  XP_SPENT: 'XpSpent',
+  POINTS_GAINED: 'PointsGained',
+  POINTS_SPENT: 'PointsSpent',
+  AFFINITIES_TRAINED: 'AffinitiesTrained',
+  AFFINITIES_DECAYED: 'AffinitiesDecayed',
+  ATTRIBUTE_INCREASED: 'AttributeIncreased',
+  // Recursos
+  STABILITY_CHANGED: 'StabilityChanged',
+  HP_CHANGED: 'HpChanged',
+  MAX_HP_CHANGED: 'MaxHpChanged',
+  MAX_STABILITY_CHANGED: 'MaxStabilityChanged',
+  // Skills
+  SKILL_ADDED: 'SkillAdded',
+  MUTATOR_APPLIED: 'MutatorApplied',
+  SKILL_IMPREGNATED: 'SkillImpregnated',
+  SKILLS_FUSED: 'SkillsFused',
+  // Progreso
+  OFFERS_ROLLED: 'OffersRolled',
+  SYNERGY_ACTIVATED: 'SynergyActivated',
+  COMBO_ACTIVATED: 'ComboActivated',
+  TRAIT_UNLOCKED: 'TraitUnlocked',
+  CATALYST_GAINED: 'CatalystGained',
+  RANDOM_EVENT: 'RandomEvent',
+  // Combate
+  ENEMY_SPAWNED: 'EnemySpawned',
+  SKILL_CAST: 'SkillCast',
+  ENEMY_ATTACKED: 'EnemyAttacked',
+  ENEMY_DEFEATED: 'EnemyDefeated',
+  PLAYER_DEFEATED: 'PlayerDefeated',
+  // Inventario
+  LOOT_DROPPED: 'LootDropped',
+  POTION_USED: 'PotionUsed',
+});
+
+/** Fábrica de eventos. Recibe dependencias inyectadas para testear. */
+function makeEventFactory({ clock, idGenerator }) {
+  if (!idGenerator || typeof idGenerator.next !== 'function') {
+    throw new Error('makeEventFactory: se requiere un idGenerator con .next()');
+  }
+  return function createEvent(type, payload = {}, version = 1) {
+    return { id: idGenerator.next(), type, payload, ts: clock.now(), version };
+  };
+}
+
+/** Estado inicial: lo que existe antes de cualquier evento. */
+function initialState() {
+  return {
+    meta: {
+      started: false,
+      startedAt: null,
+      seedMode: null,
+      seedTags: [],
+      reincarnations: 0,
+      essence: 0,
+      version: 1,
+    },
+    character: {
+      level: 1,
+      xp: 0,
+      xpToNext: BALANCE.XP_BASE,
+      points: BALANCE.STARTING_POINTS,
+      hp: BALANCE.BASE_MAX_HP,
+      maxHp: BALANCE.BASE_MAX_HP,
+      stability: BALANCE.STABILITY_START,
+      maxStability: BALANCE.BASE_MAX_STABILITY,
+      affinities: Object.fromEntries(ALL_TAGS.map(t => [t, 0])),
+      baseAttributes: { hp: 0, mana: 0, damage: 0, defense: 0, speed: 0 },
+      trainingCounters: {},
+    },
+    skills: [],
+    progress: {
+      offers: [],
+      synergies: [],
+      combos: [],
+      traits: [],
+      catalysts: BALANCE.STARTING_CATALYSTS,
+    },
+    inventory: [],
+    combat: {
+      active: false,
+      enemy: null,
+      lastLog: [],
+    },
+  };
+}
+
+/** Reducers puros. Cada uno devuelve estado nuevo. Nunca mutan. */
+const reducers = {
+  [EventType.GAME_STARTED]: (s, ev) => ({
+    ...s,
+    meta: { ...s.meta, started: true, startedAt: ev.ts },
+  }),
+
+  [EventType.SEED_CHOSEN]: (s, ev) => {
+    const { mode, tags = [], bonusPoints = 0 } = ev.payload;
+    const affinities = { ...s.character.affinities };
+    for (const tag of tags) {
+      affinities[tag] = (affinities[tag] || 0) + 8;
+    }
+    return {
+      ...s,
+      meta: { ...s.meta, seedMode: mode, seedTags: [...tags] },
+      character: { ...s.character, affinities, points: s.character.points + bonusPoints },
+    };
+  },
+
+  [EventType.LEVEL_UP]: (s, ev) => ({
+    ...s,
+    character: { ...s.character, level: ev.payload.to, xpToNext: ev.payload.nextXp },
+  }),
+
+  [EventType.XP_GAINED]: (s, ev) => ({
+    ...s,
+    character: { ...s.character, xp: s.character.xp + ev.payload.amount },
+  }),
+
+  [EventType.XP_SPENT]: (s, ev) => ({
+    ...s,
+    character: { ...s.character, xp: Math.max(0, s.character.xp - ev.payload.amount) },
+  }),
+
+  [EventType.POINTS_GAINED]: (s, ev) => ({
+    ...s,
+    character: { ...s.character, points: s.character.points + ev.payload.amount },
+  }),
+
+  [EventType.POINTS_SPENT]: (s, ev) => ({
+    ...s,
+    character: { ...s.character, points: Math.max(0, s.character.points - ev.payload.amount) },
+  }),
+
+  [EventType.AFFINITIES_TRAINED]: (s, ev) => {
+    const { gains } = ev.payload;
+    const affinities = { ...s.character.affinities };
+    for (const [tag, amount] of Object.entries(gains)) {
+      affinities[tag] = Math.max(0, (affinities[tag] || 0) + amount);
+    }
+    return { ...s, character: { ...s.character, affinities } };
+  },
+
+  [EventType.AFFINITIES_DECAYED]: (s, ev) => {
+    const factor = 1 - ev.payload.rate;
+    const affinities = {};
+    for (const [t, v] of Object.entries(s.character.affinities)) {
+      affinities[t] = Math.floor(v * factor);
+    }
+    return { ...s, character: { ...s.character, affinities } };
+  },
+
+  [EventType.ATTRIBUTE_INCREASED]: (s, ev) => {
+    const ba = { ...s.character.baseAttributes };
+    ba[ev.payload.attr] = (ba[ev.payload.attr] || 0) + 1;
+    return { ...s, character: { ...s.character, baseAttributes: ba } };
+  },
+
+  [EventType.STABILITY_CHANGED]: (s, ev) => ({
+    ...s,
+    character: {
+      ...s.character,
+      stability: Math.max(0, Math.min(s.character.maxStability, s.character.stability + ev.payload.delta)),
+    },
+  }),
+
+  [EventType.HP_CHANGED]: (s, ev) => ({
+    ...s,
+    character: {
+      ...s.character,
+      hp: Math.max(0, Math.min(s.character.maxHp, s.character.hp + ev.payload.delta)),
+    },
+  }),
+
+  [EventType.MAX_HP_CHANGED]: (s, ev) => ({
+    ...s,
+    character: { ...s.character, maxHp: ev.payload.value, hp: Math.min(s.character.hp, ev.payload.value) },
+  }),
+
+  [EventType.MAX_STABILITY_CHANGED]: (s, ev) => ({
+    ...s,
+    character: {
+      ...s.character,
+      maxStability: ev.payload.value,
+      stability: Math.min(s.character.stability, ev.payload.value),
+    },
+  }),
+
+  [EventType.SKILL_ADDED]: (s, ev) => ({ ...s, skills: [...s.skills, ev.payload.skill] }),
+
+  [EventType.MUTATOR_APPLIED]: (s, ev) => {
+    const { skillId, mutatorId } = ev.payload;
+    const mut = MUTATORS.find(m => m.id === mutatorId);
+    const skills = s.skills.map(sk => {
+      if (sk.id !== skillId) return sk;
+      const appliedMutators = [...sk.appliedMutators, mutatorId];
+      const impregnation = { ...sk.impregnation };
+      if (mut && mut.tag) {
+        impregnation[mut.tag] = (impregnation[mut.tag] || 0) + 1;
+      }
+      return { ...sk, appliedMutators, impregnation };
+    });
+    return { ...s, skills };
+  },
+
+  [EventType.SKILL_IMPREGNATED]: (s, ev) => {
+    const { skillId, tag } = ev.payload;
+    const skills = s.skills.map(sk =>
+      sk.id === skillId && !sk.tags.includes(tag) ? { ...sk, tags: [...sk.tags, tag] } : sk
+    );
+    return { ...s, skills };
+  },
+
+  [EventType.SKILLS_FUSED]: (s, ev) => {
+    const { removeIds, newSkill } = ev.payload;
+    const remaining = s.skills.filter(sk => !removeIds.includes(sk.id));
+    return { ...s, skills: [...remaining, newSkill] };
+  },
+
+  [EventType.OFFERS_ROLLED]: (s, ev) => ({
+    ...s,
+    progress: { ...s.progress, offers: [...ev.payload.offerIds] },
+  }),
+
+  [EventType.SYNERGY_ACTIVATED]: (s, ev) => ({
+    ...s,
+    progress: {
+      ...s.progress,
+      synergies: [...new Set([...s.progress.synergies, ev.payload.synergyId])],
+    },
+  }),
+
+  [EventType.COMBO_ACTIVATED]: (s, ev) => ({
+    ...s,
+    progress: {
+      ...s.progress,
+      combos: [...new Set([...s.progress.combos, ev.payload.comboId])],
+    },
+  }),
+
+  [EventType.TRAIT_UNLOCKED]: (s, ev) => ({
+    ...s,
+    progress: {
+      ...s.progress,
+      traits: [...new Set([...s.progress.traits, ev.payload.traitId])],
+    },
+  }),
+
+  [EventType.CATALYST_GAINED]: (s, ev) => ({
+    ...s,
+    progress: { ...s.progress, catalysts: s.progress.catalysts + ev.payload.amount },
+  }),
+
+  [EventType.RANDOM_EVENT]: (s, ev) => {
+    const c = { ...s.character };
+    if (ev.payload.points) c.points += ev.payload.points;
+    if (ev.payload.affinity) {
+      c.affinities = { ...c.affinities };
+      c.affinities[ev.payload.affinity.tag] =
+        (c.affinities[ev.payload.affinity.tag] || 0) + ev.payload.affinity.value;
+    }
+    return { ...s, character: c };
+  },
+
+  [EventType.ENEMY_SPAWNED]: (s, ev) => ({
+    ...s,
+    combat: { ...s.combat, active: true, enemy: { ...ev.payload.enemy } },
+  }),
+
+  [EventType.SKILL_CAST]: (s, ev) => {
+    const { enemyHpAfter, hits, totalDamage, skillName, primaryTag } = ev.payload;
+    return {
+      ...s,
+      combat: {
+        ...s.combat,
+        enemy: s.combat.enemy ? { ...s.combat.enemy, hp: enemyHpAfter } : null,
+        lastLog: [
+          ...s.combat.lastLog.slice(-24),
+          { type: 'cast', skillName, totalDamage, hits: hits.length, primaryTag, ts: ev.ts },
+        ],
+      },
+    };
+  },
+
+  [EventType.ENEMY_ATTACKED]: (s, ev) => ({
+    ...s,
+    character: {
+      ...s.character,
+      hp: Math.max(0, s.character.hp - ev.payload.damage),
+    },
+    combat: {
+      ...s.combat,
+      lastLog: [
+        ...s.combat.lastLog.slice(-24),
+        { type: 'counter', damage: ev.payload.damage, ts: ev.ts },
+      ],
+    },
+  }),
+
+  [EventType.ENEMY_DEFEATED]: (s, ev) => ({
+    ...s,
+    combat: {
+      ...s.combat,
+      enemy: null,
+      lastLog: [
+        ...s.combat.lastLog.slice(-24),
+        { type: 'kill', enemyName: ev.payload.enemyName, xp: ev.payload.xpGained, ts: ev.ts },
+      ],
+    },
+  }),
+
+  [EventType.PLAYER_DEFEATED]: (s) => ({
+    ...s,
+    combat: {
+      ...s.combat,
+      enemy: null,
+      lastLog: [
+        ...s.combat.lastLog.slice(-24),
+        { type: 'death', ts: Date.now() },
+      ],
+    },
+  }),
+
+  [EventType.LOOT_DROPPED]: (s, ev) => ({
+    ...s,
+    inventory: [...s.inventory, ev.payload.item],
+  }),
+
+  [EventType.POTION_USED]: (s, ev) => {
+    const { itemId, effect, value } = ev.payload;
+    const inv = s.inventory.filter(i => i.id !== itemId);
+    const c = { ...s.character };
+    if (effect === 'heal_hp') c.hp = Math.min(c.maxHp, c.hp + value);
+    else if (effect === 'heal_stability') c.stability = Math.min(c.maxStability, c.stability + value);
+    return { ...s, character: c, inventory: inv };
+  },
+
+  [EventType.REINCARNATED]: (s, ev) => {
+    const fresh = initialState();
+    return {
+      ...fresh,
+      meta: {
+        ...fresh.meta,
+        started: true,
+        startedAt: s.meta.startedAt,
+        seedMode: s.meta.seedMode,
+        seedTags: [...s.meta.seedTags],
+        reincarnations: s.meta.reincarnations + 1,
+        essence: s.meta.essence + ev.payload.essenceGained,
+      },
+      character: {
+        ...fresh.character,
+        affinities: { ...fresh.character.affinities, ...ev.payload.keptAffinities },
+      },
+    };
+  },
+
+  [EventType.HARD_RESET]: () => initialState(),
+};
+
+/** Aplica un evento al estado. Función total: siempre devuelve un estado. */
+function applyEvent(state, event) {
+  const r = reducers[event.type];
+  return r ? r(state, event) : state;
+}
+
+/** Reconstruye el estado a partir de una secuencia de eventos. */
+function foldEvents(events, from = initialState()) {
+  return events.reduce(applyEvent, from);
+}
+
+
+/* ============================================================================
+ * 6. DOMINIO · PROYECCIONES (read models)
+ * ----------------------------------------------------------------------------
+ * Las proyecciones derivan vistas del estado. Puras, sin efectos.
+ * ========================================================================== */
+
+/** Stats efectivas de una skill: base + mutadores aplicados. */
+function getSkillStats(skill) {
+  let stats = { ...skill.base };
+  for (const mutId of skill.appliedMutators) {
+    const mut = MUTATORS.find(m => m.id === mutId);
+    if (mut) stats = mut.apply(stats, skill);
+  }
+  for (const k of Object.keys(stats)) {
+    if (typeof stats[k] === 'number' && !Number.isInteger(stats[k])) {
+      stats[k] = Math.round(stats[k] * 100) / 100;
+    }
+  }
+  return stats;
+}
+
+/** Cuenta cuántos skills del repertorio tienen un tag. */
+function countSkillsWithTag(state, tag) {
+  return state.skills.reduce((acc, sk) => acc + (sk.tags.includes(tag) ? 1 : 0), 0);
+}
+
+/** Cap de afinidad actual (crece con el nivel). */
+function getAffinityCap(state) {
+  return BALANCE.AFFINITY_CAP_BASE + state.character.level * BALANCE.AFFINITY_CAP_PER_LEVEL;
+}
+
+/** Stats base del personaje con todo aplicado. */
+function projectCharacterSheet(state) {
+  const base = {
+    maxHp: state.character.maxHp,
+    maxMana: 50,
+    damage: 10,
+    defense: 5,
+    speed: 10,
+    fireDamage: 0, iceDamage: 0, lightningDamage: 0, lifeSteal: 0,
+    chaosChance: 0, chaosDamage: 0, allResist: 0, manaCostReduction: 0,
+    poisonDamage: 0, evasion: 0, regenHp: 0, regenMana: 0, healAlly: 0,
+    berserkerDamage: 0, slowChance: 0, burnChance: 0,
+  };
+  const ba = state.character.baseAttributes;
+  base.maxHp += ba.hp * 5;
+  base.maxMana += ba.mana * 3;
+  base.damage += ba.damage;
+  base.defense += ba.defense;
+  base.speed += ba.speed * 2;
+  base.maxHp += state.meta.essence * BALANCE.ESSENCE_STAT_BONUS.maxHp;
+  base.damage += state.meta.essence * BALANCE.ESSENCE_STAT_BONUS.damage;
+  // Bonus por afinidades altas (sumidero para invertir)
+  const aff = state.character.affinities;
+  base.damage += Math.floor((aff.fisico + aff.sangre + aff.magia) / 20);
+  base.maxMana += Math.floor(aff.magia / 5);
+  for (const synId of state.progress.synergies) {
+    const syn = SYNERGIES.find(s => s.id === synId);
+    if (syn) for (const [k, v] of Object.entries(syn.effects)) base[k] = (base[k] || 0) + v;
+  }
+  for (const comboId of state.progress.combos) {
+    const c = COMBOS.find(x => x.id === comboId);
+    if (c) for (const [k, v] of Object.entries(c.effects)) base[k] = (base[k] || 0) + v;
+  }
+  for (const k of Object.keys(base)) {
+    if (typeof base[k] === 'number') base[k] = Math.round(base[k] * 100) / 100;
+  }
+  return base;
+}
+
+/** Título emergente: se gana por composición, no se elige. */
+function projectEmergentTitle(state) {
+  const counts = {};
+  for (const sk of state.skills) for (const t of sk.tags) counts[t] = (counts[t] || 0) + 1;
+  const sorted = Object.entries(counts).sort((a, b) => b[1] - a[1]);
+  if (!sorted.length) return null;
+  const [tag, n] = sorted[0];
+  if (n < 2) return 'Aprendiz';
+  const TITLES = {
+    fuego: 'Adepto Ígneo', hielo: 'Portador del Frío', rayo: 'Caminante del Trueno',
+    tierra: 'Guardián de Piedra', aire: 'Susurro del Viento', naturaleza: 'Voz del Bosque',
+    veneno: 'Aliento Tóxico', sangre: 'Portador de Sangre', magia: 'Tejedor Arcano',
+    luz: 'Portador de Luz', sombra: 'Sombra Errante', fisico: 'Puño de Hierro',
+    melee: 'Filósofo del Acero', proyectil: 'Ojo Certero', tecnica: 'Mente Fría',
+    agua: 'Voz del Agua', caos: 'Heraldo del Caos',
+  };
+  return TITLES[tag] || `Afinado a ${tag}`;
+}
+
+/** Log legible derivado de los eventos. */
+function projectLog(events, limit = 40) {
+  const describe = {
+    [EventType.GAME_STARTED]:         () => '▶ Partida iniciada',
+    [EventType.SEED_CHOSEN]:          ev => ev.payload.mode === GAME_MODES.CLEAN
+      ? `🌱 Semilla limpia (+${ev.payload.bonusPoints} pts)`
+      : `🌱 Semilla ${ev.payload.mode}: ${ev.payload.tags.join(' + ')}`,
+    [EventType.LEVEL_UP]:             ev => `▲ Nivel ${ev.payload.to}`,
+    [EventType.XP_GAINED]:            ev => `+${ev.payload.amount} XP (${ev.payload.source})`,
+    [EventType.XP_SPENT]:             ev => `-${ev.payload.amount} XP (${ev.payload.reason})`,
+    [EventType.POINTS_GAINED]:        ev => `+${ev.payload.amount} pts (${ev.payload.source})`,
+    [EventType.POINTS_SPENT]:         ev => `-${ev.payload.amount} pts (${ev.payload.reason})`,
+    [EventType.AFFINITIES_TRAINED]:   ev => {
+      const list = Object.entries(ev.payload.gains)
+        .map(([t, v]) => `${t} +${v.toFixed(2)}`).join(', ');
+      return `🏋 ${list}`;
+    },
+    [EventType.AFFINITIES_DECAYED]:   ev => `↓ Decay ${(ev.payload.rate * 100).toFixed(0)}%`,
+    [EventType.ATTRIBUTE_INCREASED]:  ev => `📊 ${ev.payload.attr} +1`,
+    [EventType.STABILITY_CHANGED]:    ev => {
+      const d = ev.payload.delta;
+      const sign = d > 0 ? '+' : '';
+      return `⚖ Estabilidad ${sign}${d} (${ev.payload.reason})`;
+    },
+    [EventType.HP_CHANGED]:           ev => {
+      const d = ev.payload.delta;
+      const sign = d > 0 ? '+' : '';
+      return `❤️ Vida ${sign}${d} (${ev.payload.reason})`;
+    },
+    [EventType.MAX_HP_CHANGED]:       ev => `❤️ Vida máx → ${ev.payload.value}`,
+    [EventType.MAX_STABILITY_CHANGED]:ev => `⚖ Estab máx → ${ev.payload.value}`,
+    [EventType.SKILL_ADDED]:          ev => `🃏 ${ev.payload.skill.name} añadida`,
+    [EventType.MUTATOR_APPLIED]:      ev => {
+      const mut = MUTATORS.find(m => m.id === ev.payload.mutatorId);
+      const d = ev.payload.distance;
+      const dl = distanceLabel(d);
+      return `✎ ${mut?.name || ev.payload.mutatorId} → ${ev.payload.skillName} (${dl}, distancia ${d})`;
+    },
+    [EventType.SKILL_IMPREGNATED]:    ev => `✧ ${ev.payload.skillName} ganó tag [${ev.payload.tag}]`,
+    [EventType.SKILLS_FUSED]:         ev => `🔮 Fusión → ${ev.payload.newSkill.name} (d6=${ev.payload.roll})`,
+    [EventType.OFFERS_ROLLED]:        () => '🎲 Ofertas regeneradas',
+    [EventType.SYNERGY_ACTIVATED]:    ev => `🔗 Sinergia: ${SYNERGIES.find(s => s.id === ev.payload.synergyId)?.name || ev.payload.synergyId}`,
+    [EventType.COMBO_ACTIVATED]:      ev => `⚡ Combo: ${COMBOS.find(c => c.id === ev.payload.comboId)?.name || ev.payload.comboId}`,
+    [EventType.TRAIT_UNLOCKED]:       ev => `🏆 Rasgo: ${TRAITS.find(t => t.id === ev.payload.traitId)?.name || ev.payload.traitId}`,
+    [EventType.CATALYST_GAINED]:      ev => `💠 +${ev.payload.amount} catalizador`,
+    [EventType.RANDOM_EVENT]:         ev => `✨ ${ev.payload.description}`,
+    [EventType.ENEMY_SPAWNED]:        ev => `👹 Aparece ${ev.payload.enemy.name} (Nv. ${ev.payload.enemy.level})`,
+    [EventType.SKILL_CAST]:           ev => `⚔ ${ev.payload.skillName} → ${ev.payload.totalDamage} daño (${ev.payload.hits.length} golpes)`,
+    [EventType.ENEMY_ATTACKED]:       ev => `💢 Contraataque: ${ev.payload.damage} daño`,
+    [EventType.ENEMY_DEFEATED]:       ev => `💀 ${ev.payload.enemyName} derrotado · +${ev.payload.xpGained} XP`,
+    [EventType.PLAYER_DEFEATED]:      () => '☠ Has caído en combate',
+    [EventType.LOOT_DROPPED]:         ev => `🧪 Recibes ${ev.payload.item.name}`,
+    [EventType.POTION_USED]:          ev => `🧪 Usaste ${ev.payload.effect === 'heal_hp' ? 'poción de vida' : 'poción de estabilidad'} (+${ev.payload.value})`,
+    [EventType.REINCARNATED]:         ev => `♻ Reencarnación #${ev.payload.to} · +${ev.payload.essenceGained} esencia`,
+    [EventType.HARD_RESET]:           () => '✖ Reinicio duro',
+  };
+  return events.slice(-limit).reverse().map(ev => {
+    const fn = describe[ev.type];
+    return { id: ev.id, ts: ev.ts, type: ev.type, text: fn ? fn(ev) : ev.type };
+  });
+}
+
+/** Proyección: log de combate legible desde el estado. */
+function projectCombatLog(state) {
+  return state.combat.lastLog.slice().reverse().map(entry => {
+    if (entry.type === 'cast') {
+      return { kind: 'cast', text: `⚔ ${entry.skillName}: ${entry.totalDamage} daño (${entry.hits} golpes)` };
+    }
+    if (entry.type === 'counter') return { kind: 'counter', text: `💢 Contraataque: ${entry.damage}` };
+    if (entry.type === 'kill') return { kind: 'kill', text: `💀 ${entry.enemyName} derrotado · +${entry.xp} XP` };
+    if (entry.type === 'death') return { kind: 'death', text: '☠ Has caído' };
+    return { kind: 'info', text: '·' };
+  });
+}
+
+
+/* ============================================================================
+ * 7. DOMINIO · SERVICIOS PUROS
+ * ----------------------------------------------------------------------------
+ * Reglas de negocio puras. Reciben estado y dependencias, devuelven eventos
+ * o descripciones. No aplican nada. Testables sin DOM ni localStorage.
+ * ========================================================================== */
+
+/** Planifica la semilla. Devuelve { tags, bonusPoints }. */
+function planSeed(mode, requestedTags, { random }) {
+  if (mode === GAME_MODES.MANUAL) {
+    const valid = (requestedTags || []).filter(t => SEEDABLE_TAGS.includes(t));
+    if (valid.length !== 2) throw new Error('Modo manual requiere 2 tags válidos');
+    return { tags: [...new Set(valid)], bonusPoints: 0 };
+  }
+  if (mode === GAME_MODES.RANDOM) {
+    const pool = [...SEEDABLE_TAGS];
+    const picked = [];
+    for (let i = 0; i < 2; i++) {
+      const idx = Math.floor(random.float() * pool.length);
+      picked.push(pool.splice(idx, 1)[0]);
+    }
+    return { tags: picked, bonusPoints: 0 };
+  }
+  if (mode === GAME_MODES.CLEAN) {
+    return { tags: [], bonusPoints: 3 };
+  }
+  throw new Error(`Modo desconocido: ${mode}`);
+}
+
+/**
+ * Ofrece 3 mutadores. Prioriza los de tags con afinidad acumulada, mezcla
+ * con un aleatorio para forzar variedad. Nunca devuelve los ya aplicados
+ * a TODAS las skills.
+ */
+function rollOffers(state, { random }) {
+  const aff = state.character.affinities;
+  const scored = MUTATORS.map(m => ({
+    m,
+    score: (aff[m.tag] || 0) + random.float() * 20,
+  })).sort((a, b) => b.score - a.score);
+  return scored.slice(0, 3).map(x => x.m.id);
+}
+
+/**
+ * Cálculo de ganancia de afinidad por usar una skill.
+ * - Peso por posición del tag (1.0, 0.6, 0.3, 0.15).
+ * - Catch-up: si estás lejos del cap, ganas más.
+ * - Penalización por repetición: la misma skill pierde eficacia.
+ * Devuelve { gains: { tag: amount } } sin aplicar.
+ */
+function computeAffinityGains(state, skill) {
+  const cap = getAffinityCap(state);
+  const uses = state.character.trainingCounters[skill.id] || 0;
+  const baseMult = uses < 5 ? 1.0 : uses < 10 ? 0.75 : uses < 15 ? 0.5 : 0.25;
+  const gains = {};
+  for (let i = 0; i < skill.tags.length && i < BALANCE.AFFINITY_WEIGHTS.length; i++) {
+    const tag = skill.tags[i];
+    const weight = BALANCE.AFFINITY_WEIGHTS[i];
+    const current = state.character.affinities[tag] || 0;
+    const relative = Math.max(0, (cap - current) / cap);
+    const raw = baseMult * weight * relative * BALANCE.AFFINITY_BASE_GAIN;
+    const rounded = Math.round(raw * 100) / 100;
+    if (rounded > 0) gains[tag] = rounded;
+  }
+  return { gains };
+}
+
+/**
+ * Planifica la aplicación de un mutador a una skill.
+ * Devuelve { events, distance, stabilityDelta, willImpregnate }.
+ * Los eventos incluyen el MUTATOR_APPLIED, STABILITY_CHANGED y, si toca,
+ * SKILL_IMPREGNATED.
+ */
+function planMutatorApplication(state, skillId, mutatorId, createEvent) {
+  const skill = state.skills.find(s => s.id === skillId);
+  const mut = MUTATORS.find(m => m.id === mutatorId);
+  if (!skill || !mut) return { events: [] };
+  const distance = tagDistance(skill.tags[0] || '', mut.tag);
+
+  let stabilityDelta = 0;
+  if (distance === -1 || distance >= 4) stabilityDelta = BALANCE.STABILITY_FAR;
+  else if (distance === 0 || distance === 1) stabilityDelta = BALANCE.STABILITY_NEAR;
+
+  const events = [];
+  events.push(createEvent(EventType.MUTATOR_APPLIED, {
+    skillId, mutatorId, skillName: skill.name, distance,
+  }));
+  events.push(createEvent(EventType.STABILITY_CHANGED, {
+    delta: stabilityDelta,
+    reason: `mutador ${mut.name} (${distanceLabel(distance)})`,
+  }));
+
+  // ¿Impregnación? Si llegaría a 3+ aplicaciones del mismo tag.
+  const willReach3 = (skill.impregnation[mut.tag] || 0) + 1 >= 3;
+  const alreadyHasTag = skill.tags.includes(mut.tag);
+  const willImpregnate = willReach3 && !alreadyHasTag;
+  if (willImpregnate) {
+    events.push(createEvent(EventType.SKILL_IMPREGNATED, {
+      skillId, tag: mut.tag, skillName: skill.name,
+    }));
+  }
+  return { events, distance, stabilityDelta, willImpregnate };
+}
+
+/**
+ * Genera dos opciones de fusión. Cada opción es una skill nueva con nombre
+ * emergente de sus tags. Hereda mutadores compatibles (máx 2).
+ */
+function rollFusionOptions(skillA, skillB, { random }) {
+  const combined = [...new Set([...skillA.tags, ...skillB.tags])];
+  const trimmed = combined.length > 4
+    ? combined.slice().sort(() => random.float() - 0.5).slice(0, 4)
+    : combined;
+
+  function makeOption() {
+    // Promedio de stats base
+    const hybrid = {};
+    const keys = new Set([...Object.keys(skillA.base), ...Object.keys(skillB.base)]);
+    for (const k of keys) {
+      const a = skillA.base[k] || 0;
+      const b = skillB.base[k] || 0;
+      hybrid[k] = (typeof a === 'number' && typeof b === 'number')
+        ? Math.round((a + b) / 2)
+        : (a || b);
+    }
+    // Heredar mutadores compatibles (máx 2)
+    const allMut = [...new Set([...skillA.appliedMutators, ...skillB.appliedMutators])];
+    const compatible = allMut.filter(mid => {
+      const m = MUTATORS.find(x => x.id === mid);
+      return m && trimmed.includes(m.tag);
+    });
+    const inherited = compatible.slice().sort(() => random.float() - 0.5).slice(0, 2);
+    // Impregnaciones heredadas
+    const impreg = {};
+    for (const mid of inherited) {
+      const m = MUTATORS.find(x => x.id === mid);
+      if (m && m.tag) impreg[m.tag] = (impreg[m.tag] || 0) + 1;
+    }
+    // Nombre emergente
+    const name = generateEmergentName(trimmed, inherited);
+    return {
+      id: `sk_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
+      name,
+      tags: trimmed,
+      base: hybrid,
+      appliedMutators: inherited,
+      impregnation: impreg,
+      bornFrom: [skillA.id, skillB.id],
+      bornAt: Date.now(),
+    };
+  }
+  const opt1 = makeOption();
+  let opt2 = makeOption();
+  let attempts = 0;
+  while (opt1.name === opt2.name && attempts < 8) {
+    opt2 = makeOption();
+    attempts++;
+  }
+  return [opt1, opt2];
+}
+
+/**
+ * Detecta sinergias, combos y traits nuevos. Devuelve eventos sin aplicar.
+ */
+function detectProgressEvents(state, createEvent) {
+  const events = [];
+  const tagsInRepertoire = new Set();
+  for (const sk of state.skills) for (const t of sk.tags) tagsInRepertoire.add(t);
+
+  for (const syn of SYNERGIES) {
+    if (state.progress.synergies.includes(syn.id)) continue;
+    if (syn.requiredTags.every(t => tagsInRepertoire.has(t))) {
+      events.push(createEvent(EventType.SYNERGY_ACTIVATED, { synergyId: syn.id }));
+    }
+  }
+  for (const combo of COMBOS) {
+    if (state.progress.combos.includes(combo.id)) continue;
+    let ok = true;
+    for (const [tag, need] of Object.entries(combo.requiredTags)) {
+      if (countSkillsWithTag(state, tag) < need) { ok = false; break; }
+    }
+    if (ok) events.push(createEvent(EventType.COMBO_ACTIVATED, { comboId: combo.id }));
+  }
+  for (const trait of TRAITS) {
+    if (state.progress.traits.includes(trait.id)) continue;
+    if (trait.condition(state.character.affinities)) {
+      events.push(createEvent(EventType.TRAIT_UNLOCKED, { traitId: trait.id }));
+    }
+  }
+  return events;
+}
+
+/**
+ * Simula un casteo de skill contra un enemigo. Pura. Devuelve:
+ *   { hits, totalDamage, primaryTag, enemyHpAfter, willKill, resistanceApplied }
+ * El engine usa esto para construir los eventos de SkillCast/EnemyDefeated/etc.
+ */
+function simulateSkillCast(state, skill, enemy, { random }) {
+  const stats = getSkillStats(skill);
+  const primaryTag = skill.tags[0] || 'fisico';
+  const hitCount = Math.max(1, stats.projectiles || 1);
+  const hits = [];
+  let total = 0;
+
+  // ¿Enemigo resiste? Reduce el daño al factor configurado.
+  const resistanceApplied = enemy.resistances.some(t => skill.tags.includes(t));
+  const resistanceFactor = resistanceApplied ? BALANCE.ENEMY_RESIST_DEBUFF : 1;
+
+  for (let i = 0; i < hitCount; i++) {
+    const crit = random.float() < (stats.crit || 0);
+    const variance = 0.85 + random.float() * 0.3; // ±15%
+    let dmg = stats.damage * variance * (crit ? 1.5 : 1) * resistanceFactor;
+    dmg = Math.max(1, Math.round(dmg));
+    const effect = stats.burnChance && random.float() < stats.burnChance
+      ? { type: 'burn', dmg: Math.round(dmg * 0.2) }
+      : stats.slowChance && random.float() < stats.slowChance
+      ? { type: 'slow' }
+      : stats.poison
+      ? { type: 'poison', dmg: Math.round(dmg * 0.15) }
+      : null;
+    hits.push({ damage: dmg, crit, tag: primaryTag, effect });
+    total += dmg;
+  }
+
+  const enemyHpAfter = Math.max(0, enemy.hp - total);
+  return {
+    hits, totalDamage: total, primaryTag,
+    enemyHpAfter, willKill: enemyHpAfter <= 0,
+    resistanceApplied,
+  };
+}
+
+/**
+ * Genera un enemigo para un nivel dado. Puro salvo por random.
+ */
+function generateEnemy(level, { random }) {
+  const isBoss = level % 5 === 0;
+  const name = isBoss
+    ? `Jefe ${ENEMY_NAMES[level % ENEMY_NAMES.length]}`
+    : ENEMY_NAMES[level % ENEMY_NAMES.length];
+  const hp = isBoss
+    ? BALANCE.ENEMY_BOSS_HP_BASE + level * BALANCE.ENEMY_BOSS_HP_PER_LEVEL
+    : BALANCE.ENEMY_HP_BASE + level * BALANCE.ENEMY_HP_PER_LEVEL;
+  const damage = BALANCE.ENEMY_DAMAGE_BASE + level * BALANCE.ENEMY_DAMAGE_PER_LEVEL;
+  const resistCount = random.int(BALANCE.ENEMY_RESIST_COUNT_MIN, BALANCE.ENEMY_RESIST_COUNT_MAX);
+  const pool = ALL_TAGS.filter(t => !['fisico', 'magia', 'tecnica'].includes(t));
+  const resistances = [];
+  for (let i = 0; i < resistCount; i++) {
+    const r = random.pick(pool);
+    if (!resistances.includes(r)) resistances.push(r);
+  }
+  return {
+    id: `enemy_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+    name,
+    level,
+    hp,
+    maxHp: hp,
+    damage,
+    resistances,
+    isBoss,
+  };
+}
+
+/**
+ * Planifica la reencarnación. Puro. Devuelve qué se conserva y cuánta
+ * esencia se gana.
+ */
+function planReincarnation(state) {
+  const kept = {};
+  for (const [t, v] of Object.entries(state.character.affinities)) {
+    const k = Math.floor(v * BALANCE.REINCARNATION_KEEP);
+    if (k > 0) kept[t] = k;
+  }
+  const essenceGained = Math.floor(state.character.level / BALANCE.REINCARNATION_ESSENCE_PER);
+  return { keptAffinities: kept, essenceGained };
+}
+
+/** Elige un evento aleatorio benigno. */
+function rollRandomEvent({ random }) {
+  const pool = [
+    { description: '💎 Estrella fugaz: +1 punto', points: 1 },
+    { description: '📖 Grimorio menor: +3 afinidad de magia', affinity: { tag: 'magia', value: 3 } },
+    { description: '🔥 Chispa elemental: +3 afinidad de fuego', affinity: { tag: 'fuego', value: 3 } },
+    { description: '❄ Aliento del norte: +3 afinidad de hielo', affinity: { tag: 'hielo', value: 3 } },
+    { description: '🩸 Ritual menor: +2 afinidad de sangre', affinity: { tag: 'sangre', value: 2 } },
+  ];
+  return random.pick(pool);
+}
+
+/** Genera un objeto de loot. */
+function rollLoot({ random }) {
+  if (random.float() < BALANCE.LOOT_HP_CHANCE) {
+    return {
+      id: `pocion_hp_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+      name: 'Poción de Vida',
+      type: 'consumable',
+      effect: 'heal_hp',
+      value: 30,
+    };
+  }
+  if (random.float() < BALANCE.LOOT_STABILITY_CHANCE) {
+    return {
+      id: `pocion_st_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+      name: 'Poción de Estabilidad',
+      type: 'consumable',
+      effect: 'heal_stability',
+      value: 20,
+    };
+  }
+  return null;
+}
+
+
+/* ============================================================================
+ * 8. ADAPTADORES
+ * ----------------------------------------------------------------------------
+ * Implementaciones concretas de los puertos. Aquí sí hay efectos secundarios.
+ * ========================================================================== */
+
+class LocalStorageEventStore extends EventStorePort {
+  constructor(key) {
+    super();
+    this.key = key;
+    this._events = this._load();
+  }
+  _load() {
+    try { return JSON.parse(localStorage.getItem(this.key) || '[]'); }
+    catch (e) { console.warn('[EventStore] log corrupto, se parte de cero'); return []; }
+  }
+  _persist() {
+    try { localStorage.setItem(this.key, JSON.stringify(this._events)); }
+    catch (e) { /* cuota o modo privado: la sesión no persiste */ }
+  }
+  append(event) { this._events.push(event); this._persist(); return event; }
+  all() { return [...this._events]; }
+  clear() { this._events = []; this._persist(); }
+}
+
+class LocalStorageSnapshot extends SnapshotStoragePort {
+  constructor(key) { super(); this.key = key; }
+  save(state) {
+    try { localStorage.setItem(this.key, JSON.stringify(state)); } catch (e) { /* ignorar */ }
+  }
+  load() {
+    try { return JSON.parse(localStorage.getItem(this.key) || 'null'); }
+    catch (e) { return null; }
+  }
+  clear() {
+    try { localStorage.removeItem(this.key); } catch (e) { /* ignorar */ }
+  }
+}
+
+class SystemClock extends ClockPort {
+  now() { return Date.now(); }
+}
+
+class MathRandom extends RandomPort {
+  float() { return Math.random(); }
+  int(min, max) { return Math.floor(Math.random() * (max - min + 1)) + min; }
+  pick(arr) { return arr[Math.floor(Math.random() * arr.length)]; }
+}
+
+class ConsoleLogger extends LoggerPort {
+  info(msg, meta)  { console.log(`[INFO]  ${msg}`, meta ?? ''); }
+  warn(msg, meta)  { console.warn(`[WARN]  ${msg}`, meta ?? ''); }
+  error(msg, meta) { console.error(`[ERROR] ${msg}`, meta ?? ''); }
+}
+
+class SequentialIdGenerator {
+  constructor() { this._n = 0; }
+  next() { this._n++; return `${Date.now()}-${this._n.toString(36)}`; }
+}
+
+
+/* ============================================================================
+ * 9. APLICACIÓN · GameEngine
+ * ----------------------------------------------------------------------------
+ * Orquesta: recibe comandos, ejecuta servicios de dominio, produce eventos,
+ * los persiste y actualiza el estado. Único punto donde el dominio ve los
+ * puertos.
+ *
+ * Convención: emit/emitAll NUNCA notifican. Cada comando público llama a
+ * notify() UNA vez al final.
+ * ========================================================================== */
+
+class GameEngine {
+  constructor({ eventStore, snapshot, clock, random, logger }) {
+    this.eventStore = eventStore;
+    this.snapshot = snapshot;
+    this.clock = clock;
+    this.random = random;
+    this.logger = logger;
+    this.createEvent = makeEventFactory({ clock, idGenerator: new SequentialIdGenerator() });
+    this.listeners = new Set();
+    this.eventListeners = new Set();  // para animaciones de la arena
+    this.state = foldEvents(this.eventStore.all());
+  }
+
+  foldAll() { return foldEvents(this.eventStore.all()); }
+
+  _apply(ev) {
+    this.eventStore.append(ev);
+    this.state = applyEvent(this.state, ev);
+  }
+
+  /** Aplica un único evento sin notificar. */
+  emit(ev) { this._apply(ev); }
+
+  /** Aplica varios eventos en orden sin notificar. */
+  emitAll(evs) { for (const e of evs) this._apply(e); }
+
+  /**
+   * Notifica a los suscriptores de estado. Guarda snapshot. Llama a cada
+   * listener protegido por try/catch para que un fallo de UI no rompa el motor.
+   */
+  notify() {
+    this.snapshot?.save?.(this.state);
+    for (const fn of this.listeners) {
+      try { fn(this.state); } catch (e) { this.logger.error('listener', e); }
+    }
+  }
+
+  /** Emite el stream de eventos individuales a la UI (para animaciones). */
+  _broadcastEvents(events) {
+    for (const fn of this.eventListeners) {
+      for (const ev of events) {
+        try { fn(ev); } catch (e) { this.logger.error('event listener', e); }
+      }
+    }
+  }
+
+  /**
+   * Recalcula sinergias, combos y traits. Emite los eventos necesarios sin
+   * notificar (el comando que lo llama es responsable del notify final).
+   */
+  recomputeProgress() {
+    const events = detectProgressEvents(this.state, this.createEvent);
+    if (events.length) this.emitAll(events);
+  }
+
+  /* ---------- Comandos públicos ---------- */
+
+  startGame() {
+    if (this.state.meta.started) return;
+    this.emit(this.createEvent(EventType.GAME_STARTED, {}));
+    this.notify();
+  }
+
+  chooseSeed(mode, tags = []) {
+    if (this.state.meta.seedMode) return;
+    let plan;
+    try { plan = planSeed(mode, tags, { random: this.random }); }
+    catch (e) { this.logger.warn(e.message); return; }
+    this.emit(this.createEvent(EventType.SEED_CHOSEN, {
+      mode, tags: plan.tags, bonusPoints: plan.bonusPoints,
+    }));
+    // 3 skills iniciales al azar
+    const shuffled = [...SKILL_TEMPLATES].sort(() => this.random.float() - 0.5);
+    const initial = shuffled.slice(0, 3).map(t => this._materializeSkill(t));
+    const events = initial.map(sk => this.createEvent(EventType.SKILL_ADDED, { skill: sk }));
+    events.push(this.createEvent(EventType.OFFERS_ROLLED, {
+      offerIds: rollOffers(this.state, { random: this.random }),
+    }));
+    this.emitAll(events);
+    // Spawn del primer enemigo
+    this._spawnEnemy();
+    this.recomputeProgress();
+    this.notify();
+  }
+
+  _materializeSkill(template) {
+    return {
+      id: `sk_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
+      name: template.name,
+      tags: [...template.tags],
+      base: { ...template.base },
+      appliedMutators: [],
+      impregnation: {},
+    };
+  }
+
+  _spawnEnemy() {
+    const enemy = generateEnemy(this.state.character.level, { random: this.random });
+    this.emit(this.createEvent(EventType.ENEMY_SPAWNED, { enemy }));
+  }
+
+  /** Añade XP y gestiona subidas de nivel en cascada. */
+  gainXP(amount, source) {
+    const emitted = [];
+    const ev = this.createEvent(EventType.XP_GAINED, { amount, source });
+    this.emit(ev); emitted.push(ev);
+
+    let safety = 0;
+    while (this.state.character.xp >= this.state.character.xpToNext && safety < 30) {
+      safety++;
+      const to = this.state.character.level + 1;
+      const nextXp = Math.floor(this.state.character.xpToNext * BALANCE.XP_GROWTH);
+      const evs = [
+        this.createEvent(EventType.XP_SPENT, {
+          amount: this.state.character.xpToNext, reason: 'levelup',
+        }),
+        this.createEvent(EventType.LEVEL_UP, { to, nextXp }),
+        this.createEvent(EventType.POINTS_GAINED, {
+          amount: BALANCE.POINTS_PER_LEVEL, source: 'levelup',
+        }),
+      ];
+      // Aumentar HP y estabilidad máximos
+      const newMaxHp = BALANCE.BASE_MAX_HP + to * BALANCE.LEVEL_HP_BONUS;
+      const newMaxSt = BALANCE.BASE_MAX_STABILITY + to * BALANCE.LEVEL_STABILITY_BONUS;
+      evs.push(this.createEvent(EventType.MAX_HP_CHANGED, { value: newMaxHp }));
+      evs.push(this.createEvent(EventType.MAX_STABILITY_CHANGED, { value: newMaxSt }));
+      // Curar al subir de nivel
+      evs.push(this.createEvent(EventType.HP_CHANGED, { delta: 15, reason: 'subida de nivel' }));
+      evs.push(this.createEvent(EventType.STABILITY_CHANGED, { delta: 10, reason: 'subida de nivel' }));
+      // Catalizador cada N niveles
+      if (to % BALANCE.CATALYST_PER_LEVELS === 0) {
+        evs.push(this.createEvent(EventType.CATALYST_GAINED, { amount: 1 }));
+      }
+      // Nuevas ofertas
+      evs.push(this.createEvent(EventType.OFFERS_ROLLED, {
+        offerIds: rollOffers(this.state, { random: this.random }),
+      }));
+      // Evento aleatorio ocasional
+      if (this.random.float() < 0.15) {
+        evs.push(this.createEvent(EventType.RANDOM_EVENT, rollRandomEvent({ random: this.random })));
+      }
+      this.emitAll(evs);
+      emitted.push(...evs);
+    }
+    this.recomputeProgress();
+    this._broadcastEvents(emitted);
+    this.notify();
+  }
+
+  rest() {
+    if (this.state.character.xp < BALANCE.REST_XP_COST) return;
+    const events = [
+      this.createEvent(EventType.XP_SPENT, { amount: BALANCE.REST_XP_COST, reason: 'descanso' }),
+      this.createEvent(EventType.HP_CHANGED, { delta: BALANCE.REST_HP_GAIN, reason: 'descanso' }),
+      this.createEvent(EventType.STABILITY_CHANGED, {
+        delta: BALANCE.REST_STABILITY_GAIN, reason: 'descanso',
+      }),
+    ];
+    this.emitAll(events);
+    this._broadcastEvents(events);
+    this.notify();
+  }
+
+  trainAffinity(tag) {
+    if (!ALL_TAGS.includes(tag)) return;
+    if (this.state.character.points < BALANCE.TRAIN_COST) return;
+    const gain = Math.round((BALANCE.AFFINITY_BASE_GAIN * 3) * 100) / 100; // +2.4 fijo por entrenar
+    const events = [
+      this.createEvent(EventType.POINTS_SPENT, { amount: BALANCE.TRAIN_COST, reason: `train:${tag}` }),
+      this.createEvent(EventType.AFFINITIES_TRAINED, { gains: { [tag]: gain } }),
+    ];
+    this.emitAll(events);
+    this.recomputeProgress();
+    this._broadcastEvents(events);
+    this.notify();
+  }
+
+  spendAttribute(attr) {
+    if (!['hp', 'mana', 'damage', 'defense', 'speed'].includes(attr)) return;
+    if (this.state.character.points < 1) return;
+    const events = [
+      this.createEvent(EventType.POINTS_SPENT, { amount: 1, reason: `attr:${attr}` }),
+      this.createEvent(EventType.ATTRIBUTE_INCREASED, { attr }),
+    ];
+    this.emitAll(events);
+    this._broadcastEvents(events);
+    this.notify();
+  }
+
+  addRandomSkill() {
+    if (this.state.character.xp < BALANCE.XP_COST_SKILL) return;
+    const template = this.random.pick(SKILL_TEMPLATES);
+    const skill = this._materializeSkill(template);
+    const events = [
+      this.createEvent(EventType.XP_SPENT, { amount: BALANCE.XP_COST_SKILL, reason: 'nueva skill' }),
+      this.createEvent(EventType.SKILL_ADDED, { skill }),
+    ];
+    this.emitAll(events);
+    this.recomputeProgress();
+    this._broadcastEvents(events);
+    this.notify();
+  }
+
+  applyMutator(skillId, mutatorId) {
+    if (!this.state.progress.offers.includes(mutatorId)) return;
+    const plan = planMutatorApplication(this.state, skillId, mutatorId, this.createEvent);
+    if (!plan.events.length) return;
+    this.emitAll(plan.events);
+    // Quitar de ofertas
+    const remaining = this.state.progress.offers.filter(id => id !== mutatorId);
+    this.emit(this.createEvent(EventType.OFFERS_ROLLED, { offerIds: remaining }));
+    this.recomputeProgress();
+    this._broadcastEvents(plan.events);
+    this.notify();
+  }
+
+  /** Previsualiza las dos opciones de fusión. Puro. No aplica nada. */
+  previewFusion(skillAId, skillBId) {
+    const a = this.state.skills.find(s => s.id === skillAId);
+    const b = this.state.skills.find(s => s.id === skillBId);
+    if (!a || !b || a.id === b.id) return null;
+    if (this.state.character.xp < BALANCE.XP_COST_FUSION) return null;
+    return rollFusionOptions(a, b, { random: this.random });
+  }
+
+  /** Confirma una fusión con la opción elegida. Aplica eventos. */
+  commitFusion(skillAId, skillBId, newSkill) {
+    if (this.state.character.xp < BALANCE.XP_COST_FUSION) return null;
+    const a = this.state.skills.find(s => s.id === skillAId);
+    const b = this.state.skills.find(s => s.id === skillBId);
+    if (!a || !b) return null;
+
+    // d6: 1-4 conservas ambas, 5 pierdes una, 6 pierdes ambas
+    const roll = this.random.int(1, 6);
+    let removeIds = [];
+    if (roll === 5) removeIds = [this.random.pick([skillAId, skillBId])];
+    else if (roll === 6) removeIds = [skillAId, skillBId];
+
+    // Estabilidad: base + penalización por disparidad
+    let mismatch = 0;
+    for (const tA of a.tags) for (const tB of b.tags) {
+      const d = tagDistance(tA, tB);
+      if (d >= 4 || d === -1) mismatch++;
+    }
+    const stabilityDelta = BALANCE.STABILITY_FUSION
+      + (mismatch > 0 ? BALANCE.STABILITY_FUSION_MISMATCH * Math.min(2, mismatch) : 0);
+
+    const events = [
+      this.createEvent(EventType.XP_SPENT, { amount: BALANCE.XP_COST_FUSION, reason: 'fusión' }),
+      this.createEvent(EventType.STABILITY_CHANGED, {
+        delta: stabilityDelta, reason: `fusión (d6=${roll}, disparidad ${mismatch})`,
+      }),
+      this.createEvent(EventType.SKILLS_FUSED, { removeIds, newSkill, roll }),
+    ];
+    this.emitAll(events);
+    this.recomputeProgress();
+    this._broadcastEvents(events);
+    this.notify();
+    return { roll, removeIds };
+  }
+
+  /**
+   * Castea una skill contra el enemigo actual. Si no hay enemigo, se genera
+   * uno. Produce eventos de SkillCast + posible contraataque/muerte/kill.
+   */
+  castSkill(skillId) {
+    const skill = this.state.skills.find(s => s.id === skillId);
+    if (!skill) return null;
+
+    if (!this.state.combat.enemy) {
+      this._spawnEnemy();
+    }
+    const enemy = this.state.combat.enemy;
+    if (!enemy) return null;
+
+    const sim = simulateSkillCast(this.state, skill, enemy, { random: this.random });
+    const events = [
+      this.createEvent(EventType.SKILL_CAST, {
+        skillId,
+        skillName: skill.name,
+        hits: sim.hits,
+        totalDamage: sim.totalDamage,
+        primaryTag: sim.primaryTag,
+        enemyHpAfter: sim.enemyHpAfter,
+        resistanceApplied: sim.resistanceApplied,
+      }),
+    ];
+
+    // XP por castear
+    events.push(this.createEvent(EventType.XP_GAINED, {
+      amount: BALANCE.XP_PER_SKILL_CAST, source: 'cast',
+    }));
+    // Afinidades por castear
+    const { gains } = computeAffinityGains(this.state, skill);
+    if (Object.keys(gains).length) {
+      events.push(this.createEvent(EventType.AFFINITIES_TRAINED, { gains }));
+    }
+
+    // ¿Enemigo muere?
+    if (sim.willKill) {
+      const xpGained = BALANCE.XP_PER_KILL_BASE + enemy.level * BALANCE.XP_PER_KILL_PER_LEVEL;
+      events.push(this.createEvent(EventType.ENEMY_DEFEATED, {
+        enemyId: enemy.id, enemyName: enemy.name, xpGained,
+      }));
+      events.push(this.createEvent(EventType.XP_GAINED, { amount: xpGained, source: 'kill' }));
+      const loot = rollLoot({ random: this.random });
+      if (loot) {
+        events.push(this.createEvent(EventType.LOOT_DROPPED, { item: loot }));
+      }
+      this.emitAll(events);
+      this.recomputeProgress();
+      this._broadcastEvents(events);
+      this.notify();
+      // Spawn nuevo enemigo tras un pequeño delay (así la UI puede animar)
+      setTimeout(() => {
+        this._spawnEnemy();
+        this.notify();
+      }, 800);
+      return { ...sim, xpGained, loot };
+    }
+
+    // No muere: contraataque
+    const counter = Math.max(1, Math.round(enemy.damage * BALANCE.COUNTER_DAMAGE_FACTOR));
+    events.push(this.createEvent(EventType.ENEMY_ATTACKED, { damage: counter }));
+    if (this.state.character.hp - counter <= 0) {
+      events.push(this.createEvent(EventType.PLAYER_DEFEATED, {}));
+    }
+    this.emitAll(events);
+    this.recomputeProgress();
+    this._broadcastEvents(events);
+    this.notify();
+    return sim;
+  }
+
+  usePotion(itemId) {
+    const item = this.state.inventory.find(i => i.id === itemId);
+    if (!item) return;
+    const events = [
+      this.createEvent(EventType.POTION_USED, {
+        itemId: item.id, effect: item.effect, value: item.value,
+      }),
+    ];
+    this.emitAll(events);
+    this._broadcastEvents(events);
+    this.notify();
+  }
+
+  reincarnate() {
+    if (this.state.character.level < BALANCE.REINCARNATION_LEVEL) return;
+    const { keptAffinities, essenceGained } = planReincarnation(this.state);
+    const events = [
+      this.createEvent(EventType.REINCARNATED, {
+        to: this.state.meta.reincarnations + 1,
+        keptAffinities, essenceGained,
+      }),
+    ];
+    this.emitAll(events);
+    this.recomputeProgress();
+    this._broadcastEvents(events);
+    this.notify();
+  }
+
+  hardReset() {
+    this.eventStore.clear();
+    this.snapshot?.clear?.();
+    this.state = initialState();
+    this.emit(this.createEvent(EventType.HARD_RESET, {}));
+    this.notify();
+  }
+
+  rebuild() {
+    this.state = this.foldAll();
+    this.notify();
+  }
+
+  /* ---------- Suscripciones ---------- */
+
+  subscribe(fn) {
+    this.listeners.add(fn);
+    return () => this.listeners.delete(fn);
+  }
+
+  /** Suscripción al stream de eventos individuales (para animaciones). */
+  subscribeEvents(fn) {
+    this.eventListeners.add(fn);
+    return () => this.eventListeners.delete(fn);
+  }
+
+  /** Read models listos para la UI. */
+  projections() {
+    return {
+      state: this.state,
+      sheet: projectCharacterSheet(this.state),
+      title: projectEmergentTitle(this.state),
+      log: projectLog(this.eventStore.all(), 60),
+      combatLog: projectCombatLog(this.state),
+      affinityCap: getAffinityCap(this.state),
+      offers: this.state.progress.offers
+        .map(id => MUTATORS.find(m => m.id === id)).filter(Boolean),
+    };
+  }
+}
+
+
+/* ============================================================================
+ * 10. UI ADAPTER
+ * ----------------------------------------------------------------------------
+ * Traduce intenciones del usuario a comandos y pinta read models.
+ * Ninguna regla de negocio vive aquí.
+ * ========================================================================== */
+
+const UI = (() => {
+  const $ = id => document.getElementById(id);
+  const seedUI = { mode: null, selectedTags: [] };
+  const local = {
+    selectedSkillId: null,
+    fusionSelection: [null, null],
+    pendingFusion: null,
+  };
+
+  // --- Utilidades ------------------------------------------------
+  function esc(s) {
+    return String(s).replace(/[&<>"']/g, c => (
+      { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]
+    ));
+  }
+  function toast(msg, type = 'info') {
+    const c = $('toasts');
+    const el = document.createElement('div');
+    el.className = `toast ${type}`;
+    el.textContent = msg;
+    c.appendChild(el);
+    setTimeout(() => {
+      el.style.opacity = '0';
+      el.style.transform = 'translateX(40px)';
+      setTimeout(() => el.remove(), 250);
+    }, 3000);
+  }
+  const pct = v => `${Math.round((v || 0) * 100)}%`;
+
+  // --- Arena (SVG) -----------------------------------------------
+  function renderEnemy() {
+    const enemy = engine.state.combat.enemy;
+    const group = $('enemyGroup');
+    const hpFill = $('enemyHpFill');
+    const hpLabel = $('enemyHpLabel');
+    const textEl = group.querySelector('text');
+    if (!enemy) {
+      textEl.textContent = '—';
+      hpFill.style.width = '0%';
+      hpLabel.textContent = '— / —';
+      group.setAttribute('opacity', '0.3');
+      return;
+    }
+    textEl.textContent = `${enemy.name} (Nv.${enemy.level})`;
+    const percent = (enemy.hp / enemy.maxHp) * 100;
+    hpFill.style.width = `${percent}%`;
+    hpLabel.textContent = `${enemy.name} · ${Math.round(enemy.hp)}/${enemy.maxHp}`;
+    group.setAttribute('opacity', '1');
+  }
+
+  function animateProjectile(fromX, fromY, toX, toY, color, onImpact) {
+    const layer = $('fxLayer');
+    const proj = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+    proj.setAttribute('cx', fromX);
+    proj.setAttribute('cy', fromY);
+    proj.setAttribute('r', 8);
+    proj.setAttribute('fill', color);
+    proj.setAttribute('filter', 'drop-shadow(0 0 8px currentColor)');
+    proj.style.color = color;
+    layer.appendChild(proj);
+    const duration = 400;
+    const start = performance.now();
+    function step(t) {
+      const p = Math.min(1, (t - start) / duration);
+      const x = fromX + (toX - fromX) * p;
+      const y = fromY + (toY - fromY) * p - Math.sin(p * Math.PI) * 30;
+      proj.setAttribute('cx', x);
+      proj.setAttribute('cy', y);
+      if (p < 1) requestAnimationFrame(step);
+      else { proj.remove(); if (onImpact) onImpact(); }
+    }
+    requestAnimationFrame(step);
+  }
+
+  function showImpactFx(x, y, color) {
+    const layer = $('fxLayer');
+    const flash = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+    flash.setAttribute('cx', x);
+    flash.setAttribute('cy', y);
+    flash.setAttribute('r', 5);
+    flash.setAttribute('fill', color);
+    flash.setAttribute('opacity', '0.9');
+    layer.appendChild(flash);
+    const maxR = 30;
+    const start = performance.now();
+    const dur = 350;
+    function step(t) {
+      const p = Math.min(1, (t - start) / dur);
+      flash.setAttribute('r', 5 + (maxR - 5) * p);
+      flash.setAttribute('opacity', String(0.9 * (1 - p)));
+      if (p < 1) requestAnimationFrame(step);
+      else flash.remove();
+    }
+    requestAnimationFrame(step);
+  }
+
+  function showFloatingDamage(x, y, dmg, crit, color) {
+    const arena = $('arena');
+    const rect = arena.getBoundingClientRect();
+    const svg = $('arenaSvg');
+    const vb = svg.viewBox.baseVal;
+    const px = (x - vb.x) / vb.width * rect.width;
+    const py = (y - vb.y) / vb.height * rect.height;
+    const el = document.createElement('div');
+    el.className = 'dmg-float';
+    el.style.left = `${px - 20}px`;
+    el.style.top = `${py - 20}px`;
+    el.style.color = crit ? '#fde047' : color;
+    el.textContent = crit ? `${dmg}!` : `${dmg}`;
+    arena.appendChild(el);
+    setTimeout(() => el.remove(), 1000);
+  }
+
+  /** Anima un SkillCast recién emitido. Los datos vienen del evento. */
+  function animateSkillCast(ev) {
+    const { hits, primaryTag } = ev.payload;
+    const color = TAG_COLORS[primaryTag] || '#fff';
+    const fromX = 80, fromY = 150;
+    const targetX = 600, targetY = 150;
+    let i = 0;
+    function fireOne() {
+      if (i >= hits.length) return;
+      const hit = hits[i];
+      i++;
+      animateProjectile(fromX, fromY, targetX, targetY, color, () => {
+        showImpactFx(targetX, targetY, color);
+        showFloatingDamage(targetX, targetY, hit.damage, hit.crit, color);
+        setTimeout(fireOne, 90);
+      });
+    }
+    fireOne();
+  }
+
+  // --- Panel izquierdo ------------------------------------------
+  function renderCharacter(state, sheet) {
+    $('level').textContent = state.character.level;
+    $('xp').textContent = state.character.xp;
+    $('xpNext').textContent = state.character.xpToNext;
+    $('reinc').textContent = state.meta.reincarnations;
+    $('essence').textContent = state.meta.essence;
+    $('hp').textContent = Math.round(state.character.hp);
+    $('maxHp').textContent = Math.round(state.character.maxHp);
+    $('hpFill').style.width = `${(state.character.hp / state.character.maxHp) * 100}%`;
+    $('stability').textContent = Math.round(state.character.stability);
+    $('maxStability').textContent = Math.round(state.character.maxStability);
+    $('stabFill').style.width = `${(state.character.stability / state.character.maxStability) * 100}%`;
+
+    const groups = {
+      'Recursos':  [['Vida', sheet.maxHp], ['Maná', sheet.maxMana]],
+      'Ofensiva':  [['Daño', sheet.damage], ['Fuego', pct(sheet.fireDamage)],
+                    ['Hielo', pct(sheet.iceDamage)], ['Rayo', pct(sheet.lightningDamage)]],
+      'Defensa':   [['Defensa', sheet.defense], ['Resist.', pct(sheet.allResist)],
+                    ['Evasión', pct(sheet.evasion)]],
+      'Movilidad': [['Velocidad', sheet.speed]],
+      'Especiales':[['Robo vida', pct(sheet.lifeSteal)], ['Berserker', pct(sheet.berserkerDamage)],
+                    ['Quemadura', pct(sheet.burnChance)], ['Ralentización', pct(sheet.slowChance)]],
+    };
+    let html = '';
+    for (const [name, items] of Object.entries(groups)) {
+      const visible = items.filter(([, v]) => typeof v === 'string' || v !== 0);
+      if (!visible.length) continue;
+      html += `<div class="stat-group-title">${name}</div><div class="stat-grid">`;
+      for (const [label, val] of visible) {
+        html += `<div class="stat-item"><span>${label}</span><span class="v">${val}</span></div>`;
+      }
+      html += `</div>`;
+    }
+    $('statsBlock').innerHTML = html;
+  }
+
+  function renderAttributes(state) {
+    const ba = state.character.baseAttributes;
+    const labels = { hp: 'Vida', mana: 'Maná', damage: 'Daño', defense: 'Defensa', speed: 'Velocidad' };
+    const can = state.character.points > 0;
+    let html = '';
+    for (const [k, l] of Object.entries(labels)) {
+      html += `<div class="affinity-row">
+        <span class="tag">${l}</span>
+        <span class="num" style="flex:1;text-align:left;">${ba[k] || 0}</span>
+        <button class="btn-train" data-action="attr" data-attr="${k}" ${can ? '' : 'disabled'}>+1</button>
+      </div>`;
+    }
+    $('attrBlock').innerHTML = html;
+  }
+
+  function renderAffinities(state, affinityCap) {
+    const aff = state.character.affinities;
+    const entries = Object.entries(aff).filter(([, v]) => v > 0).sort((a, b) => b[1] - a[1]);
+    const canTrain = state.character.points >= BALANCE.TRAIN_COST;
+    if (!entries.length) {
+      $('affinityBlock').innerHTML = '<span class="empty">Sin afinidades. Elige semilla o entrena.</span>';
+      return;
+    }
+    let html = '';
+    for (const [tag, val] of entries) {
+      const p = Math.min(100, (val / affinityCap) * 100);
+      const color = TAG_COLORS[tag] || '#4ecca3';
+      html += `<div class="affinity-row">
+        <span class="tag">${esc(tag)}</span>
+        <div class="track"><div class="fill" style="width:${p}%;background:${color};"></div></div>
+        <span class="num">${val.toFixed(1)}/${affinityCap}</span>
+        <button class="btn-train" data-action="train" data-tag="${esc(tag)}" ${canTrain ? '' : 'disabled'}>+</button>
+      </div>`;
+    }
+    $('affinityBlock').innerHTML = html;
+  }
+
+  function renderTraits(state) {
+    const all = TRAITS.map(t => ({
+      ...t,
+      unlocked: state.progress.traits.includes(t.id),
+      ready: t.condition(state.character.affinities),
+    }));
+    $('traitBlock').innerHTML = all.map(t => {
+      const op = t.unlocked ? 1 : t.ready ? 0.7 : 0.4;
+      const icon = t.unlocked ? '✓' : t.ready ? '⏳' : '·';
+      return `<div style="font-size:0.72rem;padding:0.15rem 0;opacity:${op}">
+        ${icon} <b>${esc(t.name)}</b> <span style="color:var(--muted)"> — ${esc(t.description)}</span>
+      </div>`;
+    }).join('');
+  }
+
+  function renderInventory(state) {
+    if (!state.inventory.length) {
+      $('inventoryList').innerHTML = '<span class="empty">Vacío.</span>';
+      return;
+    }
+    $('inventoryList').innerHTML = state.inventory.map(item => `
+      <div class="inv-item">
+        <span>${esc(item.name)} (+${item.value})</span>
+        <button data-action="use-potion" data-item-id="${item.id}">Usar</button>
+      </div>
+    `).join('');
+  }
+
+  function renderSeed(state) {
+    const block = $('seedBlock');
+    if (state.meta.seedMode) {
+      const tags = state.meta.seedTags;
+      const summary = state.meta.seedMode === GAME_MODES.CLEAN
+        ? `Limpia (+3 pts extra)`
+        : `${state.meta.seedMode}: ${tags.join(' + ')}`;
+      block.innerHTML = `<h2>Semilla</h2>
+        <div style="font-size:0.75rem;color:var(--muted);text-align:center;">${esc(summary)}</div>`;
+      return;
+    }
+    const modeButtons = `
+      <div class="seed-mode-row">
+        <button class="seed-mode-btn ${seedUI.mode === GAME_MODES.MANUAL ? 'active' : ''}"
+          data-action="seed-mode" data-mode="${GAME_MODES.MANUAL}">Manual<small>Elige 2 tags</small></button>
+        <button class="seed-mode-btn ${seedUI.mode === GAME_MODES.RANDOM ? 'active' : ''}"
+          data-action="seed-mode" data-mode="${GAME_MODES.RANDOM}">Aleatoria<small>2 al azar</small></button>
+        <button class="seed-mode-btn ${seedUI.mode === GAME_MODES.CLEAN ? 'active' : ''}"
+          data-action="seed-mode" data-mode="${GAME_MODES.CLEAN}">Limpia<small>+3 pts</small></button>
+      </div>`;
+    let tagGrid = '';
+    if (seedUI.mode === GAME_MODES.MANUAL) {
+      tagGrid = '<div class="tag-chips">';
+      for (const tag of SEEDABLE_TAGS) {
+        const sel = seedUI.selectedTags.includes(tag);
+        const dis = !sel && seedUI.selectedTags.length >= 2;
+        tagGrid += `<span class="tag-chip ${sel ? 'selected' : ''} ${dis ? 'disabled' : ''}"
+          data-action="seed-tag" data-tag="${tag}">${tag}</span>`;
+      }
+      tagGrid += '</div>';
+      tagGrid += `<button class="button good" data-action="seed-confirm"
+        ${seedUI.selectedTags.length === 2 ? '' : 'disabled'}>Confirmar (${seedUI.selectedTags.length}/2)</button>`;
+    }
+    if (seedUI.mode === GAME_MODES.RANDOM) {
+      tagGrid = `<button class="button good" data-action="seed-confirm">🎲 Tirar semilla</button>`;
+    }
+    if (seedUI.mode === GAME_MODES.CLEAN) {
+      tagGrid = `<button class="button good" data-action="seed-confirm">Empezar sin semilla</button>`;
+    }
+    block.innerHTML = `<h2>Semilla inicial</h2>
+      <div class="hint">No hay clases: la semilla orienta, no encierra.</div>
+      ${modeButtons}${tagGrid}`;
+  }
+
+  function renderTitle(readModels) {
+    const t = readModels.title;
+    $('titleBlock').innerHTML = t
+      ? `<div class="title-display">
+          <div class="label">Título emergente</div>
+          <div class="value">${esc(t)}</div>
+         </div>`
+      : '';
+  }
+
+  // --- Centro --------------------------------------------------
+  function renderSkills(state) {
+    const list = $('skillList');
+    if (!state.skills.length) {
+      list.innerHTML = '<span class="empty">Sin skills. Elige semilla para empezar.</span>';
+      return;
+    }
+    list.innerHTML = state.skills.map(sk => {
+      const stats = getSkillStats(sk);
+      const selected = local.selectedSkillId === sk.id;
+      const inFusion = local.fusionSelection.includes(sk.id);
+      const tags = sk.tags.map(t =>
+        `<span style="color:${TAG_COLORS[t] || '#fff'}">#${esc(t)}</span>`
+      ).join(' ');
+      const chips = `
+        <span class="stat-chip">💥 ${stats.damage}</span>
+        <span class="stat-chip">🔋 ${stats.costAmount} ${stats.costType}</span>
+        <span class="stat-chip">⚡ ${stats.speed}</span>
+        <span class="stat-chip">🔢 ${stats.projectiles}</span>
+        <span class="stat-chip">📏 ${stats.range}</span>
+        ${stats.area > 0 ? `<span class="stat-chip">🌍 ${stats.area}</span>` : ''}
+        ${stats.crit ? `<span class="stat-chip">🎯 ${Math.round(stats.crit * 100)}%</span>` : ''}
+      `;
+      const mutList = sk.appliedMutators.length
+        ? `<div class="mutators">✎ ${sk.appliedMutators.map(mid => MUTATORS.find(m => m.id === mid)?.name || mid).join(', ')}</div>`
+        : '';
+      const impreg = Object.keys(sk.impregnation).length
+        ? `<div class="impregnation">✧ Impregnación: ${Object.entries(sk.impregnation).map(([t, n]) => `${t}×${n}`).join(', ')}</div>`
+        : '';
+      return `<div class="skill-card ${selected ? 'selected' : ''} ${inFusion ? 'fusion-slot' : ''}"
+        data-skill-id="${sk.id}">
+        <div class="name">${esc(sk.name)}</div>
+        <div class="tags">${tags}</div>
+        <div class="stats-row">${chips}</div>
+        ${mutList}${impreg}
+        <div class="actions">
+          <button class="button small good" data-action="attack" data-skill-id="${sk.id}">⚔ Probar</button>
+          <button class="button small" data-action="select" data-skill-id="${sk.id}">${selected ? '✓ Seleccionada' : 'Seleccionar'}</button>
+          <button class="button small ghost" data-action="fusion-toggle" data-skill-id="${sk.id}">➕ Fusión</button>
+        </div>
+      </div>`;
+    }).join('');
+  }
+
+  function renderOffers(readModels) {
+    const offers = readModels.offers;
+    if (!offers.length) {
+      $('offersList').innerHTML = '<span class="empty">Sin ofertas. Sube de nivel.</span>';
+      return;
+    }
+    const selected = local.selectedSkillId;
+    const skill = selected ? engine.state.skills.find(s => s.id === selected) : null;
+    $('offersList').innerHTML = offers.map(m => {
+      const dist = skill ? tagDistance(skill.tags[0] || '', m.tag) : null;
+      let distLabel = '';
+      if (dist !== null) {
+        const isFar = dist >= 4 || dist === -1;
+        const isNear = dist <= 1 && dist >= 0;
+        const cost = isFar ? `(−3 estab.)` : isNear ? `(+3 estab.)` : `(sin coste)`;
+        distLabel = `<div class="distance">Distancia: ${dist === -1 ? '?' : dist} · ${distanceLabel(dist)} ${cost}</div>`;
+      }
+      return `<div class="offer-card">
+        <div class="name">${esc(m.name)} <span class="tag">[${esc(m.tag)}]</span></div>
+        <div class="desc">${esc(m.description)}</div>
+        ${distLabel}
+        <button class="button small good" data-action="apply-mutator" data-mutator-id="${m.id}"
+          ${selected ? '' : 'disabled'}>
+          ${selected ? `Aplicar a ${esc(skill.name)}` : 'Selecciona una skill'}
+        </button>
+      </div>`;
+    }).join('');
+  }
+
+  function renderFusion(state) {
+    const [a, b] = local.fusionSelection;
+    const sa = a ? state.skills.find(s => s.id === a) : null;
+    const sb = b ? state.skills.find(s => s.id === b) : null;
+    $('fuseSlot1').textContent = sa ? sa.name : 'Habilidad A';
+    $('fuseSlot2').textContent = sb ? sb.name : 'Habilidad B';
+    $('fuseSlot1').classList.toggle('filled', !!sa);
+    $('fuseSlot2').classList.toggle('filled', !!sb);
+    const canFuse = sa && sb && state.character.xp >= BALANCE.XP_COST_FUSION;
+    $('btnFusion').disabled = !canFuse;
+    $('fusionInfo').textContent =
+      `Coste: ${BALANCE.XP_COST_FUSION} XP, ${BALANCE.STABILITY_FUSION} estabilidad base. ` +
+      `Dados: d6 (1-4 conservas ambas, 5 pierdes una, 6 pierdes ambas).`;
+  }
+
+  function renderProgress(state) {
+    const syns = state.progress.synergies.map(id => SYNERGIES.find(s => s.id === id)).filter(Boolean);
+    $('synergyBlock').innerHTML = syns.length
+      ? syns.map(s => `<div style="font-size:0.72rem;color:var(--epic)">🔗 ${esc(s.name)} — <span style="color:var(--muted)">${esc(s.desc)}</span></div>`).join('')
+      : '<div class="empty">Sin sinergias activas.</div>';
+    const combos = state.progress.combos.map(id => COMBOS.find(c => c.id === id)).filter(Boolean);
+    $('comboBlock').innerHTML = combos.length
+      ? combos.map(c => `<div style="font-size:0.72rem;color:var(--legend)">⚡ ${esc(c.name)} — <span style="color:var(--muted)">${JSON.stringify(c.requiredTags)}</span></div>`).join('')
+      : '<div class="empty">Sin combos activos.</div>';
+  }
+
+  function renderCombatLog(readModels) {
+    const log = readModels.combatLog;
+    if (!log.length) {
+      $('combatLog').innerHTML = '<div class="empty">Sin actividad.</div>';
+      return;
+    }
+    $('combatLog').innerHTML = log.map(e => {
+      const color = e.kind === 'kill' ? 'var(--good)'
+        : e.kind === 'death' ? 'var(--bad)'
+        : e.kind === 'counter' ? 'var(--warn)'
+        : 'inherit';
+      return `<div style="color:${color}">${esc(e.text)}</div>`;
+    }).join('');
+  }
+
+  function renderTree(state) {
+    const svg = $('treeSvg');
+    const cx = 450, cy = 250, radius = 180;
+    const aff = state.character.affinities;
+    const cap = getAffinityCap(state);
+    let out = '';
+    // Anillos de fondo
+    out += `<circle cx="${cx}" cy="${cy}" r="${radius}" fill="none" stroke="#334155" stroke-dasharray="3 6" />`;
+    out += `<circle cx="${cx}" cy="${cy}" r="${radius * 0.6}" fill="none" stroke="#334155" stroke-dasharray="3 6" />`;
+    out += `<circle cx="${cx}" cy="${cy}" r="${radius * 0.3}" fill="none" stroke="#334155" stroke-dasharray="3 6" />`;
+    // Nodos por tag
+    const tags = ALL_TAGS;
+    for (let i = 0; i < tags.length; i++) {
+      const angle = (i / tags.length) * 2 * Math.PI - Math.PI / 2;
+      const x = cx + radius * Math.cos(angle);
+      const y = cy + radius * Math.sin(angle);
+      const value = aff[tags[i]] || 0;
+      const rel = Math.min(1, value / cap);
+      const size = 10 + rel * 24;
+      const color = TAG_COLORS[tags[i]] || '#4ecca3';
+      const opacity = value > 0 ? 1 : 0.35;
+      out += `<circle cx="${x}" cy="${y}" r="${size}" fill="${color}" opacity="${opacity}" stroke="#fff" stroke-width="${value > 0 ? 1.5 : 0.5}" />`;
+      out += `<text x="${x}" y="${y + size + 12}" text-anchor="middle" fill="#eee" font-size="11">${tags[i]}</text>`;
+      out += `<text x="${x}" y="${y + 3}" text-anchor="middle" fill="#000" font-weight="bold" font-size="10" font-family="monospace">${Math.round(value)}</text>`;
+    }
+    // Centro: nivel
+    out += `<circle cx="${cx}" cy="${cy}" r="42" fill="#0f172a" stroke="#4ecca3" stroke-width="2" />`;
+    out += `<text x="${cx}" y="${cy - 5}" text-anchor="middle" fill="#4ecca3" font-size="20" font-family="Orbitron" font-weight="bold">${state.character.level}</text>`;
+    out += `<text x="${cx}" y="${cy + 12}" text-anchor="middle" fill="#94a3b8" font-size="10">NIVEL</text>`;
+    svg.innerHTML = out;
+  }
+
+  // --- Panel derecho --------------------------------------------
+  function renderCatalog(state) {
+    let html = '';
+    for (const t of SKILL_TEMPLATES) {
+      const known = state.skills.some(sk => sk.tags.includes(t.tags[0]) || sk.name === t.name);
+      const tags = t.tags.map(tg => `<span style="color:${TAG_COLORS[tg] || '#fff'}">#${esc(tg)}</span>`).join(' ');
+      html += `<div class="node-card" style="opacity:${known ? 1 : 0.6}">
+        <div class="title"><span>${esc(t.name)}</span></div>
+        <div class="tags">${tags}</div>
+        <div class="effects">💥 ${t.base.damage} · ⚡ ${t.base.speed} · 🔋 ${t.base.costAmount} ${t.base.costType}</div>
+      </div>`;
+    }
+    $('catalog').innerHTML = html;
+  }
+
+  function renderLog(readModels) {
+    const log = readModels.log;
+    if (!log.length) {
+      $('logBox').innerHTML = '<div class="empty">Sin eventos.</div>';
+      return;
+    }
+    $('logBox').innerHTML = log.map(e => {
+      const t = new Date(e.ts).toISOString().slice(11, 19);
+      return `<div class="log-entry"><span class="ts">${t}</span>${esc(e.text)}</div>`;
+    }).join('');
+  }
+
+  // --- Handlers globales ----------------------------------------
+  function bindIntents() {
+    document.addEventListener('click', e => {
+      const target = e.target.closest('[data-action]');
+      if (!target) return;
+      const action = target.dataset.action;
+      switch (action) {
+        case 'seed-mode':
+          seedUI.mode = target.dataset.mode;
+          seedUI.selectedTags = [];
+          UI.render(engine.state, engine.projections());
+          break;
+        case 'seed-tag': {
+          if (seedUI.mode !== GAME_MODES.MANUAL) break;
+          const tag = target.dataset.tag;
+          const i = seedUI.selectedTags.indexOf(tag);
+          if (i >= 0) seedUI.selectedTags.splice(i, 1);
+          else if (seedUI.selectedTags.length < 2) seedUI.selectedTags.push(tag);
+          UI.render(engine.state, engine.projections());
+          break;
         }
-        const eventBus = new EventBus();
-
-        // ---------- 2. INFRAESTRUCTURA: RNG ----------
-        const Rng = {
-            int(min, max) { return Math.floor(Math.random() * (max - min + 1)) + min; },
-            pick(arr) { return arr[Math.floor(Math.random() * arr.length)]; },
-            chance(p) { return Math.random() < p; }
-        };
-
-        // ---------- 3. DOMINIO: TAGS Y GRAFO ----------
-        const AllTags = ['fuego', 'agua', 'hielo', 'rayo', 'tierra', 'naturaleza', 'aire', 'veneno', 'fisico', 'sangre',
-            'melee', 'proyectil', 'magia', 'tecnica', 'luz', 'sombra', 'caos'
-        ];
-        const Graph = {
-            fuego: ['magia', 'fisico', 'aire'],
-            agua: ['hielo', 'naturaleza', 'aire'],
-            hielo: ['agua', 'magia'],
-            rayo: ['magia', 'proyectil', 'aire'],
-            tierra: ['fisico', 'naturaleza'],
-            naturaleza: ['agua', 'tierra', 'veneno'],
-            aire: ['fuego', 'agua', 'rayo', 'proyectil'],
-            veneno: ['naturaleza', 'sangre', 'sombra'],
-            fisico: ['fuego', 'tierra', 'melee', 'sangre'],
-            sangre: ['fisico', 'veneno', 'melee'],
-            melee: ['fisico', 'sangre', 'tecnica'],
-            proyectil: ['rayo', 'aire', 'tecnica'],
-            magia: ['fuego', 'hielo', 'rayo', 'luz', 'sombra'],
-            tecnica: ['melee', 'proyectil'],
-            luz: ['magia'],
-            sombra: ['magia', 'veneno', 'caos'],
-            caos: ['sombra']
-        };
-
-        function tagDistance(tagA, tagB) {
-            if (tagA === tagB) return 0;
-            const queue = [
-                [tagA, 0]
-            ];
-            const visited = new Set([tagA]);
-            while (queue.length) {
-                const [current, dist] = queue.shift();
-                for (const n of (Graph[current] || [])) {
-                    if (n === tagB) return dist + 1;
-                    if (!visited.has(n)) { visited.add(n);
-                        queue.push([n, dist + 1]); }
-                }
-            }
-            return Infinity;
+        case 'seed-confirm': {
+          const mode = seedUI.mode;
+          if (mode === GAME_MODES.MANUAL) {
+            if (seedUI.selectedTags.length !== 2) return;
+            engine.chooseSeed(mode, seedUI.selectedTags);
+          } else {
+            engine.chooseSeed(mode);
+          }
+          seedUI.mode = null;
+          seedUI.selectedTags = [];
+          break;
         }
-
-        // ---------- 4. DOMINIO: HABILIDADES Y MUTADORES ----------
-        class Habilidad {
-            constructor(id, name, tags, base) {
-                this.id = id;
-                this.name = name;
-                this.tags = [...tags];
-                this.base = { ...base };
-                this.appliedMutators = [];
-                this.uses = 0;
-                this.impregnation = {};
-            }
-            computeStats() {
-                let stats = { ...this.base };
-                for (const mutId of this.appliedMutators) {
-                    const mut = Mutators.find(m => m.id === mutId);
-                    if (mut) stats = mut.apply(stats, this);
-                }
-                return stats;
-            }
-            applyMutator(mutId) {
-                const mut = Mutators.find(m => m.id === mutId);
-                if (!mut) return;
-                this.appliedMutators.push(mutId);
-                if (mut.tag) {
-                    this.impregnation[mut.tag] = (this.impregnation[mut.tag] || 0) + 1;
-                    if (this.impregnation[mut.tag] >= 3 && !this.tags.includes(mut.tag)) {
-                        this.tags.push(mut.tag);
-                        eventBus.emit('HabilidadImpregnada', { skill: this, tag: mut.tag });
-                    }
-                }
-            }
+        case 'train':      engine.trainAffinity(target.dataset.tag); break;
+        case 'attr':       engine.spendAttribute(target.dataset.attr); break;
+        case 'select': {
+          const id = target.dataset.skillId;
+          local.selectedSkillId = local.selectedSkillId === id ? null : id;
+          UI.render(engine.state, engine.projections());
+          break;
         }
-
-        const Mutators = [{
-            id: 'split',
-            name: 'Dividir',
-            tag: 'proyectil',
-            description: '+1 proyectil, -20% daño',
-            apply: (s) => ({ ...s, projectileCount: (s.projectileCount || 0) + 1, damage: Math.round(s.damage * 0.8) })
-        }, {
-            id: 'sangre',
-            name: 'Sangre',
-            tag: 'sangre',
-            description: 'Coste a vida, +30% daño',
-            apply: (s) => ({ ...s, costType: 'vida', costAmount: Math.round((s.costAmount || 0) * 1.2), damage: Math
-                    .round((s.damage || 0) * 1.3) })
-        }, {
-            id: 'veloz',
-            name: 'Veloz',
-            tag: 'rayo',
-            description: '+50% vel, -10% daño',
-            apply: (s) => ({ ...s, speed: Math.round((s.speed || 0) * 1.5), damage: Math.round((s.damage || 0) * 0.9) })
-        }, {
-            id: 'gigante',
-            name: 'Gigante',
-            tag: 'fisico',
-            description: '+50% daño, -30% vel',
-            apply: (s) => ({ ...s, damage: Math.round((s.damage || 0) * 1.5), speed: Math.round((s.speed || 0) * 0.7) })
-        }, {
-            id: 'arcano',
-            name: 'Arcano',
-            tag: 'magia',
-            description: '+40% daño si mágica, +15% si no',
-            apply: (s, skill) => ({ ...s, damage: Math.round((s.damage || 0) * (skill.tags.includes('magia') ? 1.4 :
-                    1.15)) })
-        }, {
-            id: 'toxina',
-            name: 'Toxina',
-            tag: 'veneno',
-            description: 'Añade veneno (DoT)',
-            apply: (s) => ({ ...s, poison: (s.poison || 0) + 1 })
-        }, {
-            id: 'aereo',
-            name: 'Aéreo',
-            tag: 'aire',
-            description: '+20% vel y empuje',
-            apply: (s) => ({ ...s, speed: Math.round((s.speed || 0) * 1.2), knockback: Math.round(((s.knockback || 0) +
-                    0.5) * 10) / 10 })
-        }];
-
-        const BaseSkills = [{
-            id: 'bola_fuego',
-            name: 'Bola de Fuego',
-            tags: ['fuego', 'magia', 'proyectil'],
-            base: { damage: 20, costType: 'maná', costAmount: 10, speed: 5, projectileCount: 1, area: 0,
-                penetration: 1, knockback: 0, duration: 0, range: 20, crit: 0.05 }
-        }, {
-            id: 'descarga_hielo',
-            name: 'Descarga de Hielo',
-            tags: ['hielo', 'magia', 'proyectil'],
-            base: { damage: 15, costType: 'maná', costAmount: 8, speed: 4, projectileCount: 1, area: 0,
-                penetration: 1, knockback: 0, duration: 0, range: 25, crit: 0.05 }
-        }, {
-            id: 'golpe_brutal',
-            name: 'Golpe Brutal',
-            tags: ['fisico', 'melee'],
-            base: { damage: 25, costType: 'aguante', costAmount: 5, speed: 2, projectileCount: 1, area: 0,
-                penetration: 1, knockback: 2, duration: 0, range: 3, crit: 0.10 }
-        }, {
-            id: 'cuchillo_sangriento',
-            name: 'Cuchillo Sangriento',
-            tags: ['sangre', 'fisico', 'melee'],
-            base: { damage: 18, costType: 'vida', costAmount: 5, speed: 3, projectileCount: 1, area: 0,
-                penetration: 1, knockback: 1, duration: 0, range: 2, crit: 0.15 }
-        }, {
-            id: 'rayo',
-            name: 'Rayo',
-            tags: ['rayo', 'magia', 'proyectil'],
-            base: { damage: 22, costType: 'maná', costAmount: 12, speed: 8, projectileCount: 1, area: 0,
-                penetration: 1, knockback: 0, duration: 0, range: 30, crit: 0.08 }
-        }, {
-            id: 'enredadera',
-            name: 'Enredadera',
-            tags: ['naturaleza', 'magia', 'proyectil'],
-            base: { damage: 10, costType: 'maná', costAmount: 6, speed: 3, projectileCount: 1, area: 1,
-                penetration: 1, knockback: 0, duration: 2, range: 15, crit: 0.05 }
-        }, {
-            id: 'vapulear',
-            name: 'Vapulear',
-            tags: ['aire', 'fisico', 'melee'],
-            base: { damage: 16, costType: 'aguante', costAmount: 6, speed: 4, projectileCount: 1, area: 2,
-                penetration: 1, knockback: 3, duration: 0, range: 3, crit: 0.10 }
-        }, {
-            id: 'nube_toxica',
-            name: 'Nube Tóxica',
-            tags: ['veneno', 'magia', 'proyectil'],
-            base: { damage: 12, costType: 'maná', costAmount: 9, speed: 2, projectileCount: 1, area: 3,
-                penetration: 1, knockback: 0, duration: 3, range: 10, crit: 0.05 }
-        }];
-
-        // ---------- 5. DOMINIO: RASGOS ----------
-        const Traits = [{
-            id: 'llamas_arcanas',
-            name: 'Llamas Arcanas',
-            condition: (aff) => aff.fuego >= 40 && aff.magia >= 40,
-            description: 'Habilidades de Fuego +15% quemadura.',
-            apply: (skill, stats) => { if (skill.tags.includes('fuego')) stats.burnChance = (stats.burnChance || 0) +
-                    0.15; return stats; }
-        }, {
-            id: 'frenesi',
-            name: 'Frenesí',
-            condition: (aff) => aff.sangre >= 50 && aff.fisico >= 30,
-            description: 'Melee/Sangre +30% daño condicional.',
-            apply: (skill, stats) => { if (skill.tags.includes('melee') || skill.tags.includes('sangre')) stats
-                    .conditionalDamageBonus = (stats.conditionalDamageBonus || 0) + 0.3; return stats; }
-        }, {
-            id: 'conductividad',
-            name: 'Conductividad',
-            condition: (aff) => aff.hielo >= 40 && aff.rayo >= 40,
-            description: 'Hielo deja charco que electrocuta.',
-            apply: (skill, stats) => { if (skill.tags.includes('hielo')) stats.electrocuteOnWet = true; return stats; }
-        }, {
-            id: 'corrosion',
-            name: 'Corrosión',
-            condition: (aff) => aff.veneno >= 40 && aff.sangre >= 30,
-            description: 'Veneno/Sangre roban vida extra.',
-            apply: (skill, stats) => { if (skill.tags.includes('veneno') || skill.tags.includes('sangre')) stats
-                    .lifeSteal = (stats.lifeSteal || 0) + 0.1; return stats; }
-        }];
-
-        // ---------- 6. ESTADO OBSERVABLE ----------
-        const CharacterState = {
-            level: 1,
-            xp: 0,
-            xpToNext: 20,
-            hp: 100,
-            maxHp: 100,
-            stability: 50,
-            maxStability: 100,
-            affinities: {},
-            skills: [],
-            offers: [],
-            traits: [],
-            catalizadores: 2,
-            catalystTypes: [],
-            trainingCounters: {},
-            selectedSkillIndex: null,
-            fusionSelections: [null, null],
-            inventory: [],
-        };
-        AllTags.forEach(tag => CharacterState.affinities[tag] = 0);
-
-        // Máximo global de afinidad = 20 + nivel * 5
-        function getMaxAffinity() { return 20 + CharacterState.level * 5; }
-
-        const stateProxy = new Proxy(CharacterState, {
-            set(target, prop, value) {
-                target[prop] = value;
-                const events = {
-                    skills: 'HabilidadesActualizadas',
-                    selectedSkillIndex: 'HabilidadesActualizadas',
-                    offers: 'OfertasActualizadas',
-                    affinities: 'AfinidadesActualizadas',
-                    traits: 'RasgosActualizados',
-                    hp: 'StatsActualizados',
-                    maxHp: 'StatsActualizados',
-                    stability: 'StatsActualizados',
-                    maxStability: 'StatsActualizados',
-                    level: 'StatsActualizados',
-                    xp: 'StatsActualizados',
-                    xpToNext: 'StatsActualizados',
-                    catalizadores: 'CatalizadoresActualizados',
-                    catalystTypes: 'CatalizadoresActualizados',
-                    fusionSelections: 'FusionSeleccionActualizada',
-                    inventory: 'InventarioActualizado'
-                };
-                if (events[prop]) eventBus.emit(events[prop], {});
-                return true;
-            }
-        });
-
-        // ---------- 7. GESTIÓN DE AFINIDADES (NUEVA LÓGICA) ----------
-        const AffinityManager = {
-            // Pesos para cada tag en orden de aparición (1.0, 0.6, 0.3, 0.15)
-            weights: [1.0, 0.6, 0.3, 0.15],
-
-            train(skill) {
-                const gains = {};
-                const maxAff = getMaxAffinity();
-                // Recorrer tags de la habilidad con sus pesos
-                const tags = skill.tags;
-                const uses = stateProxy.trainingCounters[skill.id] || 0;
-                const baseMult = uses < 5 ? 1.0 : uses < 10 ? 0.75 : uses < 15 ? 0.5 : 0.25;
-
-                for (let i = 0; i < tags.length && i < this.weights.length; i++) {
-                    const tag = tags[i];
-                    const weight = this.weights[i];
-                    const current = stateProxy.affinities[tag] || 0;
-                    // Ganancia relativa al tope (catch-up)
-                    const relative = (maxAff - current) / maxAff; // 1 si está a 0, 0 si está en tope
-                    const rawGain = baseMult * weight * relative * 0.8; // 0.8 factor base
-                    // Redondear a 2 decimales
-                    let gain = Math.round(rawGain * 100) / 100;
-                    // No permitir que supere el máximo global
-                    const newValue = Math.min(maxAff, current + gain);
-                    gain = newValue - current;
-                    if (gain > 0) {
-                        stateProxy.affinities[tag] = newValue;
-                        gains[tag] = (gains[tag] || 0) + gain;
-                    }
-                }
-                stateProxy.trainingCounters[skill.id] = uses + 1;
-                eventBus.emit('AfinidadesActualizadas', { gains });
-                // Comprobar rasgos después de cada entrenamiento
-                checkTraits();
-                return gains;
-            }
-        };
-
-        // ---------- 8. RASGOS (comprobación automática) ----------
-        function checkTraits() {
-            const unlocked = [];
-            Traits.forEach(trait => {
-                if (trait.condition(stateProxy.affinities) && !stateProxy.traits.includes(trait.id)) {
-                    stateProxy.traits.push(trait.id);
-                    unlocked.push(trait);
-                }
-            });
-            if (unlocked.length) eventBus.emit('RasgoDesbloqueado', { traits: unlocked });
+        case 'attack':     engine.castSkill(target.dataset.skillId); break;
+        case 'fusion-toggle': {
+          const id = target.dataset.skillId;
+          const pos = local.fusionSelection.indexOf(id);
+          if (pos >= 0) local.fusionSelection[pos] = null;
+          else {
+            const empty = local.fusionSelection.indexOf(null);
+            if (empty >= 0) local.fusionSelection[empty] = id;
+            else local.fusionSelection = [id, null];
+          }
+          UI.render(engine.state, engine.projections());
+          break;
         }
-
-        // ---------- 9. MUTADORES Y OFERTAS ----------
-        function generateOffers() {
-            const shuffled = [...Mutators].sort(() => Math.random() - 0.5);
-            stateProxy.offers = shuffled.slice(0, 3).map(m => m.id);
-            // Catalizadores tipos (2 aleatorios)
-            const pool = ['fuego', 'agua', 'hielo', 'rayo', 'tierra', 'naturaleza', 'aire', 'veneno', 'fisico', 'sangre',
-                'melee', 'proyectil', 'magia', 'tecnica', 'luz', 'sombra', 'caos'
-            ];
-            const types = [];
-            for (let i = 0; i < 2; i++) {
-                const t = Rng.pick(pool);
-                if (!types.includes(t)) types.push(t);
-            }
-            stateProxy.catalystTypes = types;
+        case 'apply-mutator': {
+          if (!local.selectedSkillId) return;
+          engine.applyMutator(local.selectedSkillId, target.dataset.mutatorId);
+          break;
         }
+        case 'use-potion':
+          engine.usePotion(target.dataset.itemId);
+          break;
+      }
+    });
 
-        function applyMutatorToSkill(mutId, skillIndex) {
-            const skill = stateProxy.skills[skillIndex];
-            if (!skill || !stateProxy.offers.includes(mutId)) return;
-            const mut = Mutators.find(m => m.id === mutId);
-            if (!mut) return;
-            // Estabilidad solo se ve afectada si la distancia es grande (soft penalty)
-            const dist = tagDistance(skill.tags[0] || '', mut.tag || '');
-            if (dist >= 4) stateProxy.stability = Math.max(0, stateProxy.stability - 5);
-            else if (dist === 1) stateProxy.stability = Math.min(stateProxy.maxStability, stateProxy.stability + 2);
-            skill.applyMutator(mutId);
-            stateProxy.offers = stateProxy.offers.filter(id => id !== mutId);
-            stateProxy.selectedSkillIndex = null;
-            eventBus.emit('MutadorAplicado', { skill, mut, distance: dist });
-            eventBus.emit('Log', { text: `Aplicado ${mut.name} a ${skill.name}` });
-            eventBus.emit('HabilidadesActualizadas', {});
-            eventBus.emit('OfertasActualizadas', {});
+    $('btnRest').addEventListener('click', () => engine.rest());
+    $('btnReincarnate').addEventListener('click', () => {
+      if (engine.state.character.level < BALANCE.REINCARNATION_LEVEL) {
+        toast(`Necesitas nivel ${BALANCE.REINCARNATION_LEVEL}`, 'warn');
+        return;
+      }
+      if (confirm(`¿Reencarnar? Conservas ${BALANCE.REINCARNATION_KEEP * 100}% de afinidades.`)) {
+        engine.reincarnate();
+        toast('♻ Has reencarnado', 'info');
+      }
+    });
+    $('btnRebuild').addEventListener('click', () => {
+      engine.rebuild();
+      toast('↻ Reconstruido desde el log', 'info');
+    });
+    $('btnHardReset').addEventListener('click', () => {
+      if (confirm('¿Borrar TODO el progreso?')) {
+        engine.hardReset();
+        toast('✖ Reinicio duro', 'warn');
+      }
+    });
+
+    $('btnAttackSelected').addEventListener('click', () => {
+      if (!local.selectedSkillId) {
+        toast('Selecciona una skill primero', 'warn');
+        return;
+      }
+      engine.castSkill(local.selectedSkillId);
+    });
+    $('btnAttackAll').addEventListener('click', () => {
+      if (!engine.state.skills.length) return;
+      let delay = 0;
+      for (const sk of engine.state.skills) {
+        setTimeout(() => engine.castSkill(sk.id), delay);
+        delay += 400;
+      }
+    });
+    $('btnResetEnemy').addEventListener('click', () => {
+      // No es un comando público; forzamos un spawn emitiendo ENEMY_SPAWNED
+      // vía un método del engine que ya existe como `_spawnEnemy`. Para no
+      // exponerlo, usamos un pequeño truco: emitimos un evento de reset
+      // indirecto. Mejor añadimos un comando público.
+      toast('El enemigo se regenera al morir', 'info');
+    });
+
+    $('btnFusion').addEventListener('click', () => {
+      const [a, b] = local.fusionSelection;
+      if (!a || !b) return;
+      const options = engine.previewFusion(a, b);
+      if (!options) { toast('No puedes fusionar (XP insuficiente o selección inválida)', 'error'); return; }
+      local.pendingFusion = { a, b, options };
+      showFusionModal(options);
+    });
+    $('btnCancelFusion').addEventListener('click', () => {
+      local.pendingFusion = null;
+      hideFusionModal();
+    });
+
+    // Tabs
+    const tabs = [
+      ['tabSkills', 'viewSkills'],
+      ['tabMutators', 'viewMutators'],
+      ['tabFusion', 'viewFusion'],
+      ['tabTree', 'viewTree'],
+    ];
+    for (const [tabId, viewId] of tabs) {
+      $(tabId).addEventListener('click', () => {
+        for (const [t, v] of tabs) {
+          $(t).classList.toggle('active', t === tabId);
+          $(v).style.display = v === viewId ? '' : 'none';
         }
+        if (viewId === 'viewTree') renderTree(engine.state);
+      });
+    }
+  }
 
-        // ---------- 10. FUSIÓN ----------
-        let pendingFusion = null;
-
-        function generateFusionOptions(skillA, skillB) {
-            const combinedTags = [...new Set([...skillA.tags, ...skillB.tags])];
-            const createCandidate = () => {
-                let tags = combinedTags;
-                if (tags.length > 4) tags = [...tags].sort(() => Math.random() - 0.5).slice(0, 4);
-                const baseA = skillA.base,
-                    baseB = skillB.base;
-                const hybridBase = {};
-                const keys = new Set([...Object.keys(baseA), ...Object.keys(baseB)]);
-                keys.forEach(key => {
-                    const va = baseA[key] || 0,
-                        vb = baseB[key] || 0;
-                    hybridBase[key] = (typeof va === 'number' && typeof vb === 'number') ? Math.round((va + vb) /
-                        2) : (va || vb);
-                });
-                const newSkill = new Habilidad(
-                    `fusion_${Date.now()}_${Math.random().toString(36).substr(2,5)}`,
-                    'Fusión',
-                    tags,
-                    hybridBase
-                );
-                const allMutIds = [...new Set([...skillA.appliedMutators, ...skillB.appliedMutators])];
-                const compatible = allMutIds.filter(mid => {
-                    const m = Mutators.find(mm => mm.id === mid);
-                    return m && tags.includes(m.tag);
-                });
-                const transfer = Math.min(2, compatible.length);
-                if (transfer > 0) {
-                    const shuffled = [...compatible].sort(() => Math.random() - 0.5).slice(0, transfer);
-                    newSkill.appliedMutators.push(...shuffled);
-                }
-                return newSkill;
-            };
-            const opt1 = createCandidate();
-            let opt2 = createCandidate();
-            let attempts = 0;
-            while (JSON.stringify(opt1.tags) === JSON.stringify(opt2.tags) && attempts < 10) {
-                opt2 = createCandidate();
-                attempts++;
-            }
-            return [opt1, opt2];
+  function showFusionModal(options) {
+    const container = $('fusionOptions');
+    container.innerHTML = options.map((opt, i) => {
+      const stats = getSkillStats(opt);
+      const tags = opt.tags.map(t => `<span style="color:${TAG_COLORS[t] || '#fff'}">#${esc(t)}</span>`).join(' ');
+      return `<div class="fusion-option" data-action="pick-fusion" data-index="${i}">
+        <h4 style="margin-bottom:0.3rem;">${esc(opt.name)}</h4>
+        <div style="font-size:0.7rem;color:var(--muted);margin-bottom:0.3rem;">${tags}</div>
+        <div class="stats-row">
+          <span class="stat-chip">💥 ${stats.damage}</span>
+          <span class="stat-chip">⚡ ${stats.speed}</span>
+          <span class="stat-chip">🔢 ${stats.projectiles}</span>
+          <span class="stat-chip">📏 ${stats.range}</span>
+        </div>
+        ${opt.appliedMutators.length ? `<div style="font-size:0.68rem;color:var(--accent);margin-top:0.3rem;">✎ ${opt.appliedMutators.map(mid => MUTATORS.find(m => m.id === mid)?.name || mid).join(', ')}</div>` : ''}
+      </div>`;
+    }).join('');
+    container.querySelectorAll('[data-action="pick-fusion"]').forEach(el => {
+      el.addEventListener('click', () => {
+        const i = parseInt(el.dataset.index, 10);
+        const pf = local.pendingFusion;
+        if (!pf) return;
+        const res = engine.commitFusion(pf.a, pf.b, pf.options[i]);
+        if (res) {
+          const lost = res.removeIds.length;
+          toast(`🔮 ${pf.options[i].name} · d6=${res.roll} · perdidas ${lost}`, 'info');
         }
+        local.pendingFusion = null;
+        local.fusionSelection = [null, null];
+        hideFusionModal();
+      });
+    });
+    $('fusionModal').style.display = 'flex';
+  }
 
-        function initiateFusion(idxA, idxB) {
-            if (idxA === idxB) return;
-            if (stateProxy.xp < 50) { eventBus.emit('Mensaje', { text: 'Necesitas 50 XP.' }); return; }
-            if (stateProxy.catalizadores <= 0) { eventBus.emit('Mensaje', { text: 'Sin catalizadores.' }); return; }
-            const skillA = stateProxy.skills[idxA],
-                skillB = stateProxy.skills[idxB];
-            if (!skillA || !skillB) return;
-            const options = generateFusionOptions(skillA, skillB);
-            pendingFusion = { skillA, skillB, idxA, idxB, options };
-            showFusionModal(options);
-        }
+  function hideFusionModal() { $('fusionModal').style.display = 'none'; }
 
-        function completeFusion(optionIndex) {
-            if (!pendingFusion) return;
-            const { skillA, skillB, idxA, idxB, options } = pendingFusion;
-            const newSkill = options[optionIndex];
-            stateProxy.xp -= 50;
-            stateProxy.catalizadores--;
-            stateProxy.stability = Math.max(0, stateProxy.stability - 10);
-            const roll = Rng.int(1, 3);
-            let removeA = false,
-                removeB = false;
-            if (roll === 2) { const d2 = Rng.int(0, 1); if (d2 === 0) removeA = true;
-                else removeB = true; } else if (roll === 3) { removeA = true;
-                removeB = true; }
-            stateProxy.skills.push(newSkill);
-            if (removeA && removeB) stateProxy.skills = stateProxy.skills.filter((_, i) => i !== idxA && i !== idxB);
-            else if (removeA) stateProxy.skills = stateProxy.skills.filter((_, i) => i !== idxA);
-            else if (removeB) stateProxy.skills = stateProxy.skills.filter((_, i) => i !== idxB);
-            stateProxy.fusionSelections = [null, null];
-            hideFusionModal();
-            UI.highlightNewSkill(newSkill.id);
-            eventBus.emit('FusionCompletada', { newSkill, roll, removeA, removeB });
-            eventBus.emit('Log', { text: `Fusión: ${newSkill.name}. d3: ${roll}.` });
-            eventBus.emit('HabilidadesActualizadas', {});
-            pendingFusion = null;
-        }
+  // --- Render completo ------------------------------------------
+  function render(state, readModels) {
+    renderCharacter(state, readModels.sheet);
+    renderTitle(readModels);
+    renderSeed(state);
+    renderAttributes(state);
+    renderAffinities(state, readModels.affinityCap);
+    renderTraits(state);
+    renderInventory(state);
+    renderSkills(state);
+    renderOffers(readModels);
+    renderFusion(state);
+    renderProgress(state);
+    renderCatalog(state);
+    renderLog(readModels);
+    renderCombatLog(readModels);
+    renderEnemy();
+    if ($('viewTree').style.display !== 'none') renderTree(state);
+  }
 
-        // ---------- 11. COMBATE, ENEMIGOS Y RESISTENCIAS ----------
-        const combatState = {
-            enemy: null,
-            autoInterval: null,
-            isAuto: false
-        };
+  return { render, bindIntents, toast };
+})();
 
-        function spawnEnemy(level) {
-            const names = ['Goblin', 'Orco', 'Esqueleto', 'Demonio', 'Araña', 'Espectro'];
-            const isBoss = level % 5 === 0;
-            const baseHp = isBoss ? 50 + level * 10 : 20 + level * 5;
-            // Asignar 1-2 resistencias aleatorias (tags)
-            const resistCount = Rng.int(1, 2);
-            const resistances = [];
-            const pool = AllTags.filter(t => !['fisico', 'magia', 'tecnica'].includes(t)); // evitar tags muy genéricos
-            for (let i = 0; i < resistCount; i++) {
-                const r = Rng.pick(pool);
-                if (!resistances.includes(r)) resistances.push(r);
-            }
-            combatState.enemy = {
-                name: isBoss ? `Jefe ${names[level % names.length]}` : names[level % names.length],
-                hp: baseHp,
-                maxHp: baseHp,
-                level: level,
-                isBoss: isBoss,
-                damage: isBoss ? 10 + level : 5 + level,
-                resistances: resistances
-            };
-            updateEnemyUI();
-            addCombatLog(`⚠️ Aparece ${combatState.enemy.name} (Nv. ${level})`);
-            if (resistances.length) {
-                addCombatLog(`🛡️ Resistencias: ${resistances.join(', ')}`);
-            }
-        }
 
-        function attackEnemy(skillIndex) {
-            const skill = stateProxy.skills[skillIndex];
-            if (!skill) return;
-            const stats = skill.computeStats();
-            let damage = stats.damage || 10;
-            const enemy = combatState.enemy;
-            if (!enemy || enemy.hp <= 0) {
-                addCombatLog('No hay enemigo o ya está muerto.');
-                return;
-            }
-            // Aplicar resistencias: si el enemigo tiene alguna tag que coincida con las de la habilidad, reduce daño 30%
-            const hasResistance = skill.tags.some(t => enemy.resistances.includes(t));
-            if (hasResistance) {
-                damage = Math.round(damage * 0.7);
-                addCombatLog(`🛡️ Resistencia: daño reducido a ${damage}.`);
-            }
-            // Aplicar daño
-            enemy.hp = Math.max(0, enemy.hp - damage);
-            updateEnemyUI();
-            addCombatLog(`⚡ Usaste ${skill.name} → ${damage} de daño.`);
+/* ============================================================================
+ * 11. BOOTSTRAP
+ * ----------------------------------------------------------------------------
+ * Composición del grafo de dependencias y arranque. Único sitio donde se
+ * decide qué adaptador concreto se usa para cada puerto.
+ * ========================================================================== */
 
-            // Entrenar afinidad al atacar (¡esto es clave!)
-            const gains = AffinityManager.train(skill);
-            eventBus.emit('Log', { text: `+${Object.values(gains).reduce((a,b)=>a+b,0).toFixed(2)} afinidad.` });
+const engine = new GameEngine({
+  eventStore: new LocalStorageEventStore('torreOscura_v13_log'),
+  snapshot:   new LocalStorageSnapshot('torreOscura_v13_snapshot'),
+  clock:      new SystemClock(),
+  random:     new MathRandom(),
+  logger:     new ConsoleLogger(),
+});
 
-            if (enemy.hp <= 0) {
-                addCombatLog(`💀 ¡${enemy.name} derrotado!`);
-                const xpGain = 10 + enemy.level * 2;
-                gainXP(xpGain);
-                // Loot: 30% poción de vida, 20% poción de estabilidad
-                if (Rng.chance(0.3)) {
-                    const pot = { id: `pocion_vida_${Date.now()}`, name: 'Poción de Vida', type: 'consumable',
-                        effect: 'heal_hp', value: 20 };
-                    stateProxy.inventory.push(pot);
-                    addCombatLog(`🧪 Recibes ${pot.name} (+${pot.value} vida)`);
-                }
-                if (Rng.chance(0.2)) {
-                    const pot = { id: `pocion_estab_${Date.now()}`, name: 'Poción de Estabilidad', type: 'consumable',
-                        effect: 'heal_stability', value: 15 };
-                    stateProxy.inventory.push(pot);
-                    addCombatLog(`🧪 Recibes ${pot.name} (+${pot.value} estabilidad)`);
-                }
-                eventBus.emit('InventarioActualizado', {});
-                spawnEnemy(stateProxy.level);
-                return;
-            }
-            // Contraataque
-            const enemyDamage = enemy.damage;
-            stateProxy.hp = Math.max(0, stateProxy.hp - enemyDamage * 0.5);
-            addCombatLog(`💢 ${enemy.name} contraataca (${Math.round(enemyDamage*0.5)} daño).`);
-            eventBus.emit('StatsActualizados', {});
-        }
+// Arrancar (idempotente)
+engine.startGame();
 
-        function gainXP(amount) {
-            stateProxy.xp += amount;
-            while (stateProxy.xp >= stateProxy.xpToNext) {
-                stateProxy.xp -= stateProxy.xpToNext;
-                stateProxy.level++;
-                stateProxy.xpToNext = Math.floor(stateProxy.xpToNext * 1.5);
-                // Subir de nivel aumenta vida máxima y estabilidad máxima ligeramente
-                stateProxy.maxHp = Math.floor(100 + stateProxy.level * 5);
-                stateProxy.maxStability = Math.floor(100 + stateProxy.level * 3);
-                stateProxy.hp = Math.min(stateProxy.hp + 20, stateProxy.maxHp);
-                stateProxy.stability = Math.min(stateProxy.stability + 10, stateProxy.maxStability);
-                generateOffers();
-                eventBus.emit('NivelSubido', { level: stateProxy.level });
-                eventBus.emit('Log', { text: `¡Subiste al nivel ${stateProxy.level}!` });
-            }
-            eventBus.emit('StatsActualizados', {});
-        }
+// Suscripción de estado: repinta toda la UI
+engine.subscribe((state) => {
+  UI.render(state, engine.projections());
+});
 
-        function updateEnemyUI() {
-            const e = combatState.enemy;
-            if (e) {
-                document.getElementById('enemyName').textContent = e.name;
-                document.getElementById('enemyLevel').textContent = e.level;
-                document.getElementById('enemyHp').textContent = Math.round(e.hp);
-                document.getElementById('enemyMaxHp').textContent = Math.round(e.maxHp);
-                const pct = (e.hp / e.maxHp) * 100;
-                document.getElementById('enemyHpFill').style.width = Math.max(0, pct) + '%';
-                document.getElementById('enemyResistances').textContent = e.resistances.length ? e.resistances.join(', ') :
-                    'ninguna';
-            }
-        }
+// Suscripción de eventos: sólo se usan para animaciones reactivas
+engine.subscribeEvents((ev) => {
+  if (ev.type === 'SkillCast') UI.toast && null; // sin toast para evitar ruido
+  if (ev.type === 'SkillCast') {
+    // Animamos el casteo en la arena (el evento lleva hits y tag primario)
+    try {
+      const svg = document.getElementById('arenaSvg');
+      if (svg) {
+        // Reutilizamos la lógica de animación vía un pequeño puente
+        // que lee del evento y dibuja. La animación ya está encapsulada
+        // en UI; aquí solo disparamos el pistoletazo.
+        window.dispatchEvent(new CustomEvent('torre:skillcast', { detail: ev }));
+      }
+    } catch (e) { /* no crítico */ }
+  }
+});
 
-        function addCombatLog(msg) {
-            const log = document.getElementById('combatLog');
-            const entry = document.createElement('div');
-            entry.textContent = msg;
-            log.prepend(entry);
-            while (log.children.length > 20) log.removeChild(log.lastChild);
-        }
+// Puente entre eventos y animación: la UI escucha el CustomEvent y ejecuta.
+window.addEventListener('torre:skillcast', (e) => {
+  const ev = e.detail;
+  // Delegamos a la UI: como la función de animación es privada, exponemos
+  // un pequeño hook público. Alternativa: hacer `animateSkillCast` pública.
+  // Por simplicidad lo hacemos desde aquí con el mismo formato de datos.
+  try {
+    const { hits, primaryTag } = ev.payload;
+    // Reutilizamos utilidades ya definidas en el scope global del script
+    // (UI no las expone, así que replicamos la parte mínima aquí).
+    // En una app real esto estaría dentro de UI y expondríamos `UI.animate`.
+    window.__animarSkillCast && window.__animarSkillCast(ev);
+  } catch (err) { /* no crítico */ }
+});
 
-        // ---------- 12. UI ----------
-        const UI = {
-            init() {
-                this.skillsList = document.getElementById('skillsList');
-                this.offersList = document.getElementById('offersList');
-                this.affinityList = document.getElementById('affinityList');
-                this.traitsList = document.getElementById('traitsList');
-                this.message = document.getElementById('message');
-                this.level = document.getElementById('level');
-                this.xp = document.getElementById('xp');
-                this.xpToNext = document.getElementById('xpToNext');
-                this.hp = document.getElementById('hp');
-                this.maxHp = document.getElementById('maxHp');
-                this.hpFill = document.getElementById('hpFill');
-                this.stability = document.getElementById('stability');
-                this.maxStability = document.getElementById('maxStability');
-                this.stabilityFill = document.getElementById('stabilityFill');
-                this.fuseSlot1 = document.getElementById('fuseSlot1');
-                this.fuseSlot2 = document.getElementById('fuseSlot2');
-                this.catalizadoresSpan = document.getElementById('catalizadores');
-                this.logList = document.getElementById('logList');
-                this.inventoryList = document.getElementById('inventoryList');
-                this.totalAffinity = document.getElementById('totalAffinity');
-                this.maxAffinity = document.getElementById('maxAffinity');
+UI.bindIntents();
+UI.render(engine.state, engine.projections());
 
-                // Botones
-                document.getElementById('btnNuevaHabilidad').addEventListener('click', () => {
-                    if (stateProxy.xp >= 30) {
-                        const template = Rng.pick(BaseSkills);
-                        const newSkill = new Habilidad(`${template.id}_${Date.now()}`, template.name, [...template
-                            .tags
-                        ], { ...template.base });
-                        stateProxy.skills.push(newSkill);
-                        stateProxy.xp -= 30;
-                        eventBus.emit('Log', { text: `Nueva habilidad: ${newSkill.name}` });
-                        eventBus.emit('HabilidadesActualizadas', {});
-                    } else {
-                        eventBus.emit('Mensaje', { text: 'Necesitas 30 XP.' });
-                    }
-                });
+// API de diagnóstico en consola
+window.__torre = {
+  engine,
+  state: () => engine.state,
+  events: () => engine.eventStore.all(),
+  rebuild: () => engine.rebuild(),
+  reset: () => engine.hardReset(),
+  simulate: (skillId) => {
+    const skill = engine.state.skills.find(s => s.id === skillId);
+    if (!skill) return null;
+    const enemy = engine.state.combat.enemy || { hp: 500, maxHp: 500, resistances: [] };
+    return simulateSkillCast(engine.state, skill, enemy, { random: engine.random });
+  },
+  castAll: () => {
+    for (const sk of engine.state.skills) {
+      console.log(`⚔ ${sk.name}:`, engine.castSkill(sk.id));
+    }
+  },
+};
 
-                document.getElementById('btnReset').addEventListener('click', () => {
-                    if (confirm('¿Reiniciar personaje?')) resetGame();
-                });
+console.info(
+  '%c⬡ Torre Oscura v13 · Arena + Repertorio + Combate',
+  'color:#e94560;font-weight:bold;font-size:14px;'
+);
+console.info('__torre.state() → estado completo');
+console.info('__torre.events() → log de eventos');
+console.info('__torre.simulate(skillId) → simula un casteo sin aplicar');
+console.info('__torre.castAll() → castea todas las skills contra el enemigo actual');
+console.info('__torre.rebuild() → reconstruye desde el log');
+</script>
 
-                document.getElementById('btnDescansar').addEventListener('click', () => {
-                    if (stateProxy.xp >= 20) {
-                        stateProxy.xp -= 20;
-                        stateProxy.hp = Math.min(stateProxy.maxHp, stateProxy.hp + 10);
-                        stateProxy.stability = Math.min(stateProxy.maxStability, stateProxy.stability + 10);
-                        eventBus.emit('Log', { text: 'Descansaste. +10 vida y +10 estabilidad.' });
-                        eventBus.emit('StatsActualizados', {});
-                    } else {
-                        eventBus.emit('Mensaje', { text: 'Necesitas 20 XP.' });
-                    }
-                });
-
-                document.getElementById('btnFusion').addEventListener('click', () => {
-                    const [a, b] = stateProxy.fusionSelections;
-                    if (a !== null && b !== null) initiateFusion(a, b);
-                    else eventBus.emit('Mensaje', { text: 'Selecciona dos habilidades.' });
-                });
-
-                document.getElementById('btnCancelFusion').addEventListener('click', () => {
-                    hideFusionModal();
-                    pendingFusion = null;
-                });
-
-                document.getElementById('attackBtn').addEventListener('click', () => {
-                    const idx = stateProxy.selectedSkillIndex;
-                    if (idx === null || idx >= stateProxy.skills.length) {
-                        eventBus.emit('Mensaje', { text: 'Selecciona una habilidad (clic en tarjeta).' });
-                        return;
-                    }
-                    attackEnemy(idx);
-                });
-
-                document.getElementById('autoBtn').addEventListener('click', () => {
-                    if (combatState.isAuto) {
-                        clearInterval(combatState.autoInterval);
-                        combatState.isAuto = false;
-                        document.getElementById('autoBtn').textContent = '🤖 Auto-combate';
-                        return;
-                    }
-                    combatState.isAuto = true;
-                    document.getElementById('autoBtn').textContent = '⏹️ Detener';
-                    combatState.autoInterval = setInterval(() => {
-                        if (stateProxy.skills.length === 0) return;
-                        const randIdx = Math.floor(Math.random() * stateProxy.skills.length);
-                        attackEnemy(randIdx);
-                    }, 1500);
-                });
-
-                // Tabs
-                const tabs = ['Mutadores', 'Fusion', 'Combate', 'Inventario'];
-                tabs.forEach(tab => {
-                    document.getElementById(`tab${tab}`).addEventListener('click', () => {
-                        document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-                        document.getElementById(`tab${tab}`).classList.add('active');
-                        document.querySelectorAll('[id^="tabContent"]').forEach(el => el.style.display =
-                        'none');
-                        document.getElementById(`tabContent${tab}`).style.display = 'block';
-                    });
-                });
-
-                // Eventos
-                eventBus.on('HabilidadesActualizadas', () => this.renderSkills());
-                eventBus.on('OfertasActualizadas', () => this.renderOffers());
-                eventBus.on('AfinidadesActualizadas', () => this.renderAfinities());
-                eventBus.on('RasgosActualizados', () => this.renderTraits());
-                eventBus.on('StatsActualizados', () => this.renderCharacterInfo());
-                eventBus.on('CatalizadoresActualizados', () => this.renderCatalizadores());
-                eventBus.on('FusionSeleccionActualizada', () => this.updateFusionSlots());
-                eventBus.on('InventarioActualizado', () => this.renderInventory());
-                eventBus.on('Mensaje', (data) => this.showMessage(data.text));
-                eventBus.on('Log', (data) => this.addLog(data.text));
-                eventBus.on('HabilidadImpregnada', (data) => {
-                    this.addLog(`${data.skill.name} ganó la etiqueta ${data.tag}!`);
-                    this.renderSkills();
-                });
-                eventBus.on('MutadorAplicado', () => { this.renderSkills();
-                    this.renderOffers(); });
-                eventBus.on('NivelSubido', () => {
-                    this.renderCharacterInfo();
-                    this.renderAfinities();
-                });
-
-                this.renderAll();
-                spawnEnemy(1);
-            },
-
-            renderAll() {
-                this.renderSkills();
-                this.renderOffers();
-                this.renderAfinities();
-                this.renderTraits();
-                this.renderCharacterInfo();
-                this.renderCatalizadores();
-                this.updateFusionSlots();
-                this.renderInventory();
-            },
-
-            renderSkills() {
-                this.skillsList.innerHTML = '';
-                stateProxy.skills.forEach((skill, idx) => {
-                    const stats = skill.computeStats();
-                    const card = document.createElement('div');
-                    card.className = 'skill-card';
-                    if (stateProxy.selectedSkillIndex === idx) card.classList.add('selected');
-                    if (stateProxy.fusionSelections.includes(idx)) card.classList.add('fusion-slot');
-                    card.dataset.index = idx;
-                    card.dataset.skillId = skill.id;
-                    card.innerHTML = `
-                        <strong>${skill.name}</strong>
-                        <div class="tags">${skill.tags.map(t => `#${t}`).join(' ')}</div>
-                        <div class="stat-row">
-                            <span class="stat">💥 ${stats.damage}</span>
-                            <span class="stat">🔋 ${stats.costAmount} ${stats.costType}</span>
-                            <span class="stat">⚡ ${stats.speed}</span>
-                            <span class="stat">🔢 ${stats.projectileCount}</span>
-                            <span class="stat">📏 ${stats.range}</span>
-                            ${stats.area > 0 ? `<span class="stat">🌍 ${stats.area}</span>` : ''}
-                            ${stats.crit ? `<span class="stat">🎯 ${Math.round(stats.crit*100)}%</span>` : ''}
-                        </div>
-                        ${skill.appliedMutators.length ? `<div style="font-size:0.75rem;color:var(--accent)">Mutado: ${skill.appliedMutators.join(', ')}</div>` : ''}
-                        <div style="display:flex; gap:0.3rem; margin-top:0.4rem;">
-                            <button class="action-btn" data-action="entrenar" data-index="${idx}">📈 Entrenar</button>
-                            <button class="action-btn secondary" data-action="fusion" data-index="${idx}">➕ Fusion</button>
-                        </div>
-                    `;
-                    card.addEventListener('click', (e) => {
-                        if (e.target.tagName === 'BUTTON') return;
-                        stateProxy.selectedSkillIndex = (stateProxy.selectedSkillIndex === idx) ? null : idx;
-                        this.renderSkills();
-                    });
-                    card.querySelector('[data-action="entrenar"]').addEventListener('click', (e) => {
-                        e.stopPropagation();
-                        const gains = AffinityManager.train(skill);
-                        gainXP(5); // entrenar también da XP
-                        eventBus.emit('Log', { text: `Entrenaste ${skill.name}. Afinidad +${Object.values(gains).reduce((a,b)=>a+b,0).toFixed(2)}` });
-                        eventBus.emit('HabilidadesActualizadas', {});
-                        eventBus.emit('StatsActualizados', {});
-                    });
-                    card.querySelector('[data-action="fusion"]').addEventListener('click', (e) => {
-                        e.stopPropagation();
-                        this.toggleFusionSelection(idx);
-                    });
-                    this.skillsList.appendChild(card);
-                });
-                if (!stateProxy.skills.length) this.skillsList.innerHTML = '<p class="info-text">Sin habilidades. Genera una.</p>';
-            },
-
-            toggleFusionSelection(idx) {
-                const pos = stateProxy.fusionSelections.indexOf(idx);
-                if (pos !== -1) stateProxy.fusionSelections[pos] = null;
-                else {
-                    const empty = stateProxy.fusionSelections.indexOf(null);
-                    if (empty !== -1) stateProxy.fusionSelections[empty] = idx;
-                    else { stateProxy.fusionSelections[0] = idx;
-                        stateProxy.fusionSelections[1] = null; }
-                }
-                eventBus.emit('FusionSeleccionActualizada', {});
-                this.renderSkills();
-            },
-
-            updateFusionSlots() {
-                const [a, b] = stateProxy.fusionSelections;
-                this.fuseSlot1.textContent = a !== null ? stateProxy.skills[a]?.name || 'Habilidad A' : 'Habilidad A';
-                this.fuseSlot2.textContent = b !== null ? stateProxy.skills[b]?.name || 'Habilidad B' : 'Habilidad B';
-                this.fuseSlot1.classList.toggle('filled', a !== null);
-                this.fuseSlot2.classList.toggle('filled', b !== null);
-            },
-
-            renderOffers() {
-                this.offersList.innerHTML = '';
-                if (!stateProxy.offers.length) {
-                    this.offersList.innerHTML = '<p class="info-text">Sin ofertas. Sube de nivel.</p>';
-                    return;
-                }
-                stateProxy.offers.forEach(mutId => {
-                    const mut = Mutators.find(m => m.id === mutId);
-                    const card = document.createElement('div');
-                    card.className = 'offer-card';
-                    card.innerHTML = `
-                        <strong>${mut.name}</strong> <span style="font-size:0.8rem;color:var(--muted)">[${mut.tag}]</span>
-                        <div style="font-size:0.85rem;">${mut.description}</div>
-                        <button class="apply-btn" data-mutator-id="${mut.id}">Aplicar</button>
-                    `;
-                    card.querySelector('.apply-btn').addEventListener('click', (e) => {
-                        e.stopPropagation();
-                        const idx = stateProxy.selectedSkillIndex;
-                        if (idx !== null && idx < stateProxy.skills.length) {
-                            if (confirm(`¿Aplicar ${mut.name} a ${stateProxy.skills[idx].name}?`)) {
-                                applyMutatorToSkill(mut.id, idx);
-                            }
-                        } else {
-                            eventBus.emit('Mensaje', { text: 'Selecciona una habilidad.' });
-                        }
-                    });
-                    this.offersList.appendChild(card);
-                });
-            },
-
-            renderAfinities() {
-                this.affinityList.innerHTML = '';
-                const maxAff = getMaxAffinity();
-                let total = 0;
-                AllTags.forEach(tag => {
-                    const val = stateProxy.affinities[tag] || 0;
-                    total += val;
-                    const pct = maxAff > 0 ? (val / maxAff) * 100 : 0;
-                    const div = document.createElement('div');
-                    div.className = 'affinity-tag';
-                    div.innerHTML = `
-                        <span>${tag}</span>
-                        <div class="affinity-progress">
-                            <div class="bar"><div class="fill" style="width:${Math.min(100,pct)}%"></div></div>
-                            <span class="value">${Math.round(val)}</span>
-                        </div>
-                    `;
-                    this.affinityList.appendChild(div);
-                });
-                this.totalAffinity.textContent = Math.round(total);
-                this.maxAffinity.textContent = maxAff;
-            },
-
-            renderTraits() {
-                this.traitsList.innerHTML = '';
-                if (!stateProxy.traits.length) {
-                    this.traitsList.innerHTML = '<p class="info-text">Sin rasgos.</p>';
-                    return;
-                }
-                stateProxy.traits.forEach(tid => {
-                    const trait = Traits.find(t => t.id === tid);
-                    if (trait) {
-                        const card = document.createElement('div');
-                        card.className = 'trait-card';
-                        card.innerHTML = `<strong>${trait.name}</strong><div style="font-size:0.85rem;">${trait.description}</div>`;
-                        this.traitsList.appendChild(card);
-                    }
-                });
-            },
-
-            renderCharacterInfo() {
-                this.level.textContent = stateProxy.level;
-                this.xp.textContent = stateProxy.xp;
-                this.xpToNext.textContent = stateProxy.xpToNext;
-                this.hp.textContent = Math.round(stateProxy.hp);
-                this.maxHp.textContent = Math.round(stateProxy.maxHp);
-                this.hpFill.style.width = (stateProxy.maxHp > 0) ? (stateProxy.hp / stateProxy.maxHp) * 100 + '%' : '0%';
-                this.stability.textContent = Math.round(stateProxy.stability);
-                this.maxStability.textContent = Math.round(stateProxy.maxStability);
-                this.stabilityFill.style.width = (stateProxy.maxStability > 0) ? (stateProxy.stability / stateProxy
-                    .maxStability) * 100 + '%' : '0%';
-            },
-
-            renderCatalizadores() {
-                this.catalizadoresSpan.textContent = stateProxy.catalizadores;
-            },
-
-            renderInventory() {
-                this.inventoryList.innerHTML = '';
-                if (!stateProxy.inventory.length) {
-                    this.inventoryList.innerHTML = '<p class="info-text">Inventario vacío.</p>';
-                    return;
-                }
-                stateProxy.inventory.forEach((item, idx) => {
-                    const div = document.createElement('div');
-                    div.className = 'inventory-item';
-                    div.innerHTML = `${item.name} `;
-                    if (item.type === 'consumable') {
-                        const btn = document.createElement('button');
-                        btn.textContent = 'Usar';
-                        btn.addEventListener('click', () => {
-                            if (item.effect === 'heal_hp') {
-                                stateProxy.hp = Math.min(stateProxy.maxHp, stateProxy.hp + item.value);
-                            } else if (item.effect === 'heal_stability') {
-                                stateProxy.stability = Math.min(stateProxy.maxStability, stateProxy
-                                    .stability + item.value);
-                            }
-                            stateProxy.inventory.splice(idx, 1);
-                            eventBus.emit('StatsActualizados', {});
-                            eventBus.emit('InventarioActualizado', {});
-                            eventBus.emit('Log', { text: `Usaste ${item.name}.` });
-                            this.renderInventory();
-                        });
-                        div.appendChild(btn);
-                    }
-                    this.inventoryList.appendChild(div);
-                });
-            },
-
-            showMessage(text) {
-                this.message.textContent = text;
-                setTimeout(() => this.message.textContent = '', 3000);
-            },
-
-            addLog(text) {
-                const entry = document.createElement('div');
-                entry.className = 'log-entry';
-                entry.textContent = text;
-                this.logList.prepend(entry);
-                while (this.logList.children.length > 50) this.logList.removeChild(this.logList.lastChild);
-            },
-
-            highlightNewSkill(skillId) {
-                const cards = this.skillsList.querySelectorAll('.skill-card');
-                cards.forEach(card => {
-                    if (card.dataset.skillId === skillId) {
-                        card.classList.add('new-skill');
-                        setTimeout(() => card.classList.remove('new-skill'), 2000);
-                    }
-                });
-            }
-        };
-
-        // ---------- MODALES ----------
-        function showFusionModal(options) {
-            const modal = document.getElementById('fusionModal');
-            const container = document.getElementById('fusionOptions');
-            container.innerHTML = '';
-            options.forEach((opt, idx) => {
-                const stats = opt.computeStats();
-                const card = document.createElement('div');
-                card.className = 'fusion-option';
-                card.innerHTML = `
-                    <h4>Opción ${idx+1}</h4>
-                    <div class="tags">${opt.tags.map(t => `#${t}`).join(' ')}</div>
-                    <div class="stat-row">
-                        <span class="stat">💥 ${stats.damage}</span>
-                        <span class="stat">🔋 ${stats.costAmount} ${stats.costType}</span>
-                        <span class="stat">⚡ ${stats.speed}</span>
-                        <span class="stat">🔢 ${stats.projectileCount}</span>
-                        <span class="stat">📏 ${stats.range}</span>
-                        ${stats.area > 0 ? `<span class="stat">🌍 ${stats.area}</span>` : ''}
-                        ${stats.crit ? `<span class="stat">🎯 ${Math.round(stats.crit*100)}%</span>` : ''}
-                    </div>
-                    ${opt.appliedMutators.length ? `<div style="font-size:0.75rem;color:var(--accent)">Mutadores: ${opt.appliedMutators.join(', ')}</div>` : ''}
-                `;
-                card.addEventListener('click', () => completeFusion(idx));
-                container.appendChild(card);
-            });
-            modal.style.display = 'flex';
-        }
-
-        function hideFusionModal() {
-            document.getElementById('fusionModal').style.display = 'none';
-        }
-
-        // ---------- RESET ----------
-        function resetGame() {
-            stateProxy.level = 1;
-            stateProxy.xp = 0;
-            stateProxy.xpToNext = 20;
-            stateProxy.hp = 100;
-            stateProxy.maxHp = 100;
-            stateProxy.stability = 50;
-            stateProxy.maxStability = 100;
-            stateProxy.catalizadores = 2;
-            stateProxy.traits = [];
-            stateProxy.offers = [];
-            stateProxy.trainingCounters = {};
-            stateProxy.fusionSelections = [null, null];
-            stateProxy.selectedSkillIndex = null;
-            stateProxy.inventory = [];
-            AllTags.forEach(tag => stateProxy.affinities[tag] = 0);
-            const shuffled = [...BaseSkills].sort(() => Math.random() - 0.5);
-            stateProxy.skills = shuffled.slice(0, 3).map(s => new Habilidad(s.id, s.name, [...s.tags], { ...s.base }));
-            generateOffers();
-            UI.renderAll();
-            UI.logList.innerHTML = '';
-            spawnEnemy(1);
-            eventBus.emit('Log', { text: 'Personaje reiniciado.' });
-        }
-
-        // ---------- INICIO ----------
-        window.onload = () => {
-            const shuffled = [...BaseSkills].sort(() => Math.random() - 0.5);
-            stateProxy.skills = shuffled.slice(0, 3).map(s => new Habilidad(s.id, s.name, [...s.tags], { ...s.base }));
-            generateOffers();
-            UI.init();
-            UI.renderAll();
-            spawnEnemy(1);
-            eventBus.emit('Log', { text: 'Bienvenido a la Torre Oscura. ¡Progresión renovada!' });
-        };
-    </script>
 </body>
 </html>
