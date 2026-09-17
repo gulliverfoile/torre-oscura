@@ -1,0 +1,1606 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>History Quest · Núcleo Jugable v3</title>
+<style>
+  :root {
+    --bg:#f5f3f0; --card:#fffaf4; --ink:#2e241f; --accent:#8b5a2b;
+    --accent-2:#e6dacd; --muted:#7a6a5a; --danger:#b33e3e; --ok:#2e7d32;
+    --border:#d4c4b4; --radius:12px;
+    --hud-h: 72px;
+  }
+  * { box-sizing:border-box; margin:0; padding:0; }
+  body {
+    font-family:system-ui,-apple-system,'Segoe UI',sans-serif;
+    background:var(--bg); color:var(--ink);
+    padding:16px 16px calc(var(--hud-h) + 16px); min-height:100vh; font-size:14px;
+  }
+  #app { max-width:1150px; margin:0 auto; }
+
+  /* ============ HEADER ============ */
+  header {
+    display:flex; justify-content:space-between; align-items:center;
+    background:var(--accent-2); border-radius:var(--radius);
+    padding:12px 20px; margin-bottom:16px; flex-wrap:wrap; gap:12px;
+  }
+  .era-tag { font-weight:700; font-size:1.05rem; }
+  .turno-tag { color:var(--muted); font-size:0.82rem; margin-left:10px; }
+  .legado-meter { display:flex; align-items:center; gap:10px; }
+  .legado-label { font-size:0.75rem; color:var(--muted); text-transform:uppercase; letter-spacing:.05em; }
+  .legado-value { font-weight:700; font-variant-numeric:tabular-nums; font-size:0.95rem; }
+  .legado-bar { width:140px; height:8px; background:rgba(0,0,0,.1); border-radius:4px; overflow:hidden; }
+  .legado-fill { height:100%; background:var(--accent); transition:width .3s; }
+
+  /* ============ LAYOUT PRINCIPAL ============ */
+  .main-grid {
+    display:grid;
+    grid-template-columns: 1fr 280px;
+    gap:16px;
+  }
+  @media (max-width:900px) { .main-grid { grid-template-columns: 1fr; } }
+
+  .main-col { min-width:0; }
+
+  /* ============ PANELES ============ */
+  .panel {
+    background:var(--card); border:1px solid var(--border);
+    border-radius:var(--radius); padding:16px; margin-bottom:14px;
+  }
+  .panel h3 {
+    font-size:0.8rem; color:var(--muted); text-transform:uppercase;
+    letter-spacing:.05em; margin-bottom:10px; font-weight:600;
+    display:flex; justify-content:space-between; align-items:center;
+  }
+
+  /* ============ SINERGIA ============ */
+  .sinergia {
+    background:var(--accent-2); padding:10px 14px; border-radius:8px;
+    margin-bottom:14px; display:flex; gap:12px; align-items:center;
+    font-size:0.85rem; flex-wrap:wrap;
+  }
+  .sin-tag { font-weight:700; }
+  .sin-info { color:var(--muted); }
+  .sin-next { color:var(--accent); font-size:0.78rem; font-weight:600; }
+
+  /* ============ TABLERO ============ */
+  .slots { display:grid; grid-template-columns:repeat(auto-fit,minmax(140px,1fr)); gap:10px; }
+  .slot {
+    background:var(--bg); border:2px dashed var(--border);
+    border-radius:8px; min-height:130px; padding:8px; cursor:pointer;
+    transition:all .15s;
+  }
+  .slot:hover { border-color:var(--accent); }
+  .slot.has-card { border-style:solid; background:var(--card); }
+  .slot.target { border-color:var(--accent); background:var(--accent-2); }
+
+  .card {
+    background:var(--card); border:2px solid var(--border);
+    border-radius:8px; padding:8px; transition:all .15s; font-size:0.82rem;
+  }
+  .card.clickable { cursor:pointer; }
+  .card.clickable:hover { border-color:var(--accent); }
+  .card.selected { border-color:var(--accent); background:var(--accent-2); }
+  .card.tipo-politica { border-left:4px solid var(--accent); }
+  .card-header { display:flex; justify-content:space-between; align-items:baseline; margin-bottom:6px; gap:6px; }
+  .card-name { font-weight:700; line-height:1.2; }
+  .card-valor {
+    background:var(--accent); color:#fff; font-weight:700;
+    width:24px; height:24px; min-width:24px; border-radius:50%;
+    display:inline-flex; align-items:center; justify-content:center;
+    font-size:0.8rem;
+  }
+  .card-tags { display:flex; flex-wrap:wrap; gap:3px; margin-bottom:6px; }
+  .tag-chip { padding:1px 5px; border-radius:8px; font-size:0.65rem; border:1px solid; }
+  .card-efectos { display:flex; gap:4px; flex-wrap:wrap; font-size:0.72rem; color:var(--muted); }
+  .efecto { background:rgba(0,0,0,.05); padding:1px 5px; border-radius:4px; }
+  .empty-slot { color:var(--muted); font-style:italic; font-size:0.8rem; text-align:center; padding:40px 0; }
+
+  /* ============ ACCIONES ============ */
+  .acciones-panel { background:var(--accent-2); border-color:var(--accent); }
+  .acciones-titulo {
+    display:flex; justify-content:space-between; align-items:center;
+    margin-bottom:12px;
+  }
+  .acciones-titulo h3 { color:var(--accent); margin-bottom:0; }
+  .acciones-grid {
+    display:grid; grid-template-columns:repeat(auto-fit,minmax(170px,1fr));
+    gap:8px;
+  }
+  .accion-btn {
+    background:var(--card); border:1.5px solid var(--border);
+    border-radius:8px; padding:8px 10px; cursor:pointer;
+    font-family:inherit; color:var(--ink); text-align:left;
+    transition:all .15s; font-size:0.8rem; line-height:1.3;
+  }
+  .accion-btn:hover:not(:disabled) {
+    border-color:var(--accent); transform:translateY(-1px);
+    box-shadow:0 2px 6px rgba(139,90,43,.15);
+  }
+  .accion-btn:disabled { opacity:.4; cursor:not-allowed; }
+  .accion-btn .nombre { font-weight:700; display:block; margin-bottom:3px; }
+  .accion-btn .coste { color:var(--muted); font-size:0.74rem; }
+  .accion-btn .coste .reducido { color:var(--ok); font-weight:700; }
+
+  /* ============ RESERVA ============ */
+  .card-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(160px,1fr)); gap:10px; margin-bottom:12px; }
+
+  /* ============ SIDEBAR · ACORDEONES ============ */
+  .sidebar { min-width:0; }
+  .acordeon {
+    background:var(--card); border:1px solid var(--border);
+    border-radius:var(--radius); margin-bottom:10px; overflow:hidden;
+  }
+  .acordeon-header {
+    padding:12px 14px; cursor:pointer; display:flex;
+    justify-content:space-between; align-items:center;
+    font-weight:600; font-size:0.85rem; user-select:none;
+    transition:background .15s;
+  }
+  .acordeon-header:hover { background:var(--accent-2); }
+  .acordeon-header .flecha { transition:transform .2s; color:var(--muted); }
+  .acordeon.open .acordeon-header .flecha { transform:rotate(90deg); }
+  .acordeon-body {
+    max-height:0; overflow:hidden; transition:max-height .25s;
+    padding:0 14px;
+  }
+  .acordeon.open .acordeon-body {
+    max-height:800px; padding:0 14px 14px;
+  }
+  .acordeon-resumen {
+    font-size:0.78rem; color:var(--muted); font-weight:400; margin-left:auto;
+  }
+
+  /* ============ CLASES ============ */
+  .clase-row { display:flex; align-items:center; gap:8px; margin-bottom:8px; font-size:0.82rem; }
+  .clase-nombre { min-width:75px; font-weight:600; }
+  .clase-bar {
+    flex:1; height:10px; background:rgba(0,0,0,.08);
+    border-radius:5px; overflow:hidden; position:relative;
+  }
+  .clase-fill { height:100%; transition:width .3s; }
+  .clase-umbral { position:absolute; top:0; width:2px; height:100%; background:var(--danger); }
+  .clase-val { font-variant-numeric:tabular-nums; font-weight:600; min-width:35px; text-align:right; }
+  .clase-row.revolt { background:rgba(179,62,62,.15); border-radius:6px; padding:4px 8px; margin-left:-8px; }
+
+  /* ============ TENDENCIAS ============ */
+  .tendencia-row { display:flex; align-items:center; gap:6px; margin-bottom:6px; font-size:0.74rem; }
+  .tend-nombre { min-width:58px; text-align:right; color:var(--muted); }
+  .tend-nombre.right { text-align:left; }
+  .tend-bar { flex:1; height:6px; background:rgba(0,0,0,.08); border-radius:3px; display:flex; overflow:hidden; }
+  .tend-fill-a { background:#4682b4; height:100%; transition:width .3s; }
+  .tend-fill-b { background:#b33e3e; height:100%; transition:width .3s; }
+
+  /* ============ SECTORES ============ */
+  .sector-row { display:flex; justify-content:space-between; font-size:0.8rem; padding:4px 0; border-bottom:1px dashed rgba(0,0,0,.06); }
+  .sector-row:last-child { border-bottom:none; }
+  .sector-prod { color:var(--ok); font-weight:600; }
+
+  /* ============ BOTONES GENERALES ============ */
+  .btn {
+    font-family:inherit; font-size:0.9rem; font-weight:600;
+    padding:10px 18px; border-radius:30px; border:none;
+    background:var(--accent); color:#fff; cursor:pointer;
+    transition:background .15s;
+  }
+  .btn:hover { background:#6b441e; }
+  .btn:disabled { opacity:.5; cursor:not-allowed; }
+  .btn.primary { width:100%; margin-top:10px; }
+
+  /* ============ HUD INFERIOR ============ */
+  .hud {
+    position:fixed; bottom:0; left:0; right:0;
+    height:var(--hud-h);
+    background:rgba(46,36,31,.96);
+    color:#e6dacd;
+    display:flex; align-items:center;
+    padding:0 20px;
+    z-index:50;
+    border-top:2px solid var(--accent);
+    backdrop-filter:blur(4px);
+    gap:16px;
+  }
+  .hud-recursos {
+    display:flex; gap:14px; align-items:center;
+    flex-shrink:0;
+    font-size:0.82rem;
+    font-family:ui-monospace,monospace;
+  }
+  .hud-recurso {
+    display:flex; gap:5px; align-items:center;
+    padding:4px 10px;
+    background:rgba(255,255,255,.06);
+    border-radius:20px;
+  }
+  .hud-recurso-val { font-weight:700; color:#fff; font-variant-numeric:tabular-nums; }
+  .hud-recurso.felicidad { background:rgba(107,142,35,.2); }
+  .hud-recurso.felicidad.low { background:rgba(179,62,62,.3); }
+
+  .hud-log {
+    flex:1; min-width:0; overflow:hidden;
+    font-family:ui-monospace,monospace;
+    font-size:0.72rem;
+    display:flex; flex-direction:column;
+    justify-content:center;
+    gap:1px;
+    opacity:.85;
+  }
+  .hud-log p {
+    white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+    padding:1px 0;
+  }
+  .hud-log p:first-child { color:#fff; font-weight:600; opacity:1; }
+
+  .hud-accion {
+    display:flex; gap:10px; align-items:center;
+    flex-shrink:0;
+  }
+  .hud-pa {
+    background:var(--accent); color:#fff;
+    padding:8px 14px; border-radius:30px;
+    font-weight:700; font-size:0.9rem;
+    font-variant-numeric:tabular-nums;
+    white-space:nowrap;
+  }
+  .hud-pa.zero { background:var(--danger); }
+  .hud-btn {
+    background:#fff; color:var(--accent);
+    padding:10px 20px; border-radius:30px;
+    font-weight:700; font-size:0.9rem;
+    border:none; cursor:pointer; font-family:inherit;
+    white-space:nowrap;
+    transition:transform .1s, background .15s;
+  }
+  .hud-btn:hover { background:var(--accent-2); transform:translateY(-1px); }
+  .hud-btn:active { transform:translateY(0); }
+  .hud-btn.atencion {
+    background:#fbbf24; color:#2e241f;
+    animation:pulse 1.6s infinite;
+  }
+  @keyframes pulse {
+    0%,100% { box-shadow:0 0 0 0 rgba(251,191,36,.7); }
+    50% { box-shadow:0 0 0 8px rgba(251,191,36,0); }
+  }
+
+  /* ============ FIN DE PARTIDA ============ */
+  .gameover,.win,.era-end {
+    background:var(--card); padding:32px; border-radius:var(--radius);
+    text-align:center; border:2px solid var(--border);
+  }
+  .gameover { border-color:var(--danger); }
+  .win { border-color:var(--ok); }
+  .gameover h2,.win h2 { margin-bottom:16px; }
+  .gameover p,.win p { margin-bottom:10px; line-height:1.6; }
+  .cronica { text-align:left; background:var(--bg); padding:12px; border-radius:8px; margin:12px 0; }
+  .cronica ul { margin-left:20px; }
+  .cronica li { margin-bottom:4px; font-size:0.9rem; }
+
+  /* ============ SOBRE Y CARD PICKER ============ */
+  .sobre-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(200px,1fr)); gap:12px; margin-bottom:12px; }
+  .sobre-btn {
+    background:var(--card); border:2px solid var(--border);
+    border-radius:var(--radius); padding:20px; cursor:pointer;
+    text-align:center; transition:all .15s; font-family:inherit; color:var(--ink);
+  }
+  .sobre-btn:hover { border-color:var(--accent); transform:translateY(-2px); }
+  .sobre-emoji { font-size:2.4rem; margin-bottom:8px; }
+  .sobre-nombre { font-weight:700; margin-bottom:4px; }
+  .sobre-desc { font-size:0.8rem; color:var(--muted); }
+
+  /* ============ TOOLTIP ============ */
+  .tooltip-host { position:relative; }
+  .tooltip {
+    position:absolute; bottom:calc(100% + 6px); left:0;
+    background:#2e241f; color:#fff;
+    padding:6px 10px; border-radius:6px;
+    font-size:0.72rem; white-space:nowrap;
+    pointer-events:none; opacity:0;
+    transition:opacity .15s;
+    z-index:100;
+  }
+  .tooltip-host:hover .tooltip { opacity:1; }
+</style>
+</head>
+<body>
+
+<div id="app"></div>
+
+<!-- HUD inferior fijo, siempre visible -->
+<div id="hud" class="hud"></div>
+
+<script>
+'use strict';
+
+// ==================================================================
+// NOTAS DE ARQUITECTURA (hexagonal / puertos y adaptadores)
+// ==================================================================
+//   [DOMINIO]         — Lógica pura. Tags, cartas, tablero, run,
+//                       cálculos. Sin DOM. Sin efectos secundarios.
+//   [APLICACIÓN]      — Casos de uso, EventBus. Orquesta el dominio.
+//                       No renderiza; muta el Run y emite eventos.
+//   [INFRAESTRUCTURA] — DOMRenderer + HUDRenderer. Leen estado,
+//                       escriben HTML. Nunca mutan el Run directamente.
+//
+// El HUD es un renderer independiente que se suscribe a los mismos
+// eventos. Añadir otro renderer (canvas, móvil) no toca el dominio.
+// ==================================================================
+
+
+// ==================================================================
+// [DOMINIO] · TAGS
+// ==================================================================
+const TAGS = Object.freeze({
+  comercio:  { eje:'fuente',  nombre:'Comercio',  emoji:'🪙', color:'#d4a017' },
+  industria: { eje:'fuente',  nombre:'Industria', emoji:'⚙️', color:'#8b6e4e' },
+  tierra:    { eje:'fuente',  nombre:'Tierra',    emoji:'🌾', color:'#6b8e23' },
+  plebe:     { eje:'sujeto',  nombre:'Plebe',     emoji:'👥', color:'#4a90d9' },
+  gremios:   { eje:'sujeto',  nombre:'Gremios',   emoji:'🔨', color:'#7b68ee' },
+  elite:     { eje:'sujeto',  nombre:'Élite',     emoji:'👑', color:'#b8860b' },
+  local:     { eje:'alcance', nombre:'Local',     emoji:'🏘️', color:'#6b8e23' },
+  regional:  { eje:'alcance', nombre:'Regional',  emoji:'🗺️', color:'#4682b4' },
+  imperial:  { eje:'alcance', nombre:'Imperial',  emoji:'🏛️', color:'#b33e3e' },
+  rapido:    { eje:'tempo',   nombre:'Rápido',    emoji:'⚡', color:'#ff6b35' },
+  lento:     { eje:'tempo',   nombre:'Lento',     emoji:'🐢', color:'#4fc3f7' },
+  perpetuo:  { eje:'tempo',   nombre:'Perpetuo',  emoji:'∞',  color:'#c084fc' },
+});
+
+
+// ==================================================================
+// [DOMINIO] · CARTAS
+// ==================================================================
+const CARTAS = Object.freeze([
+  // EDIFICIOS · COMERCIO
+  { id:'e_banco',   tipo:'edificio', tema:'comercio', nombre:'Banco',             valor:4, tags:['comercio','gremios','regional'],  efectos:{oro:3} },
+  { id:'e_mercado', tipo:'edificio', tema:'comercio', nombre:'Mercado',           valor:3, tags:['comercio','plebe','local'],      efectos:{oro:2} },
+  { id:'e_ruta',    tipo:'edificio', tema:'comercio', nombre:'Ruta Comercial',    valor:5, tags:['comercio','imperial','lento'],    efectos:{oro:4} },
+  { id:'e_puerto',  tipo:'edificio', tema:'comercio', nombre:'Puerto',            valor:4, tags:['comercio','plebe','imperial'],     efectos:{oro:3} },
+  // EDIFICIOS · INDUSTRIA
+  { id:'e_taller',  tipo:'edificio', tema:'industria', nombre:'Taller',           valor:4, tags:['industria','gremios','local'],    efectos:{oro:2,cultura:1} },
+  { id:'e_fabrica', tipo:'edificio', tema:'industria', nombre:'Fábrica',          valor:4, tags:['industria','plebe','regional'],   efectos:{oro:3} },
+  { id:'e_ingenio', tipo:'edificio', tema:'industria', nombre:'Ingenio',          valor:5, tags:['industria','elite','lento'],      efectos:{cultura:3,oro:1} },
+  { id:'e_acad',    tipo:'edificio', tema:'industria', nombre:'Academia Técnica', valor:4, tags:['industria','elite','perpetuo'],   efectos:{cultura:3} },
+  // EDIFICIOS · TIERRA
+  { id:'e_granja',  tipo:'edificio', tema:'tierra', nombre:'Granja',             valor:3, tags:['tierra','plebe','local'],     efectos:{comida:2} },
+  { id:'e_mina',    tipo:'edificio', tema:'tierra', nombre:'Mina',                valor:4, tags:['tierra','gremios','local'],    efectos:{bronce:2} },
+  { id:'e_aldea',   tipo:'edificio', tema:'tierra', nombre:'Aldea',               valor:3, tags:['tierra','plebe','rapido'],     efectos:{comida:1,poblacion:1} },
+  { id:'e_templo',  tipo:'edificio', tema:'tierra', nombre:'Templo de la Tierra', valor:4, tags:['tierra','elite','perpetuo'],   efectos:{comida:1,felicidad:2} },
+
+  // POLÍTICAS
+  { id:'p_libre',    tipo:'politica', tema:'comercio',  nombre:'Libre Comercio', valor:2, tags:['comercio','imperial','rapido'],
+    efectos:{}, modificadoresSector:{ comercio:1.5, industria:0.8 } },
+  { id:'p_merito',   tipo:'politica', tema:'industria', nombre:'Meritocracia',   valor:2, tags:['industria','elite','perpetuo'],
+    efectos:{}, modificadoresSector:{ industria:1.4 }, modificadoresFelicidad:-3 },
+  { id:'p_protec',   tipo:'politica', tema:'tierra',    nombre:'Proteccionismo', valor:2, tags:['tierra','local','lento'],
+    efectos:{}, modificadoresSector:{ agricultura:1.4, comercio:0.7 } },
+  { id:'p_sufragio', tipo:'politica', tema:'tierra',    nombre:'Sufragio',       valor:2, tags:['plebe','regional','lento'],
+    efectos:{}, modificadoresSector:{}, modificadoresFelicidad:+5 },
+  { id:'p_teocra',   tipo:'politica', tema:'industria', nombre:'Teocracia',      valor:2, tags:['elite','perpetuo','lento'],
+    efectos:{}, modificadoresSector:{ industria:0.8, comercio:0.8 }, modificadoresFelicidad:+8 },
+]);
+
+
+// ==================================================================
+// [DOMINIO] · SECTORES, CLASES, TENDENCIAS, ERAS
+// ==================================================================
+const SECTORES_BASE = Object.freeze({
+  agricultura: {
+    nombre:'Agricultura', emoji:'🌾', base:3, produce:'comida',
+    tagMultiplicador:'tierra',
+    costeMejora:8, costeConstruir:{ oro:15, bronce:3 },
+  },
+  mineria: {
+    nombre:'Minería', emoji:'⛏️', base:2, produce:'bronce',
+    tagMultiplicador:'tierra',
+    costeMejora:8, costeConstruir:{ oro:15, bronce:3 },
+  },
+  industria: {
+    nombre:'Industria', emoji:'⚙️', base:3, produce:'oro',
+    tagMultiplicador:'industria',
+    costeMejora:10, costeConstruir:{ oro:20, bronce:8 },
+    consume:{ bronce:1 },
+  },
+  comercio: {
+    nombre:'Comercio', emoji:'🪙', base:2, produce:'oro',
+    tagMultiplicador:'comercio',
+    costeMejora:10, costeConstruir:{ oro:20, bronce:5 },
+  },
+});
+
+const CLASES_BASE = Object.freeze({
+  plebe:   { nombre:'Plebe',   emoji:'👥', felicidadInicial:60, umbral:20, tagAfin:'plebe' },
+  gremios: { nombre:'Gremios', emoji:'🔨', felicidadInicial:60, umbral:30, tagAfin:'gremios' },
+  elite:   { nombre:'Élite',   emoji:'👑', felicidadInicial:65, umbral:40, tagAfin:'elite' },
+});
+
+const TENDENCIAS_PARES = Object.freeze([
+  { a:'comercio', b:'tierra' },
+  { a:'plebe',    b:'elite' },
+  { a:'local',    b:'imperial' },
+  { a:'rapido',   b:'lento' },
+]);
+
+const ERAS = Object.freeze([
+  { numero:1, nombre:'Era del Despertar', umbral:8,  slotsEdificios:5, slotsPolitica:2, turnos:8, paMax:2 },
+  { numero:2, nombre:'Era del Comercio',  umbral:25, slotsEdificios:6, slotsPolitica:2, turnos:8, paMax:3 },
+  { numero:3, nombre:'Era del Legado',    umbral:45, slotsEdificios:7, slotsPolitica:3, turnos:8, paMax:3 },
+]);
+
+
+// ==================================================================
+// [DOMINIO] · CardInstance, Board, Run
+// ==================================================================
+class CardInstance {
+  constructor(def) { this.def = def; this.id = def.id; this.slot = null; }
+  get tipo(){ return this.def.tipo; }
+  get nombre(){ return this.def.nombre; }
+  get valor(){ return this.def.valor; }
+  get tags(){ return this.def.tags; }
+  get efectos(){ return this.def.efectos; }
+  get tema(){ return this.def.tema; }
+  get modificadoresSector(){ return this.def.modificadoresSector || {}; }
+  get modificadoresFelicidad(){ return this.def.modificadoresFelicidad || 0; }
+}
+
+class Board {
+  constructor(slotCount) {
+    this.slotCount = slotCount;
+    this.slots = new Array(slotCount).fill(null);
+  }
+  get cards(){ return this.slots.filter(Boolean); }
+  get isFull(){ return this.cards.length >= this.slotCount; }
+  firstEmpty(){ return this.slots.findIndex(s => s === null); }
+  place(card) {
+    const idx = this.firstEmpty();
+    if (idx === -1) return false;
+    this.slots[idx] = card; card.slot = idx; return true;
+  }
+  removeAt(idx) {
+    const c = this.slots[idx];
+    if (c) c.slot = null;
+    this.slots[idx] = null;
+    return c;
+  }
+  replaceAt(idx, card) {
+    const old = this.slots[idx];
+    if (old) old.slot = null;
+    this.slots[idx] = card; card.slot = idx;
+    return old;
+  }
+  expand(n) {
+    while (this.slots.length < n) this.slots.push(null);
+    this.slotCount = n;
+  }
+}
+
+class Run {
+  constructor() {
+    this.turno    = 0;
+    this.eraIdx   = 0;
+    this.board    = new Board(ERAS[0].slotsEdificios);
+    this.politica = new Board(ERAS[0].slotsPolitica);
+    this.reserva  = [];
+    this.recursos = { oro:20, comida:15, bronce:5, poblacion:20, cultura:0 };
+    this.felicidad = 60;
+    this.sectores = { agricultura:2, mineria:1, industria:0, comercio:1 };
+    this.clases = {};
+    for (const k in CLASES_BASE) {
+      this.clases[k] = {
+        ...CLASES_BASE[k],
+        felicidad: CLASES_BASE[k].felicidadInicial,
+        turnosBajo: 0,
+        revueltas: 0,
+      };
+    }
+    this.tendencias = {
+      comercio:50, tierra:50, plebe:50, elite:50,
+      local:50, imperial:50, rapido:50, lento:50,
+    };
+    this.paMax = ERAS[0].paMax;
+    this.paActual = ERAS[0].paMax;
+    this.fase = 'inicio';
+    this.legado = { base:0, multiplicador:1, total:0, tagDominante:null, counts:{} };
+    this.sobreActual = [];
+    this.cartasOfrecidas = [];
+    this.mensajeFinal = '';
+    this.log = [];
+  }
+  get era(){ return ERAS[this.eraIdx]; }
+  get turnosRestantesEra(){
+    const transcurridos = this.turno - this.eraIdx * this.era.turnos;
+    return Math.max(0, this.era.turnos - transcurridos);
+  }
+  registrar(tipo, detalle) { this.log.push({ turno:this.turno, tipo, detalle }); }
+}
+
+
+// ==================================================================
+// [DOMINIO] · Cálculos puros
+// ==================================================================
+function contarTags(cards) {
+  const counts = {};
+  for (const c of cards) for (const t of c.tags) counts[t] = (counts[t] || 0) + 1;
+  return counts;
+}
+function multiplicadorPorCount(count) {
+  if (count >= 7) return 3;
+  if (count >= 5) return 2;
+  if (count >= 3) return 1.5;
+  return 1;
+}
+function calcularSinergia(cards) {
+  const counts = contarTags(cards);
+  let best = { tag:null, count:0 };
+  for (const [tag, count] of Object.entries(counts)) {
+    if (count > best.count) best = { tag, count };
+  }
+  return {
+    multiplicador: multiplicadorPorCount(best.count),
+    tagDominante: best.tag, counts,
+  };
+}
+function calcularLegado(cards) {
+  const base = cards.reduce((s, c) => s + c.valor, 0);
+  const sinergia = calcularSinergia(cards);
+  return {
+    base, multiplicador: sinergia.multiplicador,
+    total: Math.round(base * sinergia.multiplicador * 10) / 10,
+    tagDominante: sinergia.tagDominante, counts: sinergia.counts,
+  };
+}
+function calcularCosteMejora(run, sectorKey) {
+  const s = SECTORES_BASE[sectorKey];
+  const counts = contarTags(run.board.cards);
+  const reduccion = Math.min(5, counts[s.tagMultiplicador] || 0);
+  return { oro: Math.max(3, s.costeMejora - reduccion) };
+}
+function calcularCosteConstruccion(run, sectorKey) {
+  const s = SECTORES_BASE[sectorKey];
+  const counts = contarTags(run.board.cards);
+  const reduccion = Math.min(10, (counts[s.tagMultiplicador] || 0) * 2);
+  const resultado = { ...s.costeConstruir };
+  resultado.oro = Math.max(Math.floor(s.costeConstruir.oro * 0.5), s.costeConstruir.oro - reduccion);
+  return resultado;
+}
+function calcularCosteFestival(run) {
+  const counts = contarTags(run.board.cards);
+  const reduccion = Math.min(5, (counts.plebe || 0));
+  return { oro: Math.max(5, 10 - reduccion), comida: 5 };
+}
+function calcularCosteEdicto(run, claseKey) {
+  const clase = CLASES_BASE[claseKey];
+  const counts = contarTags(run.board.cards);
+  const reduccion = Math.min(4, (counts[clase.tagAfin] || 0));
+  return { cultura: Math.max(2, 6 - reduccion) };
+}
+function calcularProduccionSectores(run) {
+  const counts = contarTags(run.board.cards);
+  const modificadores = {};
+  for (const p of run.politica.cards) {
+    for (const [k, v] of Object.entries(p.modificadoresSector)) {
+      modificadores[k] = (modificadores[k] || 1) * v;
+    }
+  }
+  const out = {};
+  for (const key in SECTORES_BASE) {
+    const s = SECTORES_BASE[key];
+    const nivel = run.sectores[key] || 0;
+    if (nivel <= 0) { out[key] = 0; continue; }
+    const tagCount = counts[s.tagMultiplicador] || 0;
+    let mult = 1 + tagCount * 0.3;
+    mult *= (modificadores[key] || 1);
+    out[key] = Math.round(s.base * nivel * mult);
+  }
+  return out;
+}
+function calcularModificadorFelicidadPoliticas(run) {
+  return run.politica.cards.reduce((s, p) => s + p.modificadoresFelicidad, 0);
+}
+function puedePagar(run, coste) {
+  for (const [res, cant] of Object.entries(coste)) {
+    if ((run.recursos[res] || 0) < cant) return false;
+  }
+  return true;
+}
+function pagar(run, coste) {
+  for (const [res, cant] of Object.entries(coste)) {
+    run.recursos[res] = (run.recursos[res] || 0) - cant;
+  }
+}
+
+
+// ==================================================================
+// [APLICACIÓN] · EventBus
+// ==================================================================
+class EventBus {
+  constructor() { this._listeners = new Map(); }
+  on(ev, cb) {
+    if (!this._listeners.has(ev)) this._listeners.set(ev, new Set());
+    this._listeners.get(ev).add(cb);
+    return () => this._listeners.get(ev)?.delete(cb);
+  }
+  emit(ev, data) {
+    this._listeners.get(ev)?.forEach(cb => {
+      try { cb(data); } catch (e) { console.error(`[bus] ${ev}`, e); }
+    });
+  }
+}
+
+
+// ==================================================================
+// [APLICACIÓN] · GameUseCases
+// ==================================================================
+class GameUseCases {
+  constructor(run, bus) {
+    this.run = run;
+    this.bus = bus;
+  }
+
+  start() {
+    this.run.registrar('inicio', `Comienza el mandato en ${this.run.era.nombre}.`);
+    this._log('🏛️ Comienza tu mandato.');
+    this.pedirSobre();
+  }
+
+  pedirSobre() {
+    this.run.fase = 'pick_sobre';
+    this.bus.emit('estado:cambio', this.run);
+  }
+
+  elegirSobre(tema) {
+    const yaEnTablero = new Set(this.run.board.cards.map(c => c.id));
+    const yaEnPolitica = new Set(this.run.politica.cards.map(c => c.id));
+    const elegibles = CARTAS.filter(c => !yaEnTablero.has(c.id) && !yaEnPolitica.has(c.id));
+    const delTema = elegibles.filter(c => c.tema === tema);
+    const otros = elegibles.filter(c => c.tema !== tema);
+    const ofrecidas = [
+      ...shuffle(delTema).slice(0, 3),
+      ...shuffle(otros).slice(0, 1),
+    ];
+    this.run.sobreActual = ofrecidas;
+    this.run.cartasOfrecidas = [];
+    this.run.registrar('sobre_elegido', `Sobre ${tema}`);
+    this.run.fase = 'pick_card';
+    this._log(`📦 Sobre de ${tema} elegido.`);
+    this.bus.emit('estado:cambio', this.run);
+  }
+
+  toggleCarta(cardId) {
+    const yaEsta = this.run.cartasOfrecidas.some(c => c.id === cardId);
+    if (yaEsta) {
+      this.run.cartasOfrecidas = this.run.cartasOfrecidas.filter(c => c.id !== cardId);
+    } else {
+      if (this.run.cartasOfrecidas.length >= 3) return;
+      const def = this.run.sobreActual.find(c => c.id === cardId);
+      if (def) this.run.cartasOfrecidas.push(def);
+    }
+    this.bus.emit('estado:cambio', this.run);
+  }
+
+  confirmarSeleccion() {
+    if (this.run.cartasOfrecidas.length < 2) return;
+    const nombres = [];
+    for (const def of this.run.cartasOfrecidas) {
+      const card = new CardInstance(def);
+      const tablero = def.tipo === 'politica' ? this.run.politica : this.run.board;
+      if (!tablero.place(card)) this.run.reserva.push(card);
+      nombres.push(card.nombre);
+    }
+    this.run.registrar('cartas_colocadas', nombres.join(', '));
+    this._log(`📦 Colocadas: ${nombres.join(', ')}`);
+    this.run.cartasOfrecidas = [];
+    this.run.sobreActual = [];
+    this.run.fase = 'playing';
+    this.run.paActual = this.run.paMax;
+    this.recalcular();
+    this.bus.emit('estado:cambio', this.run);
+  }
+
+  mejorarSector(key) {
+    if (this.run.fase !== 'playing' || this.run.paActual <= 0) return;
+    if ((this.run.sectores[key] || 0) <= 0) {
+      this._log(`⚠️ Primero construye ${SECTORES_BASE[key].nombre}.`);
+      return;
+    }
+    const coste = calcularCosteMejora(this.run, key);
+    if (!puedePagar(this.run, coste)) {
+      this._log(`⚠️ Sin recursos para mejorar ${SECTORES_BASE[key].nombre}.`);
+      return;
+    }
+    pagar(this.run, coste);
+    this.run.sectores[key]++;
+    this.run.paActual--;
+    this.run.registrar('mejora', `${SECTORES_BASE[key].nombre} → nivel ${this.run.sectores[key]}`);
+    this._log(`⬆️ ${SECTORES_BASE[key].nombre} mejorada a nivel ${this.run.sectores[key]}.`);
+    this.bus.emit('estado:cambio', this.run);
+  }
+
+  construirSector(key) {
+    if (this.run.fase !== 'playing' || this.run.paActual <= 0) return;
+    if ((this.run.sectores[key] || 0) > 0) {
+      this._log(`⚠️ ${SECTORES_BASE[key].nombre} ya existe. Usa mejorar.`);
+      return;
+    }
+    const coste = calcularCosteConstruccion(this.run, key);
+    if (!puedePagar(this.run, coste)) {
+      this._log(`⚠️ Sin recursos para construir ${SECTORES_BASE[key].nombre}.`);
+      return;
+    }
+    pagar(this.run, coste);
+    this.run.sectores[key] = 1;
+    this.run.paActual--;
+    this.run.registrar('construccion', `${SECTORES_BASE[key].nombre} nivel 1`);
+    this._log(`🏗️ ${SECTORES_BASE[key].nombre} construida.`);
+    this.bus.emit('estado:cambio', this.run);
+  }
+
+  festival() {
+    if (this.run.fase !== 'playing' || this.run.paActual <= 0) return;
+    const coste = calcularCosteFestival(this.run);
+    if (!puedePagar(this.run, coste)) {
+      this._log(`⚠️ Sin recursos para el festival.`);
+      return;
+    }
+    const counts = contarTags(this.run.board.cards);
+    const bonoPlebe = (counts.plebe || 0) * 1.5;
+    const ganancia = 8 + Math.round(bonoPlebe);
+    pagar(this.run, coste);
+    this.run.felicidad = clamp(this.run.felicidad + ganancia, 0, 100);
+    this.run.paActual--;
+    this.run.registrar('festival', `+${ganancia} felicidad`);
+    this._log(`🎉 Festival: +${ganancia} felicidad.`);
+    this.bus.emit('estado:cambio', this.run);
+  }
+
+  edicto(claseKey) {
+    if (this.run.fase !== 'playing' || this.run.paActual <= 0) return;
+    if (!this.run.clases[claseKey]) return;
+    const coste = calcularCosteEdicto(this.run, claseKey);
+    if (!puedePagar(this.run, coste)) {
+      this._log(`⚠️ Sin cultura para el edicto.`);
+      return;
+    }
+    const counts = contarTags(this.run.board.cards);
+    const clase = this.run.clases[claseKey];
+    const bonoTag = (counts[clase.tagAfin] || 0) * 1.5;
+    const ganancia = 5 + Math.round(bonoTag);
+    pagar(this.run, coste);
+    clase.felicidad = clamp(clase.felicidad + ganancia, 0, 100);
+    this.run.paActual--;
+    this.run.registrar('edicto', `${clase.nombre} +${ganancia} felicidad`);
+    this._log(`📜 Edicto a ${clase.nombre}: +${ganancia} felicidad.`);
+    this.bus.emit('estado:cambio', this.run);
+  }
+
+  nextTurn() {
+    if (this.run.fase !== 'playing') return;
+
+    this.run.turno++;
+
+    // 1. Producción de sectores
+    const produccion = calcularProduccionSectores(this.run);
+    for (const key in produccion) {
+      const s = SECTORES_BASE[key];
+      if (s.consume) {
+        for (const [res, cant] of Object.entries(s.consume)) {
+          const consumoTotal = cant * (this.run.sectores[key] || 0);
+          if ((this.run.recursos[res] || 0) >= consumoTotal) {
+            this.run.recursos[res] -= consumoTotal;
+          } else {
+            produccion[key] = Math.floor(produccion[key] * 0.3);
+            this.run.recursos[res] = 0;
+          }
+        }
+      }
+      this.run.recursos[s.produce] = (this.run.recursos[s.produce] || 0) + produccion[key];
+    }
+
+    // 2. Efectos por turno de cartas de edificio
+    for (const c of this.run.board.cards) {
+      for (const [res, delta] of Object.entries(c.efectos)) {
+        if (res === 'felicidad') {
+          this.run.felicidad = clamp(this.run.felicidad + delta, 0, 100);
+        } else {
+          this.run.recursos[res] = (this.run.recursos[res] || 0) + delta;
+        }
+      }
+    }
+
+    // 3. Consumo de comida
+    const consumoComida = Math.floor(this.run.recursos.poblacion / 4);
+    if (this.run.recursos.comida >= consumoComida) {
+      this.run.recursos.comida -= consumoComida;
+    } else {
+      const deficit = consumoComida - this.run.recursos.comida;
+      this.run.recursos.comida = 0;
+      this.run.recursos.poblacion = Math.max(0, this.run.recursos.poblacion - deficit);
+      this.run.felicidad = clamp(this.run.felicidad - deficit, 0, 100);
+      this.run.registrar('hambruna', `Déficit ${deficit} comida`);
+      this._log(`⚠️ Hambruna: -${deficit} población.`);
+    }
+
+    // 4. Crecimiento poblacional
+    if (this.run.recursos.comida > 10) {
+      const crec = Math.floor(this.run.recursos.comida / 30);
+      this.run.recursos.poblacion += crec;
+    }
+
+    // 5. Felicidad: drift por tags + políticas
+    const counts = contarTags(this.run.board.cards);
+    let deltaFelicidad = 0;
+    deltaFelicidad += (counts.plebe || 0) * 0.5;
+    deltaFelicidad -= (counts.elite || 0) * 0.5;
+    deltaFelicidad -= (counts.imperial || 0) * 0.3;
+    deltaFelicidad -= (counts.rapido || 0) * 0.3;
+    deltaFelicidad += (counts.lento || 0) * 0.3;
+    deltaFelicidad += calcularModificadorFelicidadPoliticas(this.run);
+    if (this.run.recursos.comida === 0) deltaFelicidad -= 2;
+    this.run.felicidad = clamp(this.run.felicidad + deltaFelicidad, 0, 100);
+
+    // 6. Felicidad de clases
+    for (const key in this.run.clases) {
+      const c = this.run.clases[key];
+      const objetivo = this.run.felicidad;
+      c.felicidad = clamp(c.felicidad + (objetivo - c.felicidad) * 0.15, 0, 100);
+      if (counts[c.tagAfin]) c.felicidad = clamp(c.felicidad + counts[c.tagAfin] * 0.3, 0, 100);
+    }
+
+    // 7. Revueltas
+    for (const key in this.run.clases) {
+      const c = this.run.clases[key];
+      if (c.felicidad < c.umbral) {
+        c.turnosBajo++;
+        if (c.turnosBajo >= 3) {
+          c.revueltas++;
+          c.turnosBajo = 0;
+          this.run.registrar('revuelta', `Revuelta de ${c.nombre}`);
+          this._log(`🚨 ¡Revuelta de ${c.nombre}!`);
+          this.run.recursos.oro = Math.max(0, this.run.recursos.oro - 10);
+          this.run.felicidad = clamp(this.run.felicidad - 10, 0, 100);
+          if (c.revueltas >= 2) {
+            this.run.registrar('colapso_clase', `${c.nombre} se ha desconectado`);
+            this._log(`💀 ${c.nombre} se ha desconectado del poder.`);
+          }
+        }
+      } else {
+        c.turnosBajo = 0;
+      }
+    }
+
+    // 8. Tendencias
+    for (const par of TENDENCIAS_PARES) {
+      const a = counts[par.a] || 0;
+      const b = counts[par.b] || 0;
+      const total = a + b;
+      if (total > 0) {
+        const objetivoA = 50 + (a - b) * 5;
+        this.run.tendencias[par.a] = clamp(
+          this.run.tendencias[par.a] + (objetivoA - this.run.tendencias[par.a]) * 0.1,
+          0, 100
+        );
+        this.run.tendencias[par.b] = 100 - this.run.tendencias[par.a];
+      }
+    }
+
+    // 9. Resetear PA y recalcular legado
+    this.run.paActual = this.run.paMax;
+    this.recalcular();
+
+    this._log(`Turno ${this.run.turno} · Legado: ${this.run.legado.total} / ${this.run.era.umbral}`);
+    this.bus.emit('estado:cambio', this.run);
+
+    if (this.run.turnosRestantesEra === 0) this.endEra();
+  }
+
+  endEra() {
+    const legado = this.run.legado.total;
+    const umbral = this.run.era.umbral;
+    this.run.fase = 'end_era';
+    this.bus.emit('estado:cambio', this.run);
+
+    if (legado >= umbral) {
+      this.run.registrar('era_superada', `${this.run.era.nombre}: ${legado}/${umbral}`);
+      this._log(`✅ ${this.run.era.nombre} superada.`);
+      setTimeout(() => this.nextEra(), 900);
+    } else {
+      this.run.fase = 'gameover';
+      this.run.registrar('era_fallida', `${this.run.era.nombre}: ${legado}/${umbral}`);
+      this.run.mensajeFinal = this._construirMensajeCaida();
+      this._log(`💀 Civilización caída.`);
+      this.bus.emit('estado:cambio', this.run);
+    }
+  }
+
+  nextEra() {
+    this.run.eraIdx++;
+    if (this.run.eraIdx >= ERAS.length) {
+      this.run.fase = 'win';
+      this.run.mensajeFinal = 'Has sobrevivido las tres eras. Tu legado perdurará.';
+      this.run.registrar('victoria', 'Tres eras completadas');
+      this._log('🏆 Victoria.');
+      this.bus.emit('estado:cambio', this.run);
+      return;
+    }
+    this.run.board.expand(this.run.era.slotsEdificios);
+    this.run.politica.expand(this.run.era.slotsPolitica);
+    this.run.paMax = this.run.era.paMax;
+    this.run.paActual = this.run.paMax;
+    for (const c of [...this.run.reserva]) {
+      const tablero = c.tipo === 'politica' ? this.run.politica : this.run.board;
+      if (tablero.place(c)) {
+        this.run.reserva = this.run.reserva.filter(x => x !== c);
+      }
+    }
+    this.recalcular();
+    this._log(`📜 ${this.run.era.nombre} · Umbral: ${this.run.era.umbral}`);
+    this.bus.emit('estado:cambio', this.run);
+    this.pedirSobre();
+  }
+
+  recalcular() {
+    this.run.legado = calcularLegado(this.run.board.cards);
+  }
+
+  swapReserva(tableroTipo, slotIdx, cardId) {
+    const tablero = tableroTipo === 'politica' ? this.run.politica : this.run.board;
+    const reservaCard = this.run.reserva.find(c => c.id === cardId);
+    if (!reservaCard) return;
+    const tipoEsperado = tableroTipo === 'politica' ? 'politica' : 'edificio';
+    if (reservaCard.tipo !== tipoEsperado) return;
+    const old = tablero.replaceAt(slotIdx, reservaCard);
+    if (old) this.run.reserva.push(old);
+    this.run.reserva = this.run.reserva.filter(c => c !== reservaCard);
+    this.recalcular();
+    this.run.registrar('intercambio', `${reservaCard.nombre} por ${old ? old.nombre : 'vacío'}`);
+    this._log(`🔄 Intercambio.`);
+    this.bus.emit('estado:cambio', this.run);
+  }
+
+  _construirMensajeCaida() {
+    const counts = this.run.legado.counts;
+    const top = Object.entries(counts).sort((a,b) => b[1]-a[1]).slice(0,2).map(([t]) => t);
+    const plantillas = {
+      'elite,imperial': 'La élite desconectada del pueblo provocó una revuelta. Siglos después, solo quedan piedras.',
+      'imperial,elite': 'La élite desconectada del pueblo provocó una revuelta. Siglos después, solo quedan piedras.',
+      'plebe,rapido':   'La impaciencia de la plebe agotó los recursos. La civilización se desmoronó en una generación.',
+      'rapido,plebe':   'La impaciencia de la plebe agotó los recursos. La civilización se desmoronó en una generación.',
+      'comercio,lento': 'La dependencia del comercio exterior estranguló la economía cuando las rutas se cerraron.',
+      'lento,comercio': 'La dependencia del comercio exterior estranguló la economía cuando las rutas se cerraron.',
+      'tierra,local':   'El aislamiento rural impidió reaccionar ante la crisis. La aldea se vació lentamente.',
+      'local,tierra':   'El aislamiento rural impidió reaccionar ante la crisis. La aldea se vació lentamente.',
+      'industria,elite':'La concentración industrial en pocas manos generó una desigualdad insostenible.',
+      'elite,industria':'La concentración industrial en pocas manos generó una desigualdad insostenible.',
+    };
+    const key = top.join(',');
+    if (plantillas[key]) return plantillas[key];
+    const nombres = top.map(t => TAGS[t]?.nombre || t).join(' y ');
+    return `Tu civilización cayó al final de la ${this.run.era.nombre}. Dominaban ${nombres || 'ningún tag claro'}, pero el Legado (${this.run.legado.total}) no alcanzó el umbral (${this.run.era.umbral}).`;
+  }
+
+  _log(msg) { this.bus.emit('log', msg); }
+}
+
+
+// ==================================================================
+// Helpers
+// ==================================================================
+function shuffle(arr) {
+  const a = [...arr];
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+function clamp(v, min, max) { return Math.max(min, Math.min(max, v)); }
+
+
+// ==================================================================
+// [INFRAESTRUCTURA] · DOMRenderer · contenido principal
+// ==================================================================
+class DOMRenderer {
+  constructor(useCases) {
+    this.uc = useCases;
+    this.root = document.getElementById('app');
+    this.selectedReserva = null;
+    this.acordeonAbierto = 'clases'; // acordeón activo por defecto
+  }
+
+  render(run) {
+    this.root.innerHTML = '';
+    this.root.appendChild(this._header(run));
+
+    if (run.fase === 'pick_sobre') { this.root.appendChild(this._sobrePicker(run)); return; }
+    if (run.fase === 'pick_card')  { this.root.appendChild(this._cardPicker(run));  return; }
+    if (run.fase === 'end_era')    { this.root.appendChild(this._eraEnd(run));      return; }
+    if (run.fase === 'gameover')   { this.root.appendChild(this._gameOver(run));    return; }
+    if (run.fase === 'win')        { this.root.appendChild(this._win(run));         return; }
+    if (run.fase === 'playing')    { this.root.appendChild(this._playing(run));     return; }
+  }
+
+  _header(run) {
+    const h = document.createElement('header');
+    const legado = run.legado.total;
+    const umbral = run.era.umbral;
+    const pct = Math.min(100, (legado / umbral) * 100);
+    h.innerHTML = `
+      <div>
+        <span class="era-tag">${run.era.nombre}</span>
+        <span class="turno-tag">Turno ${run.turno} · quedan ${run.turnosRestantesEra}</span>
+      </div>
+      <div class="legado-meter">
+        <span class="legado-label">Legado</span>
+        <span class="legado-value">${legado} / ${umbral}</span>
+        <div class="legado-bar"><div class="legado-fill" style="width:${pct}%"></div></div>
+      </div>
+    `;
+    return h;
+  }
+
+  _sobrePicker(run) {
+    const d = document.createElement('div');
+    d.className = 'panel';
+    d.innerHTML = `<h3>Elige un sobre para ${run.era.nombre}</h3>`;
+    const grid = document.createElement('div');
+    grid.className = 'sobre-grid';
+    const sobres = [
+      { tema:'comercio',  nombre:'Sobre Comercial',  emoji:'🪙', desc:'Intercambio, rutas y gremios.' },
+      { tema:'industria', nombre:'Sobre Industrial', emoji:'⚙️', desc:'Producción, técnica y saber.' },
+      { tema:'tierra',    nombre:'Sobre Agrario',    emoji:'🌾', desc:'Tierra, comunidad y tradición.' },
+    ];
+    for (const s of sobres) {
+      const b = document.createElement('button');
+      b.className = 'sobre-btn';
+      b.innerHTML = `<div class="sobre-emoji">${s.emoji}</div><div class="sobre-nombre">${s.nombre}</div><div class="sobre-desc">${s.desc}</div>`;
+      b.addEventListener('click', () => this.uc.elegirSobre(s.tema));
+      grid.appendChild(b);
+    }
+    d.appendChild(grid);
+    return d;
+  }
+
+  _cardPicker(run) {
+    const d = document.createElement('div');
+    d.className = 'panel';
+    d.innerHTML = `<h3>Elige 2-3 cartas (${run.cartasOfrecidas.length}/3)</h3>`;
+    const grid = document.createElement('div');
+    grid.className = 'card-grid';
+    const elegidos = new Set(run.cartasOfrecidas.map(c => c.id));
+    for (const def of run.sobreActual) {
+      const c = document.createElement('div');
+      c.className = 'card clickable' + (elegidos.has(def.id) ? ' selected' : '') + (def.tipo === 'politica' ? ' tipo-politica' : '');
+      c.innerHTML = this._cardHTML(def);
+      c.addEventListener('click', () => this.uc.toggleCarta(def.id));
+      grid.appendChild(c);
+    }
+    d.appendChild(grid);
+    const btn = document.createElement('button');
+    btn.className = 'btn primary';
+    btn.textContent = 'Confirmar selección';
+    btn.disabled = run.cartasOfrecidas.length < 2;
+    btn.addEventListener('click', () => this.uc.confirmarSeleccion());
+    d.appendChild(btn);
+    return d;
+  }
+
+  _playing(run) {
+    const wrap = document.createElement('div');
+
+    // ---- Main grid: contenido + sidebar ----
+    const grid = document.createElement('div');
+    grid.className = 'main-grid';
+
+    // ---- Columna principal ----
+    const mainCol = document.createElement('div');
+    mainCol.className = 'main-col';
+
+    // Sinergia
+    const s = document.createElement('div');
+    s.className = 'sinergia';
+    if (run.legado.tagDominante) {
+      const info = TAGS[run.legado.tagDominante];
+      const counts = run.legado.counts;
+      const count = counts[run.legado.tagDominante];
+      // Siguiente meta: 3→5 (×2), 5→7 (×3)
+      let siguiente = '';
+      if (count >= 3 && count < 5) siguiente = `<span class="sin-next">${5 - count} más para ×2</span>`;
+      else if (count >= 5 && count < 7) siguiente = `<span class="sin-next">${7 - count} más para ×3</span>`;
+      else if (count < 3) siguiente = `<span class="sin-next">${3 - count} más para ×1.5</span>`;
+      s.innerHTML = `
+        <span class="sin-tag">${info.emoji} ${info.nombre} ×${count}</span>
+        <span class="sin-info">Legado ${run.legado.base} × ${run.legado.multiplicador} = ${run.legado.total}</span>
+        ${siguiente}
+      `;
+    } else {
+      s.innerHTML = `<span class="sin-info">Sin sinergia activa. Repite tags para multiplicar el Legado.</span>`;
+    }
+    mainCol.appendChild(s);
+
+    // Tablero edificios (arriba)
+    const tb = document.createElement('div');
+    tb.className = 'panel';
+    tb.innerHTML = `<h3>🏛️ Edificios (${run.board.cards.length}/${run.board.slotCount})</h3>`;
+    tb.appendChild(this._buildSlots(run.board, 'edificio'));
+    mainCol.appendChild(tb);
+
+    // Panel política (debajo)
+    const tp = document.createElement('div');
+    tp.className = 'panel';
+    tp.innerHTML = `<h3>📜 Políticas (${run.politica.cards.length}/${run.politica.slotCount})</h3>`;
+    tp.appendChild(this._buildSlots(run.politica, 'politica'));
+    mainCol.appendChild(tp);
+
+    // Acciones (debajo del tablero, arriba del botón)
+    mainCol.appendChild(this._accionesPanel(run));
+
+    // Reserva (si hay)
+    if (run.reserva.length > 0) {
+      const tr = document.createElement('div');
+      tr.className = 'panel';
+      tr.innerHTML = `<h3>📦 Reserva (${run.reserva.length}) · clic para seleccionar, luego clic en un slot</h3>`;
+      const rGrid = document.createElement('div');
+      rGrid.className = 'card-grid';
+      for (const c of run.reserva) {
+        const cd = document.createElement('div');
+        cd.className = 'card clickable' + (this.selectedReserva === c.id ? ' selected' : '') + (c.tipo === 'politica' ? ' tipo-politica' : '');
+        cd.innerHTML = this._cardHTML(c.def);
+        cd.addEventListener('click', () => {
+          this.selectedReserva = this.selectedReserva === c.id ? null : c.id;
+          this.render(this.uc.run);
+        });
+        rGrid.appendChild(cd);
+      }
+      tr.appendChild(rGrid);
+      mainCol.appendChild(tr);
+    }
+
+    grid.appendChild(mainCol);
+
+    // ---- Sidebar con acordeones ----
+    const sidebar = document.createElement('div');
+    sidebar.className = 'sidebar';
+    sidebar.appendChild(this._acordeonClases(run));
+    sidebar.appendChild(this._acordeonTendencias(run));
+    sidebar.appendChild(this._acordeonSectores(run));
+    grid.appendChild(sidebar);
+
+    wrap.appendChild(grid);
+    return wrap;
+  }
+
+  // ---------- Acordeones ----------
+  _acordeonClases(run) {
+    const abierto = this.acordeonAbierto === 'clases';
+    const resumen = run.clases.plebe
+      ? `👥 ${Math.round(run.clases.plebe.felicidad)}%`
+      : '';
+    const a = document.createElement('div');
+    a.className = 'acordeon' + (abierto ? ' open' : '');
+    a.innerHTML = `
+      <div class="acordeon-header">
+        <span>👥 Clases sociales</span>
+        <span class="acordeon-resumen">${resumen}</span>
+        <span class="flecha">▶</span>
+      </div>
+      <div class="acordeon-body"></div>
+    `;
+    const body = a.querySelector('.acordeon-body');
+    for (const key in run.clases) {
+      const c = run.clases[key];
+      const enRevuelta = c.turnosBajo >= 2;
+      const div = document.createElement('div');
+      div.className = 'clase-row' + (enRevuelta ? ' revolt' : '');
+      const color = c.felicidad >= 60 ? '#6b8e23' : c.felicidad >= 35 ? '#d4a017' : '#b33e3e';
+      div.innerHTML = `
+        <span class="clase-nombre">${c.emoji} ${c.nombre}</span>
+        <div class="clase-bar">
+          <div class="clase-fill" style="width:${c.felicidad}%;background:${color}"></div>
+          <div class="clase-umbral" style="left:${c.umbral}%"></div>
+        </div>
+        <span class="clase-val">${Math.round(c.felicidad)}</span>
+      `;
+      body.appendChild(div);
+    }
+    a.querySelector('.acordeon-header').addEventListener('click', () => {
+      this.acordeonAbierto = abierto ? null : 'clases';
+      this.render(this.uc.run);
+    });
+    return a;
+  }
+
+  _acordeonTendencias(run) {
+    const abierto = this.acordeonAbierto === 'tendencias';
+    const a = document.createElement('div');
+    a.className = 'acordeon' + (abierto ? ' open' : '');
+    a.innerHTML = `
+      <div class="acordeon-header">
+        <span>📊 Tendencias</span>
+        <span class="flecha">▶</span>
+      </div>
+      <div class="acordeon-body"></div>
+    `;
+    const body = a.querySelector('.acordeon-body');
+    for (const par of TENDENCIAS_PARES) {
+      const a_ = run.tendencias[par.a];
+      const b_ = run.tendencias[par.b];
+      const div = document.createElement('div');
+      div.className = 'tendencia-row';
+      div.innerHTML = `
+        <span class="tend-nombre">${TAGS[par.a].emoji} ${TAGS[par.a].nombre}</span>
+        <div class="tend-bar">
+          <div class="tend-fill-a" style="width:${a_}%"></div>
+          <div class="tend-fill-b" style="width:${b_}%"></div>
+        </div>
+        <span class="tend-nombre right">${TAGS[par.b].nombre} ${TAGS[par.b].emoji}</span>
+      `;
+      body.appendChild(div);
+    }
+    a.querySelector('.acordeon-header').addEventListener('click', () => {
+      this.acordeonAbierto = abierto ? null : 'tendencias';
+      this.render(this.uc.run);
+    });
+    return a;
+  }
+
+  _acordeonSectores(run) {
+    const abierto = this.acordeonAbierto === 'sectores';
+    const a = document.createElement('div');
+    a.className = 'acordeon' + (abierto ? ' open' : '');
+    a.innerHTML = `
+      <div class="acordeon-header">
+        <span>🏭 Sectores</span>
+        <span class="flecha">▶</span>
+      </div>
+      <div class="acordeon-body"></div>
+    `;
+    const body = a.querySelector('.acordeon-body');
+    const produccion = calcularProduccionSectores(run);
+    for (const key in SECTORES_BASE) {
+      const s = SECTORES_BASE[key];
+      const nivel = run.sectores[key];
+      const prod = produccion[key];
+      const div = document.createElement('div');
+      div.className = 'sector-row';
+      div.innerHTML = `
+        <span>${s.emoji} ${s.nombre}</span>
+        <span>niv ${nivel} · <span class="sector-prod">+${prod} ${s.produce}/t</span></span>
+      `;
+      body.appendChild(div);
+    }
+    a.querySelector('.acordeon-header').addEventListener('click', () => {
+      this.acordeonAbierto = abierto ? null : 'sectores';
+      this.render(this.uc.run);
+    });
+    return a;
+  }
+
+  _accionesPanel(run) {
+    const p = document.createElement('div');
+    p.className = 'panel acciones-panel';
+    p.innerHTML = `
+      <div class="acciones-titulo">
+        <h3>⚡ Acciones del turno</h3>
+      </div>
+    `;
+    const grid = document.createElement('div');
+    grid.className = 'acciones-grid';
+
+    for (const key in SECTORES_BASE) {
+      const s = SECTORES_BASE[key];
+      const nivel = run.sectores[key] || 0;
+      const tiene = nivel > 0;
+
+      if (tiene) {
+        const coste = calcularCosteMejora(run, key);
+        const puede = run.paActual > 0 && puedePagar(run, coste);
+        const btn = this._accionBtn(
+          `⬆️ Mejorar ${s.nombre}`,
+          `niv ${nivel} → ${nivel+1} · ${this._costeStr(coste, run, key, 'mejora')}`,
+          !puede,
+          () => this.uc.mejorarSector(key)
+        );
+        grid.appendChild(btn);
+      } else {
+        const coste = calcularCosteConstruccion(run, key);
+        const puede = run.paActual > 0 && puedePagar(run, coste);
+        const btn = this._accionBtn(
+          `🏗️ Construir ${s.nombre}`,
+          `nivel 0 → 1 · ${this._costeStr(coste, run, key, 'construccion')}`,
+          !puede,
+          () => this.uc.construirSector(key)
+        );
+        grid.appendChild(btn);
+      }
+    }
+
+    {
+      const coste = calcularCosteFestival(run);
+      const puede = run.paActual > 0 && puedePagar(run, coste);
+      const btn = this._accionBtn(
+        `🎉 Festival`,
+        `+8 felicidad · ${this._costeStr(coste, run, null, 'festival')}`,
+        !puede,
+        () => this.uc.festival()
+      );
+      grid.appendChild(btn);
+    }
+
+    for (const key in CLASES_BASE) {
+      const clase = CLASES_BASE[key];
+      const coste = calcularCosteEdicto(run, key);
+      const puede = run.paActual > 0 && puedePagar(run, coste);
+      const btn = this._accionBtn(
+        `📜 Edicto ${clase.emoji} ${clase.nombre}`,
+        `+5 felicidad a la clase · ${this._costeStr(coste, run, key, 'edicto')}`,
+        !puede,
+        () => this.uc.edicto(key)
+      );
+      grid.appendChild(btn);
+    }
+
+    p.appendChild(grid);
+    return p;
+  }
+
+  _accionBtn(nombre, costeStr, disabled, onClick) {
+    const b = document.createElement('button');
+    b.className = 'accion-btn';
+    b.disabled = disabled;
+    b.innerHTML = `<span class="nombre">${nombre}</span><span class="coste">${costeStr}</span>`;
+    if (!disabled) b.addEventListener('click', onClick);
+    return b;
+  }
+
+  /**
+   * Devuelve el HTML del coste. Si el coste se ha reducido por tags,
+   * envuelve el número en un span verde con tooltip explicativo.
+   */
+  _costeStr(coste, run, key, tipo) {
+    const counts = contarTags(run.board.cards);
+    let tagRelevante = null;
+    let explicacion = '';
+    let costeOriginal = null;
+
+    if (tipo === 'mejora' || tipo === 'construccion') {
+      tagRelevante = SECTORES_BASE[key].tagMultiplicador;
+      const s = SECTORES_BASE[key];
+      if (tipo === 'mejora') {
+        costeOriginal = { oro: s.costeMejora };
+      } else {
+        costeOriginal = s.costeConstruir;
+      }
+    } else if (tipo === 'festival') {
+      tagRelevante = 'plebe';
+      costeOriginal = { oro: 10, comida: 5 };
+    } else if (tipo === 'edicto') {
+      tagRelevante = CLASES_BASE[key].tagAfin;
+      costeOriginal = { cultura: 6 };
+    }
+
+    const count = tagRelevante ? (counts[tagRelevante] || 0) : 0;
+    const reduciendo = count > 0;
+
+    if (reduciendo) {
+      const nombre = TAGS[tagRelevante]?.nombre || tagRelevante;
+      explicacion = `Coste reducido por ${count} carta(s) con tag ${nombre}`;
+    }
+
+    const partes = Object.entries(coste).map(([res, cant]) => {
+      if (reduciendo) {
+        const orig = costeOriginal?.[res];
+        if (orig !== undefined && orig !== cant) {
+          return `<span class="tooltip-host"><span class="reducido">${cant} ${res}</span><span class="tooltip">${explicacion} (era ${orig})</span></span>`;
+        }
+      }
+      return `<span>${cant} ${res}</span>`;
+    });
+    return partes.join(' + ');
+  }
+
+  _buildSlots(board, tipo) {
+    const wrap = document.createElement('div');
+    wrap.className = 'slots';
+    for (let i = 0; i < board.slotCount; i++) {
+      const slot = document.createElement('div');
+      slot.className = 'slot';
+      const card = board.slots[i];
+      if (card) {
+        slot.classList.add('has-card');
+        slot.innerHTML = this._cardHTML(card.def);
+      } else {
+        slot.innerHTML = `<div class="empty-slot">vacío</div>`;
+      }
+      if (this.selectedReserva) {
+        slot.classList.add('target');
+        slot.addEventListener('click', () => {
+          this.uc.swapReserva(tipo, i, this.selectedReserva);
+          this.selectedReserva = null;
+        });
+      }
+      wrap.appendChild(slot);
+    }
+    return wrap;
+  }
+
+  _eraEnd(run) {
+    const d = document.createElement('div');
+    d.className = 'era-end';
+    d.innerHTML = `<h2>Fin de ${run.era.nombre}</h2><p>Calculando Legado…</p>`;
+    return d;
+  }
+
+  _gameOver(run) {
+    const d = document.createElement('div');
+    d.className = 'gameover';
+    d.innerHTML = `
+      <h2>💀 Fin de la civilización</h2>
+      <p>${run.mensajeFinal}</p>
+      <p>Legado final: <strong>${run.legado.total}</strong> / ${run.era.umbral}</p>
+      ${this._cronica(run)}
+      <button class="btn primary" id="restart-btn">Reiniciar</button>
+    `;
+    d.querySelector('#restart-btn').addEventListener('click', () => location.reload());
+    return d;
+  }
+
+  _win(run) {
+    const d = document.createElement('div');
+    d.className = 'win';
+    d.innerHTML = `
+      <h2>🏆 Victoria</h2>
+      <p>${run.mensajeFinal}</p>
+      <p>Legado final: <strong>${run.legado.total}</strong></p>
+      ${this._cronica(run)}
+      <button class="btn primary" id="restart-btn">Reiniciar</button>
+    `;
+    d.querySelector('#restart-btn').addEventListener('click', () => location.reload());
+    return d;
+  }
+
+  _cronica(run) {
+    const destacados = run.log.filter(l =>
+      ['inicio','sobre_elegido','cartas_colocadas','mejora','construccion','revuelta','colapso_clase','hambruna','intercambio','era_superada','era_fallida','festival','edicto'].includes(l.tipo)
+    );
+    if (destacados.length === 0) return '';
+    let html = `<div class="cronica"><strong>📜 Crónica de tu mandato</strong><ul>`;
+    for (const l of destacados) {
+      html += `<li><strong>Turno ${l.turno}:</strong> ${l.detalle}</li>`;
+    }
+    html += `</ul></div>`;
+    return html;
+  }
+
+  _cardHTML(def) {
+    const tags = def.tags.map(t => {
+      const info = TAGS[t];
+      if (!info) return '';
+      return `<span class="tag-chip" style="background:${info.color}22;color:${info.color};border-color:${info.color}">${info.emoji} ${info.nombre}</span>`;
+    }).join('');
+    const efectos = Object.entries(def.efectos)
+      .map(([k,v]) => `<span class="efecto">+${v} ${k}</span>`).join(' ');
+    const mods = def.modificadoresSector && Object.keys(def.modificadoresSector).length
+      ? Object.entries(def.modificadoresSector).map(([k,v]) =>
+          `<span class="efecto">${k} ×${v}</span>`).join(' ')
+      : '';
+    const tipoEmoji = def.tipo === 'politica' ? '📜' : '🏛️';
+    return `
+      <div class="card-header">
+        <span class="card-name">${tipoEmoji} ${def.nombre}</span>
+        <span class="card-valor">${def.valor}</span>
+      </div>
+      <div class="card-tags">${tags}</div>
+      <div class="card-efectos">${efectos} ${mods || ''}</div>
+    `;
+  }
+}
+
+
+// ==================================================================
+// [INFRAESTRUCTURA] · HUDRenderer · barra inferior fija
+// ==================================================================
+// Renderer independiente. Se suscribe a los mismos eventos.
+// Muestra recursos críticos, PA, log compacto y el botón de acción
+// contextual según la fase del juego.
+// ==================================================================
+class HUDRenderer {
+  constructor(useCases) {
+    this.uc = useCases;
+    this.root = document.getElementById('hud');
+    this._logBuffer = [];
+  }
+
+  /** Añade una línea al log compacto del HUD. */
+  pushLog(msg) {
+    this._logBuffer.unshift(msg);
+    if (this._logBuffer.length > 4) this._logBuffer.pop();
+  }
+
+  render(run) {
+    const iconos = { oro:'🪙', comida:'🌾', bronce:'⛏️', poblacion:'👥' };
+    const recursosCriticos = ['oro', 'comida', 'bronce', 'poblacion'];
+
+    // Recursos críticos + felicidad
+    let recursosHTML = recursosCriticos.map(k => `
+      <div class="hud-recurso">
+        <span>${iconos[k]}</span>
+        <span class="hud-recurso-val">${Math.round(run.recursos[k] || 0)}</span>
+      </div>
+    `).join('');
+
+    const felClass = run.felicidad < 30 ? ' low' : '';
+    recursosHTML += `
+      <div class="hud-recurso felicidad${felClass}">
+        <span>😊</span>
+        <span class="hud-recurso-val">${Math.round(run.felicidad)}%</span>
+      </div>
+    `;
+
+    // Log compacto
+    const logHTML = this._logBuffer.map(l => `<p>${this._escape(l)}</p>`).join('');
+
+    // Acción contextual según fase
+    let accionHTML = '';
+    if (run.fase === 'playing') {
+      accionHTML = `
+        <span class="hud-pa ${run.paActual === 0 ? 'zero' : ''}">${run.paActual}/${run.paMax} PA</span>
+        <button class="hud-btn" id="hud-next">⏩ Siguiente turno</button>
+      `;
+    } else if (run.fase === 'pick_sobre') {
+      accionHTML = `<span style="color:#e6dacd;font-weight:600;">Elige un sobre ↑</span>`;
+    } else if (run.fase === 'pick_card') {
+      accionHTML = `<span style="color:#e6dacd;font-weight:600;">Elige cartas ↑</span>`;
+    } else if (run.fase === 'end_era') {
+      accionHTML = `<span style="color:#e6dacd;font-weight:600;">Calculando…</span>`;
+    } else if (run.fase === 'gameover' || run.fase === 'win') {
+      accionHTML = `<span style="color:#e6dacd;font-weight:600;">Fin de partida</span>`;
+    }
+
+    this.root.innerHTML = `
+      <div class="hud-recursos">${recursosHTML}</div>
+      <div class="hud-log">${logHTML}</div>
+      <div class="hud-accion">${accionHTML}</div>
+    `;
+
+    // Binding del botón
+    const btn = document.getElementById('hud-next');
+    if (btn) {
+      btn.addEventListener('click', () => this.uc.nextTurn());
+      // Feedback: si tiene PA libres, el botón pulsa
+      if (run.paActual > 0) btn.classList.add('atencion');
+    }
+  }
+
+  _escape(s) {
+    return String(s).replace(/[&<>"']/g, c => ({
+      '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;'
+    }[c]));
+  }
+}
+
+
+// ==================================================================
+// [INFRAESTRUCTURA] · Bootstrap
+// ==================================================================
+(function bootstrap() {
+  const bus = new EventBus();
+  const run = new Run();
+  const useCases = new GameUseCases(run, bus);
+  const renderer = new DOMRenderer(useCases);
+  const hud = new HUDRenderer(useCases);
+
+  bus.on('log', msg => {
+    hud.pushLog(msg);
+    // Re-render del HUD solo, para reflejar el log sin re-render del main
+    hud.render(useCases.run);
+  });
+
+  bus.on('estado:cambio', r => {
+    renderer.render(r);
+    hud.render(r);
+  });
+
+  useCases.start();
+})();
+</script>
+</body>
+</html>
