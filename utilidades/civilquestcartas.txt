@@ -1,0 +1,328 @@
+================================================================================
+HISTORY QUEST · NÚCLEO JUGABLE v3
+Documento de diseño técnico
+================================================================================
+
+================================================================================
+1. QUÉ ES
+================================================================================
+
+History Quest es un roguelike de gestión por eras. Dura 24 turnos repartidos
+en 3 eras de 8. El jugador encarna a un gobernante que debe construir una
+civilización lo bastante sólida como para superar el umbral de Legado de cada
+era. Si no lo consigue, la civilización cae y la partida termina con un
+mensaje narrativo que explica por qué cayó, según los tags que dominaban
+su tablero.
+
+No es un juego de cartas al uso. Las cartas son modificadores de reglas y de
+producción que se colocan en un tablero lineal. El motor de fondo es una
+simulación de gestión: recursos, sectores, población, felicidad y clases
+sociales. Las cartas empujan ese motor; el motor produce los números con los
+que el jugador decide cada turno.
+
+Inspiraciones declaradas:
+  - Balatro        → umbrales por era, sinergia por repetición, sobres
+  - Slay the Spire → cartas con tags, decisiones por turno
+  - 4X de bolsillo → sectores, recursos, población
+  - Meadows        → capas de palanca, tags como modificadores de reglas
+
+
+================================================================================
+2. QUÉ HACE
+================================================================================
+
+ESTRUCTURA DE PARTIDA
+---------------------
+
+  - 3 eras × 8 turnos = 24 turnos por partida.
+  - Cada era tiene un umbral de Legado: 8, 25 y 45 respectivamente.
+  - Al final de la era se suman los valores de las cartas del tablero y se
+    multiplican por el multiplicador de sinergia. Ese es el Legado de la era.
+  - Si el Legado ≥ umbral, se pasa de era. Si no, la partida termina.
+
+FLUJO DE UNA ERA
+----------------
+
+  1. Inicio de era:
+     - El jugador elige un sobre temático (Comercial, Industrial o Agrario).
+     - El sobre ofrece 4 cartas: 3 del tema elegido + 1 aleatoria de otro tema.
+     - El jugador elige entre 2 y 3 cartas.
+     - Las cartas van al tablero (edificios) o al panel de política (políticas).
+     - Si no hay hueco, van a reserva.
+
+  2. Turnos 1 a 8 de la era:
+     - El jugador dispone de 2-3 Puntos de Acción (PA) por turno.
+     - Cada PA se gasta en una acción: mejorar/construir un sector, hacer un
+       festival, o emitir un edicto a una clase social.
+     - Al pulsar "Siguiente turno":
+         · Los sectores producen recursos (con multiplicadores por tags).
+         · Las cartas del tablero aplican sus efectos por turno.
+         · La población consume comida.
+         · La felicidad global y la de cada clase se ajustan.
+         · Se comprueban revueltas.
+         · Se recalculan tendencias.
+         · Se recalcula el Legado.
+
+  3. Fin de era:
+     - Se compara Legado vs umbral.
+     - Si pasa, transición a la siguiente era con expansión de slots.
+     - Si no pasa, fin de partida con mensaje narrativo.
+
+
+================================================================================
+3. SISTEMAS
+================================================================================
+
+3.1 · TAGS (12 en 4 ejes)
+-------------------------
+
+  FUENTE   → comercio · industria · tierra
+  SUJETO   → plebe · gremios · elite
+  ALCANCE  → local · regional · imperial
+  TEMPO    → rapido · lento · perpetuo
+
+  Cada carta tiene 2-3 tags. El primero es el dominante.
+  Los tags hacen tres cosas:
+
+  a) Sinergia: contar cuántas cartas del tablero tienen cada tag. El tag más
+     repetido determina el multiplicador de Legado:
+       3 iguales → ×1.5
+       5 iguales → ×2
+       7 iguales → ×3
+     (por debajo de 3, ×1)
+
+  b) Reducción de coste de acciones:
+       - Cartas con tag tierra reducen el coste de mejorar/construir
+         agricultura y minería.
+       - Cartas con tag industria reducen industria.
+       - Cartas con tag comercio reducen comercio.
+       - Cartas con tag plebe abaratan el festival y aumentan su efecto.
+       - Cada clase social (plebe, gremios, elite) ve abaratado su edicto por
+         cartas con su tag afín.
+
+  c) Drift de felicidad:
+       - +0.5 por carta con plebe
+       - -0.5 por carta con elite
+       - -0.3 por carta con imperial
+       - -0.3 por carta con rapido
+       - +0.3 por carta con lento
+
+
+3.2 · RECURSOS
+--------------
+
+  Oro        → moneda. Se gasta en acciones de sector y festivales.
+  Comida     → se consume cada turno por la población. Si falta, hambruna.
+  Bronce     → input de la industria. Si falta, producción reducida.
+  Población  → crece con excedente de comida, muere por hambruna.
+  Cultura    → se gasta en edictos. Se acumula sin tope.
+  Felicidad  → porcentaje 0-100. No se acumula, es un estado.
+               Por debajo de umbrales por clase, revueltas.
+
+
+3.3 · SECTORES
+--------------
+
+  4 sectores. Cada uno produce un recurso por turno. La producción se
+  multiplica por los tags del tablero y por políticas:
+
+    Agricultura → comida
+    Minería     → bronce
+    Industria   → oro (consume bronce)
+    Comercio    → oro (sin input)
+
+  Multiplicador por tag:
+    producción = base × nivel × (1 + 0.3 × cartas_con_tag_afin) × política
+
+  Los costes de mejorar/construir también se reducen por tags:
+    - Cada carta con el tag afín reduce el coste de mejora en 1 oro
+      (mínimo 3).
+    - Cada carta con el tag afín reduce el coste de construcción en 2 oro
+      (mínimo la mitad del original).
+
+
+3.4 · CLASES SOCIALES
+---------------------
+
+  Plebe, Gremios, Élite. Cada una tiene felicidad (0-100) y un umbral de
+  revuelta (20, 30, 40 respectivamente).
+
+  Mecánica:
+    - La felicidad de cada clase se acerca poco a poco a la felicidad global.
+    - Cartas con el tag afín de la clase suben su felicidad.
+    - Si la felicidad de una clase está por debajo de su umbral durante 3
+      turnos consecutivos, se produce una revuelta.
+    - Una revuelta: -10 oro, -10 felicidad global.
+    - Dos revueltas de la misma clase: se desconecta del poder.
+
+
+3.5 · TENDENCIAS
+----------------
+
+  4 pares, alineados con los 4 ejes de tags:
+
+    comercio ↔ tierra
+    plebe    ↔ elite
+    local    ↔ imperial
+    rapido   ↔ lento
+
+  Cada par suma 100. Se mueven hacia el tag dominante del tablero. Las
+  tendencias no tienen efecto mecánico directo en v3; se muestran como
+  indicador de hacia dónde va la civilización. En fases posteriores
+  desbloquearán eventos y decisiones.
+
+
+3.6 · POLÍTICAS
+---------------
+
+  Cartas de tipo política. No se colocan en el tablero de edificios: van
+  a un panel aparte con 2-3 slots.
+
+  Efecto: modifican multiplicadores de producción de sector y/o felicidad
+  global.
+
+  Ejemplo:
+    Libre Comercio  → comercio ×1.5, industria ×0.8
+    Meritocracia    → industria ×1.4, felicidad -3
+    Sufragio        → felicidad +5
+    Teocracia       → industria ×0.8, comercio ×0.8, felicidad +8
+
+
+3.7 · LEGADO
+------------
+
+  Cálculo al final de cada era:
+
+    base = suma de valores de todas las cartas del tablero
+    multiplicador = según el tag más repetido (1 / 1.5 / 2 / 3)
+    legado = base × multiplicador
+
+  Se muestra en vivo durante la era, no solo al final. El jugador siempre
+  sabe cuánto le falta para pasar.
+
+
+================================================================================
+4. CÓMO LO HACE
+================================================================================
+
+ARQUITECTURA HEXAGONAL EN 3 CAPAS
+---------------------------------
+
+  [DOMINIO]
+    - TAGS, CARTAS, SECTORES_BASE, CLASES_BASE, TENDENCIAS_PARES, ERAS.
+    - Clases puras: CardInstance, Board, Run.
+    - Funciones puras de cálculo: contarTags, calcularSinergia, calcularLegado,
+      calcularProduccionSectores, calcularCoste*, puedePagar, pagar.
+    - Cero DOM. Cero efectos secundarios. Testeable sin navegador.
+
+  [APLICACIÓN]
+    - EventBus: pub/sub con on/emit. Es el único canal entre capas.
+    - GameUseCases: orquesta el dominio. Cada acción del jugador tiene un
+      método aquí (mejorarSector, festival, edicto, nextTurn, etc.).
+    - Los casos de uso mutan el Run y emiten "estado:cambio" o "log".
+
+  [INFRAESTRUCTURA]
+    - DOMRenderer: renderiza el contenido principal del juego.
+    - HUDRenderer: renderiza la barra fija inferior (recursos, PA, log, botón).
+    - Ambos son independientes. Ambos se suscriben a los mismos eventos.
+    - Ninguno muta el Run directamente. Todo pasa por GameUseCases.
+
+VENTAJAS DE ESTA ESTRUCTURA
+---------------------------
+
+  - Se puede sustituir el DOMRenderer por un CanvasRenderer sin tocar el
+    dominio ni los casos de uso.
+  - Se puede añadir un tercer renderer (móvil, CLI, tests) sin tocar nada.
+  - El dominio se puede testear con un simple `node` sin navegador.
+  - Las reglas del juego viven en un solo sitio (funciones puras de cálculo),
+    no repartidas por toda la UI.
+
+FLUJO DE DATOS
+--------------
+
+  Jugador clica botón
+       ↓
+  DOMRenderer llama a useCases.metodo()
+       ↓
+  GameUseCases muta el Run y emite "estado:cambio"
+       ↓
+  El bus notifica a todos los renderers suscritos
+       ↓
+  DOMRenderer y HUDRenderer leen el nuevo estado
+       ↓
+  Ambos pintan de nuevo
+
+
+================================================================================
+5. QUÉ NO ESTÁ (roadmap)
+================================================================================
+
+FASE 2 (próximo)
+----------------
+  - Consejeros (1 fijo por era, cambia según civilización).
+  - Botón "Consultar" con usos limitados.
+  - Eventos de era que mueven tags, no recursos.
+  - Intercambio de cartas del tablero con la reserva pagando coste.
+
+FASE 3 (meta-progresión)
+------------------------
+  - Colección persistente de cartas desbloqueadas.
+  - Ruinas: el consejero dominante de la run anterior aparece en la siguiente.
+  - Elección entre "continuar legado" o "empezar limpio".
+  - Pantalla de colección con filtros por tema.
+
+FASE 4 (escalado)
+-----------------
+  - Tablero 2D posicional (adyacencias, apilamiento).
+  - Mapa de regiones (opcional, sustituible por tabla).
+  - Campaña narrativa por encima del núcleo.
+  - Eventos RNG de era tipo pandemias, milagros, meteoritos.
+  - Sistema de batallas.
+
+
+================================================================================
+6. GLOSARIO
+================================================================================
+
+  Era         → bloque de 8 turnos con umbral de Legado propio.
+  Tag         → modificador temático de carta. 12 en 4 ejes.
+  Carta       → edificio o política. Valor 3-5, 2-3 tags, efectos.
+  Tablero     → 5-7 slots donde se colocan edificios.
+  Política    → 2-3 slots donde se colocan cartas de política.
+  Reserva     → cartas no colocadas por falta de hueco.
+  Legado      → puntuación de una era. base × multiplicador de sinergia.
+  Sinergia    → multiplicador por repetición del tag dominante.
+  PA          → Puntos de Acción. 2-3 por turno. Se gastan en acciones.
+  Revuelta    → clase social con felicidad bajo umbral durante 3 turnos.
+  Umbral      → cantidad mínima de Legado para pasar de era.
+  Sobre       → paquete de 4 cartas (3 del tema + 1 aleatoria).
+
+
+================================================================================
+7. AJUSTES RÁPIDOS DE BALANCE
+================================================================================
+
+  Dónde tocar si el juego se siente mal:
+
+  Muy fácil:
+    - Subir ERAS[].umbral en el dominio (8 → 12, 25 → 32, 45 → 55).
+    - Bajar SECTORES_BASE[].base para reducir producción.
+
+  Muy difícil:
+    - Bajar ERAS[].umbral.
+    - Subir SECTORES_BASE[].base.
+
+  Las acciones se sienten caras:
+    - Bajar SECTORES_BASE[].costeMejora y costeConstruir.
+
+  Las revueltas saltan demasiado:
+    - Subir CLASES_BASE[].umbral o reducir el drift de felicidad por tags
+      en nextTurn().
+
+  La sinergia no importa:
+    - Subir los multiplicadores en multiplicadorPorCount().
+    - Aumentar la penalización de no tener tags repetidos.
+
+  Todo el balance vive en 4 sitios:
+    ERAS, SECTORES_BASE, CLASES_BASE, CARTAS. El resto del código no necesita
+    tocarse para balancear.
