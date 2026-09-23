@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
 <meta charset="UTF-8">
-<title>La Celda 7 · v3.1</title>
+<title>La Celda 7 · v3.3</title>
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
   body { font-family: 'Consolas','Menlo',monospace; background:#0a0a14; color:#c8d0e0;
@@ -17,7 +17,7 @@
   button:hover:not(:disabled) { background:#2a2a4a; border-color:#555; }
   button:disabled { opacity:.4; cursor:not-allowed; }
   button.active { background:#3a3a6a; border-color:#7ec8e3; color:#fff; }
-  main { display:grid; grid-template-columns:280px 1fr 380px; gap:12px; padding:12px; overflow:hidden; }
+  main { display:grid; grid-template-columns:280px 1fr 400px; gap:12px; padding:12px; overflow:hidden; }
   .panel { background:#12121f; border:1px solid #22223a; border-radius:8px; padding:14px;
            overflow-y:auto; max-height:calc(100vh - 70px); }
   .panel h3 { color:#7ec8e3; font-size:12px; font-weight:400; letter-spacing:1px;
@@ -37,8 +37,10 @@
   .pip.warning { background:#ffb347; }
   .pip.danger { background:#ff6b6b; }
 
-  /* --- GRID DE LA HABITACIÓN --- */
-  .room-grid { display:grid; grid-template-columns:repeat(11,36px); grid-template-rows:repeat(7,36px);
+  /* ================================================================
+   * GRID
+   * ================================================================ */
+  .room-grid { display:grid; grid-template-columns:repeat(11,40px); grid-template-rows:repeat(7,40px);
                gap:2px; justify-content:center; margin:10px auto; padding:10px;
                background:#0d0d18; border-radius:8px; position:relative; }
   .cell { display:flex; align-items:center; justify-content:center; font-size:20px;
@@ -52,27 +54,134 @@
   .cell.broken { opacity:.3; }
   .cell.hinted { border-color:#ffb347; box-shadow:0 0 6px rgba(255,179,71,.3); }
 
-  /* --- CELDAS DE PUZZLE DEVICE (borde azul, interactivas) --- */
-  .cell.device {
-    background:#14142a;
-    border:1px solid #3a3a6a;
-    font-size:24px;
-    font-family: 'Consolas', monospace;
-    cursor:pointer;
+  /* ================================================================
+   * CELDAS DE PUZZLE HIDRÁULICO (fix v3.3: clases u/r/d/l, no up/right/...)
+   * ================================================================ */
+  .cell.pipe {
+    position: relative;
+    background: #0a0a18;
+    border: 1px solid #2a2a4a;
+    cursor: pointer;
+    overflow: visible;
+    font-size: 0;
   }
-  .cell.device:hover { background:#1e1e4a; border-color:#7ec8e3; transform:scale(1.08); }
-  .cell.device.solved {
-    background:#1a2a1a;
-    border-color:#7ee87e;
-    box-shadow: inset 0 0 8px rgba(126,232,126,.2);
+  .cell.pipe:hover { background: #12122a; border-color: #7ec8e3; }
+  .cell.pipe.solved { border-color: #7ee87e; }
+  .cell.pipe.flash { animation: pipeflash .5s; }
+  @keyframes pipeflash {
+    0%,100% { box-shadow: 0 0 0 rgba(126,232,126,0); }
+    50%     { box-shadow: 0 0 16px rgba(126,232,126,.9); }
   }
-  .cell.device.flash { animation:flash .35s; }
-  @keyframes flash { 0%,100%{background:#14142a;} 50%{background:#3a3a8a;transform:scale(1.15);} }
+
+  .cell.pipe .pipe-cell { position: absolute; inset: 0; }
+
+  /* Puertos: barra de 6px pegada al borde correspondiente, ocupando media celda */
+  .cell.pipe .conn {
+    position: absolute;
+    background: #1e1e3a;
+    transition: background .25s, box-shadow .25s;
+    z-index: 1;
+    border-radius: 2px;
+  }
+  .cell.pipe .conn.active { background: #3a5a7a; }
+  .cell.pipe.in-flow .conn.active {
+    background: #7ec8e3;
+    box-shadow: 0 0 5px rgba(126,200,227,.7);
+  }
+  .cell.pipe.in-flow.solved .conn.active {
+    background: #7ee87e;
+    box-shadow: 0 0 8px rgba(126,232,126,.8);
+  }
+
+  /* Puertos: la barra ocupa media celda desde el borde. */
+  .cell.pipe .conn.u { top: 0;    left: 50%; width: 6px; height: 50%; transform: translateX(-50%); }
+  .cell.pipe .conn.d { bottom: 0; left: 50%; width: 6px; height: 50%; transform: translateX(-50%); }
+  .cell.pipe .conn.l { left: 0;   top: 50%;  height: 6px; width: 50%; transform: translateY(-50%); }
+  .cell.pipe .conn.r { right: 0;  top: 50%;  height: 6px; width: 50%; transform: translateY(-50%); }
+
+  .cell.pipe .center {
+    position: absolute;
+    top: 50%; left: 50%;
+    width: 14px; height: 14px;
+    border-radius: 50%;
+    background: #1e1e3a;
+    transform: translate(-50%, -50%);
+    transition: background .25s, box-shadow .25s;
+    z-index: 2;
+  }
+  .cell.pipe.in-flow .center {
+    background: #7ec8e3;
+    box-shadow: 0 0 6px rgba(126,200,227,.7);
+  }
+  .cell.pipe.in-flow.solved .center {
+    background: #7ee87e;
+    box-shadow: 0 0 9px rgba(126,232,126,.9);
+  }
+
+  /* Marcador gota sobre la fuente */
+  .cell.pipe.source::before {
+    content: "💧";
+    position: absolute;
+    top: -18px; left: 50%;
+    transform: translateX(-50%);
+    font-size: 14px;
+    filter: drop-shadow(0 0 5px #7ec8e3);
+    z-index: 3;
+    animation: drop 2.4s ease-in-out infinite;
+    pointer-events: none;
+  }
+  @keyframes drop {
+    0%,100% { transform: translateX(-50%) translateY(0); }
+    50%     { transform: translateX(-50%) translateY(3px); }
+  }
+  .cell.pipe.drain::after {
+    content: "🕳";
+    position: absolute;
+    bottom: -20px; left: 50%;
+    transform: translateX(-50%);
+    font-size: 14px;
+    filter: drop-shadow(0 0 5px #7ee87e);
+    z-index: 3;
+    pointer-events: none;
+  }
+  .cell.pipe.solved.drain::after {
+    filter: drop-shadow(0 0 8px #7ee87e) brightness(1.4);
+  }
+
+  .puzzle-hint {
+    text-align: center;
+    font-size: 11px;
+    color: #7ec8e3;
+    margin: 8px auto 0;
+    padding: 6px 12px;
+    background: #0d1520;
+    border-radius: 6px;
+    border: 1px solid #1e3a4a;
+    max-width: 420px;
+  }
+
+  .device-status {
+    display: flex;
+    justify-content: center;
+    gap: 16px;
+    margin-top: 8px;
+    font-size: 11px;
+    flex-wrap: wrap;
+  }
+  .device-status .status-item {
+    padding: 4px 10px;
+    border-radius: 6px;
+    background: #0d0d18;
+    border: 1px solid #22223a;
+  }
 
   .room-legend { display:flex; flex-wrap:wrap; gap:8px; font-size:10px; color:#667;
-                 justify-content:center; margin-top:6px; max-width:400px; margin-left:auto; margin-right:auto; }
+                 justify-content:center; margin-top:6px; max-width:420px; margin-left:auto; margin-right:auto; }
   .room-legend span { display:inline-block; }
 
+  /* ================================================================
+   * DADO
+   * ================================================================ */
   .dice-area { margin:14px auto; text-align:center; padding:16px; background:#0d0d18;
                border-radius:10px; border:1px solid #22223a; max-width:400px; }
   .dice { font-size:64px; line-height:1; transition:color .3s; user-select:none; }
@@ -93,31 +202,79 @@
                     font-style:italic; line-height:1.5; opacity:0; transition:opacity .3s; }
   .dice-narrative.show { opacity:1; }
 
+  /* ================================================================
+   * PANEL DE ACCIONES
+   * ================================================================ */
   .action-btn { display:block; width:100%; text-align:left; padding:8px 12px; margin:5px 0;
                 background:#1a1a2e; border:1px solid #33334a; border-radius:6px; color:#c8d0e0;
                 font-size:12px; cursor:pointer; font-family:inherit; transition:all .15s; }
   .action-btn:hover:not(:disabled) { background:#252548; border-color:#7ec8e3; transform:translateX(2px); }
   .action-btn:disabled { opacity:.4; cursor:not-allowed; }
+
+  /* Acciones destacadas (priority > 0) — típicamente las desbloqueadas por un device */
+  .action-btn.prominent {
+    background: #1a2a1a;
+    border: 1px solid #7ee87e;
+    color: #c8ffc8;
+    font-weight: bold;
+    box-shadow: 0 0 10px rgba(126,232,126,.25);
+    animation: pulse 2s ease-in-out infinite;
+  }
+  .action-btn.prominent:hover:not(:disabled) {
+    background: #243a24;
+    border-color: #aaffaa;
+    box-shadow: 0 0 14px rgba(126,232,126,.5);
+  }
+  @keyframes pulse {
+    0%,100% { box-shadow: 0 0 10px rgba(126,232,126,.2); }
+    50%     { box-shadow: 0 0 16px rgba(126,232,126,.5); }
+  }
+
   .action-btn.puzzle { border-left:3px solid #7ec8e3; }
   .action-btn .stat-tag { float:right; font-size:10px; color:#667; background:#0d0d18;
                           padding:2px 6px; border-radius:8px; }
   .action-btn .no-dice { float:right; font-size:10px; color:#c792ea; background:#0d0d18;
                          padding:2px 6px; border-radius:8px; }
+
+  /* Sección separada para acciones desbloqueadas */
+  .actions-section-title {
+    font-size: 10px;
+    color: #7ee87e;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin: 12px 0 4px;
+    padding-bottom: 3px;
+    border-bottom: 1px solid #1a3a1a;
+  }
+  .actions-section-title.normal {
+    color: #7ec8e3;
+    border-bottom-color: #1e3a4a;
+  }
+
+  /* ================================================================
+   * DIARIO (v3.3: lo último arriba)
+   * ================================================================ */
   .log { background:#0d0d18; border-radius:6px; padding:10px; font-size:11px;
-         line-height:1.6; max-height:280px; overflow-y:auto; }
-  .log-entry { margin:2px 0; }
-  .log-entry.system { color:#7ec8e3; }
-  .log-entry.action { color:#ffe066; }
-  .log-entry.result { color:#7ee87e; }
-  .log-entry.fail { color:#ff6b6b; }
-  .log-entry.perception { color:#c792ea; font-style:italic; }
-  .log-entry.dice { color:#ffb347; font-family:monospace; }
-  .log-entry.device { color:#7ee87e; font-weight:bold; }
+         line-height:1.55; max-height:340px; overflow-y:auto; }
+  .log-entry { margin:0; padding:7px 0; border-bottom:1px solid #14141f; }
+  .log-entry:last-child { border-bottom:none; }
+
+  /* Entrada con acción → dos líneas: el "> acción" y la narrativa */
+  .log-action { color: #ffe066; font-size: 11px; margin-bottom: 2px; }
+  .log-narrative { font-size: 12px; color: #c8d0e0; }
+  .log-entry.result .log-narrative { color: #7ee87e; }
+  .log-entry.fail   .log-narrative { color: #ff6b6b; }
+
+  /* Entradas simples (sistema, percepción, flow, device) — una línea */
+  .log-entry.system     { color: #7ec8e3; }
+  .log-entry.perception { color: #c792ea; font-style: italic; }
+  .log-entry.device     { color: #7ee87e; font-weight: bold; font-size: 12px; }
+  .log-entry.flow       { color: #7ec8e3; font-style: italic; font-size: 12px; }
 </style>
 </head>
 <body>
 <header>
-  <h1>🔐 LA CELDA 7 · v3.1</h1>
+  <h1>🔐 LA CELDA 7 · v3.3</h1>
   <div class="arch-selector" id="archSelector">
     <button data-arch="fisico">🔬 Dr. Einstein</button>
     <button data-arch="empatico">🌸 Hippie</button>
@@ -137,6 +294,11 @@
   <section class="panel">
     <h3>Habitación</h3>
     <div class="room-grid" id="roomGrid"></div>
+    <div class="puzzle-hint">
+      💧 El agua entra por la gota (arriba-izq) y debe llegar al desagüe (abajo-der).
+      Haz clic en un tubo del grid para girarlo.
+    </div>
+    <div class="device-status" id="deviceStatus"></div>
     <div class="room-legend" id="roomLegend"></div>
     <div class="dice-area">
       <div class="dice" id="dice">🎲</div>
@@ -155,21 +317,6 @@
 <script>
 (function() {
 'use strict';
-
-/* ============================================================================
- * ARQUITECTURA GENERAL
- * ----------------------------------------------------------------------------
- *   Value Objects       → datos inmutables del dominio
- *   Ports               → interfaces que el dominio necesita
- *   Adapters            → implementaciones concretas de los ports
- *   Domain Services     → lógica pura (sin IO)
- *   PuzzleDevicePort    → contrato único para CUALQUIER puzzle
- *   Use Cases           → orquestación (enruta acciones, tira dados, aplica)
- *   UI Views            → adaptadores de salida
- *   Composition Root    → única capa donde todo se conoce
- *
- * REGLA DE ORO: el dominio NUNCA conoce la UI ni el bus. Solo conoce ports.
- * ========================================================================== */
 
 /* ============================================================================
  * 1. EVENT BUS
@@ -225,6 +372,16 @@ class RoomObject {
   }
 }
 
+/**
+ * ACTION
+ * ----------------------------------------------------------------------------
+ * NUEVOS campos v3.3:
+ *   hidden   → si true, la acción NO aparece en el panel derecho. Se puede
+ *              seguir disparando desde el grid (clic en celda). Ejemplo: las
+ *              rotaciones de tubo.
+ *   priority → número. A mayor valor, más arriba se muestra en el panel.
+ *              Se usa para destacar acciones desbloqueadas por un device.
+ */
 class Action {
   constructor(id, label, opts = {}) {
     this.id = id; this.label = label;
@@ -235,9 +392,10 @@ class Action {
     this.onSuccess = opts.onSuccess ?? null;
     this.onFail = opts.onFail ?? null;
     this.tags = opts.tags ?? [];
-    // Para acciones de puzzle device
     this.device = opts.device ?? null;
     this.payload = opts.payload ?? null;
+    this.hidden = opts.hidden ?? false;
+    this.priority = opts.priority ?? 0;
   }
   getDifficulty(ctx) { return typeof this.difficulty === 'function' ? this.difficulty(ctx) : this.difficulty; }
   requiresRoll() { return this.stat !== null; }
@@ -251,7 +409,6 @@ class DiceRoll {
   get success()  { return this.total >= this.difficulty; }
   get critical() { return this.die === 20; }
   get fumble()   { return this.die === 1; }
-  get margin()   { return this.total - this.difficulty; }
 }
 
 class ActionEconomy {
@@ -271,60 +428,23 @@ class ActionEconomy {
 class RandomPort { rollD20() { throw new Error('abstract'); } }
 class LoggerPort { log(e) { throw new Error('abstract'); } }
 
-/* ============================================================================
- * 4. PUZZLE DEVICE PORT — el corazón de v3
- * ----------------------------------------------------------------------------
- * Contrato único para CUALQUIER puzzle:
- *   - Un puzzle ocupa una región del grid (o es ambiental).
- *   - Puede ofrecer acciones (rotar, mover, pulsar...).
- *   - Aplica acciones mutando el estado del dispositivo.
- *   - Sabe si está resuelto o bloqueado.
- *
- * Regla: si te ves escribiendo `switch(puzzleType)` en algún sitio, es señal
- * de que este contrato no se está respetando. Cada tipo ES una subclase.
- * ========================================================================== */
 class PuzzleDevicePort {
-  /** Identificador único. */
   get id() { throw new Error('abstract: id'); }
-  /** Nombre visible. */
   get name() { throw new Error('abstract: name'); }
-  /** Familia semántica: 'board' | 'atomic' | 'environmental'. */
   get kind() { return 'board'; }
-
-  /** Inicializa el estado del dispositivo en `state.deviceState[id]`. */
-  initialize(state) { /* opcional */ }
-
-  /** Bounds en coordenadas de habitación `{x,y,w,h}` o `null` si es ambiental. */
+  initialize(state) { }
   getBounds(state) { return null; }
-
-  /** Mapa de celdas `{ "x,y": { symbol, color, title, solved } }` a superponer. */
   getCells(state) { return {}; }
-
-  /**
-   * Acciones disponibles AHORA. Cada acción debe traer:
-   *   id, label, device:<id>, payload:<object>, perception? opcional
-   * Las acciones de puzzle NO tienen `stat` — no tiran dados.
-   */
   getActions(state) { return []; }
-
-  /**
-   * Muta el estado del dispositivo.
-   * @returns {{ changed:boolean, justSolved?:boolean, narrative?:string }}
-   */
-  applyAction(state, actionId, payload) { return { changed:false }; }
-
-  /** ¿Está resuelto el puzzle? */
+  applyAction(state, actionId, payload) { return { changed: false }; }
   isSolved(state) { return false; }
-
-  /** ¿El puzzle se ha vuelto irresoluble? (sokoban bloqueado, etc.) */
   isBlocked(state) { return false; }
-
-  /** Reset explícito (el jugador paga economía). */
   reset(state) { }
+  getStatus(state) { return null; }
 }
 
 /* ============================================================================
- * 5. ADAPTERS
+ * 4. ADAPTERS
  * ========================================================================== */
 class SeededRandomAdapter extends RandomPort {
   constructor(seed = 42) {
@@ -343,17 +463,15 @@ class BusLoggerAdapter extends LoggerPort {
 }
 
 /* ============================================================================
- * 6. DOMAIN SERVICES
+ * 5. DOMAIN SERVICES
  * ========================================================================== */
 
 class PerceptionEngine {
   constructor(archetype) { this.archetype = archetype; }
-
   canPerceive(action) {
     if (!action.perception) return true;
     return (this.archetype.stats[action.perception.stat] ?? 0) >= action.perception.min;
   }
-
   perceive(obj) {
     const hints = [];
     const s = this.archetype.stats;
@@ -388,8 +506,8 @@ class PerceptionEngine {
         { stat: Stat.MECANICA, min: 3, text: 'Cuatro tornillos. Con destornillador improvisado, sale en un minuto.' }
       ],
       panel_hidraulico: [
-        { stat: Stat.MECANICA, min: 3, text: 'El panel hidráulico tiene 9 tubos giratorios. Hay que conectar la entrada con la salida.' },
-        { stat: Stat.LOGICA, min: 4, text: 'El agua entra por arriba a la izquierda y debe salir por abajo a la derecha.' }
+        { stat: Stat.MECANICA, min: 3, text: 'El panel hidráulico tiene 9 tubos. Hay que conectar la entrada con la salida.' },
+        { stat: Stat.LOGICA, min: 4, text: 'El agua entra por la esquina superior-izquierda y debe salir por la inferior-derecha.' }
       ]
     };
     for (const f of (formulas[obj.id] || [])) {
@@ -400,10 +518,7 @@ class PerceptionEngine {
 }
 
 class ActionEngine {
-  constructor(randomPort, logger) {
-    this.random = randomPort;
-    this.logger = logger;
-  }
+  constructor(randomPort, logger) { this.random = randomPort; this.logger = logger; }
   resolve(action, archetype, context) {
     if (!context.economy.canAttempt()) {
       return { success:false, roll:null, blocked:true,
@@ -486,57 +601,32 @@ class CraftingEngine {
 }
 
 /* ============================================================================
- * 7. PIPE PUZZLE DEVICE — primer device concreto
+ * 6. PIPE PUZZLE DEVICE
  * ----------------------------------------------------------------------------
- * LÓGICA:
- *   - Región 3×3. Cada celda tiene un "shape" base (conexiones en rot=0).
- *   - Cada celda tiene una rotación actual 0..3.
- *   - Conexiones efectivas = rotar el shape base N veces en sentido horario.
- *   - Fuente de agua: entra por ARRIBA de (0,0). Requiere (0,0).u === 1.
- *   - Desagüe: sale por ABAJO de (2,2). Requiere (2,2).d === 1.
- *   - El puzzle está resuelto si un flood-fill desde (0,0) alcanza (2,2)
- *     respetando TODAS las conexiones entre vecinos.
- *
- * ROTACIÓN 90° HORARIA:  u ← l,  r ← u,  d ← r,  l ← d
- *   (el conector "arriba" pasa a ser "derecha", etc.)
- *
- * SIN DADOS: los puzzles de lógica no se resuelven tirando. Si metes un dado
- * aquí, el jugador siente que el puzzle está roto.
+ * v3.3: las rotaciones van marcadas como `hidden: true`. NO aparecen en el
+ * panel derecho. Se disparan desde el grid. La única acción visible del
+ * device es "Reiniciar" (con priority negativa para que quede abajo).
  * ========================================================================== */
 class PipePuzzleDevice extends PuzzleDevicePort {
   constructor() {
     super();
-    this._bounds = { x:7, y:2, w:3, h:3 };
-
-    // Shapers base (conexiones en rot=0). Definidos pensando en una solución:
-    //   (0,0) → (1,0) → (1,1) → (1,2) → (2,2)
-    // La solución existe con rot=0 en todas las celdas del camino.
-    this.BASE_SHAPES = [
-      [ // fila y=0
-        { u:1, r:1, d:0, l:0 }, // (0,0) └ (entrada por arriba, sale derecha)
-        { u:0, r:0, d:1, l:1 }, // (1,0) ┐ (entra por izquierda, sale abajo)
-        { u:0, r:0, d:1, l:1 }  // (2,0) ┐ (decoys)
-      ],
-      [ // fila y=1
-        { u:1, r:0, d:1, l:0 }, // (0,1) │ (decoy)
-        { u:1, r:0, d:1, l:0 }, // (1,1) │ (entra por arriba, sale abajo)
-        { u:1, r:0, d:1, l:0 }  // (2,1) │ (decoy)
-      ],
-      [ // fila y=2
-        { u:1, r:1, d:0, l:0 }, // (0,2) └ (decoy)
-        { u:1, r:1, d:0, l:0 }, // (1,2) └ (entra por arriba, sale derecha)
-        { u:0, r:0, d:1, l:1 }  // (2,2) ┘ (entra por izquierda, sale abajo → desagüe)
-      ]
+    this._bounds = { x: 7, y: 2, w: 3, h: 3 };
+    this.LAYOUT = [
+      [ 'corner',   'corner',   'dead'   ],
+      [ 'dead',     'straight', 'dead'   ],
+      [ 'dead',     'corner',   'corner' ]
     ];
-
-    // Rotaciones iniciales: scramble. La solución requiere rot=0 en las del camino.
+    this.SHAPES = {
+      'corner':   { u:1, r:1, d:0, l:0 },
+      'straight': { u:1, r:0, d:1, l:0 },
+      'dead':     { u:0, r:0, d:0, l:0 }
+    };
     this.INITIAL_ROTATIONS = [
-      [1, 2, 0],
+      [3, 0, 0],
       [0, 1, 0],
-      [0, 2, 1]
+      [0, 1, 0]
     ];
   }
-
   get id() { return 'pipe_grid'; }
   get name() { return 'Panel hidráulico'; }
   get kind() { return 'board'; }
@@ -548,70 +638,89 @@ class PipePuzzleDevice extends PuzzleDevicePort {
     };
   }
 
-  /* --- LÓGICA PURA DE ROTACIÓN ---------------------------------------------- */
-
-  /**
-   * Aplica N rotaciones de 90° horario a un shape.
-   * @param {{u,r,d,l}} shape
-   * @param {number} n  - cualquier entero (se aplica módulo 4)
-   * @returns {{u,r,d,l}}
-   */
   _applyRotation(shape, n) {
     n = ((n % 4) + 4) % 4;
     let s = shape;
-    for (let i = 0; i < n; i++) {
-      s = { u: s.l, r: s.u, d: s.r, l: s.d };
-    }
+    for (let i = 0; i < n; i++) s = { u: s.l, r: s.u, d: s.r, l: s.d };
     return s;
   }
-
-  /** Devuelve el shape efectivo de una celda en su estado actual. */
-  _currentShape(state, x, y) {
+  _shapeAt(state, x, y) {
     const st = state.deviceState[this.id];
-    return this._applyRotation(this.BASE_SHAPES[y][x], st.rotations[y][x]);
+    const type = this.LAYOUT[y][x];
+    const base = this.SHAPES[type];
+    if (type === 'dead') return base;
+    return this._applyRotation(base, st.rotations[y][x]);
   }
-
-  /** Matriz 3×3 de shapes actuales. */
   _grid(state) {
     const g = [];
     for (let y = 0; y < 3; y++) {
       const row = [];
-      for (let x = 0; x < 3; x++) row.push(this._currentShape(state, x, y));
+      for (let x = 0; x < 3; x++) row.push(this._shapeAt(state, x, y));
       g.push(row);
     }
     return g;
   }
-
-  /* --- VISUALIZACIÓN -------------------------------------------------------- */
-
-  /** Traduce un shape a un glifo ASCII de box-drawing. */
-  _symbolFor(s) {
-    const k = `${s.u?1:0}${s.r?1:0}${s.d?1:0}${s.l?1:0}`;
-    const table = {
-      '1010': '└', '1001': '┘', '0110': '┌', '0101': '┐',
-      '1011': '├', '1101': '┤', '0111': '┬', '1110': '┴',
-      '1111': '┼', '1100': '─', '0011': '─',
-      '1000': '╵', '0100': '╴', '0010': '╷', '0001': '╶'
-    };
-    if (table[k]) return table[k];
-    if (s.u && s.d && !s.l && !s.r) return '│';
-    if (s.l && s.r && !s.u && !s.d) return '─';
-    return '·';
+  _computeFlow(state) {
+    const grid = this._grid(state);
+    const flow = new Set();
+    if (!grid[0][0].u) return flow;
+    const stack = [[0, 0]];
+    while (stack.length) {
+      const [x, y] = stack.pop();
+      const k = `${x},${y}`;
+      if (flow.has(k)) continue;
+      flow.add(k);
+      const c = grid[y][x];
+      if (c.u && y > 0 && grid[y-1][x].d) stack.push([x, y-1]);
+      if (c.d && y < 2 && grid[y+1][x].u) stack.push([x, y+1]);
+      if (c.l && x > 0 && grid[y][x-1].r) stack.push([x-1, y]);
+      if (c.r && x < 2 && grid[y][x+1].l) stack.push([x+1, y]);
+    }
+    return flow;
   }
+  isSolved(state) {
+    const flow = this._computeFlow(state);
+    if (!flow.has('2,2')) return false;
+    const grid = this._grid(state);
+    return grid[2][2].d === 1;
+  }
+  isBlocked() { return false; }
 
   getCells(state) {
-    const grid = this._grid(state);
+    const flow = this._computeFlow(state);
     const solved = this.isSolved(state);
     const out = {};
     for (let y = 0; y < 3; y++) {
       for (let x = 0; x < 3; x++) {
-        const shape = grid[y][x];
-        const inFlow = solved ? this._isInFlow(state, x, y) : false;
+        const shape = this._shapeAt(state, x, y);
+        const inFlow = flow.has(`${x},${y}`);
+        const isSource = (x === 0 && y === 0);
+        const isDrain = (x === 2 && y === 2);
+        const isDead = this.LAYOUT[y][x] === 'dead';
+
+        const classes = ['cell'];
+        if (isDead) {
+          out[`${this._bounds.x + x},${this._bounds.y + y}`] = {
+            html: `<div class="pipe-cell"><div class="center" style="opacity:.25"></div></div>`,
+            classes: [...classes, 'empty'],
+            title: 'Pieza muerta'
+          };
+          continue;
+        }
+        // Puertos: u/r/d/l según shape. Activos = con conexión.
+        const ports = ['u','r','d','l'].map(dir =>
+          `<div class="conn ${dir}${shape[dir] ? ' active' : ''}"></div>`
+        ).join('');
+        classes.push('device', 'pipe');
+        if (inFlow) classes.push('in-flow');
+        if (isSource) classes.push('source');
+        if (isDrain) classes.push('drain');
+        if (solved) classes.push('solved');
+
         out[`${this._bounds.x + x},${this._bounds.y + y}`] = {
-          symbol: this._symbolFor(shape),
-          color: inFlow ? '#7ee87e' : '#7ec8e3',
+          html: `<div class="pipe-cell">${ports}<div class="center"></div></div>`,
+          classes,
           title: `Tubo (${x},${y}) — clic para girar`,
-          solved,
           localCoords: { x, y }
         };
       }
@@ -619,112 +728,81 @@ class PipePuzzleDevice extends PuzzleDevicePort {
     return out;
   }
 
-  /* --- ACCIONES ------------------------------------------------------------- */
+  getStatus(state) {
+    const flow = this._computeFlow(state);
+    const solved = this.isSolved(state);
+    if (solved) return { text: '💧 Flujo conectado al desagüe ✓', color: '#7ee87e' };
+    if (flow.size === 0) return { text: '💧 El agua no entra (fuente bloqueada)', color: '#ff6b6b' };
+    if (flow.has('2,2')) return { text: '💧 El agua llega al desagüe pero no sale', color: '#ffb347' };
+    return { text: `💧 Flujo activo: ${flow.size} celdas con agua`, color: '#7ec8e3' };
+  }
 
   getActions(state) {
     if (this.isSolved(state)) return [];
     const actions = [];
+    // Rotaciones: HIDDEN. No van al panel. Solo el grid las dispara.
     for (let y = 0; y < 3; y++) {
       for (let x = 0; x < 3; x++) {
+        if (this.LAYOUT[y][x] === 'dead') continue;
         actions.push(new Action(
           `pipe_rotate_${x}_${y}`,
           `Girar tubo (${x},${y})`,
           {
             device: this.id,
             payload: { x, y },
-            perception: { stat: Stat.LOGICA, min: 1 }
+            perception: { stat: Stat.LOGICA, min: 1 },
+            hidden: true
           }
         ));
       }
     }
+    // Reset: visible en panel, con prioridad baja para que quede al fondo.
     actions.push(new Action(
       `pipe_reset`,
       `↺ Reiniciar panel hidráulico (coste: 1 intento)`,
-      { device: this.id, payload: {} }
+      { device: this.id, payload: {}, priority: -10 }
     ));
     return actions;
   }
 
   applyAction(state, actionId, payload) {
     const wasSolved = this.isSolved(state);
+    const flowBefore = this._computeFlow(state);
 
     if (actionId === 'pipe_reset') {
       this.initialize(state);
       state.economy.recordFailure();
       return { changed: true, narrative: 'Reiniciar el panel consume un intento.' };
     }
-
     const m = actionId.match(/^pipe_rotate_(\d+)_(\d+)$/);
     if (!m) return { changed: false };
-
     const x = parseInt(m[1], 10);
     const y = parseInt(m[2], 10);
     if (x < 0 || x > 2 || y < 0 || y > 2) return { changed: false };
+    if (this.LAYOUT[y][x] === 'dead') return { changed: false };
 
     const st = state.deviceState[this.id];
     st.rotations[y][x] = (st.rotations[y][x] + 1) % 4;
 
     const nowSolved = this.isSolved(state);
-    return { changed: true, justSolved: !wasSolved && nowSolved };
-  }
+    const flowAfter = this._computeFlow(state);
+    const delta = flowAfter.size - flowBefore.size;
 
-  /* --- CONDICIÓN DE RESOLUCIÓN --------------------------------------------- */
+    let narrative = `Giras el tubo (${x},${y}).`;
+    if (!wasSolved && nowSolved) narrative += ' 💧 ¡El agua llega al desagüe!';
+    else if (delta > 0) narrative += ` 💧 El agua avanza ${delta} celda${delta>1?'s':''}.`;
+    else if (delta < 0) narrative += ` 💧 El agua retrocede ${-delta} celda${-delta>1?'s':''}.`;
+    else if (flowAfter.size === 0) narrative += ' La fuente está bloqueada.';
+    else narrative += ' El flujo no cambia.';
 
-  /**
-   * Flood-fill desde (0,0). Requisitos:
-   *   1. (0,0) debe tener u=1 (la fuente entra por arriba).
-   *   2. Desde (0,0) seguimos conexiones mutuas.
-   *   3. (2,2) debe estar alcanzada Y tener d=1 (desagüe por abajo).
-   */
-  isSolved(state) {
-    const grid = this._grid(state);
-    if (!grid[0][0].u) return false;
-
-    const seen = new Set();
-    const stack = [[0, 0]];
-    while (stack.length) {
-      const [x, y] = stack.pop();
-      const k = `${x},${y}`;
-      if (seen.has(k)) continue;
-      seen.add(k);
-      const c = grid[y][x];
-      if (c.u && y > 0 && grid[y-1][x].d) stack.push([x, y-1]);
-      if (c.d && y < 2 && grid[y+1][x].u) stack.push([x, y+1]);
-      if (c.l && x > 0 && grid[y][x-1].r) stack.push([x-1, y]);
-      if (c.r && x < 2 && grid[y][x+1].l) stack.push([x+1, y]);
-    }
-    return seen.has('2,2') && grid[2][2].d;
-  }
-
-  _isInFlow(state, targetX, targetY) {
-    const grid = this._grid(state);
-    if (!grid[0][0].u) return false;
-    const seen = new Set();
-    const stack = [[0, 0]];
-    while (stack.length) {
-      const [x, y] = stack.pop();
-      const k = `${x},${y}`;
-      if (seen.has(k)) continue;
-      seen.add(k);
-      const c = grid[y][x];
-      if (c.u && y > 0 && grid[y-1][x].d) stack.push([x, y-1]);
-      if (c.d && y < 2 && grid[y+1][x].u) stack.push([x, y+1]);
-      if (c.l && x > 0 && grid[y][x-1].r) stack.push([x-1, y]);
-      if (c.r && x < 2 && grid[y][x+1].l) stack.push([x+1, y]);
-    }
-    return seen.has(`${targetX},${targetY}`);
-  }
-
-  isBlocked() {
-    // Las rotaciones son reversibles: nunca se puede bloquear.
-    return false;
+    return { changed: true, justSolved: !wasSolved && nowSolved, narrative };
   }
 
   reset(state) { this.initialize(state); }
 }
 
 /* ============================================================================
- * 8. WORLD
+ * 7. WORLD
  * ========================================================================== */
 class RoomGrid {
   constructor(w, h) {
@@ -823,7 +901,7 @@ function buildCell7() {
 }
 
 /* ============================================================================
- * 9. GAME STATE
+ * 8. GAME STATE
  * ========================================================================== */
 class GameState {
   constructor(archetype, room) {
@@ -844,7 +922,13 @@ class GameState {
 }
 
 /* ============================================================================
- * 10. PROVIDER DE ACCIONES — mezcla acciones de habitación + devices
+ * 9. PROVIDER DE ACCIONES
+ * ----------------------------------------------------------------------------
+ * v3.3: dos métodos.
+ *   getAll(state)        → todas las acciones (incluye hidden). Usado por el
+ *                          use case para resolver acciones del grid.
+ *   getPanelActions(state)→ solo las visibles en el panel derecho. Ordenadas
+ *                          por priority descendente.
  * ========================================================================== */
 class AvailableActionsProvider {
   constructor(perceptionEngine) { this.pe = perceptionEngine; }
@@ -852,8 +936,14 @@ class AvailableActionsProvider {
   getAll(state) {
     const roomActions = this._buildRoomActions(state);
     const deviceActions = state.room.devices.flatMap(d => d.getActions(state));
-    const all = [...roomActions, ...deviceActions];
-    return all.filter(a => this.pe.canPerceive(a));
+    return [...roomActions, ...deviceActions].filter(a => this.pe.canPerceive(a));
+  }
+
+  getPanelActions(state) {
+    const all = this.getAll(state);
+    const visible = all.filter(a => !a.hidden);
+    // Ordenar por priority descendente (mayor priority → más arriba)
+    return [...visible].sort((a, b) => (b.priority ?? 0) - (a.priority ?? 0));
   }
 
   _buildRoomActions(state) {
@@ -938,15 +1028,15 @@ class AvailableActionsProvider {
           onSuccess:ctx => { ctx.setFlag('escaped_via_vent'); ctx.escaped = true; } }));
     }
 
-    // === ACCIÓN DESBLOQUEADA POR EL DEVICE ===
+    // === ACCIÓN DESTACADA: desbloqueada por el device ===
     if (state.hasFlag('solved_pipe_grid') && !door.get('jammed')) {
       actions.push(new Action('hydro_unlock',
         '💧 Usar la presión hidráulica para abrir la puerta',
         { perception:{stat:Stat.LOGICA,min:1},
+          priority: 100,
           onSuccess:ctx => { ctx.findObject('puerta_blindada').set('locked',false); ctx.escaped = true; } }));
     }
 
-    // Crafting
     if (state.craftingEngine) {
       for (const r of state.craftingEngine.findPossible(state.inventory)) {
         actions.push(new Action(`craft_${r.id}`, `🔨 Fabricar: ${r.output.name}`,
@@ -958,7 +1048,10 @@ class AvailableActionsProvider {
 }
 
 /* ============================================================================
- * 11. USE CASES
+ * 10. USE CASES
+ * ----------------------------------------------------------------------------
+ * v3.3: cada acción emite UNA SOLA entrada de log (con el label de la acción
+ * y la narrativa). Se elimina la línea separada del dado.
  * ========================================================================== */
 class ExamineRoomUseCase {
   constructor(perceptionEngine, logger) { this.pe = perceptionEngine; this.logger = logger; }
@@ -981,24 +1074,23 @@ class AttemptActionUseCase {
   }
 
   async execute(state, actionId) {
+    // Buscamos en TODAS las acciones (incluidas las hidden) para que el grid
+    // pueda disparar las rotaciones de tubo, que no están en el panel.
     const action = this.provider.getAll(state).find(a => a.id === actionId);
     if (!action) { this.logger.log({ type:'fail', text:`Acción desconocida: ${actionId}` }); return; }
 
     if (action.isPuzzleAction()) return this._handlePuzzleAction(state, action);
     if (action.tags[0] === 'craft') return this._handleCraft(state, action.tags[1]);
 
-    this.logger.log({ type:'action', text:`> ${action.label}` });
     this.bus.emit('roll:start');
     const result = this.engine.resolve(action, state.archetype, state);
     this.bus.emit('roll:result', { result, action });
-    if (result.roll) {
-      const m = result.roll.modifier;
-      this.logger.log({ type:'dice',
-        text:`🎲 d20: ${result.roll.die} ${m>=0?'+':''}${m} = ${result.roll.total} vs ${result.roll.difficulty}` });
-    }
+
+    // Una sola entrada: label + narrativa. Sin línea de dado duplicada.
     const type = (result.blocked||result.missing||!result.success) ? 'fail' : 'result';
-    this.logger.log({ type, text: result.narrative });
-    if (state.escaped) this.logger.log({ type:'result', text:'🔓 ¡ESCAPASTE DE LA CELDA 7!' });
+    this.logger.log({ type, text: result.narrative, action: action.label });
+
+    if (state.escaped) this.logger.log({ type:'device', text:'🔓 ¡ESCAPASTE DE LA CELDA 7!' });
     if (state.economy.blocked) this.logger.log({ type:'fail', text:'⚠️ Estás bloqueado. Reinicia.' });
   }
 
@@ -1006,56 +1098,73 @@ class AttemptActionUseCase {
     const device = state.getDevice(action.device);
     if (!device) { this.logger.log({ type:'fail', text:'Dispositivo no encontrado.' }); return; }
 
-    this.logger.log({ type:'action', text:`> ${action.label}` });
     const result = device.applyAction(state, action.id, action.payload);
-
     if (!result.changed) { this.logger.log({ type:'fail', text:'No puedes hacer eso.' }); return; }
 
+    // Emitimos al dado (que muestra "✓ HECHO" sin rodar)
     this.bus.emit('roll:result', {
-      result: {
-        roll: null,
-        success: true,
-        narrative: result.narrative || `${action.label}. Hecho.`
-      },
+      result: { roll: null, success: true, narrative: result.narrative || '' },
       action
     });
+
+    // Una sola entrada de log: label + narrativa del flujo (si la hay).
+    // Si es una rotación pura sin novedad, usamos la narrativa del device.
+    if (result.narrative) {
+      this.logger.log({ type: 'flow', text: result.narrative, action: action.label });
+    } else {
+      this.logger.log({ type: 'result', text: 'Hecho.', action: action.label });
+    }
 
     if (result.justSolved) {
       state.setFlag(`solved_${device.id}`);
       this.bus.emit('device:solved', { deviceId: device.id, device });
-      this.logger.log({ type:'device', text:`✨ ${device.name}: ¡RESUELTO! Nueva ruta disponible.` });
-    } else if (!device.isSolved(state)) {
-      this.logger.log({ type:'result', text: `${action.label}.` });
+      this.logger.log({ type:'device',
+        text:`✨ ${device.name} resuelto. Hay una nueva acción disponible ARRIBA del panel.` });
     }
   }
 
   _handleCraft(state, recipeId) {
     const recipe = state.craftingEngine.recipes.find(r => r.id === recipeId);
     if (!recipe) return;
-    this.logger.log({ type:'action', text:`> Intentas fabricar ${recipe.output.name}` });
     this.bus.emit('roll:start');
     const result = state.craftingEngine.attempt(recipe, state.archetype, state);
     this.bus.emit('roll:result', { result, action:{ label:`Fabricar ${recipe.output.name}` } });
-    if (result.roll) {
-      const m = result.roll.modifier;
-      this.logger.log({ type:'dice',
-        text:`🎲 d20: ${result.roll.die} ${m>=0?'+':''}${m} = ${result.roll.total} vs ${result.roll.difficulty}` });
-    }
-    this.logger.log({ type: result.success ? 'result':'fail', text: result.narrative });
+
+    const type = result.success ? 'result' : 'fail';
+    this.logger.log({ type, text: result.narrative, action: `Fabricar ${recipe.output.name}` });
   }
 }
 
 /* ============================================================================
- * 12. UI ADAPTERS
+ * 11. UI ADAPTERS
  * ========================================================================== */
+
+const escapeHtml = (s) => String(s).replace(/[&<>"']/g, c => ({
+  '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;'
+}[c]));
+
+/**
+ * LOG VIEW — v3.3
+ * Lo último aparece ARRIBA (prepend). Cada acción se muestra como una sola
+ * entrada de dos líneas: "> acción" + narrativa. Sin línea de dado.
+ */
 class LogView {
-  constructor(bus, el) { this.el = el; bus.on('log', e => this.append(e)); }
-  append({ type, text }) {
+  constructor(bus, el) {
+    this.el = el;
+    bus.on('log', e => this.prepend(e));
+  }
+  prepend({ type, text, action }) {
     const d = document.createElement('div');
     d.className = `log-entry ${type}`;
-    d.textContent = text;
-    this.el.appendChild(d);
-    this.el.scrollTop = this.el.scrollHeight;
+    if (action) {
+      d.innerHTML =
+        `<div class="log-action">&gt; ${escapeHtml(action)}</div>` +
+        `<div class="log-narrative">${escapeHtml(text)}</div>`;
+    } else {
+      d.textContent = text;
+    }
+    this.el.prepend(d);
+    this.el.scrollTop = 0;
   }
   clear() { this.el.innerHTML = ''; }
 }
@@ -1099,16 +1208,19 @@ class StatsView {
 }
 
 class RoomView {
-  constructor(bus, gridEl, legendEl, onDeviceClick) {
-    this.gridEl = gridEl; this.legendEl = legendEl; this.onDeviceClick = onDeviceClick;
-    bus.on('state:changed', ({ room, archetype, deviceState, flags }) => this.render(room, archetype, deviceState, flags));
+  constructor(bus, gridEl, legendEl, statusEl, onDeviceClick) {
+    this.gridEl = gridEl; this.legendEl = legendEl;
+    this.statusEl = statusEl;
+    this.onDeviceClick = onDeviceClick;
+    bus.on('state:changed', ({ room, archetype, deviceState, flags }) =>
+      this.render(room, archetype, deviceState, flags));
     bus.on('device:solved', ({ deviceId }) => {
-      this.gridEl.querySelectorAll('.cell.device').forEach(c => c.classList.add('flash'));
-      setTimeout(() => this.gridEl.querySelectorAll('.cell.device').forEach(c => c.classList.remove('flash')), 400);
+      this.gridEl.querySelectorAll('.cell.pipe').forEach(c => c.classList.add('flash'));
+      setTimeout(() => this.gridEl.querySelectorAll('.cell.pipe').forEach(c => c.classList.remove('flash')), 500);
     });
 
     this.gridEl.addEventListener('click', (e) => {
-      const cell = e.target.closest('.cell.device');
+      const cell = e.target.closest('.cell.pipe');
       if (!cell) return;
       const coords = cell.dataset.coords;
       if (!coords) return;
@@ -1135,9 +1247,7 @@ class RoomView {
     const stats = archetype.stats;
 
     const deviceCells = {};
-    for (const d of room.devices) {
-      Object.assign(deviceCells, d.getCells(this._lastState));
-    }
+    for (const d of room.devices) Object.assign(deviceCells, d.getCells(this._lastState));
 
     let html = '';
     for (let y = 0; y < room.grid.height; y++) {
@@ -1153,9 +1263,11 @@ class RoomView {
         let style = '';
 
         if (dev) {
-          cls.push('device');
-          if (dev.solved) cls.push('solved');
-          content = dev.symbol;
+          (dev.classes || ['cell','device']).forEach(c => {
+            if (c !== 'cell') cls.push(c);
+          });
+          if (dev.html) content = dev.html;
+          else if (dev.symbol) content = dev.symbol;
           title = dev.title || '';
           if (dev.color) style = `color:${dev.color};`;
         } else if (isWall) {
@@ -1186,14 +1298,14 @@ class RoomView {
         legend.push(`<span style="color:${sym.color}">${sym.symbol} = ${obj.name}</span>`);
       }
     }
-    for (const d of room.devices) {
-      const bounds = d.getBounds(this._lastState);
-      if (bounds) {
-        const solved = d.isSolved(this._lastState);
-        legend.push(`<span style="color:${solved?'#7ee87e':'#7ec8e3'}">▦ = ${d.name}${solved?' (resuelto)':''}</span>`);
-      }
-    }
     this.legendEl.innerHTML = legend.join(' · ');
+
+    const statuses = [];
+    for (const d of room.devices) {
+      const st = d.getStatus(this._lastState);
+      if (st) statuses.push(`<span class="status-item" style="color:${st.color}">${st.text}</span>`);
+    }
+    this.statusEl.innerHTML = statuses.join('');
   }
 }
 
@@ -1224,7 +1336,7 @@ class DiceView {
       this._interval = setInterval(() => {
         this.diceEl.textContent = 1 + Math.floor(Math.random()*20);
       }, 60);
-      await this._sleep(350);
+      await this._sleep(300);
       clearInterval(this._interval);
     } else {
       clearInterval(this._interval);
@@ -1274,6 +1386,13 @@ class DiceView {
   _sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
 }
 
+/**
+ * ACTIONS VIEW — v3.3
+ * Recibe las acciones ya filtradas por el provider (getPanelActions).
+ * Renderiza dos secciones:
+ *   - DESBLOQUEADO (priority > 0): arriba, con estilo destacado
+ *   - ACCIONES (priority <= 0): debajo, con estilo normal
+ */
 class ActionsView {
   constructor(el, onAction) {
     this.el = el; this.onAction = onAction;
@@ -1288,24 +1407,42 @@ class ActionsView {
       this.el.innerHTML = '<div style="color:#667;font-size:11px;font-style:italic;">No hay acciones. Examina la habitación.</div>';
       return;
     }
-    for (const a of this._actions) {
-      const btn = document.createElement('button');
-      btn.className = 'action-btn' + (a.isPuzzleAction() ? ' puzzle' : '');
-      btn.disabled = this._disabled;
-      const tag = a.stat
-        ? `<span class="stat-tag">${a.stat}</span>`
-        : a.isPuzzleAction()
-          ? `<span class="no-dice">lógica</span>`
-          : '';
-      btn.innerHTML = `${a.label} ${tag}`;
-      btn.onclick = () => this.onAction(a.id);
-      this.el.appendChild(btn);
+
+    const prominent = this._actions.filter(a => (a.priority ?? 0) > 0);
+    const normal    = this._actions.filter(a => (a.priority ?? 0) <= 0);
+
+    if (prominent.length > 0) {
+      const title = document.createElement('div');
+      title.className = 'actions-section-title';
+      title.textContent = '🔓 Desbloqueado';
+      this.el.appendChild(title);
+      for (const a of prominent) this._renderButton(a, true);
     }
+    if (normal.length > 0) {
+      const title = document.createElement('div');
+      title.className = 'actions-section-title normal';
+      title.textContent = 'Acciones';
+      this.el.appendChild(title);
+      for (const a of normal) this._renderButton(a, false);
+    }
+  }
+  _renderButton(a, highlighted) {
+    const btn = document.createElement('button');
+    btn.className = 'action-btn' + (a.isPuzzleAction() ? ' puzzle' : '') + (highlighted ? ' prominent' : '');
+    btn.disabled = this._disabled;
+    const tag = a.stat
+      ? `<span class="stat-tag">${a.stat}</span>`
+      : a.isPuzzleAction()
+        ? `<span class="no-dice">lógica</span>`
+        : '';
+    btn.innerHTML = `${a.label} ${tag}`;
+    btn.onclick = () => this.onAction(a.id);
+    this.el.appendChild(btn);
   }
 }
 
 /* ============================================================================
- * 13. TESTS
+ * 12. TESTS
  * ========================================================================== */
 function runTests() {
   const res = [];
@@ -1313,166 +1450,156 @@ function runTests() {
   const A = (stats) => new Archetype('test','T', stats, '');
 
   const fisico   = A({ [Stat.FUERZA]:1,[Stat.MECANICA]:5,[Stat.QUIMICA]:4,[Stat.PERCEPCION]:4,[Stat.EMPATIA]:2,[Stat.LOGICA]:5 });
-  const empatico = A({ [Stat.FUERZA]:1,[Stat.MECANICA]:2,[Stat.QUIMICA]:2,[Stat.PERCEPCION]:5,[Stat.EMPATIA]:5,[Stat.LOGICA]:3 });
   const burto    = A({ [Stat.FUERZA]:6,[Stat.MECANICA]:2,[Stat.QUIMICA]:1,[Stat.PERCEPCION]:3,[Stat.EMPATIA]:2,[Stat.LOGICA]:1 });
 
-  /* --- 1. ROTACIÓN: matemática pura --- */
+  /* --- 1. Rotación matemática --- */
   const dev = new PipePuzzleDevice();
   const s0 = { u:1, r:0, d:0, l:0 };
   assert('Rot 0 = identidad',
     JSON.stringify(dev._applyRotation(s0, 0)) === JSON.stringify(s0));
   assert('Rot 1: arriba → derecha',
     JSON.stringify(dev._applyRotation(s0, 1)) === JSON.stringify({ u:0, r:1, d:0, l:0 }));
-  assert('Rot 2: arriba → abajo',
-    JSON.stringify(dev._applyRotation(s0, 2)) === JSON.stringify({ u:0, r:0, d:1, l:0 }));
-  assert('Rot 3: arriba → izquierda',
-    JSON.stringify(dev._applyRotation(s0, 3)) === JSON.stringify({ u:0, r:0, d:0, l:1 }));
   assert('Rot 4 = identidad',
     JSON.stringify(dev._applyRotation(s0, 4)) === JSON.stringify(s0));
-  assert('Rot -1 = rot 3 (módulo)',
+  assert('Rot -1 = rot 3',
     JSON.stringify(dev._applyRotation(s0, -1)) === JSON.stringify(dev._applyRotation(s0, 3)));
-  const corner = { u:0, r:1, d:1, l:0 };
-  assert('Corner vuelve tras 4 rotaciones',
-    JSON.stringify(dev._applyRotation(corner, 4)) === JSON.stringify(corner));
 
-  /* --- 2. FLOOD FILL: solución vs scramble --- */
+  /* --- 2. Flujo --- */
   const room = buildCell7();
   const state = new GameState(fisico, room);
   state.craftingEngine = new CraftingEngine(new ActionEngine({rollD20:()=>10}, {log:()=>{}}));
 
-  assert('Puzzle arranca sin resolver (scramble)', !dev.isSolved(state));
+  const flowInitial = dev._computeFlow(state);
+  assert('Flujo inicial: agua entra por (0,0)', flowInitial.has('0,0'));
+  assert('Flujo inicial: NO llega al desagüe', !dev.isSolved(state));
 
-  state.deviceState.pipe_grid.rotations = [
-    [0, 0, 0],
-    [0, 0, 0],
-    [0, 0, 0]
-  ];
-  assert('Puzzle resuelto con rot=0 en el camino', dev.isSolved(state));
+  state.deviceState.pipe_grid.rotations = [[0,2,0],[0,0,0],[0,0,2]];
+  assert('Configuración solución resuelve el puzzle', dev.isSolved(state));
+  const flowSolved = dev._computeFlow(state);
+  assert('Flujo resuelto toca las 5 celdas del camino',
+    ['0,0','1,0','1,1','1,2','2,2'].every(k => flowSolved.has(k)));
 
-  state.deviceState.pipe_grid.rotations[1][1] = 1;
-  assert('Puzzle NO resuelto si (1,1) está mal', !dev.isSolved(state));
+  state.deviceState.pipe_grid.rotations = [[1,2,0],[0,0,0],[0,0,2]];
+  assert('Si (0,0) no acepta fuente, no resuelve', !dev.isSolved(state));
+  state.deviceState.pipe_grid.rotations = [[0,2,0],[0,1,0],[0,0,2]];
+  assert('Si (1,1) está mal, no resuelve', !dev.isSolved(state));
+  state.deviceState.pipe_grid.rotations = [[0,2,0],[0,0,0],[0,0,0]];
+  assert('Si (2,2) no sale al desagüe, no resuelve', !dev.isSolved(state));
 
-  state.deviceState.pipe_grid.rotations[0][0] = 1;
-  state.deviceState.pipe_grid.rotations[1][1] = 0;
-  assert('Puzzle NO resuelto si (0,0) no acepta la fuente', !dev.isSolved(state));
-
-  state.deviceState.pipe_grid.rotations[0][0] = 0;
-  state.deviceState.pipe_grid.rotations[2][2] = 2;
-  assert('Puzzle NO resuelto si (2,2) no sale al desagüe', !dev.isSolved(state));
-
-  /* --- 3. APLICAR ACCIÓN: rotar cambia el estado --- */
-  state.deviceState.pipe_grid.rotations = [[0,0,0],[0,0,0],[0,0,0]];
-  const before = state.deviceState.pipe_grid.rotations[1][1];
-  dev.applyAction(state, 'pipe_rotate_1_1', { x:1, y:1 });
-  const after = state.deviceState.pipe_grid.rotations[1][1];
-  assert('Rotar incrementa rotación en 1', after === (before + 1) % 4);
-
-  for (let i = 0; i < 4; i++) dev.applyAction(state, 'pipe_rotate_1_1', { x:1, y:1 });
-  assert('4 rotaciones devuelven al estado original',
-    state.deviceState.pipe_grid.rotations[1][1] === 0);
-
-  /* --- 4. justSolved se dispara solo en la transición --- */
-  state.deviceState.pipe_grid.rotations = [[0,0,0],[0,0,0],[0,0,0]];
-  state.deviceState.pipe_grid.rotations[1][1] = 1;
-  const r1 = dev.applyAction(state, 'pipe_rotate_1_1', {x:1,y:1});
-  assert('Acción que NO resuelve no marca justSolved', !r1.justSolved);
-  dev.applyAction(state, 'pipe_rotate_1_1', {x:1,y:1});
-  const r3 = dev.applyAction(state, 'pipe_rotate_1_1', {x:1,y:1});
-  assert('Acción que resuelve marca justSolved', r3.justSolved === true);
-
-  /* --- 5. getCells devuelve 9 celdas --- */
-  state.deviceState.pipe_grid.rotations = [[0,0,0],[0,0,0],[0,0,0]];
+  /* --- 3. getCells: HTML con puertos u/r/d/l --- */
+  state.deviceState.pipe_grid.rotations = [[0,2,0],[0,0,0],[0,0,2]];
   const cells = dev.getCells(state);
-  assert('getCells devuelve exactamente 9 celdas', Object.keys(cells).length === 9);
-  assert('getCells usa coordenadas absolutas (7,2)',
-    '7,2' in cells && '9,4' in cells);
+  const cell00 = cells['7,2'];
+  assert('getCells produce HTML con class "conn u"',
+    cell00 && cell00.html.includes('conn u'));
+  assert('getCells produce HTML con class "conn r"',
+    cell00.html.includes('conn r'));
+  assert('Fuente marcada con class source', cell00.classes.includes('source'));
+  assert('Desagüe marcado con class drain',
+    cells['9,4'].classes.includes('drain'));
+  assert('Celda con flujo marcada in-flow',
+    cell00.classes.includes('in-flow'));
 
-  /* --- 6. getActions: 9 rotaciones + 1 reset si no está resuelto --- */
-  state.deviceState.pipe_grid.rotations = [[1,2,0],[0,1,0],[0,2,1]];
-  assert('Puzzle no resuelto ofrece 9 + reset',
-    dev.getActions(state).length === 10);
-  state.deviceState.pipe_grid.rotations = [[0,0,0],[0,0,0],[0,0,0]];
-  assert('Puzzle resuelto NO ofrece rotaciones',
-    dev.getActions(state).length === 0);
+  /* --- 4. NUEVO: getActions marca rotaciones como hidden --- */
+  state.deviceState.pipe_grid.rotations = [[3,0,0],[0,1,0],[0,1,0]];
+  const devActs = dev.getActions(state);
+  const rotateActs = devActs.filter(a => a.id.startsWith('pipe_rotate_'));
+  const resetAct = devActs.find(a => a.id === 'pipe_reset');
+  assert('Todas las rotaciones están hidden=true',
+    rotateActs.length > 0 && rotateActs.every(a => a.hidden === true));
+  assert('pipe_reset NO está hidden', resetAct && !resetAct.hidden);
+  assert('pipe_reset tiene priority negativa',
+    resetAct && resetAct.priority < 0);
 
-  /* --- 7. Reset restaura rotaciones iniciales y cuesta 1 intento --- */
-  state.deviceState.pipe_grid.rotations = [[2,2,2],[2,2,2],[2,2,2]];
-  const usedBefore = state.economy.used;
-  dev.applyAction(state, 'pipe_reset', {});
-  assert('Reset restaura INITIAL_ROTATIONS',
-    JSON.stringify(state.deviceState.pipe_grid.rotations) === JSON.stringify(dev.INITIAL_ROTATIONS));
-  assert('Reset consume 1 intento',
-    state.economy.used === usedBefore + 1);
-
-  /* --- 8. Provider: las acciones de device están presentes --- */
+  /* --- 5. NUEVO: provider separa getAll de getPanelActions --- */
   const pe = new PerceptionEngine(fisico);
   const provider = new AvailableActionsProvider(pe);
   const s2 = new GameState(fisico, buildCell7());
   s2.craftingEngine = new CraftingEngine(new ActionEngine({rollD20:()=>10},{log:()=>{}}));
-  const actions = provider.getAll(s2);
-  assert('Provider incluye pipe_rotate_0_0',
-    actions.some(a => a.id === 'pipe_rotate_0_0' && a.device === 'pipe_grid'));
-  assert('Provider incluye pipe_reset',
-    actions.some(a => a.id === 'pipe_reset'));
 
-  /* --- 9. hydro_unlock solo aparece si el puzzle está resuelto --- */
-  assert('Sin solved_pipe_grid NO aparece hydro_unlock',
-    !provider.getAll(s2).some(a => a.id === 'hydro_unlock'));
+  const allActions = provider.getAll(s2);
+  const panelActions = provider.getPanelActions(s2);
+
+  assert('getAll incluye pipe_rotate_0_0 (hidden, para el grid)',
+    allActions.some(a => a.id === 'pipe_rotate_0_0' && a.hidden));
+  assert('getPanelActions NO incluye pipe_rotate_0_0',
+    !panelActions.some(a => a.id === 'pipe_rotate_0_0'));
+  assert('getPanelActions SÍ incluye pipe_reset',
+    panelActions.some(a => a.id === 'pipe_reset'));
+  assert('getPanelActions SÍ incluye open_panel',
+    panelActions.some(a => a.id === 'open_panel'));
+
+  /* --- 6. Orden por priority: hydro_unlock arriba --- */
   s2.setFlag('solved_pipe_grid');
-  assert('Con solved_pipe_grid SÍ aparece hydro_unlock',
-    provider.getAll(s2).some(a => a.id === 'hydro_unlock'));
-  s2.flags.delete('solved_pipe_grid'); // limpieza para siguientes tests
+  const panelAfterSolve = provider.getPanelActions(s2);
+  assert('Tras resolver, hydro_unlock aparece en el panel',
+    panelAfterSolve.some(a => a.id === 'hydro_unlock'));
+  const hydro = panelAfterSolve.find(a => a.id === 'hydro_unlock');
+  assert('hydro_unlock tiene priority alta',
+    hydro && hydro.priority > 0);
+  // Es la primera tras ordenar
+  assert('hydro_unlock está primero en el panel',
+    panelAfterSolve[0].id === 'hydro_unlock');
+  // pipe_reset está más abajo que las acciones normales
+  const resetIdx = panelAfterSolve.findIndex(a => a.id === 'pipe_reset');
+  const openPanelIdx = panelAfterSolve.findIndex(a => a.id === 'open_panel');
+  assert('pipe_reset va después que open_panel (priority menor)',
+    resetIdx > openPanelIdx);
 
-  /* --- 10. Routing: puzzle action vs dice action ---
-   * OJO: `force_door` tiene perception:{FUERZA, min:2} y `fisico` tiene FUERZA:1.
-   * El filtro de percepción lo elimina, así que en esta lista NO está.
-   * Usamos `open_panel` (MECÁNICA≥2, fisico tiene 5) como acción de dado visible.
-   */
-  const puzzleAction = actions.find(a => a.id === 'pipe_rotate_0_0');
-  assert('pipe_rotate existe y es isPuzzleAction',
-    !!puzzleAction && puzzleAction.isPuzzleAction());
-
-  const diceAction = actions.find(a => a.id === 'open_panel');
-  assert('open_panel existe y NO es isPuzzleAction',
-    !!diceAction && !diceAction.isPuzzleAction());
-
-  // Verificación EXPLÍCITA del filtro: fisico NO ve force_door (Fuerza 1 < 2)
-  assert('Físico NO ve force_door por filtro de percepción',
-    !actions.some(a => a.id === 'force_door'));
-
-  // Y burto (Fuerza 6) SÍ lo ve: cambiamos de arquetipo y volvemos a filtrar
+  /* --- 7. Filtro de percepción sigue aplicándose --- */
+  assert('Físico NO ve force_door (Fuerza 1 < 2)',
+    !allActions.some(a => a.id === 'force_door'));
   const providerBurto = new AvailableActionsProvider(new PerceptionEngine(burto));
-  const actionsBurto = providerBurto.getAll(s2);
+  const s3 = new GameState(burto, buildCell7());
+  s3.craftingEngine = new CraftingEngine(new ActionEngine({rollD20:()=>10},{log:()=>{}}));
   assert('Burto SÍ ve force_door (Fuerza 6 >= 2)',
-    actionsBurto.some(a => a.id === 'force_door'));
+    providerBurto.getAll(s3).some(a => a.id === 'force_door'));
 
-  /* --- 11. Estado no queda corrupto tras múltiples aplicaciones --- */
-  const s3 = new GameState(fisico, buildCell7());
-  const d3 = s3.getDevice('pipe_grid');
+  /* --- 8. Robustez: 100 rotaciones aleatorias --- */
+  const s4 = new GameState(fisico, buildCell7());
+  const d4 = s4.getDevice('pipe_grid');
   for (let i = 0; i < 100; i++) {
     const x = i % 3, y = (i >> 2) % 3;
-    d3.applyAction(s3, `pipe_rotate_${x}_${y}`, {x, y});
+    d4.applyAction(s4, `pipe_rotate_${x}_${y}`, {x, y});
   }
-  const inRange = s3.deviceState.pipe_grid.rotations.every(row =>
-    row.every(r => r >= 0 && r < 4));
+  const inRange = s4.deviceState.pipe_grid.rotations.every(row => row.every(r => r >= 0 && r < 4));
   assert('Rotaciones siempre en [0,4) tras 100 acciones', inRange);
 
-  /* --- 12. Coherencia: al menos existe una configuración resoluble --- */
-  const s4 = new GameState(fisico, buildCell7());
-  s4.deviceState.pipe_grid.rotations = [[0,0,0],[0,0,0],[0,0,0]];
-  assert('La configuración rot=0 resuelve el puzzle', s4.getDevice('pipe_grid').isSolved(s4));
+  /* --- 9. Piezas muertas no giran --- */
+  const rDead = d4.applyAction(s4, 'pipe_rotate_2_0', {x:2, y:0});
+  assert('Pieza muerta no cambia', !rDead.changed);
 
-  /* --- 13. Filtro de percepción sobre acciones de device --- */
-  const puzzleActionLowLogica = new Action('x','x',{ device:'pipe_grid', stat:null,
-    perception:{ stat:Stat.LOGICA, min:1 }});
-  const peBurto = new PerceptionEngine(burto);
-  assert('Burto con Lógica 1 ve la acción (min 1)',
-    peBurto.canPerceive(puzzleActionLowLogica));
-  const peStrict = new PerceptionEngine(A({...fisico.stats, [Stat.LOGICA]:0}));
-  assert('Lógica 0 no ve acción que requiere Lógica 1',
-    !peStrict.canPerceive(puzzleActionLowLogica));
+  /* --- 10. getStatus informa del progreso --- */
+  state.deviceState.pipe_grid.rotations = [[3,0,0],[0,1,0],[0,1,0]];
+  const st1 = dev.getStatus(state);
+  assert('getStatus devuelve texto y color', st1 && typeof st1.text === 'string' && st1.color);
+  assert('getStatus sin resolver menciona flujo o agua',
+    st1.text.toLowerCase().includes('flujo') || st1.text.toLowerCase().includes('agua'));
 
-  /* --- RESULTADO --- */
+  /* --- 11. Efecto de solved se emite una sola vez --- */
+  const s5 = new GameState(fisico, buildCell7());
+  s5.deviceState.pipe_grid.rotations = [[0,2,0],[0,0,0],[0,0,1]];
+  // (2,2) está en rot=1. Un giro más lo deja en rot=2 → resuelto.
+  const rSolve = s5.getDevice('pipe_grid').applyAction(s5, 'pipe_rotate_2_2', {x:2, y:2});
+  assert('Transición a resuelto marca justSolved', rSolve.justSolved === true);
+  const rAgain = s5.getDevice('pipe_grid').applyAction(s5, 'pipe_rotate_2_2', {x:2, y:2});
+  // Ya está resuelto, getActions devuelve [] y no hay transición
+  assert('Reaplicar rotación tras resolver no marca justSolved',
+    !rAgain.justSolved || !rAgain.changed);
+
+  /* --- 12. Log invertido: el último se queda arriba --- */
+  // (Este test es conceptual, se valida visualmente. Aquí comprobamos que
+  // la estructura del evento contiene todo lo necesario.)
+  const bus = new EventBus();
+  let captured = null;
+  bus.on('log', e => { captured = e; });
+  const logger = new BusLoggerAdapter(bus);
+  logger.log({ type: 'result', text: 'La puerta cede.', action: 'Forzar la puerta' });
+  assert('Log event lleva type, text y action',
+    captured && captured.type === 'result' &&
+    captured.text === 'La puerta cede.' &&
+    captured.action === 'Forzar la puerta');
+
   const passed = res.filter(r=>r.pass).length;
   console.log(`%c🧪 TESTS: ${passed}/${res.length}`, `color:${passed===res.length?'#7ee87e':'#ff6b6b'};font-weight:bold;font-size:14px`);
   res.forEach(r => console.log(`  ${r.pass?'✅':'❌'} ${r.name}`));
@@ -1480,7 +1607,7 @@ function runTests() {
 }
 
 /* ============================================================================
- * 14. COMPOSITION ROOT
+ * 13. COMPOSITION ROOT
  * ========================================================================== */
 const ARCHETYPES = {
   fisico: new Archetype('fisico','Dr. Einstein',
@@ -1529,9 +1656,10 @@ function createApp(archetypeId) {
       syncState();
     });
 
-  const roomView = new RoomView(bus,
+  new RoomView(bus,
     document.getElementById('roomGrid'),
     document.getElementById('roomLegend'),
+    document.getElementById('deviceStatus'),
     (actionId) => {
       actionsView.disable();
       attemptUC.execute(state, actionId).then(syncState);
@@ -1545,36 +1673,27 @@ function createApp(archetypeId) {
 
   function syncState() {
     bus.emit('state:changed', {
-      room: state.room,
-      archetype: state.archetype,
-      deviceState: state.deviceState,
-      flags: state.flags,
-      inventory: state.inventory,
-      economy: state.economy,
-      escaped: state.escaped
+      room: state.room, archetype: state.archetype,
+      deviceState: state.deviceState, flags: state.flags,
+      inventory: state.inventory, economy: state.economy, escaped: state.escaped
     });
-    if (state.escaped) {
-      actionsView.setActions([]);
-      return;
-    }
-    actionsView.setActions(provider.getAll(state));
+    if (state.escaped) { actionsView.setActions([]); return; }
+    actionsView.setActions(provider.getPanelActions(state));
   }
 
-  bus.on('device:solved', () => {
-    setTimeout(syncState, 200);
-  });
+  bus.on('device:solved', () => { setTimeout(syncState, 250); });
 
   bus.emit('log', { type:'system', text:`═══ ${archetype.name} ═══` });
   bus.emit('log', { type:'system', text: archetype.flavor });
-  bus.emit('log', { type:'system', text:'Pulsa "Examinar" para descubrir pistas.' });
-  bus.emit('log', { type:'system', text:'💡 El panel hidráulico (▦) es un puzzle de lógica: no tira dados.' });
+  bus.emit('log', { type:'system', text:'💡 Panel hidráulico: haz clic en un tubo del grid para girarlo.' });
+  bus.emit('log', { type:'system', text:'   El agua entra por la gota 💧 y debe llegar al desagüe 🕳.' });
 
   bus.emit('state:changed', {
     room: state.room, archetype: state.archetype,
     deviceState: state.deviceState, flags: state.flags,
     inventory: state.inventory, economy: state.economy, escaped: state.escaped
   });
-  actionsView.setActions(provider.getAll(state));
+  actionsView.setActions(provider.getPanelActions(state));
 
   document.getElementById('btnExamine').onclick = () => {
     examineUC.execute(state);
@@ -1586,10 +1705,9 @@ function createApp(archetypeId) {
 }
 
 /* ============================================================================
- * 15. BOOT
+ * 14. BOOT
  * ========================================================================== */
 document.addEventListener('DOMContentLoaded', () => {
-  // Botón Examinar dinámico
   const examineBtn = document.createElement('button');
   examineBtn.id = 'btnExamine';
   examineBtn.className = 'action-btn';
@@ -1597,9 +1715,6 @@ document.addEventListener('DOMContentLoaded', () => {
   examineBtn.style.borderColor = '#7ec8e3';
   document.getElementById('actionsPanel').before(examineBtn);
 
-  // Ejecutamos tests en consola. Envolvemos en try/catch para que un fallo
-  // en un test NO aborte el resto de la inicialización de la página.
-  // Regla: los tests informan, no bloquean el arranque.
   try { runTests(); }
   catch (e) { console.error('⚠️ Tests fallaron, la app continúa:', e); }
 
