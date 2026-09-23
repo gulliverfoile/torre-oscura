@@ -1,0 +1,489 @@
+Documento de diseño y referencia técnica
+  Versión: v3.1  ·  Motor de escape con arquetipos, dados y puzzle devices
+================================================================================
+
+
+--------------------------------------------------------------------------------
+  1. QUÉ ES ESTO
+--------------------------------------------------------------------------------
+
+La Celda 7 es un prototipo de motor para un juego de escape narrativo con
+múltiples arquetipos de personaje, tiradas de dados visibles y puzzles de
+lógica que conviven con acciones de habilidad.
+
+La idea de fondo:
+
+  - Estás atrapado en una habitación.
+  - El objetivo es escapar.
+  - NO hay una única solución.
+  - El CÓMO escapas depende de QUIÉN eres.
+
+El juego se apoya en tres pilares que se combinan:
+
+  a) ARQUETIPOS: cada personaje ve la misma habitación de forma distinta y
+     tiene acceso a acciones diferentes según sus stats.
+
+  b) DADOS: las acciones de habilidad (forzar, craftear, persuadir) se
+     resuelven con tiradas de d20 + modificador vs dificultad. El jugador
+     las VE rodar y ve el resultado numérico antes de la narrativa.
+
+  c) PUZZLES DE LÓGICA: tuberías, sokobans, circuitos... NO tiran dados.
+     Se resuelven razonando. Si metes un dado aquí, el puzzle se siente
+     roto. Se separan por completo del sistema de tiradas.
+
+
+--------------------------------------------------------------------------------
+  2. CÓMO SE JUEGA
+--------------------------------------------------------------------------------
+
+  1. Eliges un arquetipo: Físico (Dr. Einstein), Empático (Hippie) o
+     Burto (Gimnasio).
+
+  2. Pulsas "Examinar la habitación". Cada objeto emite pistas que solo
+     TÚ puedes ver según tus stats. Un empático lee el mensaje detrás del
+     espejo; un burto no. Un físico ve los tornillos del panel; un
+     empático no.
+
+  3. El panel de acciones te muestra SOLO lo que tu personaje es capaz de
+     percibir. Si no tienes Mecánica >= 4, ni siquiera ves la opción de
+     puentear cables. El menú está filtrado por percepción.
+
+  4. Eliges una acción. Si es de habilidad, el dado rueda, se detiene,
+     muestra la fórmula (d20 + mod = total vs dificultad) y el veredicto.
+     Si es de puzzle, no hay dado: es "✓ HECHO" y ya está.
+
+  5. Los fallos cuestan. Hay 4 "intentos" por partida. Cada fallo consume
+     uno. Algunos fallos son irreversibles (la puerta se daña, el panel
+     se fríe, los reactivos se pierden). Al agotar los 4, quedas bloqueado.
+
+  6. Hay varias formas de escapar:
+       - Forzar la puerta (Fuerza, difícil)
+       - Puentear el panel eléctrico (Mecánica)
+       - Introducir el código del espejo (Percepción/Lógica)
+       - Aplicar ácido a la cerradura (Química)
+       - Escapar por el conducto de ventilación (Percepción + Fuerza)
+       - Resolver el panel hidráulico y usar la presión (Lógica, sin dados)
+
+  7. Cada arquetipo tiene un camino natural, pero puede intentar los otros
+     con dificultad extra. El juego no te cierra puertas: te las hace
+     cuesta arriba.
+
+
+--------------------------------------------------------------------------------
+  3. LOS TRES ARQUETIPOS
+--------------------------------------------------------------------------------
+
+  DR. EINSTEIN (Físico)
+    Fuerza 1 · Mecánica 5 · Química 4 · Percepción 4 · Empatía 2 · Lógica 5
+    Ve circuitos donde otros ven cables. Su camino natural es abrir el panel
+    y puentearlo. También puede fabricar ácido, aunque con más esfuerzo.
+
+  HIPPIE (Empático)
+    Fuerza 1 · Mecánica 2 · Química 2 · Percepción 5 · Empatía 5 · Lógica 3
+    Lee emociones como otros leen libros. Ve el mensaje detrás del espejo sin
+    esfuerzo. Su escape es el más limpio pero el más frágil: si no encuentra
+    el código, se queda sin plan B fácil.
+
+  GIMNASIO (Burto)
+    Fuerza 6 · Mecánica 2 · Química 1 · Percepción 3 · Empatía 2 · Lógica 1
+    Si no se abre a la primera, se abre a la segunda. Y si no, se rompe.
+    Su camino es forzar la puerta. Falla mucho, pero cada fallo le da +1 en
+    el siguiente intento (memoria de fallos). Al tercer intento suele pasar.
+
+
+--------------------------------------------------------------------------------
+  4. SISTEMAS DEL MOTOR
+--------------------------------------------------------------------------------
+
+  --------------------
+  4.1 PERCEPCIÓN
+  --------------------
+  Cada objeto de la habitación tiene una TABLA DE FÓRMULAS. Cada fórmula es
+  { stat, min, text }. Si tu stat >= min, ves la pista. Si no, no existe
+  para ti.
+
+  El mismo sistema filtra las ACCIONES: si una acción declara
+  perception:{stat, min}, solo aparece en el menú si cumples el mínimo.
+
+  Resultado: dos arquetipos juegan "la misma" habitación pero ven mundos
+  distintos. Esto se rejuega con cada personaje.
+
+  --------------------
+  4.2 DADOS
+  --------------------
+  Solo para acciones de habilidad. Fórmula:
+
+      d20 + (stat - 3)  vs  dificultad
+
+  Crítico (20 natural) = éxito automático.
+  Pifia (1 natural) = fallo automático, aunque el modificador sume.
+
+  El dado se VE rodar. Se detiene. Aparece la fórmula. Aparece el veredicto
+  (ÉXITO / FALLO / CRÍTICO / PIFIA). Aparece la narrativa. Todo queda
+  registrado en el diario.
+
+  --------------------
+  4.3 ECONOMÍA DE ACCIONES
+  --------------------
+  4 intentos por partida. Un fallo consume uno. Al agotarlos, bloqueado.
+
+  Esto cierra el exploit clásico de "spamear hasta sacar 20". Cada tirada
+  debe ser una decisión, no una apuesta repetible.
+
+  --------------------
+  4.4 FALLOS IRREVERSIBLES
+  --------------------
+  Forzar puerta y fallar → +1 daño. Al segundo fallo, la puerta queda
+  encasquillada. No puedes volver a intentarlo.
+
+  Forzar panel y fallar → el panel se fríe. Rutas eléctricas cerradas.
+
+  Craftear y fallar → los reactivos se destruyen. Fin.
+
+  Resultado: el jugador PIENSA antes de tirar. La tensión es real.
+
+  --------------------
+  4.5 CRAFTING
+  --------------------
+  Combina items del inventario. Cada receta tiene inputs (tags) y un stat
+  asociado. Si tiras y aciertas, obtienes el item. Si fallas, los inputs
+  se consumen igual (reactivos desperdiciados).
+
+  Recetas actuales:
+    destornillador = clip + trozo de espejo (Mecánica)
+    ácido          = producto limpieza + cobre (Química)
+    puente         = clip + cable (Mecánica)
+
+  --------------------
+  4.6 PUZZLE DEVICES
+  --------------------
+  El corazón de la v3. Un PUZZLE DEVICE es un módulo autónomo que:
+
+    - Ocupa una región del grid (o lee el estado global si es ambiental).
+    - Ofrece acciones (rotar, mover, pulsar).
+    - Aplica acciones mutando SU PROPIO estado (state.deviceState[id]).
+    - Sabe si está resuelto o bloqueado.
+    - Puede emitir un evento "device:solved" que desbloquea acciones nuevas.
+
+  Hay TRES FAMILIAS de devices:
+    ATOMIC         → un solo input, un solo estado (caja fuerte, teclado).
+    BOARD          → ocupa una sub-región del grid (tuberías, sokoban).
+    ENVIRONMENTAL  → sin bounds, lee el estado global (líneas de visión).
+
+  Cada familia implementa el MISMO CONTRATO. La habitación solo dice
+  "tengo estos devices". El motor no sabe qué tipo son.
+
+
+--------------------------------------------------------------------------------
+  5. EL PUZZLE HIDRÁULICO (primer device concreto)
+--------------------------------------------------------------------------------
+
+  Familia: BOARD
+  Región:  3x3 en el grid, coordenadas (7,2) a (9,4)
+
+  Reglas:
+    - Cada celda tiene un shape base (conexiones en rot=0).
+    - Cada celda tiene una rotación actual 0..3.
+    - La rotación 90° horaria transforma: u←l, r←u, d←r, l←d.
+    - El agua entra por ARRIBA de (0,0). Requiere (0,0).u === 1.
+    - El desagüe sale por ABAJO de (2,2). Requiere (2,2).d === 1.
+    - El puzzle está resuelto si un FLOOD-FILL desde (0,0) llega a (2,2)
+      respetando conexiones mutuas entre vecinos.
+
+  Cómo se resuelve:
+    - Haces clic en cualquier celda del grid del panel para rotarla.
+    - Cuando el camino conecta fuente y desagüe, todo se pone verde.
+    - Se emite "device:solved", se activa el flag solved_pipe_grid,
+      y aparece una acción nueva: usar la presión hidráulica para abrir
+      la puerta. Escape sin dados, por pura lógica.
+
+  Por qué NO lleva dados:
+    - Es lógica pura. Un dado aquí rompe la sensación de puzzle.
+    - No consume economía: si fallas es porque no has resuelto, no por mala
+      suerte.
+    - Es reversible: puedes rotar todo lo que quieras sin castigo.
+    - El reset (opcional) cuesta 1 intento, por si te quedas atascado.
+
+  Diagrama del flujo:
+
+           FUENTE (arriba)
+              │
+              ▼
+        ┌─────┬─────┬─────┐
+        │ (0,0)│ (1,0)│ (2,0)│
+        ├─────┼─────┼─────┤
+        │ (0,1)│ (1,1)│ (2,1)│
+        ├─────┼─────┼─────┤
+        │ (0,2)│ (1,2)│ (2,2)│
+        └─────┴─────┴─────┘
+                          │
+                          ▼
+                      DESAGÜE (abajo)
+
+  La solución diseñada: todas las celdas del camino a rot=0. Pero el
+  scramble inicial está desordenado, así que hay que trabajar.
+
+
+--------------------------------------------------------------------------------
+  6. ARQUITECTURA
+--------------------------------------------------------------------------------
+
+  El motor sigue ARQUITECTURA HEXAGONAL: el dominio puro en el centro,
+  los adaptadores en los bordes, y TODA comunicación por eventos.
+
+  Capas (de dentro hacia fuera):
+
+    VALUE OBJECTS
+      Datos inmutables. Stat, Archetype, Item, RoomObject, Action,
+      DiceRoll, ActionEconomy. Sin lógica de IO.
+
+    PORTS
+      Interfaces que el dominio necesita.
+      RandomPort    → fuente de aleatoriedad (dados)
+      LoggerPort    → destino de logs
+      PuzzleDevicePort → contrato de cualquier puzzle
+
+    ADAPTERS
+      Implementaciones concretas de los ports.
+      SeededRandomAdapter → dado con semilla reproducible
+      BusLoggerAdapter    → logger que emite al bus
+      (los devices concretos, como PipePuzzleDevice)
+
+    DOMAIN SERVICES
+      Lógica pura.
+      PerceptionEngine → filtra pistas según stats
+      ActionEngine     → resuelve tiradas
+      CraftingEngine   → combina items
+      Cada uno recibe sus dependencias por constructor.
+
+    USE CASES
+      Orquestan el dominio. El único lugar donde vive la lógica de "qué
+      hacer cuando el usuario pulsa X".
+      ExamineRoomUseCase, AttemptActionUseCase.
+
+    UI / VIEWS
+      Adaptadores de salida.
+      LogView, StatsView, RoomView, DiceView, ActionsView.
+      Escuchan al bus, renderizan, no contienen lógica de dominio.
+
+    COMPOSITION ROOT
+      Aquí se cosen todas las piezas. Único lugar donde se conocen los
+      adaptadores concretos.
+
+  REGLA DE ORO:
+    El dominio NUNCA conoce la UI ni el bus. Solo conoce sus ports.
+    Si mañana quieres cambiar la UI por un terminal, cambias adaptador
+    y ya está. El núcleo no se toca.
+
+
+--------------------------------------------------------------------------------
+  7. FLUJO DE UNA ACCIÓN
+--------------------------------------------------------------------------------
+
+  Usuario pulsa botón o celda del grid
+                │
+                ▼
+  ActionsView llama a AttemptActionUseCase.execute(state, actionId)
+                │
+                ▼
+  Provider busca la acción en el estado actual
+                │
+                ├─► ¿Es puzzle action? (device != null && stat == null)
+                │       │
+                │       └─► Device.applyAction(state, actionId, payload)
+                │              │
+                │              ├─► Muta deviceState
+                │              ├─► ¿justSolved? → emite "device:solved"
+                │              └─► Emite "roll:result" con roll=null
+                │                  (DiceView muestra "✓ HECHO")
+                │
+                ├─► ¿Es crafting?
+                │       │
+                │       └─► CraftingEngine.attempt(recipe, archetype, state)
+                │              │
+                │              ├─► Tirada interna
+                │              ├─► Si éxito: consume inputs, añade output
+                │              └─► Si fallo: consume inputs, no output
+                │
+                └─► Acción normal
+                       │
+                       └─► ActionEngine.resolve(action, archetype, state)
+                              │
+                              ├─► Economía agotada → bloqueado
+                              ├─► Requisitos de inventario → fallo limpio
+                              ├─► Tirada (d20 + mod vs diff)
+                              ├─► Éxito → action.onSuccess(state)
+                              ├─► Fallo → action.onFail(state) + economía-1
+                              └─► Devuelve { success, roll, narrative }
+
+  En todos los casos:
+    - Se emite "log" al bus con la narrativa.
+    - La UI reacciona: LogView añade entrada, StatsView actualiza pips,
+      RoomView repinta si el mundo cambió, ActionsView recalcula.
+
+
+--------------------------------------------------------------------------------
+  8. LOS TESTS
+--------------------------------------------------------------------------------
+
+  Hay 33 tests automáticos que se ejecutan en consola al arrancar. Cubren
+  las zonas donde MÁS fácil es romper algo:
+
+  ROTACIÓN MATEMÁTICA
+    - Rot 0, 1, 2, 3, 4 son consistentes.
+    - Rot -1 = rot 3 (módulo correcto).
+    - Un corner vuelve a sí mismo tras 4 rotaciones.
+
+  FLOOD FILL DEL PUZZLE
+    - Scramble inicial no resuelto.
+    - Configuración rot=0 resuelta.
+    - Cada una de las 3 condiciones de fallo, por separado:
+        (0,0) sin fuente → no resuelto.
+        (1,1) mal → no resuelto.
+        (2,2) sin desagüe → no resuelto.
+
+  APLICAR ACCIONES
+    - Rotar incrementa la rotación en 1 (módulo 4).
+    - 4 rotaciones devuelven al estado original.
+    - justSolved se dispara SOLO en la transición (no repetidamente).
+    - Reset restaura INITIAL_ROTATIONS y consume 1 intento.
+
+  PROVIDER DE ACCIONES
+    - Las acciones del device aparecen junto a las de la habitación.
+    - hydro_unlock aparece SOLO si solved_pipe_grid está activo.
+    - El filtro de percepción elimina acciones que el arquetipo no ve.
+    - Físico (Fuerza 1) no ve force_door. Burto (Fuerza 6) sí.
+
+  ROUTING
+    - pipe_rotate es isPuzzleAction.
+    - open_panel NO es isPuzzleAction.
+
+  ROBUSTEZ
+    - Tras 100 rotaciones aleatorias, las rotaciones siguen en [0,4).
+    - Existe al menos una configuración resoluble (la de diseño).
+
+  Si un test falla, aparece en rojo en consola. La app sigue arrancando
+  porque runTests está envuelto en try/catch: los tests INFORMAN, no
+  BLOQUEAN.
+
+
+--------------------------------------------------------------------------------
+  9. DECISIONES DE DISEÑO (y por qué)
+--------------------------------------------------------------------------------
+
+  ¿POR QUÉ LOS PUZZLES NO TIRAN DADOS?
+    Porque un puzzle de lógica es binario: o lo resuelves o no. Si al
+    resolverlo tiras un dado y fallas, el jugador siente que le han robado
+    el logro. Los dados son para acciones INCIERTAS (forzar, persuadir,
+    craftear). Los puzzles son para RAZONAMIENTO.
+
+  ¿POR QUÉ UNA ECONOMÍA DE ACCIONES?
+    Porque sin ella, el jugador puede spamear la misma tirada hasta sacar
+    20. Eso rompe la tensión y convierte el dado en decoración. Con un
+    presupuesto limitado, cada tirada es una decisión.
+
+  ¿POR QUÉ FALLOS IRREVERSIBLES?
+    Porque sin consecuencias, un fallo no importa. Si forzar la puerta y
+    fallar no rompe nada, ¿por qué no intentarlo 100 veces? Con fallos
+    irreversibles, el mundo reacciona a tus errores y la partida tiene
+    memoria.
+
+  ¿POR QUÉ FILTRAR ACCIONES POR PERCEPCIÓN?
+    Porque si muestras TODAS las opciones, le has resuelto el puzzle al
+    jugador. En una mesa de rol, el jugador imagina soluciones. En un
+    videojuego, si le enseñas el menú completo, le quitas la fantasía.
+    Filtrar por stats convierte el menú en una extensión del personaje.
+
+  ¿POR QUÉ PUZZLE DEVICE Y NO UN SWITCH POR TIPO?
+    Porque un switch crece sin control. Cada puzzle nuevo tocaría 5 sitios
+    distintos del motor. Con un puerto, cada puzzle nuevo es una clase
+    aislada. La habitación solo dice "tengo estos devices". Añadir un
+    sokoban no toca el ActionEngine, ni el RoomView, ni el Provider.
+
+  ¿POR QUÉ ARQUITECTURA HEXAGONAL?
+    Porque permite sustituir cualquier capa sin tocar el núcleo. Mañana
+    puedes cambiar la UI por un terminal ASCII, el logger por un fichero,
+    el random por un dado real de mesa... y el dominio sigue igual. La
+    inversión de dependencias al principio parece sobreingeniería, hasta
+    que necesitas cambiar algo y no rompes nada.
+
+
+--------------------------------------------------------------------------------
+  10. LO QUE NO TIENE (todavía)
+--------------------------------------------------------------------------------
+
+  - MOVIMIENTO del personaje en el grid. El grid es informativo e
+    interactivo, pero el jugador no "camina" por él. Es una decisión de
+    diseño: no hace falta para puzzles de rotación.
+
+  - SOKOBAN. Requiere diccionario de niveles validados a mano (no
+    procedural). El puerto PuzzleDevicePort ya lo soporta.
+
+  - DEVICES AMBIENTALES. Por ejemplo, un LineOfSightDevice que se resuelve
+    alineando espejos entre objetos. Sería el tercer tipo de familia.
+
+  - INTERACCIÓN ENTRE DEVICES. Por ejemplo, el puzzle hidráulico resuelto
+    mueve una caja de un sokoban. El motor lo permite (basta escuchar
+    "device:solved" en otro device), pero no hay ninguno implementado aún.
+
+  - PERSISTENCIA. No guarda entre sesiones.
+
+  - GUARDIAS / PRESIÓN TEMPORAL. La economía de acciones ya presiona, pero
+    un "viene alguien en 5 turnos" añadiría urgencia.
+
+  - PARTY DE ARQUETIPOS. Ahora juegas con uno. Maniac Mansion usa tres
+    simultáneos con habilidades distintas. El motor actual soporta un
+    arquetipo por partida; cambiar a party es un cambio de diseño, no de
+    motor.
+
+
+--------------------------------------------------------------------------------
+  11. CÓMO EXTENDERLO
+--------------------------------------------------------------------------------
+
+  AÑADIR UN DEVICE NUEVO (ej: caja fuerte)
+    1. Extender PuzzleDevicePort.
+    2. Implementar id, name, getBounds, getCells, getActions,
+       applyAction, isSolved, isBlocked.
+    3. En buildCell7(), añadirlo a room.devices.
+    4. Listo. El resto del motor ya lo soporta.
+
+  AÑADIR UN ARQUETIPO NUEVO
+    1. Crear un nuevo Archetype con sus stats y flavor.
+    2. Meterlo en ARCHETYPES.
+    3. Las fórmulas de percepción y los filtros de acciones ya se aplican
+       automáticamente.
+
+  AÑADIR UNA ACCIÓN NUEVA
+    1. En _buildRoomActions(state), añadir un new Action(...).
+    2. Si tiene percepción, filtro automático. Si tiene onSuccess/onFail,
+       efectos automáticos. Si tiene stat y difficulty, tirada automática.
+
+  AÑADIR UNA RECETA DE CRAFTING
+    1. En CraftingEngine.recipes, añadir un objeto {id, inputs, output,
+       stat, difficulty, narrative}.
+    2. Listo.
+
+  AÑADIR UNA STAT NUEVA
+    1. Añadir al enum Stat.
+    2. Añadir al diccionario de stats de cada arquetipo.
+    3. En PerceptionEngine, añadir fórmulas que la usen.
+    4. En las acciones, usar la nueva stat donde aplique.
+
+
+--------------------------------------------------------------------------------
+  12. PRINCIPIOS RECTORES (para no perderse)
+--------------------------------------------------------------------------------
+
+  1. El dominio no conoce la UI. Nunca.
+  2. Si te ves escribiendo switch(puzzleType), falta un puerto.
+  3. Los dados son para acciones inciertas. Los puzzles son para lógica.
+     No los mezcles en el mismo paso.
+  4. Cada tirada debe tener consecuencia. Si no la tiene, no tires.
+  5. El jugador debe poder fracasar de forma interesante.
+  6. El menú es una extensión del personaje. No lo muestres entero.
+  7. Añadir contenido NUNCA debe requerir tocar el motor.
+
+
+================================================================================
+  Fin del documento.
