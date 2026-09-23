@@ -1,0 +1,1624 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<title>La Celda 7 · v3.1</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Consolas','Menlo',monospace; background:#0a0a14; color:#c8d0e0;
+         min-height:100vh; display:grid; grid-template-rows:auto 1fr; }
+  header { padding:12px 20px; background:#12121f; border-bottom:1px solid #22223a;
+           display:flex; flex-wrap:wrap; gap:10px; align-items:center; }
+  h1 { color:#ffb347; font-weight:300; letter-spacing:2px; font-size:18px; }
+  .arch-selector { display:flex; gap:6px; margin-left:auto; flex-wrap:wrap; }
+  button { background:#1e1e3a; color:#c8d0e0; border:1px solid #33334a; padding:6px 12px;
+           border-radius:4px; cursor:pointer; font-family:inherit; font-size:12px;
+           transition:all .15s; }
+  button:hover:not(:disabled) { background:#2a2a4a; border-color:#555; }
+  button:disabled { opacity:.4; cursor:not-allowed; }
+  button.active { background:#3a3a6a; border-color:#7ec8e3; color:#fff; }
+  main { display:grid; grid-template-columns:280px 1fr 380px; gap:12px; padding:12px; overflow:hidden; }
+  .panel { background:#12121f; border:1px solid #22223a; border-radius:8px; padding:14px;
+           overflow-y:auto; max-height:calc(100vh - 70px); }
+  .panel h3 { color:#7ec8e3; font-size:12px; font-weight:400; letter-spacing:1px;
+              text-transform:uppercase; margin:14px 0 8px 0; padding-bottom:4px;
+              border-bottom:1px solid #22223a; }
+  .panel h3:first-child { margin-top:0; }
+  .stat-row { display:grid; grid-template-columns:1fr auto; gap:6px; align-items:center;
+              margin:4px 0; font-size:12px; }
+  .stat-bar { grid-column:1/-1; height:4px; background:#1a1a2a; border-radius:2px; overflow:hidden; }
+  .stat-fill { height:100%; background:linear-gradient(90deg,#ff6b6b,#ffb347,#7ee87e); border-radius:2px; }
+  .inv-item { display:inline-block; background:#1e1e3a; padding:3px 8px; border-radius:10px;
+              font-size:11px; margin:2px; border:1px solid #33334a; }
+  .inv-empty { color:#444; font-size:11px; font-style:italic; }
+  .economy { display:flex; gap:6px; margin:4px 0; }
+  .pip { width:14px; height:14px; border-radius:50%; background:#7ee87e; transition:background .3s; }
+  .pip.used { background:#333; }
+  .pip.warning { background:#ffb347; }
+  .pip.danger { background:#ff6b6b; }
+
+  /* --- GRID DE LA HABITACIÓN --- */
+  .room-grid { display:grid; grid-template-columns:repeat(11,36px); grid-template-rows:repeat(7,36px);
+               gap:2px; justify-content:center; margin:10px auto; padding:10px;
+               background:#0d0d18; border-radius:8px; position:relative; }
+  .cell { display:flex; align-items:center; justify-content:center; font-size:20px;
+          border-radius:4px; background:#12121f; transition:all .2s; user-select:none;
+          position:relative; }
+  .cell.wall { background:#1a1a2a; color:#222; }
+  .cell.empty { background:#0d0d18; }
+  .cell.object { background:#1e1e3a; border:1px solid #333; }
+  .cell.object:hover { background:#2a2a4a; transform:scale(1.05); }
+  .cell.damaged { background:#2a1a1a; border-color:#ff6b6b; }
+  .cell.broken { opacity:.3; }
+  .cell.hinted { border-color:#ffb347; box-shadow:0 0 6px rgba(255,179,71,.3); }
+
+  /* --- CELDAS DE PUZZLE DEVICE (borde azul, interactivas) --- */
+  .cell.device {
+    background:#14142a;
+    border:1px solid #3a3a6a;
+    font-size:24px;
+    font-family: 'Consolas', monospace;
+    cursor:pointer;
+  }
+  .cell.device:hover { background:#1e1e4a; border-color:#7ec8e3; transform:scale(1.08); }
+  .cell.device.solved {
+    background:#1a2a1a;
+    border-color:#7ee87e;
+    box-shadow: inset 0 0 8px rgba(126,232,126,.2);
+  }
+  .cell.device.flash { animation:flash .35s; }
+  @keyframes flash { 0%,100%{background:#14142a;} 50%{background:#3a3a8a;transform:scale(1.15);} }
+
+  .room-legend { display:flex; flex-wrap:wrap; gap:8px; font-size:10px; color:#667;
+                 justify-content:center; margin-top:6px; max-width:400px; margin-left:auto; margin-right:auto; }
+  .room-legend span { display:inline-block; }
+
+  .dice-area { margin:14px auto; text-align:center; padding:16px; background:#0d0d18;
+               border-radius:10px; border:1px solid #22223a; max-width:400px; }
+  .dice { font-size:64px; line-height:1; transition:color .3s; user-select:none; }
+  .dice.rolling { animation:shake .3s infinite; color:#ffb347; }
+  .dice.settled { color:#7ee87e; }
+  .dice.settled.fail { color:#ff6b6b; }
+  @keyframes shake { 0%,100%{transform:rotate(-8deg) scale(1);} 50%{transform:rotate(8deg) scale(1.1);} }
+  .dice-formula { font-family:monospace; font-size:14px; color:#7ec8e3; min-height:20px;
+                  margin-top:8px; opacity:0; transition:opacity .3s; }
+  .dice-formula.show { opacity:1; }
+  .dice-result { font-size:18px; font-weight:bold; min-height:24px; margin-top:4px;
+                 opacity:0; transition:opacity .3s; }
+  .dice-result.show { opacity:1; }
+  .dice-result.success { color:#7ee87e; }
+  .dice-result.fail { color:#ff6b6b; }
+  .dice-result.critical { color:#ffb347; text-shadow:0 0 10px #ffb347; }
+  .dice-narrative { font-size:13px; color:#c8d0e0; margin-top:10px; min-height:40px;
+                    font-style:italic; line-height:1.5; opacity:0; transition:opacity .3s; }
+  .dice-narrative.show { opacity:1; }
+
+  .action-btn { display:block; width:100%; text-align:left; padding:8px 12px; margin:5px 0;
+                background:#1a1a2e; border:1px solid #33334a; border-radius:6px; color:#c8d0e0;
+                font-size:12px; cursor:pointer; font-family:inherit; transition:all .15s; }
+  .action-btn:hover:not(:disabled) { background:#252548; border-color:#7ec8e3; transform:translateX(2px); }
+  .action-btn:disabled { opacity:.4; cursor:not-allowed; }
+  .action-btn.puzzle { border-left:3px solid #7ec8e3; }
+  .action-btn .stat-tag { float:right; font-size:10px; color:#667; background:#0d0d18;
+                          padding:2px 6px; border-radius:8px; }
+  .action-btn .no-dice { float:right; font-size:10px; color:#c792ea; background:#0d0d18;
+                         padding:2px 6px; border-radius:8px; }
+  .log { background:#0d0d18; border-radius:6px; padding:10px; font-size:11px;
+         line-height:1.6; max-height:280px; overflow-y:auto; }
+  .log-entry { margin:2px 0; }
+  .log-entry.system { color:#7ec8e3; }
+  .log-entry.action { color:#ffe066; }
+  .log-entry.result { color:#7ee87e; }
+  .log-entry.fail { color:#ff6b6b; }
+  .log-entry.perception { color:#c792ea; font-style:italic; }
+  .log-entry.dice { color:#ffb347; font-family:monospace; }
+  .log-entry.device { color:#7ee87e; font-weight:bold; }
+</style>
+</head>
+<body>
+<header>
+  <h1>🔐 LA CELDA 7 · v3.1</h1>
+  <div class="arch-selector" id="archSelector">
+    <button data-arch="fisico">🔬 Dr. Einstein</button>
+    <button data-arch="empatico">🌸 Hippie</button>
+    <button data-arch="burto">💪 Gimnasio</button>
+    <button id="resetBtn">↻ Reiniciar</button>
+  </div>
+</header>
+
+<main>
+  <section class="panel">
+    <h3>Personaje</h3><div id="statsPanel"></div>
+    <h3>Inventario</h3><div id="inventoryPanel"></div>
+    <h3>Intentos</h3><div id="economyPanel"></div>
+    <div id="statusPanel" style="margin-top:14px;font-size:12px;"></div>
+  </section>
+
+  <section class="panel">
+    <h3>Habitación</h3>
+    <div class="room-grid" id="roomGrid"></div>
+    <div class="room-legend" id="roomLegend"></div>
+    <div class="dice-area">
+      <div class="dice" id="dice">🎲</div>
+      <div class="dice-formula" id="diceFormula"></div>
+      <div class="dice-result" id="diceResult"></div>
+      <div class="dice-narrative" id="diceNarrative"></div>
+    </div>
+  </section>
+
+  <section class="panel">
+    <h3>Acciones</h3><div id="actionsPanel"></div>
+    <h3>Diario</h3><div class="log" id="log"></div>
+  </section>
+</main>
+
+<script>
+(function() {
+'use strict';
+
+/* ============================================================================
+ * ARQUITECTURA GENERAL
+ * ----------------------------------------------------------------------------
+ *   Value Objects       → datos inmutables del dominio
+ *   Ports               → interfaces que el dominio necesita
+ *   Adapters            → implementaciones concretas de los ports
+ *   Domain Services     → lógica pura (sin IO)
+ *   PuzzleDevicePort    → contrato único para CUALQUIER puzzle
+ *   Use Cases           → orquestación (enruta acciones, tira dados, aplica)
+ *   UI Views            → adaptadores de salida
+ *   Composition Root    → única capa donde todo se conoce
+ *
+ * REGLA DE ORO: el dominio NUNCA conoce la UI ni el bus. Solo conoce ports.
+ * ========================================================================== */
+
+/* ============================================================================
+ * 1. EVENT BUS
+ * ========================================================================== */
+class EventBus {
+  constructor() { this.listeners = new Map(); }
+  on(e, cb) {
+    if (!this.listeners.has(e)) this.listeners.set(e, []);
+    this.listeners.get(e).push(cb);
+    return () => this.off(e, cb);
+  }
+  off(e, cb) { const a = this.listeners.get(e); if (a) { const i = a.indexOf(cb); if (i>=0) a.splice(i,1); } }
+  emit(e, p) { const a = this.listeners.get(e); if (a) [...a].forEach(cb => { try { cb(p); } catch(err){ console.error(err); } }); }
+}
+
+/* ============================================================================
+ * 2. VALUE OBJECTS
+ * ========================================================================== */
+const Stat = Object.freeze({
+  FUERZA: 'Fuerza', MECANICA: 'Mecánica', QUIMICA: 'Química',
+  PERCEPCION: 'Percepción', EMPATIA: 'Empatía', LOGICA: 'Lógica'
+});
+
+class Archetype {
+  constructor(id, name, stats, flavor) {
+    this.id = id; this.name = name;
+    this.stats = Object.freeze({ ...stats });
+    this.flavor = flavor;
+  }
+  modifierFor(s) { return (this.stats[s] ?? 3) - 3; }
+}
+
+class Item {
+  constructor(id, name, tags = [], desc = '') {
+    this.id = id; this.name = name; this.tags = tags; this.desc = desc;
+  }
+  hasTag(t) { return this.tags.includes(t); }
+}
+
+class RoomObject {
+  constructor(id, name, props, gridInfo) {
+    this.id = id; this.name = name;
+    this.props = { ...props };
+    this.gridInfo = gridInfo || { base: { symbol:'▢', color:'#444' } };
+  }
+  get(k) { return this.props[k]; }
+  set(k, v) { this.props[k] = v; }
+  getSymbol(stats) {
+    for (const e of this.gridInfo.enhanced || []) {
+      if ((stats[e.stat] ?? 0) >= e.min) return { symbol:e.symbol, color:e.color, level:'hinted' };
+    }
+    return { ...this.gridInfo.base, level:'visible' };
+  }
+}
+
+class Action {
+  constructor(id, label, opts = {}) {
+    this.id = id; this.label = label;
+    this.stat = opts.stat ?? null;
+    this.difficulty = opts.difficulty ?? 10;
+    this.requires = opts.requires ?? [];
+    this.perception = opts.perception ?? null;
+    this.onSuccess = opts.onSuccess ?? null;
+    this.onFail = opts.onFail ?? null;
+    this.tags = opts.tags ?? [];
+    // Para acciones de puzzle device
+    this.device = opts.device ?? null;
+    this.payload = opts.payload ?? null;
+  }
+  getDifficulty(ctx) { return typeof this.difficulty === 'function' ? this.difficulty(ctx) : this.difficulty; }
+  requiresRoll() { return this.stat !== null; }
+  isPuzzleAction() { return this.device !== null && this.stat === null; }
+}
+
+class DiceRoll {
+  constructor(die, mod, total, diff) {
+    this.die = die; this.modifier = mod; this.total = total; this.difficulty = diff;
+  }
+  get success()  { return this.total >= this.difficulty; }
+  get critical() { return this.die === 20; }
+  get fumble()   { return this.die === 1; }
+  get margin()   { return this.total - this.difficulty; }
+}
+
+class ActionEconomy {
+  constructor(budget = 4) { this.budget = budget; this.used = 0; this.blocked = false; }
+  canAttempt() { return !this.blocked; }
+  recordFailure() {
+    this.used++;
+    if (this.used >= this.budget) this.blocked = true;
+  }
+  remaining() { return Math.max(0, this.budget - this.used); }
+  reset() { this.used = 0; this.blocked = false; }
+}
+
+/* ============================================================================
+ * 3. PORTS
+ * ========================================================================== */
+class RandomPort { rollD20() { throw new Error('abstract'); } }
+class LoggerPort { log(e) { throw new Error('abstract'); } }
+
+/* ============================================================================
+ * 4. PUZZLE DEVICE PORT — el corazón de v3
+ * ----------------------------------------------------------------------------
+ * Contrato único para CUALQUIER puzzle:
+ *   - Un puzzle ocupa una región del grid (o es ambiental).
+ *   - Puede ofrecer acciones (rotar, mover, pulsar...).
+ *   - Aplica acciones mutando el estado del dispositivo.
+ *   - Sabe si está resuelto o bloqueado.
+ *
+ * Regla: si te ves escribiendo `switch(puzzleType)` en algún sitio, es señal
+ * de que este contrato no se está respetando. Cada tipo ES una subclase.
+ * ========================================================================== */
+class PuzzleDevicePort {
+  /** Identificador único. */
+  get id() { throw new Error('abstract: id'); }
+  /** Nombre visible. */
+  get name() { throw new Error('abstract: name'); }
+  /** Familia semántica: 'board' | 'atomic' | 'environmental'. */
+  get kind() { return 'board'; }
+
+  /** Inicializa el estado del dispositivo en `state.deviceState[id]`. */
+  initialize(state) { /* opcional */ }
+
+  /** Bounds en coordenadas de habitación `{x,y,w,h}` o `null` si es ambiental. */
+  getBounds(state) { return null; }
+
+  /** Mapa de celdas `{ "x,y": { symbol, color, title, solved } }` a superponer. */
+  getCells(state) { return {}; }
+
+  /**
+   * Acciones disponibles AHORA. Cada acción debe traer:
+   *   id, label, device:<id>, payload:<object>, perception? opcional
+   * Las acciones de puzzle NO tienen `stat` — no tiran dados.
+   */
+  getActions(state) { return []; }
+
+  /**
+   * Muta el estado del dispositivo.
+   * @returns {{ changed:boolean, justSolved?:boolean, narrative?:string }}
+   */
+  applyAction(state, actionId, payload) { return { changed:false }; }
+
+  /** ¿Está resuelto el puzzle? */
+  isSolved(state) { return false; }
+
+  /** ¿El puzzle se ha vuelto irresoluble? (sokoban bloqueado, etc.) */
+  isBlocked(state) { return false; }
+
+  /** Reset explícito (el jugador paga economía). */
+  reset(state) { }
+}
+
+/* ============================================================================
+ * 5. ADAPTERS
+ * ========================================================================== */
+class SeededRandomAdapter extends RandomPort {
+  constructor(seed = 42) {
+    super();
+    this.seed = seed % 2147483647;
+    if (this.seed <= 0) this.seed += 2147483646;
+  }
+  rollD20() {
+    this.seed = (this.seed * 16807) % 2147483647;
+    return 1 + Math.floor(((this.seed - 1) / 2147483646) * 20);
+  }
+}
+class BusLoggerAdapter extends LoggerPort {
+  constructor(bus) { super(); this.bus = bus; }
+  log(e) { this.bus.emit('log', e); }
+}
+
+/* ============================================================================
+ * 6. DOMAIN SERVICES
+ * ========================================================================== */
+
+class PerceptionEngine {
+  constructor(archetype) { this.archetype = archetype; }
+
+  canPerceive(action) {
+    if (!action.perception) return true;
+    return (this.archetype.stats[action.perception.stat] ?? 0) >= action.perception.min;
+  }
+
+  perceive(obj) {
+    const hints = [];
+    const s = this.archetype.stats;
+    const formulas = {
+      espejo: [
+        { stat: Stat.EMPATIA, min: 5, text: 'Alguien lloró frente a este espejo. Escribió algo con la uña.' },
+        { stat: Stat.EMPATIA, min: 4, text: 'Sientes una presencia detrás del espejo. Un mensaje.' },
+        { stat: Stat.PERCEPCION, min: 4, text: 'El espejo está desplazado 2mm. Hay algo detrás.' }
+      ],
+      panel_control: [
+        { stat: Stat.MECANICA, min: 5, text: 'Cuatro tornillos Phillips. El cableado es accesible.' },
+        { stat: Stat.MECANICA, min: 3, text: 'Hay un panel de control. Parece atornillado.' },
+        { stat: Stat.LOGICA, min: 4, text: 'Un teclado numérico de 4 dígitos. 10.000 combinaciones.' }
+      ],
+      lavabo: [
+        { stat: Stat.QUIMICA, min: 4, text: 'Producto con ácido clorhídrico bajo el lavabo. Con cobre, disolvería metal.' },
+        { stat: Stat.PERCEPCION, min: 3, text: 'Hay algo oculto bajo el lavabo.' }
+      ],
+      cama: [
+        { stat: Stat.PERCEPCION, min: 3, text: 'Entre los colchones asoma un clip oxidado.' }
+      ],
+      cable_suelto: [
+        { stat: Stat.MECANICA, min: 3, text: 'Cobre expuesto. Sirve para conducir o puentear.' },
+        { stat: Stat.QUIMICA, min: 3, text: 'El cobre reacciona con ácidos y con electricidad.' }
+      ],
+      puerta_blindada: [
+        { stat: Stat.FUERZA, min: 5, text: 'La bisagra superior podría ceder con un buen golpe.' },
+        { stat: Stat.MECANICA, min: 4, text: 'Cerradura electromagnética. Cortando corriente, se abre.' }
+      ],
+      rejilla_ventilacion: [
+        { stat: Stat.PERCEPCION, min: 4, text: 'Atornillada por dentro. El conducto es estrecho pero transitable.' },
+        { stat: Stat.MECANICA, min: 3, text: 'Cuatro tornillos. Con destornillador improvisado, sale en un minuto.' }
+      ],
+      panel_hidraulico: [
+        { stat: Stat.MECANICA, min: 3, text: 'El panel hidráulico tiene 9 tubos giratorios. Hay que conectar la entrada con la salida.' },
+        { stat: Stat.LOGICA, min: 4, text: 'El agua entra por arriba a la izquierda y debe salir por abajo a la derecha.' }
+      ]
+    };
+    for (const f of (formulas[obj.id] || [])) {
+      if ((s[f.stat] ?? 0) >= f.min) hints.push({ stat: f.stat, text: f.text });
+    }
+    return hints;
+  }
+}
+
+class ActionEngine {
+  constructor(randomPort, logger) {
+    this.random = randomPort;
+    this.logger = logger;
+  }
+  resolve(action, archetype, context) {
+    if (!context.economy.canAttempt()) {
+      return { success:false, roll:null, blocked:true,
+               narrative:'Estás bloqueado. No puedes concentrarte para intentarlo de nuevo.' };
+    }
+    for (const req of action.requires) {
+      if (!context.inventory.some(i => i.hasTag(req))) {
+        return { success:false, roll:null, missing:req,
+                 narrative:`Te falta algo con la etiqueta "${req}".` };
+      }
+    }
+    if (!action.requiresRoll()) {
+      if (action.onSuccess) action.onSuccess(context);
+      return { success:true, roll:null, narrative:`${action.label}. Hecho.` };
+    }
+    const die = this.random.rollD20();
+    const modifier = archetype.modifierFor(action.stat);
+    const difficulty = action.getDifficulty(context);
+    const total = die + modifier;
+    const roll = new DiceRoll(die, modifier, total, difficulty);
+    let success = roll.success;
+    if (roll.critical) success = true;
+    if (roll.fumble) success = false;
+    if (success) { if (action.onSuccess) action.onSuccess(context); }
+    else {
+      if (action.onFail) action.onFail(context);
+      context.economy.recordFailure();
+    }
+    let narrative;
+    if (roll.critical) narrative = `¡CRÍTICO! ${action.label} sale mejor de lo esperado.`;
+    else if (roll.fumble) narrative = `Pifia. ${action.label} acaba en desastre.`;
+    else if (success) narrative = `Éxito (${total} vs ${difficulty}). ${action.label} funciona.`;
+    else narrative = `Fallo (${total} vs ${difficulty}). ${action.label} no sale como esperabas.`;
+    return { success, roll, narrative };
+  }
+}
+
+class CraftingEngine {
+  constructor(actionEngine) {
+    this.actionEngine = actionEngine;
+    this.recipes = [
+      { id:'destornillador', inputs:['metal_fino','filo'],
+        output:new Item('destornillador','Destornillador improvisado',['herramienta']),
+        stat:Stat.MECANICA, difficulty:10,
+        narrative:'Doblas el clip y lo insertas en el filo. Ya tienes un destornillador.' },
+      { id:'acido', inputs:['quimico','cobre'],
+        output:new Item('acido','Ácido casero',['corrosivo']),
+        stat:Stat.QUIMICA, difficulty:12,
+        narrative:'Mezclas el producto con el cobre. La disolución burbujea.' },
+      { id:'puente', inputs:['metal_fino','conductor'],
+        output:new Item('puente','Puente de cobre',['conductor','herramienta']),
+        stat:Stat.MECANICA, difficulty:10,
+        narrative:'Conectas el clip al cable. Tienes un puente.' }
+    ];
+  }
+  findPossible(inv) {
+    const tags = new Set(inv.flatMap(i => i.tags));
+    return this.recipes.filter(r => r.inputs.every(t => tags.has(t)));
+  }
+  attempt(recipe, archetype, context) {
+    const action = new Action(`craft_${recipe.id}`, `Fabricar ${recipe.output.name}`,
+      { stat:recipe.stat, difficulty:recipe.difficulty });
+    const result = this.actionEngine.resolve(action, archetype, context);
+    if (result.success) {
+      for (const tag of recipe.inputs) {
+        const idx = context.inventory.findIndex(i => i.hasTag(tag));
+        if (idx >= 0) context.inventory.splice(idx, 1);
+      }
+      context.inventory.push(recipe.output);
+      result.narrative = recipe.narrative;
+    } else if (result.roll) {
+      for (const tag of recipe.inputs) {
+        const idx = context.inventory.findIndex(i => i.hasTag(tag));
+        if (idx >= 0) context.inventory.splice(idx, 1);
+      }
+      result.narrative = 'Fallo al mezclar. Los reactivos se desperdician.';
+    }
+    return result;
+  }
+}
+
+/* ============================================================================
+ * 7. PIPE PUZZLE DEVICE — primer device concreto
+ * ----------------------------------------------------------------------------
+ * LÓGICA:
+ *   - Región 3×3. Cada celda tiene un "shape" base (conexiones en rot=0).
+ *   - Cada celda tiene una rotación actual 0..3.
+ *   - Conexiones efectivas = rotar el shape base N veces en sentido horario.
+ *   - Fuente de agua: entra por ARRIBA de (0,0). Requiere (0,0).u === 1.
+ *   - Desagüe: sale por ABAJO de (2,2). Requiere (2,2).d === 1.
+ *   - El puzzle está resuelto si un flood-fill desde (0,0) alcanza (2,2)
+ *     respetando TODAS las conexiones entre vecinos.
+ *
+ * ROTACIÓN 90° HORARIA:  u ← l,  r ← u,  d ← r,  l ← d
+ *   (el conector "arriba" pasa a ser "derecha", etc.)
+ *
+ * SIN DADOS: los puzzles de lógica no se resuelven tirando. Si metes un dado
+ * aquí, el jugador siente que el puzzle está roto.
+ * ========================================================================== */
+class PipePuzzleDevice extends PuzzleDevicePort {
+  constructor() {
+    super();
+    this._bounds = { x:7, y:2, w:3, h:3 };
+
+    // Shapers base (conexiones en rot=0). Definidos pensando en una solución:
+    //   (0,0) → (1,0) → (1,1) → (1,2) → (2,2)
+    // La solución existe con rot=0 en todas las celdas del camino.
+    this.BASE_SHAPES = [
+      [ // fila y=0
+        { u:1, r:1, d:0, l:0 }, // (0,0) └ (entrada por arriba, sale derecha)
+        { u:0, r:0, d:1, l:1 }, // (1,0) ┐ (entra por izquierda, sale abajo)
+        { u:0, r:0, d:1, l:1 }  // (2,0) ┐ (decoys)
+      ],
+      [ // fila y=1
+        { u:1, r:0, d:1, l:0 }, // (0,1) │ (decoy)
+        { u:1, r:0, d:1, l:0 }, // (1,1) │ (entra por arriba, sale abajo)
+        { u:1, r:0, d:1, l:0 }  // (2,1) │ (decoy)
+      ],
+      [ // fila y=2
+        { u:1, r:1, d:0, l:0 }, // (0,2) └ (decoy)
+        { u:1, r:1, d:0, l:0 }, // (1,2) └ (entra por arriba, sale derecha)
+        { u:0, r:0, d:1, l:1 }  // (2,2) ┘ (entra por izquierda, sale abajo → desagüe)
+      ]
+    ];
+
+    // Rotaciones iniciales: scramble. La solución requiere rot=0 en las del camino.
+    this.INITIAL_ROTATIONS = [
+      [1, 2, 0],
+      [0, 1, 0],
+      [0, 2, 1]
+    ];
+  }
+
+  get id() { return 'pipe_grid'; }
+  get name() { return 'Panel hidráulico'; }
+  get kind() { return 'board'; }
+  getBounds() { return this._bounds; }
+
+  initialize(state) {
+    state.deviceState[this.id] = {
+      rotations: this.INITIAL_ROTATIONS.map(r => [...r])
+    };
+  }
+
+  /* --- LÓGICA PURA DE ROTACIÓN ---------------------------------------------- */
+
+  /**
+   * Aplica N rotaciones de 90° horario a un shape.
+   * @param {{u,r,d,l}} shape
+   * @param {number} n  - cualquier entero (se aplica módulo 4)
+   * @returns {{u,r,d,l}}
+   */
+  _applyRotation(shape, n) {
+    n = ((n % 4) + 4) % 4;
+    let s = shape;
+    for (let i = 0; i < n; i++) {
+      s = { u: s.l, r: s.u, d: s.r, l: s.d };
+    }
+    return s;
+  }
+
+  /** Devuelve el shape efectivo de una celda en su estado actual. */
+  _currentShape(state, x, y) {
+    const st = state.deviceState[this.id];
+    return this._applyRotation(this.BASE_SHAPES[y][x], st.rotations[y][x]);
+  }
+
+  /** Matriz 3×3 de shapes actuales. */
+  _grid(state) {
+    const g = [];
+    for (let y = 0; y < 3; y++) {
+      const row = [];
+      for (let x = 0; x < 3; x++) row.push(this._currentShape(state, x, y));
+      g.push(row);
+    }
+    return g;
+  }
+
+  /* --- VISUALIZACIÓN -------------------------------------------------------- */
+
+  /** Traduce un shape a un glifo ASCII de box-drawing. */
+  _symbolFor(s) {
+    const k = `${s.u?1:0}${s.r?1:0}${s.d?1:0}${s.l?1:0}`;
+    const table = {
+      '1010': '└', '1001': '┘', '0110': '┌', '0101': '┐',
+      '1011': '├', '1101': '┤', '0111': '┬', '1110': '┴',
+      '1111': '┼', '1100': '─', '0011': '─',
+      '1000': '╵', '0100': '╴', '0010': '╷', '0001': '╶'
+    };
+    if (table[k]) return table[k];
+    if (s.u && s.d && !s.l && !s.r) return '│';
+    if (s.l && s.r && !s.u && !s.d) return '─';
+    return '·';
+  }
+
+  getCells(state) {
+    const grid = this._grid(state);
+    const solved = this.isSolved(state);
+    const out = {};
+    for (let y = 0; y < 3; y++) {
+      for (let x = 0; x < 3; x++) {
+        const shape = grid[y][x];
+        const inFlow = solved ? this._isInFlow(state, x, y) : false;
+        out[`${this._bounds.x + x},${this._bounds.y + y}`] = {
+          symbol: this._symbolFor(shape),
+          color: inFlow ? '#7ee87e' : '#7ec8e3',
+          title: `Tubo (${x},${y}) — clic para girar`,
+          solved,
+          localCoords: { x, y }
+        };
+      }
+    }
+    return out;
+  }
+
+  /* --- ACCIONES ------------------------------------------------------------- */
+
+  getActions(state) {
+    if (this.isSolved(state)) return [];
+    const actions = [];
+    for (let y = 0; y < 3; y++) {
+      for (let x = 0; x < 3; x++) {
+        actions.push(new Action(
+          `pipe_rotate_${x}_${y}`,
+          `Girar tubo (${x},${y})`,
+          {
+            device: this.id,
+            payload: { x, y },
+            perception: { stat: Stat.LOGICA, min: 1 }
+          }
+        ));
+      }
+    }
+    actions.push(new Action(
+      `pipe_reset`,
+      `↺ Reiniciar panel hidráulico (coste: 1 intento)`,
+      { device: this.id, payload: {} }
+    ));
+    return actions;
+  }
+
+  applyAction(state, actionId, payload) {
+    const wasSolved = this.isSolved(state);
+
+    if (actionId === 'pipe_reset') {
+      this.initialize(state);
+      state.economy.recordFailure();
+      return { changed: true, narrative: 'Reiniciar el panel consume un intento.' };
+    }
+
+    const m = actionId.match(/^pipe_rotate_(\d+)_(\d+)$/);
+    if (!m) return { changed: false };
+
+    const x = parseInt(m[1], 10);
+    const y = parseInt(m[2], 10);
+    if (x < 0 || x > 2 || y < 0 || y > 2) return { changed: false };
+
+    const st = state.deviceState[this.id];
+    st.rotations[y][x] = (st.rotations[y][x] + 1) % 4;
+
+    const nowSolved = this.isSolved(state);
+    return { changed: true, justSolved: !wasSolved && nowSolved };
+  }
+
+  /* --- CONDICIÓN DE RESOLUCIÓN --------------------------------------------- */
+
+  /**
+   * Flood-fill desde (0,0). Requisitos:
+   *   1. (0,0) debe tener u=1 (la fuente entra por arriba).
+   *   2. Desde (0,0) seguimos conexiones mutuas.
+   *   3. (2,2) debe estar alcanzada Y tener d=1 (desagüe por abajo).
+   */
+  isSolved(state) {
+    const grid = this._grid(state);
+    if (!grid[0][0].u) return false;
+
+    const seen = new Set();
+    const stack = [[0, 0]];
+    while (stack.length) {
+      const [x, y] = stack.pop();
+      const k = `${x},${y}`;
+      if (seen.has(k)) continue;
+      seen.add(k);
+      const c = grid[y][x];
+      if (c.u && y > 0 && grid[y-1][x].d) stack.push([x, y-1]);
+      if (c.d && y < 2 && grid[y+1][x].u) stack.push([x, y+1]);
+      if (c.l && x > 0 && grid[y][x-1].r) stack.push([x-1, y]);
+      if (c.r && x < 2 && grid[y][x+1].l) stack.push([x+1, y]);
+    }
+    return seen.has('2,2') && grid[2][2].d;
+  }
+
+  _isInFlow(state, targetX, targetY) {
+    const grid = this._grid(state);
+    if (!grid[0][0].u) return false;
+    const seen = new Set();
+    const stack = [[0, 0]];
+    while (stack.length) {
+      const [x, y] = stack.pop();
+      const k = `${x},${y}`;
+      if (seen.has(k)) continue;
+      seen.add(k);
+      const c = grid[y][x];
+      if (c.u && y > 0 && grid[y-1][x].d) stack.push([x, y-1]);
+      if (c.d && y < 2 && grid[y+1][x].u) stack.push([x, y+1]);
+      if (c.l && x > 0 && grid[y][x-1].r) stack.push([x-1, y]);
+      if (c.r && x < 2 && grid[y][x+1].l) stack.push([x+1, y]);
+    }
+    return seen.has(`${targetX},${targetY}`);
+  }
+
+  isBlocked() {
+    // Las rotaciones son reversibles: nunca se puede bloquear.
+    return false;
+  }
+
+  reset(state) { this.initialize(state); }
+}
+
+/* ============================================================================
+ * 8. WORLD
+ * ========================================================================== */
+class RoomGrid {
+  constructor(w, h) {
+    this.width = w; this.height = h;
+    this.cells = Array.from({length:h}, () => Array(w).fill(null));
+  }
+  place(obj, x, y) {
+    if (x<0||x>=this.width||y<0||y>=this.height) return;
+    this.cells[y][x] = obj;
+  }
+  get(x,y) { return this.cells[y]?.[x] ?? null; }
+}
+
+class Room {
+  constructor(id, grid, objects, devices) {
+    this.id = id;
+    this.grid = grid;
+    this.objects = objects;
+    this.devices = devices;
+    this.isWall = (x, y) => {
+      return x===0 || x===grid.width-1 || y===0 || y===grid.height-1
+             || (y===grid.height-1 && x!==Math.floor(grid.width/2));
+    };
+  }
+}
+
+function buildCell7() {
+  const W = 11, H = 7;
+  const grid = new RoomGrid(W, H);
+
+  const door = new RoomObject('puerta_blindada','Puerta blindada',
+    { locked:true, damage:0, jammed:false },
+    { base:{symbol:'🚪',color:'#8b7355'},
+      enhanced:[
+        {stat:Stat.FUERZA,min:5,symbol:'💪',color:'#ff6b6b'},
+        {stat:Stat.MECANICA,min:4,symbol:'🔌',color:'#7ee87e'}] });
+
+  const panel = new RoomObject('panel_control','Panel de control',
+    { abierto:false, frito:false, cortocircuitado:false, codigo:'4721' },
+    { base:{symbol:'▢',color:'#555'},
+      enhanced:[
+        {stat:Stat.MECANICA,min:3,symbol:'🎛',color:'#7ec8e3'},
+        {stat:Stat.LOGICA,min:4,symbol:'🔢',color:'#c792ea'}] });
+
+  const mirror = new RoomObject('espejo','Espejo agrietado',
+    { oculto:true, mensaje:'4721' },
+    { base:{symbol:'▢',color:'#444'},
+      enhanced:[
+        {stat:Stat.EMPATIA,min:4,symbol:'💭',color:'#c792ea'},
+        {stat:Stat.PERCEPCION,min:5,symbol:'🔍',color:'#ffb347'}] });
+
+  const sink = new RoomObject('lavabo','Lavabo oxidado',
+    { saqueado:false },
+    { base:{symbol:'🚰',color:'#556677'},
+      enhanced:[
+        {stat:Stat.QUIMICA,min:4,symbol:'🧪',color:'#7ee87e'},
+        {stat:Stat.PERCEPCION,min:3,symbol:'🔍',color:'#ffb347'}] });
+
+  const bed = new RoomObject('cama','Cama raída',
+    { saqueada:false },
+    { base:{symbol:'🛏',color:'#667'},
+      enhanced:[{stat:Stat.PERCEPCION,min:3,symbol:'📎',color:'#ffb347'}] });
+
+  const cable = new RoomObject('cable_suelto','Cable pelado',
+    { cortado:false },
+    { base:{symbol:'~',color:'#666'},
+      enhanced:[{stat:Stat.MECANICA,min:3,symbol:'⚡',color:'#ffe066'}] });
+
+  const vent = new RoomObject('rejilla_ventilacion','Rejilla de ventilación',
+    { atornillada:true, abierta:false },
+    { base:{symbol:'▢',color:'#444'},
+      enhanced:[
+        {stat:Stat.PERCEPCION,min:4,symbol:'🕳',color:'#7ec8e3'},
+        {stat:Stat.MECANICA,min:3,symbol:'🔧',color:'#7ee87e'}] });
+
+  const pipePanel = new RoomObject('panel_hidraulico','Panel hidráulico',
+    { visible:true },
+    { base:{symbol:'░',color:'#3a3a6a'},
+      enhanced:[
+        {stat:Stat.MECANICA,min:3,symbol:'⚙',color:'#7ec8e3'},
+        {stat:Stat.LOGICA,min:4,symbol:'🌊',color:'#c792ea'}] });
+
+  grid.place(bed, 2, 1);
+  grid.place(mirror, 8, 1);
+  grid.place(vent, 6, 2);
+  grid.place(panel, 6, 3);
+  grid.place(sink, 2, 4);
+  grid.place(cable, 4, 5);
+  grid.place(door, 5, 6);
+
+  const pipeDevice = new PipePuzzleDevice();
+  return new Room('celda_7', grid,
+    [door, panel, mirror, sink, bed, cable, vent, pipePanel],
+    [pipeDevice]
+  );
+}
+
+/* ============================================================================
+ * 9. GAME STATE
+ * ========================================================================== */
+class GameState {
+  constructor(archetype, room) {
+    this.archetype = archetype;
+    this.room = room;
+    this.inventory = [];
+    this.economy = new ActionEconomy(4);
+    this.escaped = false;
+    this.flags = new Set();
+    this.craftingEngine = null;
+    this.deviceState = {};
+    for (const d of room.devices) d.initialize(this);
+  }
+  findObject(id) { return this.room.objects.find(o => o.id === id); }
+  hasFlag(f) { return this.flags.has(f); }
+  setFlag(f) { this.flags.add(f); }
+  getDevice(id) { return this.room.devices.find(d => d.id === id); }
+}
+
+/* ============================================================================
+ * 10. PROVIDER DE ACCIONES — mezcla acciones de habitación + devices
+ * ========================================================================== */
+class AvailableActionsProvider {
+  constructor(perceptionEngine) { this.pe = perceptionEngine; }
+
+  getAll(state) {
+    const roomActions = this._buildRoomActions(state);
+    const deviceActions = state.room.devices.flatMap(d => d.getActions(state));
+    const all = [...roomActions, ...deviceActions];
+    return all.filter(a => this.pe.canPerceive(a));
+  }
+
+  _buildRoomActions(state) {
+    const actions = [];
+    const door  = state.findObject('puerta_blindada');
+    const panel = state.findObject('panel_control');
+    const vent  = state.findObject('rejilla_ventilacion');
+    const sink  = state.findObject('lavabo');
+    const bed   = state.findObject('cama');
+    const cable = state.findObject('cable_suelto');
+
+    if (!sink.get('saqueado')) actions.push(new Action('grab_reagent','Coger producto de limpieza',
+      { perception:{stat:Stat.PERCEPCION,min:3},
+        onSuccess:ctx => { ctx.inventory.push(new Item('producto','Producto de limpieza',['quimico']));
+                           ctx.findObject('lavabo').set('saqueado',true); } }));
+
+    if (!bed.get('saqueada')) actions.push(new Action('grab_clip','Coger el clip',
+      { perception:{stat:Stat.PERCEPCION,min:3},
+        onSuccess:ctx => { ctx.inventory.push(new Item('clip','Clip oxidado',['metal_fino']));
+                           ctx.findObject('cama').set('saqueada',true); } }));
+
+    if (!cable.get('cortado')) actions.push(new Action('grab_copper','Arrancar cobre del cable',
+      { perception:{stat:Stat.MECANICA,min:2},
+        onSuccess:ctx => { ctx.inventory.push(new Item('cobre','Cobre del cable',['cobre','conductor']));
+                           ctx.findObject('cable_suelto').set('cortado',true); } }));
+
+    if (!state.hasFlag('knows_code')) actions.push(new Action('read_mirror','Mirar detrás del espejo',
+      { stat:Stat.PERCEPCION, difficulty:12,
+        perception:{stat:Stat.PERCEPCION,min:3},
+        onSuccess:ctx => ctx.setFlag('knows_code') }));
+
+    if (!panel.get('abierto') && !panel.get('frito')) {
+      const hasTool = state.inventory.some(i => i.hasTag('herramienta'));
+      actions.push(new Action('open_panel',
+        hasTool ? 'Abrir el panel con el destornillador' : 'Forzar el panel',
+        { stat: hasTool ? Stat.MECANICA : Stat.FUERZA,
+          difficulty: hasTool ? 6 : 15,
+          perception:{stat:Stat.MECANICA,min:2},
+          onSuccess:ctx => ctx.findObject('panel_control').set('abierto',true),
+          onFail:ctx => { if (!hasTool) ctx.findObject('panel_control').set('frito',true); } }));
+    }
+    if (panel.get('abierto') && !panel.get('cortocircuitado')) {
+      actions.push(new Action('bridge_panel','Puentear los cables',
+        { stat:Stat.MECANICA, difficulty:14,
+          perception:{stat:Stat.MECANICA,min:4},
+          onSuccess:ctx => { ctx.findObject('puerta_blindada').set('locked',false);
+                             ctx.findObject('panel_control').set('cortocircuitado',true);
+                             ctx.escaped = true; },
+          onFail:ctx => ctx.findObject('panel_control').set('frito',true) }));
+    }
+    if (state.hasFlag('knows_code')) actions.push(new Action('enter_code','Introducir el código 4721',
+      { perception:{stat:Stat.LOGICA,min:2},
+        onSuccess:ctx => { ctx.findObject('puerta_blindada').set('locked',false); ctx.escaped = true; } }));
+
+    if (!door.get('jammed')) actions.push(new Action('force_door','Forzar la puerta',
+      { stat:Stat.FUERZA,
+        difficulty:ctx => 18 + (ctx.findObject('puerta_blindada').get('damage')||0)*3,
+        perception:{stat:Stat.FUERZA,min:2},
+        onSuccess:ctx => { ctx.findObject('puerta_blindada').set('locked',false); ctx.escaped = true; },
+        onFail:ctx => {
+          const d = ctx.findObject('puerta_blindada');
+          const dmg = (d.get('damage')||0)+1;
+          d.set('damage', dmg);
+          if (dmg >= 2) d.set('jammed', true);
+        } }));
+
+    if (state.inventory.some(i => i.hasTag('corrosivo'))) actions.push(new Action('apply_acid','Aplicar ácido a la cerradura',
+      { stat:Stat.QUIMICA, difficulty:12,
+        onSuccess:ctx => { ctx.findObject('puerta_blindada').set('locked',false); ctx.escaped = true; } }));
+
+    if (!vent.get('abierta')) {
+      const hasTool = state.inventory.some(i => i.hasTag('herramienta'));
+      actions.push(new Action('open_vent',
+        hasTool ? 'Desatornillar la rejilla' : 'Forzar la rejilla',
+        { stat: hasTool ? Stat.MECANICA : Stat.FUERZA,
+          difficulty: hasTool ? 6 : 14,
+          perception:{stat:Stat.PERCEPCION,min:3},
+          onSuccess:ctx => ctx.findObject('rejilla_ventilacion').set('abierta',true) }));
+    } else {
+      actions.push(new Action('crawl_vent','Meterse en el conducto',
+        { stat:Stat.FUERZA, difficulty:14, perception:{stat:Stat.PERCEPCION,min:3},
+          onSuccess:ctx => { ctx.setFlag('escaped_via_vent'); ctx.escaped = true; } }));
+    }
+
+    // === ACCIÓN DESBLOQUEADA POR EL DEVICE ===
+    if (state.hasFlag('solved_pipe_grid') && !door.get('jammed')) {
+      actions.push(new Action('hydro_unlock',
+        '💧 Usar la presión hidráulica para abrir la puerta',
+        { perception:{stat:Stat.LOGICA,min:1},
+          onSuccess:ctx => { ctx.findObject('puerta_blindada').set('locked',false); ctx.escaped = true; } }));
+    }
+
+    // Crafting
+    if (state.craftingEngine) {
+      for (const r of state.craftingEngine.findPossible(state.inventory)) {
+        actions.push(new Action(`craft_${r.id}`, `🔨 Fabricar: ${r.output.name}`,
+          { perception:{stat:r.stat,min:2}, tags:['craft', r.id] }));
+      }
+    }
+    return actions;
+  }
+}
+
+/* ============================================================================
+ * 11. USE CASES
+ * ========================================================================== */
+class ExamineRoomUseCase {
+  constructor(perceptionEngine, logger) { this.pe = perceptionEngine; this.logger = logger; }
+  execute(state) {
+    this.logger.log({ type:'system', text:'— Examinas la habitación —' });
+    let found = 0;
+    for (const obj of state.room.objects) {
+      for (const h of this.pe.perceive(obj)) {
+        this.logger.log({ type:'perception', text:`[${h.stat}] ${h.text}` });
+        found++;
+      }
+    }
+    if (!found) this.logger.log({ type:'perception', text:'No ves nada revelador.' });
+  }
+}
+
+class AttemptActionUseCase {
+  constructor(provider, engine, logger, bus) {
+    this.provider = provider; this.engine = engine; this.logger = logger; this.bus = bus;
+  }
+
+  async execute(state, actionId) {
+    const action = this.provider.getAll(state).find(a => a.id === actionId);
+    if (!action) { this.logger.log({ type:'fail', text:`Acción desconocida: ${actionId}` }); return; }
+
+    if (action.isPuzzleAction()) return this._handlePuzzleAction(state, action);
+    if (action.tags[0] === 'craft') return this._handleCraft(state, action.tags[1]);
+
+    this.logger.log({ type:'action', text:`> ${action.label}` });
+    this.bus.emit('roll:start');
+    const result = this.engine.resolve(action, state.archetype, state);
+    this.bus.emit('roll:result', { result, action });
+    if (result.roll) {
+      const m = result.roll.modifier;
+      this.logger.log({ type:'dice',
+        text:`🎲 d20: ${result.roll.die} ${m>=0?'+':''}${m} = ${result.roll.total} vs ${result.roll.difficulty}` });
+    }
+    const type = (result.blocked||result.missing||!result.success) ? 'fail' : 'result';
+    this.logger.log({ type, text: result.narrative });
+    if (state.escaped) this.logger.log({ type:'result', text:'🔓 ¡ESCAPASTE DE LA CELDA 7!' });
+    if (state.economy.blocked) this.logger.log({ type:'fail', text:'⚠️ Estás bloqueado. Reinicia.' });
+  }
+
+  _handlePuzzleAction(state, action) {
+    const device = state.getDevice(action.device);
+    if (!device) { this.logger.log({ type:'fail', text:'Dispositivo no encontrado.' }); return; }
+
+    this.logger.log({ type:'action', text:`> ${action.label}` });
+    const result = device.applyAction(state, action.id, action.payload);
+
+    if (!result.changed) { this.logger.log({ type:'fail', text:'No puedes hacer eso.' }); return; }
+
+    this.bus.emit('roll:result', {
+      result: {
+        roll: null,
+        success: true,
+        narrative: result.narrative || `${action.label}. Hecho.`
+      },
+      action
+    });
+
+    if (result.justSolved) {
+      state.setFlag(`solved_${device.id}`);
+      this.bus.emit('device:solved', { deviceId: device.id, device });
+      this.logger.log({ type:'device', text:`✨ ${device.name}: ¡RESUELTO! Nueva ruta disponible.` });
+    } else if (!device.isSolved(state)) {
+      this.logger.log({ type:'result', text: `${action.label}.` });
+    }
+  }
+
+  _handleCraft(state, recipeId) {
+    const recipe = state.craftingEngine.recipes.find(r => r.id === recipeId);
+    if (!recipe) return;
+    this.logger.log({ type:'action', text:`> Intentas fabricar ${recipe.output.name}` });
+    this.bus.emit('roll:start');
+    const result = state.craftingEngine.attempt(recipe, state.archetype, state);
+    this.bus.emit('roll:result', { result, action:{ label:`Fabricar ${recipe.output.name}` } });
+    if (result.roll) {
+      const m = result.roll.modifier;
+      this.logger.log({ type:'dice',
+        text:`🎲 d20: ${result.roll.die} ${m>=0?'+':''}${m} = ${result.roll.total} vs ${result.roll.difficulty}` });
+    }
+    this.logger.log({ type: result.success ? 'result':'fail', text: result.narrative });
+  }
+}
+
+/* ============================================================================
+ * 12. UI ADAPTERS
+ * ========================================================================== */
+class LogView {
+  constructor(bus, el) { this.el = el; bus.on('log', e => this.append(e)); }
+  append({ type, text }) {
+    const d = document.createElement('div');
+    d.className = `log-entry ${type}`;
+    d.textContent = text;
+    this.el.appendChild(d);
+    this.el.scrollTop = this.el.scrollHeight;
+  }
+  clear() { this.el.innerHTML = ''; }
+}
+
+class StatsView {
+  constructor(bus, statsEl, invEl, ecoEl, statusEl) {
+    this.statsEl = statsEl; this.invEl = invEl;
+    this.ecoEl = ecoEl; this.statusEl = statusEl;
+    bus.on('state:changed', s => this.render(s));
+  }
+  render(state) {
+    let html = '';
+    for (const [k,v] of Object.entries(state.archetype.stats)) {
+      const color = v>=5?'#7ee87e':v<=1?'#ff6b6b':'#c8d0e0';
+      html += `<div class="stat-row">
+        <span>${k}</span><span style="color:${color}">${v}</span>
+        <div class="stat-bar"><div class="stat-fill" style="width:${(v/6)*100}%"></div></div>
+      </div>`;
+    }
+    this.statsEl.innerHTML = html;
+
+    this.invEl.innerHTML = state.inventory.length === 0
+      ? '<span class="inv-empty">(vacío)</span>'
+      : state.inventory.map(i => `<span class="inv-item">${i.name}</span>`).join('');
+
+    const pips = [];
+    for (let i=0;i<state.economy.budget;i++) {
+      let c = 'pip';
+      if (i < state.economy.used) c += ' used';
+      else if (state.economy.remaining() <= 1) c += ' danger';
+      else if (state.economy.remaining() <= 2) c += ' warning';
+      pips.push(`<div class="${c}"></div>`);
+    }
+    this.ecoEl.innerHTML = `<div class="economy">${pips.join('')}</div>
+      <div style="font-size:11px;color:#667;">${state.economy.remaining()} intentos restantes</div>`;
+
+    if (state.escaped) this.statusEl.innerHTML = '<span style="color:#7ee87e;">🔓 Has escapado</span>';
+    else if (state.economy.blocked) this.statusEl.innerHTML = '<span style="color:#ff6b6b;">⚠️ Bloqueado</span>';
+    else this.statusEl.innerHTML = '';
+  }
+}
+
+class RoomView {
+  constructor(bus, gridEl, legendEl, onDeviceClick) {
+    this.gridEl = gridEl; this.legendEl = legendEl; this.onDeviceClick = onDeviceClick;
+    bus.on('state:changed', ({ room, archetype, deviceState, flags }) => this.render(room, archetype, deviceState, flags));
+    bus.on('device:solved', ({ deviceId }) => {
+      this.gridEl.querySelectorAll('.cell.device').forEach(c => c.classList.add('flash'));
+      setTimeout(() => this.gridEl.querySelectorAll('.cell.device').forEach(c => c.classList.remove('flash')), 400);
+    });
+
+    this.gridEl.addEventListener('click', (e) => {
+      const cell = e.target.closest('.cell.device');
+      if (!cell) return;
+      const coords = cell.dataset.coords;
+      if (!coords) return;
+      const [x, y] = coords.split(',').map(Number);
+      const st = this._lastState;
+      if (!st) return;
+      for (const d of st.room.devices) {
+        const bounds = d.getBounds(st);
+        if (!bounds) continue;
+        if (x >= bounds.x && x < bounds.x + bounds.w &&
+            y >= bounds.y && y < bounds.y + bounds.h) {
+          const localX = x - bounds.x;
+          const localY = y - bounds.y;
+          const actionId = `${d.id.replace('_grid','')}_rotate_${localX}_${localY}`;
+          this.onDeviceClick(actionId);
+          return;
+        }
+      }
+    });
+  }
+
+  render(room, archetype, deviceState, flags) {
+    this._lastState = { room, archetype, deviceState, flags };
+    const stats = archetype.stats;
+
+    const deviceCells = {};
+    for (const d of room.devices) {
+      Object.assign(deviceCells, d.getCells(this._lastState));
+    }
+
+    let html = '';
+    for (let y = 0; y < room.grid.height; y++) {
+      for (let x = 0; x < room.grid.width; x++) {
+        const key = `${x},${y}`;
+        const obj = room.grid.get(x, y);
+        const isWall = room.isWall(x, y);
+        const dev = deviceCells[key];
+
+        const cls = ['cell'];
+        let content = '';
+        let title = '';
+        let style = '';
+
+        if (dev) {
+          cls.push('device');
+          if (dev.solved) cls.push('solved');
+          content = dev.symbol;
+          title = dev.title || '';
+          if (dev.color) style = `color:${dev.color};`;
+        } else if (isWall) {
+          cls.push('wall');
+          content = '▓';
+        } else if (obj) {
+          cls.push('object');
+          const sym = obj.getSymbol(stats);
+          content = sym.symbol;
+          title = obj.name;
+          if (sym.color) style = `color:${sym.color};`;
+          if (sym.level === 'hinted') cls.push('hinted');
+          if (obj.get('jammed') || obj.get('frito')) cls.push('broken');
+          else if (obj.get('damage') > 0) cls.push('damaged');
+        } else {
+          cls.push('empty');
+        }
+
+        html += `<div class="${cls.join(' ')}" title="${title}" style="${style}" data-coords="${key}">${content}</div>`;
+      }
+    }
+    this.gridEl.innerHTML = html;
+
+    const legend = [];
+    for (const obj of room.objects) {
+      const sym = obj.getSymbol(stats);
+      if (sym.level === 'hinted') {
+        legend.push(`<span style="color:${sym.color}">${sym.symbol} = ${obj.name}</span>`);
+      }
+    }
+    for (const d of room.devices) {
+      const bounds = d.getBounds(this._lastState);
+      if (bounds) {
+        const solved = d.isSolved(this._lastState);
+        legend.push(`<span style="color:${solved?'#7ee87e':'#7ec8e3'}">▦ = ${d.name}${solved?' (resuelto)':''}</span>`);
+      }
+    }
+    this.legendEl.innerHTML = legend.join(' · ');
+  }
+}
+
+class DiceView {
+  constructor(bus, diceEl, formulaEl, resultEl, narrativeEl) {
+    this.diceEl = diceEl; this.formulaEl = formulaEl;
+    this.resultEl = resultEl; this.narrativeEl = narrativeEl;
+    this.rolling = false;
+    bus.on('roll:start', () => this.startRolling());
+    bus.on('roll:result', ({ result }) => this.settle(result));
+  }
+  startRolling() {
+    this.rolling = true;
+    this.diceEl.textContent = '🎲';
+    this.diceEl.className = 'dice rolling';
+    this.formulaEl.classList.remove('show');
+    this.resultEl.classList.remove('show','success','fail','critical');
+    this.narrativeEl.classList.remove('show');
+    this._interval = setInterval(() => {
+      this.diceEl.textContent = 1 + Math.floor(Math.random()*20);
+    }, 60);
+  }
+  async settle(result) {
+    if (!this.rolling) {
+      clearInterval(this._interval);
+      this.diceEl.textContent = '🎲';
+      this.diceEl.className = 'dice rolling';
+      this._interval = setInterval(() => {
+        this.diceEl.textContent = 1 + Math.floor(Math.random()*20);
+      }, 60);
+      await this._sleep(350);
+      clearInterval(this._interval);
+    } else {
+      clearInterval(this._interval);
+    }
+
+    if (!result.roll) {
+      this.rolling = false;
+      this.diceEl.textContent = '✓';
+      this.diceEl.className = 'dice settled';
+      this.resultEl.textContent = result.success ? '✅ HECHO' : '❌ NO';
+      this.resultEl.className = 'dice-result show ' + (result.success?'success':'fail');
+      this.narrativeEl.textContent = result.narrative || '';
+      this.narrativeEl.classList.add('show');
+      window.dispatchEvent(new CustomEvent('roll:animation:end'));
+      return;
+    }
+
+    await this._sleep(200);
+    this.diceEl.textContent = result.roll.die;
+    this.diceEl.className = 'dice settled' + (!result.success?' fail':'');
+
+    await this._sleep(300);
+    const m = result.roll.modifier;
+    this.formulaEl.textContent =
+      `d20: ${result.roll.die} ${m>=0?'+':''}${m} = ${result.roll.total} vs ${result.roll.difficulty}`;
+    this.formulaEl.classList.add('show');
+
+    await this._sleep(300);
+    if (result.roll.critical) {
+      this.resultEl.textContent = '🌟 ¡CRÍTICO!';
+      this.resultEl.className = 'dice-result show critical';
+    } else if (result.roll.fumble) {
+      this.resultEl.textContent = '💀 PIFIA';
+      this.resultEl.className = 'dice-result show fail';
+    } else {
+      this.resultEl.textContent = result.success ? '✅ ÉXITO' : '❌ FALLO';
+      this.resultEl.className = 'dice-result show ' + (result.success?'success':'fail');
+    }
+
+    await this._sleep(200);
+    this.narrativeEl.textContent = result.narrative;
+    this.narrativeEl.classList.add('show');
+
+    this.rolling = false;
+    window.dispatchEvent(new CustomEvent('roll:animation:end'));
+  }
+  _sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+}
+
+class ActionsView {
+  constructor(el, onAction) {
+    this.el = el; this.onAction = onAction;
+    this._actions = []; this._disabled = false;
+    window.addEventListener('roll:animation:end', () => { this._disabled = false; this.render(); });
+  }
+  setActions(a) { this._actions = a; this.render(); }
+  disable() { this._disabled = true; this.render(); }
+  render() {
+    this.el.innerHTML = '';
+    if (this._actions.length === 0) {
+      this.el.innerHTML = '<div style="color:#667;font-size:11px;font-style:italic;">No hay acciones. Examina la habitación.</div>';
+      return;
+    }
+    for (const a of this._actions) {
+      const btn = document.createElement('button');
+      btn.className = 'action-btn' + (a.isPuzzleAction() ? ' puzzle' : '');
+      btn.disabled = this._disabled;
+      const tag = a.stat
+        ? `<span class="stat-tag">${a.stat}</span>`
+        : a.isPuzzleAction()
+          ? `<span class="no-dice">lógica</span>`
+          : '';
+      btn.innerHTML = `${a.label} ${tag}`;
+      btn.onclick = () => this.onAction(a.id);
+      this.el.appendChild(btn);
+    }
+  }
+}
+
+/* ============================================================================
+ * 13. TESTS
+ * ========================================================================== */
+function runTests() {
+  const res = [];
+  const assert = (name, cond) => res.push({ name, pass: !!cond });
+  const A = (stats) => new Archetype('test','T', stats, '');
+
+  const fisico   = A({ [Stat.FUERZA]:1,[Stat.MECANICA]:5,[Stat.QUIMICA]:4,[Stat.PERCEPCION]:4,[Stat.EMPATIA]:2,[Stat.LOGICA]:5 });
+  const empatico = A({ [Stat.FUERZA]:1,[Stat.MECANICA]:2,[Stat.QUIMICA]:2,[Stat.PERCEPCION]:5,[Stat.EMPATIA]:5,[Stat.LOGICA]:3 });
+  const burto    = A({ [Stat.FUERZA]:6,[Stat.MECANICA]:2,[Stat.QUIMICA]:1,[Stat.PERCEPCION]:3,[Stat.EMPATIA]:2,[Stat.LOGICA]:1 });
+
+  /* --- 1. ROTACIÓN: matemática pura --- */
+  const dev = new PipePuzzleDevice();
+  const s0 = { u:1, r:0, d:0, l:0 };
+  assert('Rot 0 = identidad',
+    JSON.stringify(dev._applyRotation(s0, 0)) === JSON.stringify(s0));
+  assert('Rot 1: arriba → derecha',
+    JSON.stringify(dev._applyRotation(s0, 1)) === JSON.stringify({ u:0, r:1, d:0, l:0 }));
+  assert('Rot 2: arriba → abajo',
+    JSON.stringify(dev._applyRotation(s0, 2)) === JSON.stringify({ u:0, r:0, d:1, l:0 }));
+  assert('Rot 3: arriba → izquierda',
+    JSON.stringify(dev._applyRotation(s0, 3)) === JSON.stringify({ u:0, r:0, d:0, l:1 }));
+  assert('Rot 4 = identidad',
+    JSON.stringify(dev._applyRotation(s0, 4)) === JSON.stringify(s0));
+  assert('Rot -1 = rot 3 (módulo)',
+    JSON.stringify(dev._applyRotation(s0, -1)) === JSON.stringify(dev._applyRotation(s0, 3)));
+  const corner = { u:0, r:1, d:1, l:0 };
+  assert('Corner vuelve tras 4 rotaciones',
+    JSON.stringify(dev._applyRotation(corner, 4)) === JSON.stringify(corner));
+
+  /* --- 2. FLOOD FILL: solución vs scramble --- */
+  const room = buildCell7();
+  const state = new GameState(fisico, room);
+  state.craftingEngine = new CraftingEngine(new ActionEngine({rollD20:()=>10}, {log:()=>{}}));
+
+  assert('Puzzle arranca sin resolver (scramble)', !dev.isSolved(state));
+
+  state.deviceState.pipe_grid.rotations = [
+    [0, 0, 0],
+    [0, 0, 0],
+    [0, 0, 0]
+  ];
+  assert('Puzzle resuelto con rot=0 en el camino', dev.isSolved(state));
+
+  state.deviceState.pipe_grid.rotations[1][1] = 1;
+  assert('Puzzle NO resuelto si (1,1) está mal', !dev.isSolved(state));
+
+  state.deviceState.pipe_grid.rotations[0][0] = 1;
+  state.deviceState.pipe_grid.rotations[1][1] = 0;
+  assert('Puzzle NO resuelto si (0,0) no acepta la fuente', !dev.isSolved(state));
+
+  state.deviceState.pipe_grid.rotations[0][0] = 0;
+  state.deviceState.pipe_grid.rotations[2][2] = 2;
+  assert('Puzzle NO resuelto si (2,2) no sale al desagüe', !dev.isSolved(state));
+
+  /* --- 3. APLICAR ACCIÓN: rotar cambia el estado --- */
+  state.deviceState.pipe_grid.rotations = [[0,0,0],[0,0,0],[0,0,0]];
+  const before = state.deviceState.pipe_grid.rotations[1][1];
+  dev.applyAction(state, 'pipe_rotate_1_1', { x:1, y:1 });
+  const after = state.deviceState.pipe_grid.rotations[1][1];
+  assert('Rotar incrementa rotación en 1', after === (before + 1) % 4);
+
+  for (let i = 0; i < 4; i++) dev.applyAction(state, 'pipe_rotate_1_1', { x:1, y:1 });
+  assert('4 rotaciones devuelven al estado original',
+    state.deviceState.pipe_grid.rotations[1][1] === 0);
+
+  /* --- 4. justSolved se dispara solo en la transición --- */
+  state.deviceState.pipe_grid.rotations = [[0,0,0],[0,0,0],[0,0,0]];
+  state.deviceState.pipe_grid.rotations[1][1] = 1;
+  const r1 = dev.applyAction(state, 'pipe_rotate_1_1', {x:1,y:1});
+  assert('Acción que NO resuelve no marca justSolved', !r1.justSolved);
+  dev.applyAction(state, 'pipe_rotate_1_1', {x:1,y:1});
+  const r3 = dev.applyAction(state, 'pipe_rotate_1_1', {x:1,y:1});
+  assert('Acción que resuelve marca justSolved', r3.justSolved === true);
+
+  /* --- 5. getCells devuelve 9 celdas --- */
+  state.deviceState.pipe_grid.rotations = [[0,0,0],[0,0,0],[0,0,0]];
+  const cells = dev.getCells(state);
+  assert('getCells devuelve exactamente 9 celdas', Object.keys(cells).length === 9);
+  assert('getCells usa coordenadas absolutas (7,2)',
+    '7,2' in cells && '9,4' in cells);
+
+  /* --- 6. getActions: 9 rotaciones + 1 reset si no está resuelto --- */
+  state.deviceState.pipe_grid.rotations = [[1,2,0],[0,1,0],[0,2,1]];
+  assert('Puzzle no resuelto ofrece 9 + reset',
+    dev.getActions(state).length === 10);
+  state.deviceState.pipe_grid.rotations = [[0,0,0],[0,0,0],[0,0,0]];
+  assert('Puzzle resuelto NO ofrece rotaciones',
+    dev.getActions(state).length === 0);
+
+  /* --- 7. Reset restaura rotaciones iniciales y cuesta 1 intento --- */
+  state.deviceState.pipe_grid.rotations = [[2,2,2],[2,2,2],[2,2,2]];
+  const usedBefore = state.economy.used;
+  dev.applyAction(state, 'pipe_reset', {});
+  assert('Reset restaura INITIAL_ROTATIONS',
+    JSON.stringify(state.deviceState.pipe_grid.rotations) === JSON.stringify(dev.INITIAL_ROTATIONS));
+  assert('Reset consume 1 intento',
+    state.economy.used === usedBefore + 1);
+
+  /* --- 8. Provider: las acciones de device están presentes --- */
+  const pe = new PerceptionEngine(fisico);
+  const provider = new AvailableActionsProvider(pe);
+  const s2 = new GameState(fisico, buildCell7());
+  s2.craftingEngine = new CraftingEngine(new ActionEngine({rollD20:()=>10},{log:()=>{}}));
+  const actions = provider.getAll(s2);
+  assert('Provider incluye pipe_rotate_0_0',
+    actions.some(a => a.id === 'pipe_rotate_0_0' && a.device === 'pipe_grid'));
+  assert('Provider incluye pipe_reset',
+    actions.some(a => a.id === 'pipe_reset'));
+
+  /* --- 9. hydro_unlock solo aparece si el puzzle está resuelto --- */
+  assert('Sin solved_pipe_grid NO aparece hydro_unlock',
+    !provider.getAll(s2).some(a => a.id === 'hydro_unlock'));
+  s2.setFlag('solved_pipe_grid');
+  assert('Con solved_pipe_grid SÍ aparece hydro_unlock',
+    provider.getAll(s2).some(a => a.id === 'hydro_unlock'));
+  s2.flags.delete('solved_pipe_grid'); // limpieza para siguientes tests
+
+  /* --- 10. Routing: puzzle action vs dice action ---
+   * OJO: `force_door` tiene perception:{FUERZA, min:2} y `fisico` tiene FUERZA:1.
+   * El filtro de percepción lo elimina, así que en esta lista NO está.
+   * Usamos `open_panel` (MECÁNICA≥2, fisico tiene 5) como acción de dado visible.
+   */
+  const puzzleAction = actions.find(a => a.id === 'pipe_rotate_0_0');
+  assert('pipe_rotate existe y es isPuzzleAction',
+    !!puzzleAction && puzzleAction.isPuzzleAction());
+
+  const diceAction = actions.find(a => a.id === 'open_panel');
+  assert('open_panel existe y NO es isPuzzleAction',
+    !!diceAction && !diceAction.isPuzzleAction());
+
+  // Verificación EXPLÍCITA del filtro: fisico NO ve force_door (Fuerza 1 < 2)
+  assert('Físico NO ve force_door por filtro de percepción',
+    !actions.some(a => a.id === 'force_door'));
+
+  // Y burto (Fuerza 6) SÍ lo ve: cambiamos de arquetipo y volvemos a filtrar
+  const providerBurto = new AvailableActionsProvider(new PerceptionEngine(burto));
+  const actionsBurto = providerBurto.getAll(s2);
+  assert('Burto SÍ ve force_door (Fuerza 6 >= 2)',
+    actionsBurto.some(a => a.id === 'force_door'));
+
+  /* --- 11. Estado no queda corrupto tras múltiples aplicaciones --- */
+  const s3 = new GameState(fisico, buildCell7());
+  const d3 = s3.getDevice('pipe_grid');
+  for (let i = 0; i < 100; i++) {
+    const x = i % 3, y = (i >> 2) % 3;
+    d3.applyAction(s3, `pipe_rotate_${x}_${y}`, {x, y});
+  }
+  const inRange = s3.deviceState.pipe_grid.rotations.every(row =>
+    row.every(r => r >= 0 && r < 4));
+  assert('Rotaciones siempre en [0,4) tras 100 acciones', inRange);
+
+  /* --- 12. Coherencia: al menos existe una configuración resoluble --- */
+  const s4 = new GameState(fisico, buildCell7());
+  s4.deviceState.pipe_grid.rotations = [[0,0,0],[0,0,0],[0,0,0]];
+  assert('La configuración rot=0 resuelve el puzzle', s4.getDevice('pipe_grid').isSolved(s4));
+
+  /* --- 13. Filtro de percepción sobre acciones de device --- */
+  const puzzleActionLowLogica = new Action('x','x',{ device:'pipe_grid', stat:null,
+    perception:{ stat:Stat.LOGICA, min:1 }});
+  const peBurto = new PerceptionEngine(burto);
+  assert('Burto con Lógica 1 ve la acción (min 1)',
+    peBurto.canPerceive(puzzleActionLowLogica));
+  const peStrict = new PerceptionEngine(A({...fisico.stats, [Stat.LOGICA]:0}));
+  assert('Lógica 0 no ve acción que requiere Lógica 1',
+    !peStrict.canPerceive(puzzleActionLowLogica));
+
+  /* --- RESULTADO --- */
+  const passed = res.filter(r=>r.pass).length;
+  console.log(`%c🧪 TESTS: ${passed}/${res.length}`, `color:${passed===res.length?'#7ee87e':'#ff6b6b'};font-weight:bold;font-size:14px`);
+  res.forEach(r => console.log(`  ${r.pass?'✅':'❌'} ${r.name}`));
+  return { passed, total: res.length, res };
+}
+
+/* ============================================================================
+ * 14. COMPOSITION ROOT
+ * ========================================================================== */
+const ARCHETYPES = {
+  fisico: new Archetype('fisico','Dr. Einstein',
+    { [Stat.FUERZA]:1,[Stat.MECANICA]:5,[Stat.QUIMICA]:4,[Stat.PERCEPCION]:4,[Stat.EMPATIA]:2,[Stat.LOGICA]:5 },
+    'Un científico con bata raída. Ve circuitos donde otros ven cables.'),
+  empatico: new Archetype('empatico','Hippie',
+    { [Stat.FUERZA]:1,[Stat.MECANICA]:2,[Stat.QUIMICA]:2,[Stat.PERCEPCION]:5,[Stat.EMPATIA]:5,[Stat.LOGICA]:3 },
+    'Lee emociones como otros leen libros. Las paredes le hablan.'),
+  burto: new Archetype('burto','Gimnasio',
+    { [Stat.FUERZA]:6,[Stat.MECANICA]:2,[Stat.QUIMICA]:1,[Stat.PERCEPCION]:3,[Stat.EMPATIA]:2,[Stat.LOGICA]:1 },
+    'Si no se abre a la primera, se abre a la segunda. Y si no, se rompe.')
+};
+
+let currentApp = null;
+
+function createApp(archetypeId) {
+  const archetype = ARCHETYPES[archetypeId];
+  const bus = new EventBus();
+  const random = new SeededRandomAdapter(Date.now() % 999999);
+  const logger = new BusLoggerAdapter(bus);
+
+  const perception = new PerceptionEngine(archetype);
+  const actionEngine = new ActionEngine(random, logger);
+  const crafting = new CraftingEngine(actionEngine);
+  const provider = new AvailableActionsProvider(perception);
+
+  const room = buildCell7();
+  const state = new GameState(archetype, room);
+  state.craftingEngine = crafting;
+
+  const examineUC = new ExamineRoomUseCase(perception, logger);
+  const attemptUC = new AttemptActionUseCase(provider, actionEngine, logger, bus);
+
+  const logView = new LogView(bus, document.getElementById('log'));
+  logView.clear();
+  new StatsView(bus,
+    document.getElementById('statsPanel'),
+    document.getElementById('inventoryPanel'),
+    document.getElementById('economyPanel'),
+    document.getElementById('statusPanel'));
+
+  const actionsView = new ActionsView(document.getElementById('actionsPanel'),
+    async (actionId) => {
+      actionsView.disable();
+      await attemptUC.execute(state, actionId);
+      syncState();
+    });
+
+  const roomView = new RoomView(bus,
+    document.getElementById('roomGrid'),
+    document.getElementById('roomLegend'),
+    (actionId) => {
+      actionsView.disable();
+      attemptUC.execute(state, actionId).then(syncState);
+    });
+
+  new DiceView(bus,
+    document.getElementById('dice'),
+    document.getElementById('diceFormula'),
+    document.getElementById('diceResult'),
+    document.getElementById('diceNarrative'));
+
+  function syncState() {
+    bus.emit('state:changed', {
+      room: state.room,
+      archetype: state.archetype,
+      deviceState: state.deviceState,
+      flags: state.flags,
+      inventory: state.inventory,
+      economy: state.economy,
+      escaped: state.escaped
+    });
+    if (state.escaped) {
+      actionsView.setActions([]);
+      return;
+    }
+    actionsView.setActions(provider.getAll(state));
+  }
+
+  bus.on('device:solved', () => {
+    setTimeout(syncState, 200);
+  });
+
+  bus.emit('log', { type:'system', text:`═══ ${archetype.name} ═══` });
+  bus.emit('log', { type:'system', text: archetype.flavor });
+  bus.emit('log', { type:'system', text:'Pulsa "Examinar" para descubrir pistas.' });
+  bus.emit('log', { type:'system', text:'💡 El panel hidráulico (▦) es un puzzle de lógica: no tira dados.' });
+
+  bus.emit('state:changed', {
+    room: state.room, archetype: state.archetype,
+    deviceState: state.deviceState, flags: state.flags,
+    inventory: state.inventory, economy: state.economy, escaped: state.escaped
+  });
+  actionsView.setActions(provider.getAll(state));
+
+  document.getElementById('btnExamine').onclick = () => {
+    examineUC.execute(state);
+    syncState();
+  };
+
+  currentApp = { bus, state, syncState };
+  return currentApp;
+}
+
+/* ============================================================================
+ * 15. BOOT
+ * ========================================================================== */
+document.addEventListener('DOMContentLoaded', () => {
+  // Botón Examinar dinámico
+  const examineBtn = document.createElement('button');
+  examineBtn.id = 'btnExamine';
+  examineBtn.className = 'action-btn';
+  examineBtn.textContent = '🔍 Examinar la habitación';
+  examineBtn.style.borderColor = '#7ec8e3';
+  document.getElementById('actionsPanel').before(examineBtn);
+
+  // Ejecutamos tests en consola. Envolvemos en try/catch para que un fallo
+  // en un test NO aborte el resto de la inicialización de la página.
+  // Regla: los tests informan, no bloquean el arranque.
+  try { runTests(); }
+  catch (e) { console.error('⚠️ Tests fallaron, la app continúa:', e); }
+
+  document.querySelectorAll('[data-arch]').forEach(btn => {
+    btn.onclick = () => {
+      document.querySelectorAll('[data-arch]').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      createApp(btn.dataset.arch);
+    };
+  });
+  document.getElementById('resetBtn').onclick = () => {
+    const active = document.querySelector('[data-arch].active');
+    if (active) createApp(active.dataset.arch);
+  };
+  document.querySelector('[data-arch="fisico"]').click();
+});
+
+window.__cell7 = { runTests, ARCHETYPES, createApp, PipePuzzleDevice, PuzzleDevicePort, ActionEngine, ActionEconomy };
+})();
+</script>
+</body>
+</html>
