@@ -1,0 +1,235 @@
+================================================================================
+EDITOR DE TRAFICO v3
+================================================================================
+Un simulador de trafico urbano en un solo archivo HTML. Sin dependencias, sin
+build, sin servidor. Se abre en el navegador y funciona.
+================================================================================
+
+
+QUE ES
+--------------------------------------------------------------------------------
+Un laboratorio visual para experimentar con diseno de intersecciones, semaforos,
+flujos de trafico y comportamiento de conductores. Nacio como replica de un cruce
+problematico (semaforo sin all-red, autobuses atrapados, conductores
+que se saltan el ambar) pero sirve para cualquier red vial que quieras montar.
+
+No es un simulador de produccion. Es un juguete para entender, comparar y
+demostrar. En toeria esto te deja cambiar la fisica, pero es un juguete.
+
+QUE HACE
+--------------------------------------------------------------------------------
+- Editor visual de red: colocas nodos (intersecciones) y los conectas con
+  carreteras de uno o doble sentido. Snap a rejilla de 5m.
+- Semaforos configurables por nodo: verde por tubo entrante, all-red opcional,
+  previsualizacion del ciclo completo.
+- Vehiculos con tipo (coche, bus, moto, repartidor), cada uno con longitud,
+  aceleracion y frenada propias.
+- Conductores con perfil: edad, prisa, agresividad. Afectan a reflejos, distancia
+  de seguridad y probabilidad de saltarse el ambar (tirada d20 + modificador).
+- Generacion de trafico por nodo: defines tasa (veh/s) y el sistema crea rutas
+  BFS hasta un destino final.
+- Destino final (sumidero): nodo marcado donde los coches desaparecen. El spawn
+  prefiere estos nodos como meta para evitar que el circuito se llene.
+- Metricas en vivo: vehiculos activos, buses atrapados, espera media, porcentaje
+  de ambar y rojo saltados, vehiculos pasados por nodo.
+- Guardar/cargar escenario en JSON. Descargar/subir archivo.
+- Validacion automatica: detecta nodos aislados, tubos muy cortos, semaforos con
+  tubos siempre en rojo, spawns sin salidas, spawns sin destino marcado.
+
+
+COMO LO HACE
+--------------------------------------------------------------------------------
+
+1. ARQUITECTURA HEXAGONAL
+   El codigo esta separado en capas. El dominio (logica de trafico) no conoce
+   ni el canvas, ni el DOM, ni el localStorage. Solo conoce sus "ports"
+   (interfaces abstractas). Los "adapters" (canvas, localStorage, RNG) se
+   inyectan desde fuera.
+
+   Capas:
+     1. EventBus         - mediador. Nadie llama a nadie directamente.
+     2. Value Objects    - DiceRoll, DriverProfile, Vehicle, Tube, Node,
+                           TrafficLight. Datos con logica propia.
+     3. Ports            - RandomPort, StoragePort. Interfaces.
+     4. Adapters         - SeededRandom, LocalStorageAdapter. Implementaciones.
+     5. Domain Services  - IDMEngine, findRoute, applyTrafficLight. Logica pura.
+     6. World            - Contenedor de la red + serializacion JSON.
+     7. SimState         - Estado mutable de una partida.
+     8. Use Cases        - TickUseCase, SpawnUseCase. Orquestan el dominio.
+     9. Renderer         - Canvas. Dibuja el mundo.
+    10. Editor           - Interaccion del usuario + config panel.
+    11. Composition Root - Donde se cosen todas las piezas.
+
+2. MODELO DE MOVIMIENTO: IDM (Intelligent Driver Model)
+   Cada vehiculo calcula su aceleracion en funcion de:
+     - Su velocidad actual y la deseada.
+     - La distancia al vehiculo de delante (o a la linea de stop).
+     - La diferencia de velocidad con el de delante.
+     - Su tiempo de seguridad (depende de la agresividad del conductor).
+
+   Formula:
+     a = aMax * [1 - (v/v0)^4 - (s*/s)^2]
+     s* = s0 + v*T + v*dv / (2*sqrt(aMax*b))
+
+   No se resuelven PDEs de flujo continuo. El IDM es la version microscopica
+   de las ecuaciones de Lighthill-Whitham-Richards. Reproduce ondas de choque
+   y tapones sin resolver ecuaciones diferenciales en derivadas parciales.
+
+3. DECISIONES CON DADOS (D20)
+   Cuando un coche llega a un semaforo en ambar o rojo, tira un d20 + su
+   modificador de prisa (prisa - 3). Si supera la dificultad, se lo salta.
+     - Ambar: dificultad 12.
+     - Rojo: dificultad 18.
+
+   Esto modela el comportamiento real: no todos se saltan el ambar, pero los
+   que tienen prisa lo hacen con frecuencia. Y como el sistema no tiene all-red,
+   los que se saltan el ambar de una fase bloquean la fase siguiente.
+
+4. POSICION DEL VEHICULO
+   `position` es siempre el FRONTAL del vehiculo desde el inicio del tubo.
+   El rear esta en `position - length`. Esto hace coherente el calculo de gaps
+   y evita que dos vehiculos se solapen al entrar a un nodo.
+
+5. GESTION DE NODOS Y DEADLOCKS
+   Un nodo se marca como ocupado durante X segundos tras una transicion. X se
+   calcula con la velocidad deseada del vehiculo, no la actual, para no
+   bloquearlo eternamente.
+
+   Antes de entrar al nodo, el vehiculo comprueba:
+     - Que el nodo no este ocupado.
+     - Que el semaforo le de paso (o que se lo salte con exito).
+     - Que el tubo de salida tenga hueco suficiente:
+         last.position - last.length >= v.length + margin
+       Si no cabe, espera. Esto previene deadlocks dentro del nodo.
+
+6. RUTAS: BFS
+   Cuando un nodo genera un coche, se calcula una ruta completa con BFS desde
+   el nodo origen hasta un nodo destino. Si hay nodos marcados como "destino
+   final", se prefieren como meta. Si no hay ninguno, se elige cualquier otro
+   nodo. Si no hay ruta, no se crea el coche.
+
+   Esto garantiza que todos los coches tienen una ruta valida y desaparecen
+   al llegar. Nada de rutas truncadas ni coches dando vueltas eternamente.
+
+7. SERIALIZACION JSON
+   El mundo entero se puede exportar a JSON: nodos (con posicion, semaforo,
+   spawn, marca de destino) y tubos (con from/to, velocidad, offset). Se puede
+   guardar en localStorage, descargar a archivo, o subir desde archivo.
+
+   El motor y los datos estan acoplados en este archivo, pero el JSON ya separa
+   el escenario de la logica. En el futuro se puede extraer el motor a un
+   archivo aparte y cargar el escenario desde fuera.
+
+
+COMO USARLO
+--------------------------------------------------------------------------------
+1. Abre el HTML en el navegador (doble clic, sin servidor).
+2. La consola (F12) muestra 18 tests automaticos. Todos deben pasar.
+3. Aparece un ejemplo precargado (4 nodos, semaforo problematico en N2,
+   correcto en N1, destinos en N3/N4, spawns en N1/N2).
+4. Boton Pausa para parar la simulacion, Play para reanudar.
+5. Selecciona herramienta:
+   - Selec/Mover: clic en nodo o tubo para seleccionar. Arrastra un nodo para
+     moverlo.
+   - Poner nodo: clic en el lienzo.
+   - Doble sentido / Un sentido: clic en nodo A, luego en nodo B.
+   - Borrar nodo: clic en un nodo para eliminarlo (y todos sus tubos).
+6. Con un nodo seleccionado, en el panel derecho:
+   - Activar "Generar trafico" y poner una tasa.
+   - Activar "Marcar como destino" si quieres que sea meta.
+   - Activar semaforo, configurar all-red y verdes por tubo entrante.
+7. Con un tubo seleccionado: cambiar velocidad, invertir sentido, borrar.
+8. Boton Ejemplo recarga el escenario de Ourense. Boton Nuevo vacia el mapa.
+9. Guardar/Cargar en localStorage. Descargar/Subir JSON.
+
+
+QUE SE PUEDE EXPERIMENTAR
+--------------------------------------------------------------------------------
+- Comparar el semaforo de N2 (sin all-red) con el de N1 (con all-red).
+- Ver como los buses se quedan atrapados cuando el verde es corto.
+- Cambiar la tasa de spawn y ver a partir de que punto el sistema colapsa.
+- Anadir un nodo destino y ver como los coches dejan de acumularse.
+- Poner un semaforo con all-red de 3s y ver si mejora el flujo.
+- Subir el porcentaje de conductores con prisa y ver como aumenta el caos.
+- Mover un nodo arrastrandolo y ver como cambian las longitudes.
+
+
+QUE FALTA (iteraciones futuras)
+--------------------------------------------------------------------------------
+- Cambio de carril dentro de un tubo de varios carriles.
+- Rotondas con prioridad circular.
+- Prioridad semaforica para autobuses (alargar verde al detectar bus).
+- Repartidor que para en cualquier punto (no solo circula).
+- Semanas de datos y exportacion CSV para analisis.
+- Editor de fases manuales del semaforo (no solo verde + all-red).
+- Modo inspeccion: clic en un coche y ver su ruta, velocidad, espera.
+- Separacion del motor a un archivo JS externo, escenario en JSON aparte.
+
+
+FILOSOFIA DEL PROYECTO
+--------------------------------------------------------------------------------
+Es un juguete. No pretende ser SUMO ni Aimsun ni PTV Vissim. Pretende ser un
+entorno donde puedes responder preguntas tipo "que pasa si quito el all-red
+de este cruce" o "por que se atascan los buses aqui" en menos de 5 minutos,
+sin instalar nada, sin compilar nada, sin leer un manual de 200 paginas.
+
+La arquitectura hexagonal no es decoracion. Es lo que permite cambiar la
+logica de trafico sin tocar la UI, y cambiar la UI sin tocar la logica. Si
+manana quieres simular fluidos con SPH en vez de coches con IDM, el motor
+de eventos, los use cases, los ports y el renderer se reciclan. Solo cambias
+el Domain Service central y el formato del JSON.
+
+
+NOTAS TECNICAS
+--------------------------------------------------------------------------------
+- 1 unidad = 1 metro. Escala de render: 8 px/m. Canvas de 120x80 m.
+- Tick de simulacion: 0.1s (100ms). Hasta 20 ticks por frame para no
+  bloquear el navegador si la pestana estuvo en background.
+- RNG determinista (LCG de Park-Miller). Misma semilla = misma simulacion.
+- Tipos de vehiculo:
+    coche:     4.5m, accel 1.5, frenada 2.0
+    bus:      12.0m, accel 0.8, frenada 1.5
+    moto:      2.0m, accel 2.0, frenada 2.5
+    repartidor: 5.5m, accel 1.2, frenada 1.8
+- Distribucion de tipos por defecto: 70% coche, 12% bus, 8% repartidor,
+  10% moto.
+- Conductores: edad 18-88, prisa 1-6, agresividad 1-6. Modificador de prisa
+  en tiradas = prisa - 3.
+
+
+TESTS INCLUIDOS (18)
+--------------------------------------------------------------------------------
+1.  IDM a velocidad deseada sin obstaculo -> aceleracion ~ 0
+2.  IDM con gap pequeno -> frena fuerte
+3.  IDM isFree -> acelera
+4.  DiceRoll d20=20 vs dif 18 -> exito
+5.  DiceRoll d20=1 vs dif 18 -> fallo
+6.  DiceRoll d20=10 +3 vs dif 12 -> exito
+7.  RNG reproducible con misma semilla
+8.  TrafficLight cicla correctamente green -> amber -> all_red
+9.  BFS encuentra ruta N1 -> N4
+10. Ruta es coherente (cada tubo conecta con el siguiente)
+11. toJSON / fromJSON preserva nodos
+12. toJSON / fromJSON preserva tubos
+13. toJSON / fromJSON preserva marca de destino
+14. Invertir tubo intercambia fromId y toId
+15. validate detecta nodo aislado
+16. validate avisa si hay spawn sin destino marcado
+17. Espacio en tubo de salida: formula correcta
+18. Spawn prefiere nodos marcados como destino final
+
+
+LICENCIA
+--------------------------------------------------------------------------------
+Haz lo que quieras con esto. Es un juguete.
+
+
+AUTOR
+--------------------------------------------------------------------------------
+Iterado en conversacion entre un usuario cabreado con los semaforos 
+y una IA que sabe de teoria de trafico. v3.
+
+
+================================================================================
+FIN
+================================================================================
