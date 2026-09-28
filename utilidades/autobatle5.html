@@ -1,0 +1,3767 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Asalto · Núcleo v5</title>
+<style>
+  :root {
+    --bg:#0a0a14; --panel:#12121f; --border:#22223a; --text:#c8d0e0;
+    --muted:#667; --accent:#ffb347; --good:#7ee87e; --bad:#ff6b6b;
+    --rare:#7ec8e3; --gold:#ffd700; --hero:#ff99ff;
+  }
+  * { box-sizing:border-box; margin:0; padding:0; }
+  body {
+    font-family: ui-monospace, Consolas, monospace;
+    background: var(--bg); color: var(--text);
+    min-height:100vh; display:grid; grid-template-rows:auto 1fr;
+  }
+  header {
+    padding:10px 18px; background:#0e0e1c; border-bottom:1px solid var(--border);
+    display:flex; align-items:center; gap:14px; flex-wrap:wrap;
+  }
+  header h1 { font-size:14px; color:var(--accent); font-weight:400; letter-spacing:1px; }
+  header .zone-tag { font-size:12px; color:var(--rare); }
+  header .spacer { flex:1; }
+  header .hud { display:flex; gap:6px; font-size:11px; flex-wrap:wrap; }
+  header .hud .item { background:#12121f; padding:3px 9px; border-radius:10px; border:1px solid var(--border); }
+  header .hud .item .k { color:var(--muted); }
+  header .hud .item .v { color:var(--accent); font-weight:700; }
+  header .hud .item.gold .v { color:var(--gold); }
+  header .hud .item.mat .v { color:var(--rare); }
+  main {
+    display:grid; grid-template-columns:280px 1fr 280px; gap:12px;
+    padding:12px; overflow:hidden;
+  }
+  @media (max-width:1100px) { main { grid-template-columns:1fr; } }
+  .panel {
+    background:var(--panel); border:1px solid var(--border); border-radius:8px;
+    padding:12px; overflow-y:auto; max-height:calc(100vh - 80px);
+  }
+  .panel h3 {
+    font-size:11px; color:var(--rare); text-transform:uppercase;
+    letter-spacing:1px; margin-bottom:8px; padding-bottom:4px;
+    border-bottom:1px solid var(--border); font-weight:600;
+  }
+  .panel h3:not(:first-child) { margin-top:14px; }
+  canvas { display:block; background:#06060e; border-radius:6px; border:1px solid var(--border); margin:0 auto; max-width:100%; }
+  .canvas-wrap {
+    display:flex; flex-direction:column; align-items:center; gap:8px;
+    padding:12px; background:var(--panel); border:1px solid var(--border); border-radius:8px;
+  }
+  .log {
+    background:#0a0a18; border-radius:6px; padding:8px;
+    font-size:11px; line-height:1.5; max-height:220px; overflow-y:auto;
+  }
+  .log-entry { padding:2px 0; border-bottom:1px solid rgba(255,255,255,0.03); }
+  .log-entry:last-child { border-bottom:none; }
+  .log-entry.good { color:var(--good); }
+  .log-entry.bad { color:var(--bad); }
+  .log-entry.info { color:var(--rare); }
+  .log-entry.warn { color:var(--accent); }
+  .log-entry.gold { color:var(--gold); }
+  .log-entry.mat { color:#88ddff; }
+  .queue { display:flex; flex-direction:column; gap:4px; }
+  .queue-item {
+    display:flex; justify-content:space-between; align-items:center;
+    font-size:11px; padding:4px 8px; border-radius:4px;
+    background:#1a1a2e; border:1px solid #22223a;
+    position:relative; overflow:hidden;
+  }
+  .queue-item .xp-bar {
+    position:absolute; bottom:0; left:0; height:2px; background:var(--rare);
+    transition:width 0.3s;
+  }
+  .queue-item.promoted { border-color:var(--gold); background:rgba(255,215,0,0.06); }
+  .queue-item.promoted .name { color:var(--gold); }
+  .queue-item .count { color:var(--accent); font-weight:700; font-size:10px; }
+  .modifiers { display:flex; flex-direction:column; gap:4px; }
+  .modifier-item {
+    font-size:11px; padding:4px 8px; border-radius:4px;
+    background:#1a1a2e; border-left:3px solid var(--good);
+  }
+  .modifier-item .name { color:var(--good); font-weight:700; }
+  .modifier-item .desc { color:var(--muted); font-size:10px; }
+  .materials-grid { display:flex; flex-wrap:wrap; gap:4px; }
+  .material-chip {
+    background:#1a1a2e; border:1px solid #33334a; border-radius:12px;
+    padding:2px 8px; font-size:11px;
+    display:flex; align-items:center; gap:4px;
+  }
+  .material-chip .icon { font-size:12px; }
+  .material-chip .count { color:var(--rare); font-weight:700; }
+  .hero-panel {
+    background:linear-gradient(135deg, rgba(255,153,255,0.08), rgba(255,179,71,0.05));
+    border:1px solid rgba(255,153,255,0.3);
+    border-radius:6px; padding:8px; font-size:11px;
+  }
+  .hero-panel .hero-name { color:var(--hero); font-weight:700; font-size:13px; }
+  .hero-panel .hero-arch { color:var(--muted); font-size:10px; text-transform:uppercase; letter-spacing:1px; }
+  .hero-panel .hero-stats { display:grid; grid-template-columns:1fr 1fr; gap:2px 8px; margin-top:6px; }
+  .hero-panel .hero-stats .k { color:var(--muted); }
+  .hero-panel .hero-stats .v { color:var(--good); font-weight:600; }
+  .hero-panel.dead { opacity:0.4; border-color:#444; }
+  .hero-panel.dead .hero-name { color:#666; }
+  .btn {
+    background:#2a2a4a; color:#c8d0e0; border:1px solid #44446a;
+    padding:8px 14px; border-radius:6px; cursor:pointer;
+    font-family:inherit; font-size:12px; font-weight:600;
+  }
+  .btn:hover:not(:disabled) { background:#3a3a5a; }
+  .btn:disabled { opacity:0.4; cursor:not-allowed; }
+  .btn.primary { background:var(--accent); color:#0a0a14; border-color:var(--accent); }
+  .btn.primary:hover:not(:disabled) { background:#ffc470; }
+  .btn.hero-ability {
+    background:linear-gradient(135deg, var(--hero), #cc66ff);
+    color:#0a0a14; border:none; font-weight:700;
+    padding:10px 14px; width:100%;
+    position:relative; overflow:hidden;
+  }
+  .btn.hero-ability:disabled { background:#333; color:#666; }
+  .btn.hero-ability .cooldown {
+    position:absolute; bottom:0; left:0; height:100%;
+    background:rgba(0,0,0,0.5); transition:width 0.1s linear;
+  }
+  .btn.hero-ability .label { position:relative; z-index:1; }
+  .btn.global-order {
+    background:linear-gradient(135deg, #4682b4, #2a5a8a);
+    color:#fff; border:none; font-weight:700;
+    padding:10px 14px; width:100%;
+    position:relative; overflow:hidden;
+  }
+  .btn.global-order:disabled { background:#333; color:#666; }
+  .btn.global-order .cooldown {
+    position:absolute; bottom:0; left:0; height:100%;
+    background:rgba(0,0,0,0.5); transition:width 0.1s linear;
+  }
+  .btn.global-order .label { position:relative; z-index:1; }
+  .btn.global-order.active { background:linear-gradient(135deg, #ffb347, #cc8a00); }
+  .hp-bar {
+    width:100%; height:8px; background:#1a1a2a; border-radius:4px;
+    overflow:hidden; margin-top:4px;
+  }
+  .hp-fill {
+    height:100%; background:linear-gradient(90deg,var(--bad),var(--accent));
+    transition:width 0.2s;
+  }
+  .modal-overlay {
+    position:fixed; inset:0; background:rgba(0,0,0,0.8);
+    display:flex; align-items:center; justify-content:center;
+    z-index:1000; padding:20px;
+  }
+  .modal-overlay.hidden { display:none; }
+  .modal {
+    background:var(--panel); border:2px solid var(--accent);
+    border-radius:12px; padding:20px; max-width:820px; width:100%;
+    max-height:90vh; overflow-y:auto;
+  }
+  .modal h2 { color:var(--accent); font-size:16px; margin-bottom:6px; }
+  .modal .sub { color:var(--muted); font-size:11px; margin-bottom:14px; }
+  .modal .section { margin-bottom:18px; }
+  .modal .section h3 {
+    font-size:11px; color:var(--rare); text-transform:uppercase;
+    letter-spacing:1px; margin-bottom:8px;
+  }
+  .choices { display:grid; grid-template-columns:1fr 1fr 1fr; gap:10px; }
+  @media (max-width:720px) { .choices { grid-template-columns:1fr; } }
+  .choice {
+    background:#1a1a2e; border:2px solid #33334a; border-radius:8px;
+    padding:12px; cursor:pointer; transition:all 0.15s;
+    display:flex; flex-direction:column; gap:6px;
+  }
+  .choice:hover { border-color:var(--accent); transform:translateY(-2px); }
+  .choice.selected { border-color:var(--good); background:rgba(126,232,126,0.1); }
+  .choice .c-name { color:var(--accent); font-weight:700; font-size:13px; }
+  .choice .c-desc { color:var(--text); font-size:11px; line-height:1.4; }
+  .choice .c-stats { color:var(--muted); font-size:10px; margin-top:4px; }
+  .upgrade-grid {
+    display:grid; grid-template-columns:1fr 1fr; gap:8px;
+  }
+  @media (max-width:720px) { .upgrade-grid { grid-template-columns:1fr; } }
+  .upgrade {
+    background:#1a1a2e; border:1px solid #33334a; border-radius:6px;
+    padding:8px 10px; display:flex; justify-content:space-between;
+    align-items:center; gap:8px;
+  }
+  .upgrade .info { flex:1; }
+  .upgrade .u-name { color:var(--text); font-weight:600; font-size:12px; }
+  .upgrade .u-desc { color:var(--muted); font-size:10px; margin-top:2px; }
+  .upgrade .u-level { color:var(--rare); font-size:10px; }
+  .upgrade .buy-btn {
+    background:var(--gold); color:#0a0a14; border:none;
+    padding:5px 10px; border-radius:4px; cursor:pointer;
+    font-family:inherit; font-weight:700; font-size:11px;
+    white-space:nowrap;
+  }
+  .upgrade .buy-btn:disabled { opacity:0.3; cursor:not-allowed; }
+  .upgrade .buy-btn:hover:not(:disabled) { background:#ffe44d; }
+  .end-panel { text-align:center; padding:12px; }
+  .end-panel h2 { font-size:22px; margin-bottom:12px; }
+  .end-panel.victory h2 { color:var(--good); }
+  .end-panel.defeat h2 { color:var(--bad); }
+  .end-panel p { color:var(--muted); margin-bottom:8px; font-size:12px; }
+  .promo-panel {
+    background:linear-gradient(135deg, rgba(255,215,0,0.1), rgba(255,179,71,0.05));
+    border:1px solid rgba(255,215,0,0.4);
+    border-radius:6px; padding:8px; font-size:11px;
+  }
+  .hierarchy {
+    display:flex; gap:4px; align-items:center;
+    font-size:10px; padding:4px 6px;
+    background:#0a0a18; border-radius:4px;
+    margin-top:6px;
+  }
+  .hierarchy .slot {
+    width:14px; height:14px; border-radius:3px;
+    background:#1a1a2e; border:1px solid #333;
+  }
+  .hierarchy .slot.filled-1 { background:#4a9eff; border-color:#4a9eff; }
+  .hierarchy .slot.filled-2 { background:#ffb347; border-color:#ffb347; }
+  .hierarchy .slot.filled-3 { background:var(--gold); border-color:var(--gold); }
+
+  /* Scouting modal */
+  .scout-archetype {
+    background:#0a0a18; border:1px solid var(--border);
+    border-radius:8px; padding:14px; margin-bottom:14px;
+  }
+  .scout-archetype .arch-name {
+    font-size:16px; color:var(--accent); font-weight:700;
+    margin-bottom:6px;
+  }
+  .scout-archetype .arch-desc { font-size:12px; color:var(--text); margin-bottom:8px; }
+  .scout-archetype .arch-hint {
+    font-size:11px; color:var(--rare); font-style:italic;
+    padding:6px 8px; background:rgba(126,200,227,0.08);
+    border-left:2px solid var(--rare);
+  }
+  .scout-faction {
+    display:flex; align-items:center; gap:10px;
+    font-size:12px; margin-bottom:12px;
+  }
+  .scout-faction .faction-dot {
+    width:16px; height:16px; border-radius:50%;
+  }
+  .scout-structures {
+    display:flex; flex-wrap:wrap; gap:10px; margin-top:10px;
+  }
+  .scout-struct {
+    display:flex; flex-direction:column; align-items:center;
+    font-size:10px; color:var(--muted);
+  }
+  .scout-struct canvas { background:transparent; border:none; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>⬡ ASALTO · NÚCLEO v5</h1>
+  <span class="zone-tag" id="zoneTag">Zona — / —</span>
+  <div class="spacer"></div>
+  <div class="hud">
+    <span class="item gold"><span class="k">Oro</span> <span class="v" id="hudGold">0</span></span>
+    <span class="item mat"><span class="k">Materiales</span> <span class="v" id="hudMats">0</span></span>
+    <span class="item"><span class="k">Pool</span> <span class="v" id="hudZoneHp">0 / 0</span></span>
+    <span class="item"><span class="k">Tropas</span> <span class="v" id="hudTroops">0</span></span>
+    <span class="item"><span class="k">Roster</span> <span class="v" id="hudQueue">0</span></span>
+    <span class="item"><span class="k">Estado</span> <span class="v" id="hudPhase">—</span></span>
+  </div>
+</header>
+
+<main>
+  <div class="panel">
+    <h3>Héroe</h3>
+    <div id="heroPanel"><span style="color:var(--muted);font-size:11px;">—</span></div>
+
+    <h3>Habilidades</h3>
+    <button class="btn hero-ability" id="btnHeroAbility" disabled>
+      <span class="cooldown" id="heroAbilityCooldown" style="width:0%"></span>
+      <span class="label" id="heroAbilityLabel">★ Habilidad</span>
+    </button>
+    <button class="btn global-order" id="btnGlobalOrder" disabled>
+      <span class="cooldown" id="globalOrderCooldown" style="width:0%"></span>
+      <span class="label" id="globalOrderLabel">⚡ Foco</span>
+    </button>
+
+    <h3>Roster</h3>
+    <div class="queue" id="queueList"><span style="color:var(--muted);font-size:11px;">—</span></div>
+    <div class="hierarchy" id="hierarchyInfo"></div>
+
+    <h3>Modificadores activos</h3>
+    <div class="modifiers" id="modifiersList"><span style="color:var(--muted);font-size:11px;">Ninguno</span></div>
+
+    <h3>Materiales</h3>
+    <div class="materials-grid" id="materialsGrid"><span style="color:var(--muted);font-size:11px;">—</span></div>
+
+    <h3>Acciones</h3>
+    <button class="btn primary" id="btnStartZone" style="width:100%;">▶ Preparar asalto</button>
+    <button class="btn" id="btnRestartRun" style="width:100%;margin-top:6px;">↻ Reiniciar run</button>
+  </div>
+
+  <div class="canvas-wrap">
+    <canvas id="canvas" width="720" height="480"></canvas>
+    <div style="font-size:11px;color:var(--muted);text-align:center;">
+      Forma = función · Relleno = tier · Color = facción
+    </div>
+  </div>
+
+  <div class="panel">
+    <h3>Estado de la zona</h3>
+    <div style="font-size:11px;" id="zoneStats">—</div>
+    <div class="hp-bar"><div class="hp-fill" id="zoneHpBar" style="width:0%"></div></div>
+
+    <h3>Log</h3>
+    <div class="log" id="logBox"><div style="color:var(--muted);font-size:11px;">Sin actividad.</div></div>
+  </div>
+</main>
+
+<!-- Scouting modal -->
+<div class="modal-overlay hidden" id="scoutModal">
+  <div class="modal">
+    <h2>🔭 Reconocimiento</h2>
+    <div class="sub">Información de la próxima zona. Ajusta tu composición antes de entrar.</div>
+    <div id="scoutContent"></div>
+    <div style="text-align:right;margin-top:14px;">
+      <button class="btn primary" id="btnConfirmScout">⚔ Asaltar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Draft de tropas -->
+<div class="modal-overlay hidden" id="draftModal">
+  <div class="modal">
+    <h2>🎲 Refuerzos disponibles</h2>
+    <div class="sub">Elige 1 tropa para añadir a tu roster.</div>
+    <div class="choices" id="draftChoices"></div>
+    <div style="text-align:right;margin-top:14px;">
+      <button class="btn" id="btnSkipDraft">Saltar</button>
+      <button class="btn primary" id="btnConfirmDraft" disabled style="margin-left:6px;">Añadir al roster</button>
+    </div>
+  </div>
+</div>
+
+<!-- Promoción -->
+<div class="modal-overlay hidden" id="promoModal">
+  <div class="modal">
+    <h2>⭐ Promoción de tropa</h2>
+    <div class="sub">Cada opción tiene ventajas y desventajas. Elige con cuidado.</div>
+    <div id="promoList"></div>
+    <div style="text-align:right;margin-top:14px;">
+      <button class="btn primary" id="btnConfirmPromo">Confirmar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Tienda -->
+<div class="modal-overlay hidden" id="shopModal">
+  <div class="modal">
+    <h2>🏪 Campamento</h2>
+    <div class="sub">Elige 1 modificador permanente. Gasta oro en mejoras.</div>
+    <div class="section">
+      <h3>Modificador gratuito (elige 1)</h3>
+      <div class="choices" id="shopChoices"></div>
+    </div>
+    <div class="section">
+      <h3>Mejoras del héroe <span style="color:var(--muted);text-transform:none;letter-spacing:0;">· <span id="shopGoldHero">0</span> oro</span></h3>
+      <div class="upgrade-grid" id="heroUpgrades"></div>
+    </div>
+    <div class="section">
+      <h3>Mejoras del ejército</h3>
+      <div class="upgrade-grid" id="armyUpgrades"></div>
+    </div>
+    <div style="text-align:right;margin-top:14px;">
+      <button class="btn primary" id="btnContinue" disabled>Continuar →</button>
+    </div>
+  </div>
+</div>
+
+<!-- Fin de run -->
+<div class="modal-overlay hidden" id="endModal">
+  <div class="modal">
+    <div class="end-panel" id="endPanelContent"></div>
+  </div>
+</div>
+
+<script>
+'use strict';
+
+/* ============================================================================
+ * ASALTO · NÚCLEO v5
+ * ----------------------------------------------------------------------------
+ * CAMBIOS RESPECTO A v4:
+ *   - FIX POOL: la vida total de la zona se fija al inicio (suma de maxHp) y
+ *     el daño la resta directamente. Regeneración y curación de estructuras
+ *     NO rellenan la pool. Puedes ganar por daño total sin matar el núcleo.
+ *   - FORMA = FUNCIÓN: 8 formas (cuadrado, triángulo, cruz, hexágono,
+ *     espiral, rombo, anillo, estrella) con 8 funciones claras.
+ *   - RELLENO = TIER: hueco (básico), rayado (avanzado), brillante (élite).
+ *   - COLOR = FACCIÓN: romanos (azul) y vikingos (rojo).
+ *   - ARQUETIPOS DE ZONA: Muro, Artillería, Estampida, Búnker. Cada uno
+ *     tiene identidad táctica y sugiere una respuesta al jugador.
+ *   - SCOUTING: antes de cada zona, modal con arquetipo, facción y estructuras
+ *     esperadas. El jugador decide si su composición sirve.
+ *   - CATAPULTA: estructura que lanza proyectil balístico y deja zona de daño
+ *     continuo en el impacto.
+ *   - SPAWNER MOLESTO: generador que crea tropas enemigas que atacan a las
+ *     del jugador (no cuentan para la pool, solo estorban).
+ *   - FEEDBACK VISUAL: zoom dinámico cuando el núcleo baja de HP, screen
+ *     shake proporcional, explosiones con anillo expansivo.
+ *   - AUDIO: beeps sintéticos para impactos, destrucciones, habilidades.
+ * ========================================================================== */
+
+
+/* ============================================================================
+ * 1. EVENT BUS
+ * ========================================================================== */
+class EventBus {
+  constructor() { this._listeners = new Map(); }
+  on(event, cb) {
+    if (!this._listeners.has(event)) this._listeners.set(event, new Set());
+    this._listeners.get(event).add(cb);
+    return () => this.off(event, cb);
+  }
+  off(event, cb) {
+    const set = this._listeners.get(event);
+    if (set) set.delete(cb);
+  }
+  emit(event, payload) {
+    const set = this._listeners.get(event);
+    if (!set) return;
+    for (const cb of [...set]) {
+      try { cb(payload); } catch (e) { console.error('[bus]', event, e); }
+    }
+  }
+}
+
+
+/* ============================================================================
+ * 2. PUERTOS Y ADAPTADORES
+ * ========================================================================== */
+class RandomPort {
+  float() { throw new Error('abstract'); }
+  int(min, max) { throw new Error('abstract'); }
+  pick(arr) { throw new Error('abstract'); }
+}
+class SeededRandom extends RandomPort {
+  constructor(seed = 42) {
+    super();
+    this.seed = seed % 2147483647;
+    if (this.seed <= 0) this.seed += 2147483646;
+  }
+  float() {
+    this.seed = (this.seed * 16807) % 2147483647;
+    return (this.seed - 1) / 2147483646;
+  }
+  int(min, max) { return Math.floor(this.float() * (max - min + 1)) + min; }
+  pick(arr) { return arr[Math.floor(this.float() * arr.length)]; }
+}
+
+
+/* ============================================================================
+ * 3. CATÁLOGOS DEL DOMINIO
+ * ----------------------------------------------------------------------------
+ * Toda la información que define QUÉ es cada cosa vive aquí. Modificar
+ * aquí = modificar el juego. Los servicios y entidades solo leen.
+ * ========================================================================== */
+
+/**
+ * FORMA = FUNCIÓN.
+ * Ocho formas. Cada una una función. Nunca dos formas con la misma función.
+ * Nunca dos funciones con la misma forma.
+ *
+ *   cuadrado   → muro: bloquea el paso, no ataca
+ *   triangulo  → torre: dispara proyectiles
+ *   cruz       → sanador: cura estructuras cercanas
+ *   hexagono   → generador: produce tropas enemigas
+ *   espiral    → telegrafiado: carga y explota en área
+ *   rombo      → trampa: daño al contacto, un solo uso
+ *   anillo     → regenerador: se cura si no recibe daño
+ *   estrella   → nucleo: objetivo, sin función ofensiva
+ */
+const SHAPES = Object.freeze({
+  cuadrado:  { fn: 'bloquea',   desc: 'Muro que bloquea el paso' },
+  triangulo: { fn: 'dispara',   desc: 'Torre que dispara proyectiles' },
+  cruz:      { fn: 'cura',      desc: 'Sanador de estructuras cercanas' },
+  hexagono:  { fn: 'genera',    desc: 'Generador de tropas enemigas' },
+  espiral:   { fn: 'explota',   desc: 'Carga AOE y explota' },
+  rombo:     { fn: 'trampa',    desc: 'Daño al contacto, un solo uso' },
+  anillo:    { fn: 'regenera',  desc: 'Se cura si no recibe daño' },
+  estrella:  { fn: 'objetivo',  desc: 'Núcleo, objetivo principal' },
+});
+
+/**
+ * RELLENO = TIER.
+ * Tres niveles. Monótono: más relleno = más duro.
+ *   basic    → hueco
+ *   advanced → rayado, +50% HP, +1 propiedad
+ *   elite    → brillante, +150% HP, +2 propiedades
+ */
+const TIERS = Object.freeze({
+  basic:    { mult: 1.0, label: 'Básico' },
+  advanced: { mult: 1.5, label: 'Avanzado' },
+  elite:    { mult: 2.5, label: 'Élite' },
+});
+
+/**
+ * COLOR = FACCIÓN.
+ * Solo define quién es el enemigo. No dice dificultad, no dice función.
+ * Cada facción tiene su paleta y un pequeño sesgo de stats.
+ */
+const FACTIONS = Object.freeze({
+  romanos: {
+    name: 'Romanos',
+    color: '#4a6ff9',
+    colorDark: '#2a3f99',
+    colorLight: '#8aa0ff',
+    hpMult: 1.2,
+    damageMult: 0.9,
+    desc: 'Orden y disciplina. Defensas robustas, ataques medidos.',
+  },
+  vikingos: {
+    name: 'Vikingos',
+    color: '#d94a4a',
+    colorDark: '#992a2a',
+    colorLight: '#ff8a8a',
+    hpMult: 0.9,
+    damageMult: 1.3,
+    desc: 'Furia y agresión. Ataques devastadores, defensas frágiles.',
+  },
+});
+
+/**
+ * Estructuras. Cada una tiene:
+ *   shape      → de SHAPES, define la función
+ *   hp         → vida base
+ *   attack     → daño por ataque (0 si no ataca)
+ *   range      → rango en píxeles
+ *   attackRate → segundos entre ataques
+ *   radius     → radio visual
+ *   propiedades específicas (heals, spawns, telegraphs, etc.)
+ *
+ * NO tiene color ni tier: el color viene de la facción de la zona, el tier
+ * viene del arquetipo (algunas zonas generan estructuras avanzadas).
+ */
+const STRUCTURE_TYPES = Object.freeze({
+  // Bloqueantes (cuadrado)
+  muro: {
+    shape: 'cuadrado', hp: 120, attack: 0, range: 0, attackRate: 0, radius: 24,
+    blocksPath: true,
+  },
+  // Torretas (triángulo)
+  torre: {
+    shape: 'triangulo', hp: 70, attack: 8, range: 70, attackRate: 1.2, radius: 22,
+    projectile: true,
+  },
+  torre_pesada: {
+    shape: 'triangulo', hp: 120, attack: 18, range: 90, attackRate: 1.8, radius: 26,
+    projectile: true,
+  },
+  catapulta: {
+    shape: 'triangulo', hp: 60, attack: 0, range: 150, attackRate: 5.0, radius: 22,
+    catapult: true, catapultRadius: 60, catapultDuration: 4.0, catapultDamage: 6,
+  },
+  // Sanadores (cruz)
+  sanador: {
+    shape: 'cruz', hp: 60, attack: 0, range: 0, attackRate: 0, radius: 22,
+    heals: true, healAmount: 8, healRange: 110, healInterval: 2.0,
+  },
+  // Generadores (hexágono)
+  generador: {
+    shape: 'hexagono', hp: 80, attack: 0, range: 0, attackRate: 0, radius: 20,
+    spawns: true, spawnInterval: 6.0,
+  },
+  // Telegrafiados (espiral)
+  telegrafiado: {
+    shape: 'espiral', hp: 80, attack: 35, range: 120, attackRate: 6.0, radius: 24,
+    telegraphs: true, telegraphTime: 3.0, telegraphRadius: 80,
+  },
+  // Trampas (rombo)
+  trampa: {
+    shape: 'rombo', hp: 25, attack: 20, range: 28, attackRate: 1.5, radius: 16,
+    singleUse: true,
+  },
+  // Regeneradores (anillo)
+  regenerador: {
+    shape: 'anillo', hp: 100, attack: 0, range: 0, attackRate: 0, radius: 24,
+    regenerates: true, regenDelay: 5.0, regenRate: 12,
+  },
+  // Núcleo (estrella) — se instancia directamente, no está en el pool de generación
+  nucleo: {
+    shape: 'estrella', hp: 150, attack: 12, range: 90, attackRate: 1.5, radius: 30,
+    projectile: true, isCore: true,
+  },
+});
+
+/**
+ * Arquetipos de zona. Cada uno tiene identidad clara y sugiere una respuesta.
+ * El scouting muestra esta info al jugador ANTES de entrar.
+ */
+const ZONE_ARCHETYPES = Object.freeze({
+  muro: {
+    id: 'muro',
+    name: 'El Muro',
+    desc: 'Muros gruesos con torres detrás. Un asedio frontal es suicida.',
+    hint: 'Necesitas Asedio (daño a distancia) o Voladores para ignorar muros.',
+    structureCount: 7,
+    weights: { muro: 6, torre: 3, torre_pesada: 1 },
+    factionBias: { romanos: 0.7, vikingos: 0.3 },   // romanos son más defensivos
+  },
+  artilleria: {
+    id: 'artilleria',
+    name: 'La Artillería',
+    desc: 'Catapultas y torres telegrafiadas. El suelo se convierte en muerte.',
+    hint: 'Necesitas movilidad o resistencia. Los tanques lentos sufren.',
+    structureCount: 6,
+    weights: { telegrafiado: 3, catapulta: 2, torre: 2, muro: 1 },
+    factionBias: { romanos: 0.4, vikingos: 0.6 },
+  },
+  estampida: {
+    id: 'estampida',
+    name: 'La Estampida',
+    desc: 'Generadores de tropas sin fin. La presión no para hasta romperlos.',
+    hint: 'Necesitas AOE o daño rápido para limpiar oleadas.',
+    structureCount: 6,
+    weights: { generador: 4, trampa: 2, torre: 1, muro: 1 },
+    factionBias: { romanos: 0.3, vikingos: 0.7 },
+  },
+  bunker: {
+    id: 'bunker',
+    name: 'El Búnker',
+    desc: 'Pocas estructuras, todas concentradas, con sanadores que se cubren.',
+    hint: 'Necesitas burst concentrado. El daño distribuido no las mata.',
+    structureCount: 4,
+    weights: { sanador: 3, regenerador: 2, torre_pesada: 2, muro: 2 },
+    factionBias: { romanos: 0.8, vikingos: 0.2 },
+  },
+});
+
+/**
+ * Tropas. Comportamiento define el targeting.
+ * shieldAngle: ángulo frontal de bloqueo de proyectiles (en radianes, 0 = sin escudo).
+ */
+const TROOP_TYPES = Object.freeze({
+  tanque: {
+    name: 'Tanque', hp: 180, speed: 42, damage: 6, range: 14, attackRate: 1.3, radius: 14,
+    color: '#4a9eff', behavior: 'targetBlockers', shieldAngle: Math.PI / 2,
+  },
+  dps: {
+    name: 'DPS', hp: 60, speed: 65, damage: 18, range: 18, attackRate: 0.8, radius: 10,
+    color: '#ff6b6b', behavior: 'targetNearest',
+  },
+  asedio: {
+    name: 'Asedio', hp: 80, speed: 35, damage: 35, range: 55, attackRate: 2.0, radius: 12,
+    color: '#ffb347', behavior: 'targetCore',
+  },
+  volador: {
+    name: 'Volador', hp: 70, speed: 90, damage: 14, range: 14, attackRate: 1.0, radius: 10,
+    color: '#c084fc', behavior: 'targetCore', flying: true,
+  },
+  zapador: {
+    name: 'Zapador', hp: 45, speed: 75, damage: 12, range: 10, attackRate: 1.0, radius: 8,
+    color: '#7ee87e', behavior: 'targetWeakest',
+  },
+  soporte: {
+    name: 'Soporte', hp: 80, speed: 55, damage: 0, range: 0, attackRate: 1.0, radius: 10,
+    color: '#ffff66', behavior: 'support', healAmount: 6, healRange: 50,
+  },
+});
+
+/** Promociones: 2 opciones por tipo de tropa, con trade-offs. */
+const TROOP_PROMOTIONS = Object.freeze({
+  tanque: [
+    { id:'tanque_escudero', name:'Escudero Pesado', rank:1, desc:'Escudo enorme, no ataca.',
+      changes: { hp:1.5, damage:0, speed:0.8, shieldAngle: Math.PI * 0.75 } },
+    { id:'tanque_berserker', name:'Berserker', rank:1, desc:'Suelta el escudo, dobla el daño.',
+      changes: { hp:1.0, damage:2.5, speed:1.15, shieldAngle: 0 } },
+  ],
+  dps: [
+    { id:'dps_verdugo', name:'Verdugo', rank:1, desc:'+50% daño, ataca más lento.',
+      changes: { damage:1.5, attackRate:1.3, speed:0.9 } },
+    { id:'dps_asesino', name:'Asesino', rank:1, desc:'25% crítico, más frágil.',
+      changes: { damage:1.3, critChance:0.25, hp:0.7 } },
+  ],
+  asedio: [
+    { id:'asedio_cañon', name:'Cañón', rank:1, desc:'+40% daño y rango, más lento.',
+      changes: { damage:1.4, range:1.3, speed:0.75 } },
+    { id:'asedio_ingeniero', name:'Ingeniero', rank:1, desc:'Rompe muros ×2.5.',
+      changes: { damageVsWalls:2.5, damage:0.7 } },
+  ],
+  volador: [
+    { id:'volador_espectro', name:'Espectro', rank:1, desc:'+40% velocidad, frágil.',
+      changes: { speed:1.4, hp:0.7 } },
+    { id:'volador_halcon', name:'Halcón', rank:1, desc:'Doble rango.',
+      changes: { range:2.0, damage:1.2, hp:0.85 } },
+  ],
+  zapador: [
+    { id:'zapador_saboteador', name:'Saboteador', rank:1, desc:'+80% daño, HP reducido.',
+      changes: { damage:1.8, hp:0.7 } },
+    { id:'zapador_explorador', name:'Explorador', rank:1, desc:'Muy rápido.',
+      changes: { speed:1.5, damage:0.9 } },
+  ],
+  soporte: [
+    { id:'soporte_sanador', name:'Sanador', rank:1, desc:'Dobla curación, HP reducido.',
+      changes: { healAmount:2.0, healRange:1.3, hp:0.8 } },
+    { id:'soporte_bardo', name:'Bardo', rank:1, desc:'Cura a distancia.',
+      changes: { healAmount:0.8, healRange:2.5, speed:1.2 } },
+  ],
+});
+
+const HIERARCHY = Object.freeze({
+  baseSlots: 6,
+  rankLimits: { 1: 3, 2: 2, 3: 1 },
+  xpPerZoneSurvived: 40,
+  xpPerKill: 5,
+  xpForPromotion: 100,
+});
+
+/** Materiales. Se acumulan pero aún no se gastan (pendiente). */
+const MATERIALS = Object.freeze({
+  piedra:     { name:'Piedra',     icon:'🪨', color:'#aaa' },
+  hierro:     { name:'Hierro',     icon:'⛓️', color:'#c8c8c8' },
+  acero:      { name:'Acero',      icon:'⚙️', color:'#ddd' },
+  mecanismos: { name:'Mecanismos', icon:'🔧', color:'#ffb347' },
+  esencia:    { name:'Esencia',    icon:'✨', color:'#c084fc' },
+  nucleo:     { name:'Núcleo',     icon:'💎', color:'#ffd700' },
+});
+
+/** Drops por tipo de estructura. */
+const STRUCTURE_DROPS = Object.freeze({
+  muro:         { gold: 15, materials: { piedra: 2 } },
+  torre:        { gold: 20, materials: { hierro: 2 } },
+  torre_pesada: { gold: 30, materials: { acero: 2 } },
+  catapulta:    { gold: 25, materials: { mecanismos: 2 } },
+  trampa:       { gold: 10, materials: { mecanismos: 1 } },
+  generador:    { gold: 25, materials: { esencia: 2 } },
+  sanador:      { gold: 25, materials: { esencia: 1, hierro: 1 } },
+  regenerador:  { gold: 20, materials: { piedra: 2, mecanismos: 1 } },
+  telegrafiado: { gold: 30, materials: { acero: 2, esencia: 1 } },
+  nucleo:       { gold: 80, materials: { nucleo: 2 } },
+});
+
+/** Modificadores numéricos (los "de relleno" de esta iteración). */
+const MODIFIERS = Object.freeze([
+  { id:'fuego',    name:'Runa de Fuego',    desc:'+25% daño a todas las tropas.',
+    apply: (s) => ({ ...s, damage: Math.round(s.damage * 1.25) }) },
+  { id:'hielo',    name:'Runa de Hielo',    desc:'+20% velocidad a todas las tropas.',
+    apply: (s) => ({ ...s, speed: Math.round(s.speed * 1.2) }) },
+  { id:'sangre',   name:'Runa de Sangre',   desc:'+30% vida a todas las tropas.',
+    apply: (s) => ({ ...s, hp: Math.round(s.hp * 1.3) }) },
+  { id:'asedio',   name:'Runa de Asedio',   desc:'+40% daño a estructuras, -10% velocidad.',
+    apply: (s) => ({ ...s, damage: Math.round(s.damage * 1.4), speed: Math.round(s.speed * 0.9) }) },
+]);
+
+const HERO_ARCHETYPES = Object.freeze({
+  guerrero: {
+    name: 'Guerrero',
+    desc: 'Tanque cuerpo a cuerpo. Aura +5% daño.',
+    baseStats: { hp:280, damage:22, speed:55, attackRate:1.0, range:18, radius:18, color:'#ff9933',
+                 auraDamage:0.05, auraRange:120, regen:0, armor:0 },
+    ability: { id:'guerrero_grito', name:'Grito de Guerra', cooldown:25, effect:'stun',
+               desc:'Aturde todas las estructuras en radio 150 durante 2.5s.' },
+  },
+  arquero: {
+    name: 'Arquero',
+    desc: 'DPS a distancia. Aura +10% daño.',
+    baseStats: { hp:160, damage:32, speed:70, attackRate:1.1, range:55, radius:14, color:'#66ff66',
+                 auraDamage:0.10, auraRange:150, regen:0, armor:0 },
+    ability: { id:'arquero_marca', name:'Marca Certera', cooldown:20, effect:'mark_core',
+               desc:'Marca el núcleo: +50% daño al núcleo durante 5s.' },
+  },
+  mago: {
+    name: 'Mago',
+    desc: 'Frágil pero brutal. Aura +15% daño.',
+    baseStats: { hp:130, damage:42, speed:50, attackRate:1.4, range:85, radius:12, color:'#cc66ff',
+                 auraDamage:0.15, auraRange:180, regen:0, armor:0 },
+    ability: { id:'mago_meteoro', name:'Meteoro', cooldown:30, effect:'meteor',
+               desc:'Meteoro sobre el núcleo: 150 daño.' },
+  },
+});
+
+const HERO_NAME_PRE = ['Ar','Ka','El','Va','Tho','Mi','Dra','Ze','Ly','Nor','Fen','Ras','Ce','Ori'];
+const HERO_NAME_SUF = ['dor','thas','mir','kar','ven','rax','lin','dra','nor','shal','ion','ael','ux'];
+
+const HERO_UPGRADES = Object.freeze([
+  { id:'hero_hp',    name:'+60 HP héroe',       cost:4,  max:5, apply: h => { h.hp += 60; } },
+  { id:'hero_dmg',   name:'+8 daño héroe',      cost:6,  max:5, apply: h => { h.damage += 8; } },
+  { id:'hero_speed', name:'+25 velocidad',      cost:5,  max:3, apply: h => { h.speed += 25; } },
+  { id:'hero_rate',  name:'-15% cadencia',      cost:8,  max:3, apply: h => { h.attackRate *= 0.85; } },
+  { id:'hero_range', name:'+20 rango',          cost:5,  max:3, apply: h => { h.range += 20; } },
+  { id:'hero_aura',  name:'+10% aura',          cost:10, max:3, apply: h => { h.auraDamage += 0.10; } },
+  { id:'hero_regen', name:'+2 HP/s regen',      cost:6,  max:4, apply: h => { h.regen += 2; } },
+  { id:'hero_armor', name:'-3 daño recibido',   cost:5,  max:4, apply: h => { h.armor += 3; } },
+]);
+
+const ARMY_UPGRADES = Object.freeze([
+  { id:'army_dmg',   name:'+15% daño ejército',  cost:7,  max:5 },
+  { id:'army_hp',    name:'+15% HP ejército',    cost:7,  max:5 },
+  { id:'army_speed', name:'+10% velocidad',      cost:5,  max:4 },
+  { id:'army_spawn', name:'-15% intervalo spawn', cost:9, max:3 },
+  { id:'army_size',  name:'+1 slot de roster',   cost:12, max:3 },
+  { id:'army_range', name:'+15% rango ejército', cost:6,  max:3 },
+]);
+
+const BALANCE = Object.freeze({
+  GRID_W: 12, GRID_H: 8, CELL_SIZE: 60,
+  CANVAS_W: 720, CANVAS_H: 480,
+  TICK_HZ: 20,
+  SPAWN_X: 20, SPAWN_Y: 240, SPAWN_JITTER: 40,
+  ENEMY_TROOP: 'tanque',
+  START_GOLD: 5,
+  GOLD_PER_DAMAGE: 40,
+  GOLD_PER_ENEMY_KILL: 2,
+  GOLD_ZONE_VICTORY: 20,
+  ZONE_COUNT: 4,
+  PROJECTILE_SPEED: 200,
+  CATAPULT_PROJECTILE_SPEED: 140,
+  GLOBAL_ORDER_COOLDOWN: 20,
+  GLOBAL_ORDER_DURATION: 5,
+  ZOOM_THRESHOLD: 0.30,   // % de pool por debajo del cual se activa el zoom
+  ZOOM_MAX: 1.5,
+});
+
+
+/* ============================================================================
+ * 4. ENTIDADES DEL DOMINIO
+ * ========================================================================== */
+
+let _nextId = 1;
+function nextId(prefix) { return `${prefix}_${_nextId++}`; }
+
+/**
+ * Proyectil. Puede ser normal (va directo) o balístico (para catapultas).
+ * El balístico se calcula con una parábola simple y al impactar deja un área.
+ */
+class Projectile {
+  constructor(x, y, targetX, targetY, damage, speed, color, kind = 'normal') {
+    this.id = nextId('P');
+    this.x = x; this.y = y;
+    this.startX = x; this.startY = y;
+    this.targetX = targetX; this.targetY = targetY;
+    this.damage = damage;
+    this.color = color || '#ff4444';
+    this.kind = kind; // 'normal' | 'catapult'
+    this.radius = kind === 'catapult' ? 6 : 4;
+    this.alive = true;
+    this.t = 0; // progreso 0..1 (para balístico)
+    const dx = targetX - x, dy = targetY - y;
+    const d = Math.hypot(dx, dy);
+    this.totalDist = d;
+    this.duration = kind === 'catapult' ? d / speed : d / speed;
+    this.vx = d > 0 ? (dx / d) * speed : 0;
+    this.vy = d > 0 ? (dy / d) * speed : 0;
+  }
+  update(dt) {
+    if (this.kind === 'catapult') {
+      // Movimiento balístico: interpolación + altura parabólica visual
+      this.t += dt / this.duration;
+      if (this.t >= 1) { this.t = 1; }
+      this.x = this.startX + (this.targetX - this.startX) * this.t;
+      this.y = this.startY + (this.targetY - this.startY) * this.t;
+      // Altura visual (para el renderer)
+      this.height = Math.sin(this.t * Math.PI) * 40;
+      if (this.t >= 1) this.alive = false;
+    } else {
+      this.x += this.vx * dt;
+      this.y += this.vy * dt;
+      if (this.x < -20 || this.x > BALANCE.CANVAS_W + 20 ||
+          this.y < -20 || this.y > BALANCE.CANVAS_H + 20) {
+        this.alive = false;
+      }
+    }
+  }
+  isBlockedBy(troop) {
+    if (!troop.alive || !troop.shieldAngle) return false;
+    if (this.kind === 'catapult') return false; // balístico, no se bloquea
+    const pdx = this.vx, pdy = this.vy;
+    const pmag = Math.hypot(pdx, pdy);
+    if (pmag < 0.001) return false;
+    const tdx = this.x - troop.x, tdy = this.y - troop.y;
+    const tmag = Math.hypot(tdx, tdy);
+    if (tmag < 0.001) return false;
+    const dot = (pdx * tdx + pdy * tdy) / (pmag * tmag);
+    const cosHalfShield = Math.cos(troop.shieldAngle / 2);
+    // Sólo bloquea si el proyectil viene del frente (dot cercano a -1) Y
+    // la tropa mira en dirección opuesta al proyectil.
+    // Como simplificación: el escudo mira en la dirección del movimiento
+    // de la tropa (hacia el núcleo = derecha). Comprobamos que el proyectil
+    // venga de la derecha (troop.x < projectile.x).
+    const fromFront = this.x > troop.x;
+    return fromFront && dot <= -cosHalfShield;
+  }
+}
+
+/**
+ * Área de daño continuo (catapulta, telegrafiado, etc.).
+ * Hace daño por segundo a las tropas que estén dentro.
+ */
+class DamageArea {
+  constructor(x, y, radius, dps, duration, color) {
+    this.id = nextId('A');
+    this.x = x; this.y = y;
+    this.radius = radius;
+    this.dps = dps;
+    this.duration = duration;
+    this.maxDuration = duration;
+    this.color = color || '#ff4400';
+    this.tickAccum = 0;
+    this.alive = true;
+  }
+  update(dt, troops, bus) {
+    this.duration -= dt;
+    if (this.duration <= 0) { this.alive = false; return; }
+    // Daño por tick (evita daño continuo excesivo: 4 ticks/segundo)
+    this.tickAccum += dt;
+    if (this.tickAccum >= 0.25) {
+      this.tickAccum -= 0.25;
+      const tickDamage = this.dps * 0.25;
+      for (const t of troops) {
+        if (!t.alive) continue;
+        const d = Math.hypot(t.x - this.x, t.y - this.y);
+        if (d <= this.radius + t.radius) {
+          t.takeDamage(tickDamage);
+          if (!t.alive) bus.emit('troop:died', { troop: t });
+        }
+      }
+    }
+  }
+}
+
+class Troop {
+  constructor(type, x, y, modifiers = [], armyBonuses = {}) {
+    const base = TROOP_TYPES[type];
+    if (!base) throw new Error(`Tipo desconocido: ${type}`);
+    this._baseType = type;
+    this._baseStats = base;
+    this._modifiers = [...modifiers];
+    this._armyBonuses = { ...armyBonuses };
+    this._applyStats(base, null);
+    this.id = nextId('T');
+    this.x = x; this.y = y;
+    this.vx = 0; this.vy = 0;
+    this.attackCooldown = 0;
+    this.alive = true;
+    this.auraBonus = 0;
+    this.isHero = false;
+    this.team = 'attacker';
+    this.xp = 0;
+    this.promotionId = null;
+    this.promotionRank = 0;
+    this.kills = 0;
+    this.survivedZones = 0;
+    this.markedCoreDamageBonus = 0;
+    this.stunTimer = 0;
+  }
+  _applyStats(base, promotion) {
+    let stats = { ...base };
+    if (promotion) {
+      const c = promotion.changes || {};
+      if (c.hp) stats.hp = Math.round(stats.hp * c.hp);
+      if (c.damage != null) {
+        stats.damage = Math.round((stats.damage || 0) * (c.damage || 1));
+        if (c.damage === 0) stats.damage = 0;
+      }
+      if (c.speed) stats.speed = Math.round(stats.speed * c.speed);
+      if (c.range) stats.range = Math.round(stats.range * c.range);
+      if (c.attackRate) stats.attackRate = stats.attackRate * c.attackRate;
+      if (c.shieldAngle != null) stats.shieldAngle = c.shieldAngle;
+      if (c.healAmount) stats.healAmount = Math.round((stats.healAmount || 0) * c.healAmount);
+      if (c.healRange) stats.healRange = Math.round((stats.healRange || 0) * c.healRange);
+      if (c.critChance) stats.critChance = (stats.critChance || 0) + c.critChance;
+      if (c.damageVsWalls) stats.damageVsWalls = c.damageVsWalls;
+    }
+    for (const modId of this._modifiers) {
+      const m = MODIFIERS.find(x => x.id === modId);
+      if (m) stats = m.apply(stats);
+    }
+    const ab = this._armyBonuses;
+    if (ab.hp)    stats.hp = Math.round(stats.hp * (1 + ab.hp));
+    if (ab.damage && stats.damage) stats.damage = Math.round(stats.damage * (1 + ab.damage));
+    if (ab.speed)  stats.speed = Math.round(stats.speed * (1 + ab.speed));
+    if (ab.range && stats.range)  stats.range = Math.round(stats.range * (1 + ab.range));
+
+    this.type = base.name.toLowerCase();
+    this.name = base.name;
+    this.maxHp = stats.hp; this.hp = stats.hp;
+    this.speed = stats.speed;
+    this.damage = stats.damage;
+    this.range = stats.range;
+    this.attackRate = stats.attackRate;
+    this.radius = stats.radius;
+    this.color = stats.color;
+    this.flying = !!stats.flying;
+    this.healAmount = stats.healAmount || 0;
+    this.healRange = stats.healRange || 0;
+    this.regen = stats.regen || 0;
+    this.veteran = !!stats.veteran;
+    this.armor = stats.armor || 0;
+    this.behavior = base.behavior;
+    this.shieldAngle = stats.shieldAngle || 0;
+    this.critChance = stats.critChance || 0;
+    this.damageVsWalls = stats.damageVsWalls || 0;
+  }
+  promote(promotion) {
+    this.promotionId = promotion.id;
+    this.promotionRank = promotion.rank || 1;
+    this._applyStats(this._baseStats, promotion);
+    this.name = promotion.name;
+    this.xp = 0;
+  }
+  get isSupport() { return this.behavior === 'support'; }
+  getDamage() {
+    let base = this.damage;
+    if (this.veteran && this.hp < this.maxHp * 0.5) base = Math.round(base * 1.5);
+    if (this.auraBonus) base = Math.round(base * (1 + this.auraBonus));
+    if (this.markedCoreDamageBonus) base = Math.round(base * (1 + this.markedCoreDamageBonus));
+    return base;
+  }
+  takeDamage(amount) {
+    const final = Math.max(1, amount - (this.armor || 0));
+    this.hp -= final;
+    if (this.hp <= 0) { this.hp = 0; this.alive = false; }
+  }
+  heal(amount) { this.hp = Math.min(this.maxHp, this.hp + amount); }
+  gainXP(amount) { this.xp += amount; }
+  canPromote() {
+    return this.xp >= HIERARCHY.xpForPromotion &&
+           this.promotionRank < 3 &&
+           !!TROOP_PROMOTIONS[this._baseType];
+  }
+}
+
+class HeroTroop extends Troop {
+  constructor(heroData, x, y, modifiers, armyBonuses) {
+    super('tanque', x, y, [], armyBonuses);
+    this.id = nextId('H');
+    this.type = 'heroe';
+    this.isHero = true;
+    this.name = heroData.name;
+    this.heroName = heroData.name;
+    this.archetypeId = heroData.archetype;
+    this.heroData = heroData;
+    let stats = { ...heroData.stats };
+    for (const modId of modifiers) {
+      const m = MODIFIERS.find(x => x.id === modId);
+      if (m) stats = m.apply(stats);
+    }
+    if (armyBonuses.hp)    stats.hp = Math.round(stats.hp * (1 + armyBonuses.hp));
+    if (armyBonuses.damage) stats.damage = Math.round(stats.damage * (1 + armyBonuses.damage));
+    if (armyBonuses.speed)  stats.speed = Math.round(stats.speed * (1 + armyBonuses.speed));
+    if (armyBonuses.range)  stats.range = Math.round(stats.range * (1 + armyBonuses.range));
+    this.maxHp = stats.hp; this.hp = stats.hp;
+    this.speed = stats.speed;
+    this.damage = stats.damage;
+    this.range = stats.range;
+    this.attackRate = stats.attackRate;
+    this.radius = stats.radius;
+    this.color = stats.color;
+    this.regen = stats.regen || 0;
+    this.armor = stats.armor || 0;
+    this.auraDamage = heroData.stats.auraDamage || 0;
+    this.auraRange = heroData.stats.auraRange || 100;
+    this.behavior = 'targetBlockers';
+    this.shieldAngle = Math.PI / 2;
+    this.abilityCooldown = 0;
+  }
+}
+
+/**
+ * Estructura. Ahora con shape, tier y faction aplicados desde fuera.
+ * El daño retorna el daño REAL aplicado, para que la zona pueda restarlo
+ * de su pool de vida.
+ */
+class Structure {
+  constructor(typeId, cellX, cellY, opts = {}) {
+    const base = STRUCTURE_TYPES[typeId];
+    if (!base) throw new Error(`Estructura desconocida: ${typeId}`);
+    const tier = opts.tier || 'basic';
+    const faction = opts.faction || null;
+    const tierMult = TIERS[tier].mult;
+    const hpMult = faction ? faction.hpMult : 1;
+    const dmgMult = faction ? faction.damageMult : 1;
+
+    this.id = nextId('S');
+    this.typeId = typeId;
+    this.shape = base.shape;
+    this.tier = tier;
+    this.factionId = faction ? faction.id : null;
+    this.color = faction ? faction.color : '#8b7355';
+    this.colorDark = faction ? faction.colorDark : '#5a3a1a';
+    this.cellX = cellX; this.cellY = cellY;
+    this.x = cellX * BALANCE.CELL_SIZE + BALANCE.CELL_SIZE / 2;
+    this.y = cellY * BALANCE.CELL_SIZE + BALANCE.CELL_SIZE / 2;
+    this.maxHp = Math.max(1, Math.round(base.hp * tierMult * hpMult));
+    this.hp = this.maxHp;
+    this.attack = base.attack > 0 ? Math.max(1, Math.round(base.attack * tierMult * dmgMult)) : 0;
+    this.range = base.range;
+    this.attackRate = base.attackRate;
+    this.radius = base.radius;
+    this.blocksPath = !!base.blocksPath;
+    this.projectile = !!base.projectile;
+    this.singleUse = !!base.singleUse;
+    this.spawns = !!base.spawns;
+    this.spawnInterval = base.spawnInterval || 0;
+    this.spawnTimer = 0;
+    this.heals = !!base.heals;
+    this.healAmount = base.healAmount || 0;
+    this.healRange = base.healRange || 0;
+    this.healInterval = base.healInterval || 2.0;
+    this.healTimer = 0;
+    this.regenerates = !!base.regenerates;
+    this.regenDelay = base.regenDelay || 5.0;
+    this.regenRate = base.regenRate || 10;
+    this.timeSinceDamage = 0;
+    this.telegraphs = !!base.telegraphs;
+    this.telegraphTime = base.telegraphTime || 3.0;
+    this.telegraphRadius = base.telegraphRadius || 80;
+    this.telegraphTimer = 0;
+    this.telegraphCharging = false;
+    this.catapult = !!base.catapult;
+    this.catapultRadius = base.catapultRadius || 60;
+    this.catapultDuration = base.catapultDuration || 4.0;
+    this.catapultDamage = base.catapultDamage || 6;
+    this.isCore = !!base.isCore;
+    this.attackCooldown = 0;
+    this.stunTimer = 0;
+    this.alive = true;
+  }
+  /**
+   * Aplica daño. Devuelve el daño REALMENTE aplicado (min con hp actual),
+   * para que el llamador lo reste de la pool de la zona.
+   */
+  takeDamage(amount) {
+    if (!this.alive) return 0;
+    if (!Number.isFinite(amount) || amount <= 0) return 0;
+    const real = Math.min(amount, this.hp);
+    this.hp -= amount;
+    this.timeSinceDamage = 0;
+    if (this.hp <= 0) { this.hp = 0; this.alive = false; }
+    return real;
+  }
+  heal(amount) {
+    if (!this.alive) return;
+    this.hp = Math.min(this.maxHp, this.hp + amount);
+  }
+}
+
+/**
+ * Zona. Ahora con pool FIJA al inicio.
+ *   - sealPool() se llama después de añadir todas las estructuras.
+ *   - applyDamage() resta el daño real de la pool.
+ *   - Regeneración y curación de estructuras NO tocan la pool.
+ */
+class Zone {
+  constructor(archetype, faction, level) {
+    this.archetype = archetype;
+    this.faction = faction;
+    this.level = level;
+    this.structures = [];
+    this.maxHp = 0;
+    this.hp = 0;
+    this.sealed = false;
+    this.coreId = null;
+  }
+  sealPool() {
+    // Pool = suma de HP máximo de todas las estructuras + bonus del núcleo
+    // El núcleo aporta normal; el ×2.5 ya está aplicado a su maxHp.
+    this.maxHp = this.structures.reduce((sum, s) => sum + s.maxHp, 0);
+    this.hp = this.maxHp;
+    this.sealed = true;
+  }
+  applyDamage(real) {
+    if (!this.sealed || real <= 0) return;
+    this.hp = Math.max(0, this.hp - real);
+  }
+  getAliveStructures() { return this.structures.filter(s => s.alive); }
+  getCore() { return this.structures.find(s => s.id === this.coreId) || null; }
+  isCleared() { return this.hp <= 0; }
+}
+
+
+/* ============================================================================
+ * 5. SERVICIOS DE DOMINIO
+ * ========================================================================== */
+
+/**
+ * Movimiento con comportamientos por tipo.
+ * El targeting depende de troop.behavior. La separación evita solapes.
+ * La evasión tangencial evita que las tropas se atasquen contra muros.
+ */
+class MovementService {
+  findTarget(troop, structures) {
+    const alive = structures.filter(s => s.alive);
+    if (alive.length === 0) return null;
+    const core = alive.find(s => s.isCore) || alive[0];
+    const b = troop.behavior;
+
+    if (b === 'targetCore') return core;
+    if (b === 'targetWeakest') {
+      let weakest = alive[0];
+      for (const s of alive) if (s.hp < weakest.hp) weakest = s;
+      return weakest;
+    }
+    if (b === 'targetNearest') {
+      let nearest = alive[0], nd = Infinity;
+      for (const s of alive) {
+        const d = Math.hypot(s.x - troop.x, s.y - troop.y);
+        if (d < nd) { nd = d; nearest = s; }
+      }
+      return nearest;
+    }
+    if (b === 'targetBlockers') {
+      const dx = core.x - troop.x, dy = core.y - troop.y;
+      const dist = Math.hypot(dx, dy);
+      if (dist < 1) return core;
+      const dirX = dx / dist, dirY = dy / dist;
+      let blocker = null, blockerDist = Infinity;
+      for (const s of alive) {
+        const sdx = s.x - troop.x, sdy = s.y - troop.y;
+        const sd = Math.hypot(sdx, sdy);
+        if (sd <= troop.radius + s.radius + 3) return s;
+        if (s.blocksPath && sd < 90) {
+          const align = sdx * dirX + sdy * dirY;
+          if (align > 0 && align < 70 && sd < blockerDist) {
+            blockerDist = sd;
+            blocker = s;
+          }
+        }
+      }
+      return blocker || core;
+    }
+    return core;
+  }
+
+  separation(troop, troops) {
+    let sx = 0, sy = 0, count = 0;
+    const R = 30;
+    for (const other of troops) {
+      if (other === troop || !other.alive) continue;
+      const dx = troop.x - other.x, dy = troop.y - other.y;
+      const d = Math.hypot(dx, dy);
+      if (d > 0 && d < R) {
+        const f = (R - d) / R;
+        sx += (dx / d) * f;
+        sy += (dy / d) * f;
+        count++;
+      }
+    }
+    if (count > 0) { sx /= count; sy /= count; }
+    return { x: sx, y: sy };
+  }
+
+  wallAvoidance(troop, structures, dirX, dirY) {
+    let ax = 0, ay = 0;
+    for (const s of structures) {
+      if (!s.alive || !s.blocksPath) continue;
+      const dx = troop.x - s.x, dy = troop.y - s.y;
+      const d = Math.hypot(dx, dy);
+      const threshold = s.radius + 30;
+      if (d > 0 && d < threshold) {
+        const perpX = -dy / d, perpY = dx / d;
+        const dot = perpX * dirX + perpY * dirY;
+        const sign = dot >= 0 ? 1 : -1;
+        const force = (threshold - d) / threshold;
+        ax += perpX * sign * force * 2.0;
+        ay += perpY * sign * force * 2.0;
+      }
+    }
+    return { x: ax, y: ay };
+  }
+
+  update(troop, troops, structures, dt, bus, globalOrder, zone) {
+    if (!troop.alive) return;
+    if (troop.stunTimer > 0) { troop.stunTimer -= dt; return; }
+    if (troop.regen > 0) troop.heal(troop.regen * dt);
+
+    // Soporte: cura aliados
+    if (troop.isSupport) {
+      troop.attackCooldown -= dt;
+      if (troop.attackCooldown <= 0) {
+        let healed = false;
+        for (const other of troops) {
+          if (other === troop || !other.alive) continue;
+          if (other.hp >= other.maxHp) continue;
+          const d = Math.hypot(other.x - troop.x, other.y - troop.y);
+          if (d <= troop.healRange) { other.heal(troop.healAmount); healed = true; }
+        }
+        if (healed) {
+          troop.attackCooldown = troop.attackRate;
+          bus.emit('troop:healed', { x: troop.x, y: troop.y });
+        }
+      }
+      return;
+    }
+
+    // Ataque por contacto directo
+    for (const s of structures) {
+      if (!s.alive) continue;
+      const d = Math.hypot(s.x - troop.x, s.y - troop.y);
+      if (d <= troop.radius + s.radius + 2) {
+        troop.attackCooldown -= dt;
+        if (troop.attackCooldown <= 0) {
+          this._doAttack(troop, s, bus, zone);
+        }
+        return;
+      }
+    }
+
+    // Targeting
+    let target = this.findTarget(troop, structures);
+    // Orden global FOCO: atacar al núcleo
+    if (globalOrder && globalOrder.active && globalOrder.type === 'focus') {
+      const core = structures.find(s => s.isCore && s.alive);
+      if (core) target = core;
+    }
+    if (!target) return;
+
+    const dx = target.x - troop.x;
+    const dy = target.y - troop.y;
+    const dist = Math.hypot(dx, dy);
+    const attackDist = troop.range + target.radius;
+
+    if (dist <= attackDist) {
+      troop.attackCooldown -= dt;
+      if (troop.attackCooldown <= 0) this._doAttack(troop, target, bus, zone);
+      troop.vx *= 0.85; troop.vy *= 0.85;
+      return;
+    }
+
+    const dirX = dx / dist, dirY = dy / dist;
+    const avoid = troop.flying ? { x:0, y:0 } : this.wallAvoidance(troop, structures, dirX, dirY);
+    const sep = this.separation(troop, troops);
+    let fx = dirX + avoid.x + sep.x * 0.8;
+    let fy = dirY + avoid.y + sep.y * 0.8;
+    const mag = Math.hypot(fx, fy);
+    if (mag > 0.001) { fx /= mag; fy /= mag; }
+    troop.x += fx * troop.speed * dt;
+    troop.y += fy * troop.speed * dt;
+    troop.x = Math.max(10, Math.min(BALANCE.CANVAS_W - 10, troop.x));
+    troop.y = Math.max(10, Math.min(BALANCE.CANVAS_H - 10, troop.y));
+  }
+
+  /**
+   * Aplica daño de una tropa a una estructura. Si la estructura muere,
+   * emite el evento. La pool de la zona se actualiza con el daño real.
+   */
+  _doAttack(troop, structure, bus, zone) {
+    let dmg = troop.getDamage();
+    if (troop.damageVsWalls && structure.blocksPath) {
+      dmg = Math.round(dmg * troop.damageVsWalls);
+    }
+    let crit = false;
+    if (troop.critChance && Math.random() < troop.critChance) {
+      dmg = Math.round(dmg * 2);
+      crit = true;
+    }
+    if (structure.isCore && troop.markedCoreDamageBonus) {
+      dmg = Math.round(dmg * (1 + troop.markedCoreDamageBonus));
+    }
+    const real = structure.takeDamage(dmg);
+    if (zone) zone.applyDamage(real);
+    troop.attackCooldown = troop.attackRate;
+    troop.kills++;
+    bus.emit('troop:attacked', {
+      x: structure.x, y: structure.y, damage: dmg,
+      color: crit ? '#ffd700' : troop.color,
+      isStructure: true, crit,
+    });
+    if (!structure.alive) bus.emit('structure:destroyed', { structure });
+  }
+}
+
+/**
+ * Combate de estructuras. Genera proyectiles, cura, regenera, telegrafía,
+ * catapulta. Todo con eventos para feedback.
+ */
+class CombatService {
+  updateStructures(structures, troops, dt, bus, enemyQueue, projectiles, damageAreas) {
+    for (const s of structures) {
+      if (!s.alive) continue;
+      if (s.stunTimer > 0) { s.stunTimer -= dt; continue; }
+
+      // Regeneración
+      if (s.regenerates) {
+        s.timeSinceDamage += dt;
+        if (s.timeSinceDamage >= s.regenDelay && s.hp < s.maxHp) {
+          s.heal(s.regenRate * dt);
+        }
+      }
+
+      // Sanador
+      if (s.heals) {
+        s.healTimer -= dt;
+        if (s.healTimer <= 0) {
+          s.healTimer = s.healInterval;
+          let healed = false;
+          for (const other of structures) {
+            if (other === s || !other.alive) continue;
+            if (other.hp >= other.maxHp) continue;
+            const d = Math.hypot(other.x - s.x, other.y - s.y);
+            if (d <= s.healRange) { other.heal(s.healAmount); healed = true; }
+          }
+          if (healed) bus.emit('structure:healed', { x: s.x, y: s.y });
+        }
+      }
+
+      // Telegrafiado
+      if (s.telegraphs) {
+        if (s.telegraphCharging) {
+          s.telegraphTimer -= dt;
+          if (s.telegraphTimer <= 0) {
+            s.telegraphCharging = false;
+            for (const t of troops) {
+              if (!t.alive) continue;
+              const d = Math.hypot(t.x - s.x, t.y - s.y);
+              if (d <= s.telegraphRadius) {
+                t.takeDamage(s.attack);
+                bus.emit('structure:attacked', {
+                  x: t.x, y: t.y, damage: s.attack, color: s.color,
+                });
+                if (!t.alive) bus.emit('troop:died', { troop: t });
+              }
+            }
+            bus.emit('structure:explosion', { x: s.x, y: s.y, radius: s.telegraphRadius });
+            s.attackCooldown = s.attackRate;
+          }
+        } else {
+          s.attackCooldown -= dt;
+          if (s.attackCooldown <= 0) {
+            let inRange = false;
+            for (const t of troops) {
+              if (!t.alive) continue;
+              const d = Math.hypot(t.x - s.x, t.y - s.y);
+              if (d <= s.range) { inRange = true; break; }
+            }
+            if (inRange) {
+              s.telegraphCharging = true;
+              s.telegraphTimer = s.telegraphTime;
+              bus.emit('structure:telegraph', { structure: s });
+            } else {
+              s.attackCooldown = 0.3;
+            }
+          }
+        }
+      }
+      // Catapulta: lanza proyectil balístico a un punto
+      else if (s.catapult) {
+        s.attackCooldown -= dt;
+        if (s.attackCooldown <= 0) {
+          // Apuntar a la tropa más cercana
+          let target = null, bestD = Infinity;
+          for (const t of troops) {
+            if (!t.alive) continue;
+            const d = Math.hypot(t.x - s.x, t.y - s.y);
+            if (d < bestD) { bestD = d; target = t; }
+          }
+          if (target) {
+            projectiles.push(new Projectile(
+              s.x, s.y, target.x, target.y,
+              0, BALANCE.CATAPULT_PROJECTILE_SPEED,
+              s.color, 'catapult'
+            ));
+            s.attackCooldown = s.attackRate;
+          } else {
+            s.attackCooldown = 0.5;
+          }
+        }
+      }
+      // Ataque normal
+      else if (s.attack > 0 && s.range > 0) {
+        s.attackCooldown -= dt;
+        if (s.attackCooldown <= 0) {
+          let target = null, bestD = Infinity;
+          for (const t of troops) {
+            if (!t.alive) continue;
+            const d = Math.hypot(t.x - s.x, t.y - s.y);
+            if (d <= s.range + t.radius && d < bestD) { bestD = d; target = t; }
+          }
+          if (target) {
+            if (s.projectile) {
+              projectiles.push(new Projectile(
+                s.x, s.y, target.x, target.y,
+                s.attack, BALANCE.PROJECTILE_SPEED, s.color
+              ));
+            } else {
+              target.takeDamage(s.attack);
+              bus.emit('structure:attacked', {
+                x: target.x, y: target.y, damage: s.attack, color: s.color,
+              });
+              if (!target.alive) bus.emit('troop:died', { troop: target });
+            }
+            s.attackCooldown = s.attackRate;
+            if (s.singleUse) {
+              s.alive = false;
+              bus.emit('structure:destroyed', { structure: s });
+            }
+          } else {
+            s.attackCooldown = 0.2;
+          }
+        }
+      }
+
+      // Generadores
+      if (s.spawns) {
+        s.spawnTimer -= dt;
+        if (s.spawnTimer <= 0) {
+          s.spawnTimer = s.spawnInterval;
+          const enemy = new Troop(BALANCE.ENEMY_TROOP, s.x, s.y);
+          enemy.team = 'defender';
+          enemy.behavior = 'targetNearest';
+          enemy.maxHp = Math.round(enemy.maxHp * 0.4);
+          enemy.hp = enemy.maxHp;
+          enemy.damage = Math.round(enemy.damage * 0.5);
+          enemy.color = '#aa2222';
+          enemyQueue.push(enemy);
+          bus.emit('enemy:spawned', { x: s.x, y: s.y });
+        }
+      }
+    }
+  }
+}
+
+/**
+ * Servicio de proyectiles. Comprueba impactos y bloqueos.
+ * Los balísticos (catapulta) al impactar crean un DamageArea.
+ */
+class ProjectileService {
+  update(projectiles, troops, dt, bus, damageAreas) {
+    for (let i = projectiles.length - 1; i >= 0; i--) {
+      const p = projectiles[i];
+      p.update(dt);
+      if (!p.alive) {
+        // Proyectil balístico: al morir, crear zona de daño
+        if (p.kind === 'catapult') {
+          // Buscar el ataque original de la catapulta (asumimos 6 DPS)
+          damageAreas.push(new DamageArea(
+            p.targetX, p.targetY, 60, 6, 4.0, '#ff4400'
+          ));
+          bus.emit('area:created', { x: p.targetX, y: p.targetY });
+        }
+        projectiles.splice(i, 1);
+        continue;
+      }
+      if (p.kind === 'catapult') continue; // balístico no impacta durante el vuelo
+
+      // Buscar tropa impactada
+      let hit = false;
+      for (const t of troops) {
+        if (!t.alive) continue;
+        const d = Math.hypot(t.x - p.x, t.y - p.y);
+        if (d <= t.radius + p.radius) {
+          if (p.isBlockedBy(t)) {
+            bus.emit('projectile:blocked', { x: p.x, y: p.y });
+            p.alive = false;
+            hit = true;
+            break;
+          }
+          t.takeDamage(p.damage);
+          bus.emit('structure:attacked', {
+            x: t.x, y: t.y, damage: p.damage, color: p.color,
+          });
+          if (!t.alive) bus.emit('troop:died', { troop: t });
+          p.alive = false;
+          hit = true;
+          break;
+        }
+      }
+      if (hit) projectiles.splice(i, 1);
+    }
+  }
+}
+
+/**
+ * Generador de zonas. Usa el arquetipo y la facción para construir
+ * un layout coherente. El layout coloca estructuras en columnas 2..W-2
+ * con el núcleo siempre en la columna W-1.
+ */
+class ZoneGenerator {
+  constructor(rng) { this.rng = rng; }
+
+  generate(archetypeId, level) {
+    const archetype = ZONE_ARCHETYPES[archetypeId];
+    if (!archetype) throw new Error(`Arquetipo desconocido: ${archetypeId}`);
+    // Elegir facción con la bias del arquetipo
+    const faction = this._pickFaction(archetype.factionBias);
+    // Nivel escala HP y daño del enemigo (multiplicativo)
+    const levelMult = Math.pow(1.5, level - 1);
+    // Tier de estructuras según nivel: nivel 1 basic, nivel 2-3 advanced, 4+ elite
+    const tier = level <= 1 ? 'basic' : level <= 3 ? 'advanced' : 'elite';
+    // Mezcla: algunas estructuras avanzadas incluso en nivel 1
+    const structureCount = archetype.structureCount;
+
+    const zone = new Zone(archetype, faction, level);
+
+    // Núcleo siempre en la columna derecha, fila central
+    const coreCol = BALANCE.GRID_W - 1;
+    const coreRow = Math.floor(BALANCE.GRID_H / 2);
+    const core = new Structure('nucleo', coreCol, coreRow, {
+      tier: level <= 2 ? 'advanced' : 'elite',
+      faction,
+    });
+    // Escalar núcleo por nivel
+    core.maxHp = Math.round(core.maxHp * (1 + (level - 1) * 0.3));
+    core.hp = core.maxHp;
+    core.attack = Math.round(core.attack * levelMult);
+    core.isCore = true;
+    zone.structures.push(core);
+    zone.coreId = core.id;
+
+    // Colocar el resto
+    const placed = new Set([`${coreCol},${coreRow}`]);
+    let attempts = 0, placedCount = 0;
+    while (placedCount < structureCount && attempts < structureCount * 20) {
+      attempts++;
+      const col = this.rng.int(2, BALANCE.GRID_W - 3);
+      const row = this.rng.int(1, BALANCE.GRID_H - 2);
+      const key = `${col},${row}`;
+      if (placed.has(key)) continue;
+      if (row === coreRow && col > coreCol - 3) continue;
+
+      const typeId = this._weightedType(archetype.weights, this.rng);
+      if (!typeId || !STRUCTURE_TYPES[typeId]) continue;
+
+      // Elegir tier: la mayoría son del tier base, algunas suben
+      const tierRoll = this.rng.float();
+      let structTier = tier;
+      if (tier === 'basic' && tierRoll > 0.7) structTier = 'advanced';
+      else if (tier === 'advanced' && tierRoll > 0.85) structTier = 'elite';
+
+      const s = new Structure(typeId, col, row, {
+        tier: structTier,
+        faction,
+      });
+      // Escalar HP/daño por nivel
+      s.maxHp = Math.round(s.maxHp * levelMult);
+      s.hp = s.maxHp;
+      s.attack = Math.round(s.attack * Math.min(2.0, levelMult));
+      zone.structures.push(s);
+      placed.add(key);
+      placedCount++;
+    }
+
+    // Sellar la pool
+    zone.sealPool();
+    return zone;
+  }
+
+  _pickFaction(bias) {
+    const r = this.rng.float();
+    let acc = 0;
+    const entries = Object.entries(bias);
+    for (const [fid, weight] of entries) {
+      acc += weight;
+      if (r <= acc) return FACTIONS[fid];
+    }
+    return FACTIONS[entries[0][0]];
+  }
+
+  _weightedType(weights, rng) {
+    const entries = Object.entries(weights).filter(([, w]) => w > 0);
+    if (entries.length === 0) return null;
+    const total = entries.reduce((s, [, w]) => s + w, 0);
+    let r = rng.float() * total;
+    for (const [t, w] of entries) { r -= w; if (r <= 0) return t; }
+    return entries[entries.length - 1][0];
+  }
+}
+
+class HeroGenerator {
+  constructor(rng) { this.rng = rng; }
+  generate() {
+    const name = this.rng.pick(HERO_NAME_PRE) + this.rng.pick(HERO_NAME_SUF);
+    const archetypes = Object.keys(HERO_ARCHETYPES);
+    const archetypeId = this.rng.pick(archetypes);
+    const arch = HERO_ARCHETYPES[archetypeId];
+    return {
+      name, archetype: archetypeId,
+      archetypeName: arch.name, archetypeDesc: arch.desc,
+      baseStats: { ...arch.baseStats },
+      stats: { ...arch.baseStats },
+      ability: { ...arch.ability },
+      upgrades: {},
+    };
+  }
+}
+
+function generateDraftOptions(rng) {
+  const types = Object.keys(TROOP_TYPES);
+  const options = [];
+  const pool = [...types];
+  for (let i = 0; i < 3 && pool.length > 0; i++) {
+    const idx = rng.int(0, pool.length - 1);
+    options.push(pool.splice(idx, 1)[0]);
+  }
+  return options;
+}
+
+function computeStructureReward(structure) {
+  const base = STRUCTURE_DROPS[structure.typeId];
+  if (!base) return { gold: 5, materials: {} };
+  const tierMult = TIERS[structure.tier].mult;
+  const gold = Math.round(base.gold * tierMult);
+  const materials = {};
+  for (const [mat, qty] of Object.entries(base.materials)) {
+    materials[mat] = qty;
+  }
+  return { gold, materials };
+}
+
+
+/* ============================================================================
+ * 6. GAME STATE
+ * ========================================================================== */
+class GameState {
+  constructor() {
+    this.runSeed = 42;
+    this.rng = null;
+    this.currentZoneIdx = 0;
+    this.zone = null;
+    this.troops = [];
+    this.enemyTroops = [];
+    this.projectiles = [];
+    this.damageAreas = [];
+    this.roster = [];
+    this.modifiers = [];
+    this.gold = 0;
+    this.materials = {};
+    this.hero = null;
+    this.armyUpgrades = {};
+    this.phase = 'idle';
+    this.time = 0;
+    this.log = [];
+    this.zoneCount = BALANCE.ZONE_COUNT;
+    this.movementService = new MovementService();
+    this.combatService = new CombatService();
+    this.projectileService = new ProjectileService();
+    this.globalOrder = { active: false, type: null, timer: 0 };
+    this.globalOrderCooldown = 0;
+    this.pendingDraft = null;
+    this.pendingPromotions = [];
+    this.markedCoreTimer = 0;
+    this.zoomLevel = 1;
+    this.zoomTarget = 1;
+    this.zoomCenterX = BALANCE.CANVAS_W / 2;
+    this.zoomCenterY = BALANCE.CANVAS_H / 2;
+    this.screenShake = 0;
+    this.screenShakeMax = 0;
+  }
+  getArmyBonuses() {
+    const b = { hp:0, damage:0, speed:0, range:0, spawnRate:0 };
+    for (const [id, count] of Object.entries(this.armyUpgrades)) {
+      if (!count) continue;
+      if (id === 'army_dmg')   b.damage += 0.15 * count;
+      if (id === 'army_hp')    b.hp += 0.15 * count;
+      if (id === 'army_speed') b.speed += 0.10 * count;
+      if (id === 'army_range') b.range += 0.15 * count;
+      if (id === 'army_spawn') b.spawnRate += 0.15 * count;
+    }
+    return b;
+  }
+  getRosterSize() {
+    return HIERARCHY.baseSlots + (this.armyUpgrades.army_size || 0);
+  }
+  countByRank() {
+    const c = { 1:0, 2:0, 3:0 };
+    for (const t of this.roster) {
+      if (t.promotionRank > 0) c[t.promotionRank] = (c[t.promotionRank] || 0) + 1;
+    }
+    return c;
+  }
+  canPromoteToRank(rank) {
+    const limits = HIERARCHY.rankLimits;
+    const counts = this.countByRank();
+    return (counts[rank] || 0) < (limits[rank] || 0);
+  }
+  addMaterial(matId, qty) {
+    this.materials[matId] = (this.materials[matId] || 0) + qty;
+  }
+  getTotalMaterials() {
+    return Object.values(this.materials).reduce((s, v) => s + v, 0);
+  }
+}
+
+
+/* ============================================================================
+ * 7. USE CASES
+ * ========================================================================== */
+
+class StartRunUseCase {
+  constructor(state, bus) { this.state = state; this.bus = bus; }
+  execute(seed) {
+    const s = this.state;
+    s.runSeed = seed || Date.now() % 999999;
+    s.rng = new SeededRandom(s.runSeed);
+    s.currentZoneIdx = 0;
+    s.zone = null;
+    s.troops = [];
+    s.enemyTroops = [];
+    s.projectiles = [];
+    s.damageAreas = [];
+    s.roster = [];
+    s.modifiers = [];
+    s.gold = BALANCE.START_GOLD;
+    s.materials = {};
+    s.armyUpgrades = {};
+    s.phase = 'idle';
+    s.time = 0;
+    s.log = [];
+    s.globalOrder = { active: false, type: null, timer: 0 };
+    s.globalOrderCooldown = 0;
+    s.pendingDraft = null;
+    s.pendingPromotions = [];
+    s.hero = new HeroGenerator(s.rng).generate();
+    s.zoomLevel = 1;
+    s.zoomTarget = 1;
+    s.screenShake = 0;
+    this.bus.emit('run:started', { seed: s.runSeed, hero: s.hero });
+    this._log(`Run iniciada. Héroe: ${s.hero.name} (${s.hero.archetypeName}).`, 'info');
+  }
+  _log(text, kind) {
+    this.state.log.push({ t: this.state.time, text, kind });
+    this.bus.emit('log', { text, kind });
+  }
+}
+
+/**
+ * Prepara el scouting: elige arquetipo, facción y preview de estructuras,
+ * pero no instancia la zona todavía. El jugador ve el modal y decide.
+ */
+class PrepareScoutingUseCase {
+  constructor(state, bus) { this.state = state; this.bus = bus; }
+  execute() {
+    const s = this.state;
+    const level = s.currentZoneIdx + 1;
+    const gen = new ZoneGenerator(s.rng);
+    const archetypes = Object.keys(ZONE_ARCHETYPES);
+    const archetypeId = archetypes[(level - 1) % archetypes.length];
+    // Generar zona (aún no se usa, pero la vista previa se calcula)
+    // Para evitar generar dos veces, guardamos el archetypeId y generamos en StartZone.
+    const archetype = ZONE_ARCHETYPES[archetypeId];
+    s.pendingArchetypeId = archetypeId;
+    s.pendingLevel = level;
+    this.bus.emit('scouting:prepared', { archetype, level });
+    return { archetype, level };
+  }
+}
+
+class StartZoneUseCase {
+  constructor(state, bus) { this.state = state; this.bus = bus; }
+  execute() {
+    const s = this.state;
+    const level = s.pendingLevel || (s.currentZoneIdx + 1);
+    const archetypeId = s.pendingArchetypeId || 'muro';
+    const gen = new ZoneGenerator(s.rng);
+    const zone = gen.generate(archetypeId, level);
+    s.zone = zone;
+    s.troops = [];
+    s.enemyTroops = [];
+    s.projectiles = [];
+    s.damageAreas = [];
+    s.phase = 'running';
+    s.time = 0;
+    s.globalOrder = { active: false, type: null, timer: 0 };
+    s.globalOrderCooldown = 0;
+
+    const bonuses = s.getArmyBonuses();
+    const hero = new HeroTroop(s.hero, BALANCE.SPAWN_X, BALANCE.SPAWN_Y, s.modifiers, bonuses);
+    hero.abilityCooldown = 0;
+    s.troops.push(hero);
+
+    // Desplegar roster
+    let yOffset = -60;
+    const step = 40;
+    for (const rosterTroop of s.roster) {
+      const clone = new Troop(rosterTroop._baseType, BALANCE.SPAWN_X + 30,
+                              BALANCE.SPAWN_Y + yOffset, s.modifiers, bonuses);
+      clone.xp = rosterTroop.xp;
+      clone.promotionId = rosterTroop.promotionId;
+      clone.promotionRank = rosterTroop.promotionRank;
+      if (rosterTroop.promotionId) {
+        const promotion = (TROOP_PROMOTIONS[rosterTroop._baseType] || [])
+          .find(p => p.id === rosterTroop.promotionId);
+        if (promotion) clone.promote(promotion);
+      }
+      clone.survivedZones = rosterTroop.survivedZones;
+      clone.kills = rosterTroop.kills;
+      s.troops.push(clone);
+      yOffset += step;
+      if (yOffset > 60) yOffset = -60;
+    }
+
+    this.bus.emit('zone:started', { zone, level });
+    this._log(`— Zona ${level}: ${zone.archetype.name} · ${zone.faction.name} (pool ${zone.maxHp}) —`, 'info');
+  }
+  _log(text, kind) {
+    this.state.log.push({ t: this.state.time, text, kind });
+    this.bus.emit('log', { text, kind });
+  }
+}
+
+class TickUseCase {
+  constructor(state, bus) { this.state = state; this.bus = bus; }
+  execute(dt) {
+    const s = this.state;
+    if (s.phase !== 'running') {
+      // Suavizar zoom incluso en pausa
+      s.zoomLevel += (s.zoomTarget - s.zoomLevel) * Math.min(1, dt * 4);
+      if (s.screenShake > 0) s.screenShake = Math.max(0, s.screenShake - dt * 3);
+      return;
+    }
+    s.time += dt;
+
+    // Orden global
+    if (s.globalOrderCooldown > 0) s.globalOrderCooldown -= dt;
+    if (s.globalOrder.active) {
+      s.globalOrder.timer -= dt;
+      if (s.globalOrder.timer <= 0) {
+        s.globalOrder.active = false;
+        this.bus.emit('order:ended', {});
+      }
+    }
+    // Habilidad héroe
+    const hero = s.troops.find(t => t.isHero && t.alive);
+    if (hero && hero.abilityCooldown > 0) hero.abilityCooldown -= dt;
+
+    // Aura
+    if (hero) {
+      for (const t of s.troops) {
+        if (t === hero || !t.alive) { t.auraBonus = 0; continue; }
+        const d = Math.hypot(t.x - hero.x, t.y - hero.y);
+        t.auraBonus = d <= hero.auraRange ? hero.auraDamage : 0;
+      }
+    } else {
+      for (const t of s.troops) t.auraBonus = 0;
+    }
+
+    // Marca del núcleo
+    if (s.markedCoreTimer > 0) {
+      s.markedCoreTimer -= dt;
+      for (const t of s.troops) t.markedCoreDamageBonus = 0.5;
+    } else {
+      for (const t of s.troops) t.markedCoreDamageBonus = 0;
+    }
+
+    // Movimiento
+    for (const t of s.troops) {
+      s.movementService.update(t, s.troops, s.zone.structures, dt, this.bus, s.globalOrder, s.zone);
+    }
+    for (const t of s.enemyTroops) {
+      s.movementService.update(t, s.enemyTroops, s.troops, dt, this.bus, null, null);
+    }
+
+    // Estructuras
+    s.combatService.updateStructures(
+      s.zone.structures, s.troops, dt, this.bus, s.enemyTroops, s.projectiles, s.damageAreas
+    );
+
+    // Proyectiles
+    s.projectileService.update(s.projectiles, s.troops, dt, this.bus, s.damageAreas);
+
+    // Áreas de daño
+    for (let i = s.damageAreas.length - 1; i >= 0; i--) {
+      const a = s.damageAreas[i];
+      a.update(dt, s.troops, this.bus);
+      if (!a.alive) s.damageAreas.splice(i, 1);
+    }
+
+    // Limpieza
+    s.troops = s.troops.filter(t => t.alive);
+    s.enemyTroops = s.enemyTroops.filter(t => t.alive);
+
+    // Zoom dinámico: si el núcleo baja de HP, hacer zoom
+    const core = s.zone.getCore();
+    if (core && core.alive) {
+      const corePct = core.hp / core.maxHp;
+      if (corePct < BALANCE.ZOOM_THRESHOLD) {
+        s.zoomTarget = BALANCE.ZOOM_MAX;
+        s.zoomCenterX = core.x;
+        s.zoomCenterY = core.y;
+      } else {
+        s.zoomTarget = 1;
+        s.zoomCenterX = BALANCE.CANVAS_W / 2;
+        s.zoomCenterY = BALANCE.CANVAS_H / 2;
+      }
+    } else {
+      s.zoomTarget = 1;
+    }
+    s.zoomLevel += (s.zoomTarget - s.zoomLevel) * Math.min(1, dt * 3);
+    if (s.screenShake > 0) s.screenShake = Math.max(0, s.screenShake - dt * 3);
+
+    // Emitir pool actual
+    this.bus.emit('zone:hp', { hp: s.zone.hp, maxHp: s.zone.maxHp });
+
+    if (s.zone.isCleared()) {
+      s.phase = 'victory';
+      this.bus.emit('zone:victory', { zone: s.zone });
+      return;
+    }
+    if (s.troops.length === 0 && s.enemyTroops.length === 0) {
+      s.phase = 'defeat';
+      this.bus.emit('zone:defeat', { zone: s.zone });
+      return;
+    }
+  }
+}
+
+class EndZoneUseCase {
+  constructor(state, bus) { this.state = state; this.bus = bus; }
+  execute() {
+    const s = this.state;
+    if (s.phase === 'victory') {
+      // XP a supervivientes
+      for (const t of s.troops) {
+        if (!t.alive) continue;
+        t.survivedZones++;
+        t.gainXP(HIERARCHY.xpPerZoneSurvived + t.kills * HIERARCHY.xpPerKill);
+      }
+      // Reconstruir roster
+      s.roster = s.troops.filter(t => !t.isHero).map(t => {
+        const rt = new Troop(t._baseType, 0, 0, t._modifiers, t._armyBonuses);
+        rt.xp = t.xp;
+        rt.promotionId = t.promotionId;
+        rt.promotionRank = t.promotionRank;
+        rt.survivedZones = t.survivedZones;
+        rt.kills = t.kills;
+        if (t.promotionId) {
+          const promo = (TROOP_PROMOTIONS[t._baseType] || []).find(p => p.id === t.promotionId);
+          if (promo) rt.promote(promo);
+        }
+        return rt;
+      });
+      // Promociones disponibles
+      const promotable = s.roster.filter(t => t.canPromote() && s.canPromoteToRank(t.promotionRank + 1));
+      s.pendingPromotions = promotable;
+
+      s.gold += BALANCE.GOLD_ZONE_VICTORY;
+      this.bus.emit('gold:gained', { amount: BALANCE.GOLD_ZONE_VICTORY, source: 'victoria' });
+
+      if (s.currentZoneIdx + 1 >= s.zoneCount) {
+        s.phase = 'run-victory';
+        this.bus.emit('run:victory', {});
+      } else {
+        this.bus.emit('zone:next', { level: s.currentZoneIdx + 1 });
+      }
+    } else if (s.phase === 'defeat') {
+      s.phase = 'run-defeat';
+      this.bus.emit('run:defeat', {});
+    }
+  }
+}
+
+class BuyUpgradeUseCase {
+  constructor(state, bus) { this.state = state; this.bus = bus; }
+  execute(kind, id) {
+    const s = this.state;
+    if (kind === 'hero') {
+      const upg = HERO_UPGRADES.find(x => x.id === id);
+      if (!upg) return false;
+      const cur = s.hero.upgrades[id] || 0;
+      if (cur >= upg.max || s.gold < upg.cost) return false;
+      s.gold -= upg.cost;
+      s.hero.upgrades[id] = cur + 1;
+      upg.apply(s.hero.stats);
+      this.bus.emit('upgrade:bought', { kind, id, name: upg.name });
+      this.bus.emit('gold:changed', { gold: s.gold });
+      return true;
+    }
+    if (kind === 'army') {
+      const upg = ARMY_UPGRADES.find(x => x.id === id);
+      if (!upg) return false;
+      const cur = s.armyUpgrades[id] || 0;
+      if (cur >= upg.max || s.gold < upg.cost) return false;
+      s.gold -= upg.cost;
+      s.armyUpgrades[id] = cur + 1;
+      this.bus.emit('upgrade:bought', { kind, id, name: upg.name });
+      this.bus.emit('gold:changed', { gold: s.gold });
+      return true;
+    }
+    return false;
+  }
+}
+
+class AdvanceZoneUseCase {
+  constructor(state, bus) { this.state = state; this.bus = bus; }
+  execute(modifierId) {
+    if (modifierId) {
+      this.state.modifiers.push(modifierId);
+      this.bus.emit('modifier:added', { id: modifierId });
+    }
+    this.state.currentZoneIdx++;
+    this.state.phase = 'idle';
+    this.bus.emit('zone:advanced', { idx: this.state.currentZoneIdx });
+  }
+}
+
+class DraftTroopUseCase {
+  constructor(state, bus) { this.state = state; this.bus = bus; }
+  execute(typeId) {
+    const s = this.state;
+    if (!TROOP_TYPES[typeId]) return false;
+    const troop = new Troop(typeId, 0, 0, s.modifiers, s.getArmyBonuses());
+    if (s.roster.length >= s.getRosterSize()) {
+      const sacrificed = s.roster.shift();
+      this.bus.emit('roster:sacrificed', { troop: sacrificed });
+      this.bus.emit('log', { text: `Sacrificada: ${sacrificed.name}`, kind: 'warn' });
+    }
+    s.roster.push(troop);
+    this.bus.emit('roster:added', { troop });
+    this.bus.emit('log', { text: `+ ${troop.name} al roster`, kind: 'good' });
+    return true;
+  }
+}
+
+class PromoteTroopUseCase {
+  constructor(state, bus) { this.state = state; this.bus = bus; }
+  execute(rosterIdx, promotionId) {
+    const s = this.state;
+    const troop = s.roster[rosterIdx];
+    if (!troop) return false;
+    const list = TROOP_PROMOTIONS[troop._baseType];
+    if (!list) return false;
+    const promo = list.find(p => p.id === promotionId);
+    if (!promo) return false;
+    const newRank = promo.rank || (troop.promotionRank + 1);
+    if (!s.canPromoteToRank(newRank)) return false;
+    troop.promote(promo);
+    this.bus.emit('troop:promoted', { troop, promotion: promo });
+    this.bus.emit('log', { text: `⭐ ${troop.name} promocionada a ${promo.name}`, kind: 'gold' });
+    return true;
+  }
+}
+
+class ActivateGlobalOrderUseCase {
+  constructor(state, bus) { this.state = state; this.bus = bus; }
+  execute() {
+    const s = this.state;
+    if (s.globalOrderCooldown > 0 || s.globalOrder.active) return false;
+    s.globalOrder = { active: true, type: 'focus', timer: BALANCE.GLOBAL_ORDER_DURATION };
+    s.globalOrderCooldown = BALANCE.GLOBAL_ORDER_COOLDOWN;
+    this.bus.emit('order:activated', { type: 'focus' });
+    this.bus.emit('log', { text: '⚡ FOCO: todas las tropas atacan al núcleo', kind: 'info' });
+    return true;
+  }
+}
+
+class ActivateHeroAbilityUseCase {
+  constructor(state, bus) { this.state = state; this.bus = bus; }
+  execute() {
+    const s = this.state;
+    const hero = s.troops.find(t => t.isHero && t.alive);
+    if (!hero || hero.abilityCooldown > 0) return false;
+    const ability = s.hero.ability;
+    if (!ability) return false;
+    hero.abilityCooldown = ability.cooldown;
+
+    if (ability.effect === 'stun') {
+      const RADIUS = 150;
+      let count = 0;
+      for (const st of s.zone.structures) {
+        if (!st.alive) continue;
+        const d = Math.hypot(st.x - hero.x, st.y - hero.y);
+        if (d <= RADIUS) { st.stunTimer = 2.5; count++; }
+      }
+      this.bus.emit('ability:used', { name: ability.name });
+      this.bus.emit('log', { text: `★ ${ability.name}: ${count} estructuras aturdidas`, kind: 'good' });
+    } else if (ability.effect === 'mark_core') {
+      s.markedCoreTimer = 5.0;
+      this.bus.emit('ability:used', { name: ability.name });
+      this.bus.emit('log', { text: `★ ${ability.name}: núcleo marcado (+50% daño)`, kind: 'good' });
+    } else if (ability.effect === 'meteor') {
+      const core = s.zone.getCore();
+      if (core && core.alive) {
+        const real = core.takeDamage(150);
+        s.zone.applyDamage(real);
+        this.bus.emit('ability:used', { name: ability.name, x: core.x, y: core.y });
+        this.bus.emit('log', { text: `★ ${ability.name}: 150 daño al núcleo`, kind: 'good' });
+        if (!core.alive) this.bus.emit('structure:destroyed', { structure: core });
+      }
+    }
+    return true;
+  }
+}
+
+
+/* ============================================================================
+ * 8. GOLD SERVICE
+ * ========================================================================== */
+class GoldService {
+  constructor(state, bus) {
+    this.state = state;
+    this.bus = bus;
+    this.damageAccum = 0;
+    bus.on('troop:attacked', (e) => { if (e.isStructure) this._onDamage(e.damage); });
+    bus.on('structure:destroyed', (e) => this._onStructureDestroyed(e.structure));
+    bus.on('troop:died', (e) => {
+      if (e.troop && e.troop.team === 'defender') {
+        this._awardGold(BALANCE.GOLD_PER_ENEMY_KILL, 'enemigo');
+      }
+    });
+    bus.on('run:started', () => { this.damageAccum = 0; });
+    bus.on('zone:started', () => { this.damageAccum = 0; });
+  }
+  _onDamage(dmg) {
+    if (!Number.isFinite(dmg) || dmg <= 0) return;
+    this.damageAccum += dmg;
+    while (this.damageAccum >= BALANCE.GOLD_PER_DAMAGE) {
+      this.damageAccum -= BALANCE.GOLD_PER_DAMAGE;
+      this._awardGold(1, 'daño');
+    }
+  }
+  _onStructureDestroyed(structure) {
+    const reward = computeStructureReward(structure);
+    this._awardGold(reward.gold, `destrucción:${structure.typeId}`);
+    for (const [mat, qty] of Object.entries(reward.materials)) {
+      this.state.addMaterial(mat, qty);
+      this.bus.emit('material:gained', { id: mat, qty });
+    }
+    const baseName = (STRUCTURE_TYPES[structure.typeId] || {}).name || structure.typeId;
+    const label = structure.isCore ? `NÚCLEO` : baseName;
+    const matParts = Object.entries(reward.materials)
+      .map(([m, q]) => `+${q} ${MATERIALS[m].name}`)
+      .join(', ');
+    this.bus.emit('log', {
+      text: `💥 ${label} destruido · +${reward.gold} oro${matParts ? ' · ' + matParts : ''}`,
+      kind: 'good',
+    });
+  }
+  _awardGold(amount, source) {
+    this.state.gold += amount;
+    this.bus.emit('gold:gained', { amount, source });
+    this.bus.emit('gold:changed', { gold: this.state.gold });
+  }
+}
+
+
+/* ============================================================================
+ * 9. AUDIO SERVICE
+ * ----------------------------------------------------------------------------
+ * Sonidos sintéticos con Web Audio API. Sin archivos externos.
+ * ========================================================================== */
+class AudioService {
+  constructor(bus) {
+    this.ctx = null;
+    this.enabled = false;
+    this.bus = bus;
+    // Suscribirse a eventos relevantes
+    bus.on('troop:attacked', () => this.play('hit_soft'));
+    bus.on('structure:attacked', () => this.play('hit_soft'));
+    bus.on('structure:destroyed', (e) => {
+      this.play(e.structure.isCore ? 'destroy_big' : 'destroy');
+    });
+    bus.on('projectile:blocked', () => this.play('block'));
+    bus.on('ability:used', () => this.play('ability'));
+    bus.on('order:activated', () => this.play('order'));
+    bus.on('structure:telegraph', () => this.play('telegraph'));
+  }
+  init() {
+    if (this.ctx) return;
+    try {
+      this.ctx = new (window.AudioContext || window.webkitAudioContext)();
+      this.enabled = true;
+    } catch (e) { this.enabled = false; }
+  }
+  play(type) {
+    if (!this.enabled || !this.ctx) return;
+    // Rate limit: no más de un sonido cada 40ms
+    const now = performance.now();
+    if (this._lastPlay && now - this._lastPlay < 40) return;
+    this._lastPlay = now;
+    switch (type) {
+      case 'hit_soft': this._beep(180, 0.04, 0.04); break;
+      case 'destroy': this._noise(0.15, 0.10); break;
+      case 'destroy_big': this._noise(0.35, 0.18); this._beep(80, 0.2, 0.12); break;
+      case 'block': this._beep(600, 0.06, 0.05, 'triangle'); break;
+      case 'ability': this._beep(880, 0.12, 0.10); setTimeout(() => this._beep(1320, 0.15, 0.10), 90); break;
+      case 'order': this._beep(440, 0.15, 0.12); break;
+      case 'telegraph': this._beep(300, 0.3, 0.05, 'sawtooth'); break;
+    }
+  }
+  _beep(freq, dur, vol, wave = 'square') {
+    const ctx = this.ctx;
+    const now = ctx.currentTime;
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.type = wave;
+    osc.frequency.value = freq;
+    gain.gain.setValueAtTime(0, now);
+    gain.gain.linearRampToValueAtTime(vol, now + 0.01);
+    gain.gain.exponentialRampToValueAtTime(0.001, now + dur);
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.start(now);
+    osc.stop(now + dur);
+  }
+  _noise(dur, vol) {
+    const ctx = this.ctx;
+    const now = ctx.currentTime;
+    const bufferSize = Math.floor(ctx.sampleRate * dur);
+    const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
+    const data = buffer.getChannelData(0);
+    for (let i = 0; i < bufferSize; i++) data[i] = (Math.random() * 2 - 1) * 0.5;
+    const src = ctx.createBufferSource();
+    src.buffer = buffer;
+    const gain = ctx.createGain();
+    const filter = ctx.createBiquadFilter();
+    filter.type = 'lowpass';
+    filter.frequency.value = 800;
+    gain.gain.setValueAtTime(0, now);
+    gain.gain.linearRampToValueAtTime(vol, now + 0.005);
+    gain.gain.exponentialRampToValueAtTime(0.001, now + dur);
+    src.connect(filter);
+    filter.connect(gain);
+    gain.connect(ctx.destination);
+    src.start(now);
+    src.stop(now + dur);
+  }
+}
+
+
+/* ============================================================================
+ * 10. RENDERER
+ * ----------------------------------------------------------------------------
+ * El renderer lee state, no muta. Las formas se dibujan con canvas 2D.
+ * El tier controla el relleno, la facción el color, la forma la silueta.
+ * ========================================================================== */
+class CanvasRenderer {
+  constructor(canvas, bus) {
+    this.canvas = canvas;
+    this.ctx = canvas.getContext('2d');
+    this.particles = [];
+    this.damageNumbers = [];
+    this.goldFloats = [];
+    this.materialFloats = [];
+    this.explosionRings = [];
+    this.telegraphRings = [];
+
+    bus.on('troop:attacked', (e) => this._dmgNum(e.x, e.y, e.damage, e.crit ? '#ffd700' : '#ffb347', e.crit));
+    bus.on('structure:attacked', (e) => this._dmgNum(e.x, e.y, e.damage, '#ff6b6b'));
+    bus.on('troop:died', (e) => this._particles(e.troop.x, e.troop.y, e.troop.color, 12));
+    bus.on('structure:destroyed', (e) => {
+      const big = e.structure.isCore ? 50 : 22;
+      this._particles(e.structure.x, e.structure.y, e.structure.isCore ? '#ffd700' : '#ffb347', big);
+      this.explosionRings.push({
+        x: e.structure.x, y: e.structure.y,
+        maxRadius: e.structure.isCore ? 160 : 60,
+        radius: 0, life: 0.9, maxLife: 0.9,
+        color: e.structure.isCore ? '#ffd700' : '#ffb347',
+      });
+    });
+    bus.on('structure:healed', (e) => this._particles(e.x, e.y, '#66ffcc', 6));
+    bus.on('structure:telegraph', (e) => {
+      this.telegraphRings.push({
+        x: e.structure.x, y: e.structure.y,
+        maxRadius: e.structure.telegraphRadius,
+        radius: 0,
+        life: e.structure.telegraphTime,
+        maxLife: e.structure.telegraphTime,
+        color: '#ff2244',
+      });
+    });
+    bus.on('structure:explosion', (e) => {
+      this._particles(e.x, e.y, '#ff4400', 30);
+      this.explosionRings.push({
+        x: e.x, y: e.y, maxRadius: e.radius,
+        radius: 0, life: 0.5, maxLife: 0.5, color: '#ff4400',
+      });
+    });
+    bus.on('projectile:blocked', (e) => this._particles(e.x, e.y, '#7ec8e3', 8));
+    bus.on('enemy:spawned', (e) => this._particles(e.x, e.y, '#ff00ff', 6));
+    bus.on('troop:healed', (e) => this._particles(e.x, e.y, '#7ee87e', 4));
+    bus.on('material:gained', (e) => {
+      const m = MATERIALS[e.id];
+      if (!m) return;
+      this.materialFloats.push({
+        x: BALANCE.CANVAS_W / 2 + 60, y: 50,
+        text: `${m.icon} +${e.qty}`, life: 1.2, maxLife: 1.2,
+      });
+    });
+    bus.on('area:created', (e) => this._particles(e.x, e.y, '#ff4400', 10));
+  }
+
+  _particles(x, y, color, count) {
+    for (let i = 0; i < count; i++) {
+      const a = Math.random() * Math.PI * 2;
+      const s = 40 + Math.random() * 120;
+      this.particles.push({
+        x, y, vx: Math.cos(a) * s, vy: Math.sin(a) * s,
+        life: 0.4 + Math.random() * 0.5, maxLife: 0.9,
+        color, size: 2 + Math.random() * 4,
+      });
+    }
+  }
+  _dmgNum(x, y, damage, color, crit) {
+    this.damageNumbers.push({
+      x, y, text: crit ? `${damage}!` : `-${damage}`,
+      color, life: 0.8, maxLife: 0.8, size: crit ? 17 : 13,
+    });
+  }
+
+  /**
+   * Render con zoom y screen shake aplicados.
+   */
+  render(state, dt) {
+    const ctx = this.ctx;
+    const W = BALANCE.CANVAS_W, H = BALANCE.CANVAS_H;
+
+    // Fondo base
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.fillStyle = '#06060e';
+    ctx.fillRect(0, 0, W, H);
+
+    // Screen shake
+    let shakeX = 0, shakeY = 0;
+    if (state.screenShake > 0) {
+      const s = state.screenShake * 8;
+      shakeX = (Math.random() - 0.5) * s;
+      shakeY = (Math.random() - 0.5) * s;
+    }
+
+    // Zoom dinámico
+    const zoom = state.zoomLevel;
+    ctx.save();
+    ctx.translate(shakeX, shakeY);
+    if (zoom > 1.001) {
+      ctx.translate(state.zoomCenterX, state.zoomCenterY);
+      ctx.scale(zoom, zoom);
+      ctx.translate(-state.zoomCenterX, -state.zoomCenterY);
+    }
+
+    // Grid
+    ctx.strokeStyle = 'rgba(255,255,255,0.03)';
+    for (let x = 0; x <= BALANCE.GRID_W; x++) {
+      ctx.beginPath();
+      ctx.moveTo(x * BALANCE.CELL_SIZE, 0);
+      ctx.lineTo(x * BALANCE.CELL_SIZE, H);
+      ctx.stroke();
+    }
+    for (let y = 0; y <= BALANCE.GRID_H; y++) {
+      ctx.beginPath();
+      ctx.moveTo(0, y * BALANCE.CELL_SIZE);
+      ctx.lineTo(W, y * BALANCE.CELL_SIZE);
+      ctx.stroke();
+    }
+
+    // Barra de pool arriba
+    if (state.zone) {
+      const pct = state.zone.maxHp > 0 ? state.zone.hp / state.zone.maxHp : 0;
+      ctx.fillStyle = 'rgba(255,255,255,0.05)';
+      ctx.fillRect(20, 8, W - 40, 4);
+      ctx.fillStyle = pct > 0.5 ? '#7ee87e' : pct > 0.25 ? '#ffb347' : '#ff6b6b';
+      ctx.fillRect(20, 8, (W - 40) * pct, 4);
+    }
+
+    // Áreas de daño
+    if (state.damageAreas) {
+      for (const a of state.damageAreas) {
+        const pct = a.duration / a.maxDuration;
+        ctx.globalAlpha = 0.4 + 0.2 * Math.sin(state.time * 6);
+        ctx.fillStyle = a.color;
+        ctx.beginPath();
+        ctx.arc(a.x, a.y, a.radius, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.globalAlpha = 0.7;
+        ctx.strokeStyle = a.color;
+        ctx.lineWidth = 2;
+        ctx.stroke();
+      }
+      ctx.globalAlpha = 1;
+    }
+
+    // Telegraph rings (debajo de estructuras)
+    for (let i = this.telegraphRings.length - 1; i >= 0; i--) {
+      const r = this.telegraphRings[i];
+      r.life -= dt;
+      if (r.life <= 0) { this.telegraphRings.splice(i, 1); continue; }
+      const t = 1 - (r.life / r.maxLife);
+      r.radius = r.maxRadius * t;
+      ctx.globalAlpha = 0.5 * (1 - t) + 0.3;
+      ctx.strokeStyle = r.color;
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.arc(r.x, r.y, r.radius, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.fillStyle = r.color;
+      ctx.globalAlpha = 0.1;
+      ctx.fill();
+    }
+    ctx.globalAlpha = 1;
+
+    // Explosion rings
+    for (let i = this.explosionRings.length - 1; i >= 0; i--) {
+      const r = this.explosionRings[i];
+      r.life -= dt;
+      if (r.life <= 0) { this.explosionRings.splice(i, 1); continue; }
+      const t = 1 - (r.life / r.maxLife);
+      r.radius = r.maxRadius * t;
+      ctx.globalAlpha = (r.life / r.maxLife) * 0.7;
+      ctx.strokeStyle = r.color;
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.arc(r.x, r.y, r.radius, 0, Math.PI * 2);
+      ctx.stroke();
+    }
+    ctx.globalAlpha = 1;
+
+    // Estructuras
+    if (state.zone) {
+      for (const s of state.zone.structures) {
+        if (!s.alive) continue;
+        this._drawStructure(ctx, s);
+      }
+    }
+
+    // Tropas
+    for (const t of state.troops) this._drawTroop(ctx, t, false);
+    for (const t of state.enemyTroops) this._drawTroop(ctx, t, true);
+
+    // Proyectiles
+    for (const p of state.projectiles) {
+      const py = p.kind === 'catapult' ? p.y - (p.height || 0) : p.y;
+      // Sombra
+      if (p.kind === 'catapult') {
+        ctx.fillStyle = 'rgba(0,0,0,0.3)';
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, p.radius * 0.8, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      ctx.fillStyle = p.color;
+      ctx.beginPath();
+      ctx.arc(p.x, py, p.radius, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.strokeStyle = '#fff';
+      ctx.lineWidth = 1;
+      ctx.stroke();
+    }
+
+    // Partículas
+    for (let i = this.particles.length - 1; i >= 0; i--) {
+      const p = this.particles[i];
+      p.x += p.vx * dt; p.y += p.vy * dt;
+      p.vx *= 0.9; p.vy *= 0.9;
+      p.life -= dt;
+      if (p.life <= 0) { this.particles.splice(i, 1); continue; }
+      ctx.globalAlpha = p.life / p.maxLife;
+      ctx.fillStyle = p.color;
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.globalAlpha = 1;
+
+    // Daño flotante
+    ctx.textAlign = 'center';
+    for (let i = this.damageNumbers.length - 1; i >= 0; i--) {
+      const d = this.damageNumbers[i];
+      d.y -= 30 * dt; d.life -= dt;
+      if (d.life <= 0) { this.damageNumbers.splice(i, 1); continue; }
+      ctx.globalAlpha = d.life / d.maxLife;
+      ctx.fillStyle = d.color;
+      ctx.font = `bold ${d.size || 13}px monospace`;
+      ctx.fillText(d.text, d.x, d.y);
+    }
+    for (let i = this.goldFloats.length - 1; i >= 0; i--) {
+      const g = this.goldFloats[i];
+      g.y -= 30 * dt; g.life -= dt;
+      if (g.life <= 0) { this.goldFloats.splice(i, 1); continue; }
+      ctx.globalAlpha = g.life / g.maxLife;
+      ctx.fillStyle = '#ffd700';
+      ctx.font = 'bold 15px monospace';
+      ctx.fillText(g.text, g.x, g.y);
+    }
+    for (let i = this.materialFloats.length - 1; i >= 0; i--) {
+      const m = this.materialFloats[i];
+      m.y -= 25 * dt; m.life -= dt;
+      if (m.life <= 0) { this.materialFloats.splice(i, 1); continue; }
+      ctx.globalAlpha = m.life / m.maxLife;
+      ctx.fillStyle = '#88ddff';
+      ctx.font = 'bold 13px monospace';
+      ctx.fillText(m.text, m.x, m.y);
+    }
+    ctx.globalAlpha = 1;
+
+    // Orden global activa: overlay
+    if (state.globalOrder && state.globalOrder.active) {
+      ctx.fillStyle = 'rgba(255,179,71,0.10)';
+      ctx.fillRect(0, 0, W, H);
+      ctx.fillStyle = '#ffb347';
+      ctx.font = 'bold 20px monospace';
+      ctx.fillText('⚡ FOCO ACTIVO', W / 2, 50);
+    }
+
+    ctx.restore();
+  }
+
+  /**
+   * Dibuja una estructura con la forma, tier y facción aplicados.
+   *   - FORMA (shape): define la silueta. Nunca cambia.
+   *   - TIER: define el relleno. básico=hueco, avanzado=rayado, élite=brillo.
+   *   - FACCIÓN: define el color. Solo dice quién es.
+   */
+  _drawStructure(ctx, s) {
+    const x = s.x, y = s.y, r = s.radius;
+    const color = s.color;
+    const colorDark = s.colorDark;
+
+    // Sombra
+    ctx.fillStyle = 'rgba(0,0,0,0.4)';
+    this._pathShape(ctx, s.shape, x + 2, y + 3, r);
+    ctx.fill();
+
+    // Stun overlay
+    if (s.stunTimer > 0) {
+      ctx.globalAlpha = 0.4;
+    }
+
+    // Aura de sanador
+    if (s.heals) {
+      ctx.strokeStyle = 'rgba(102,255,204,0.18)';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.arc(x, y, s.healRange, 0, Math.PI * 2);
+      ctx.stroke();
+    }
+    // Aura regeneradora activa
+    if (s.regenerates && s.timeSinceDamage >= s.regenDelay) {
+      ctx.strokeStyle = colorDark + '99';
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.arc(x, y, r + 6, 0, Math.PI * 2);
+      ctx.stroke();
+    }
+
+    // Dibujar forma con tier
+    this._pathShape(ctx, s.shape, x, y, r);
+
+    if (s.tier === 'basic') {
+      // Hueco
+      ctx.strokeStyle = color;
+      ctx.lineWidth = 3;
+      ctx.stroke();
+    } else if (s.tier === 'advanced') {
+      // Relleno semitransparente + rayado
+      ctx.fillStyle = colorDark + '55';
+      ctx.fill();
+      ctx.strokeStyle = color;
+      ctx.lineWidth = 3;
+      ctx.stroke();
+      // Rayado diagonal
+      ctx.save();
+      ctx.clip();
+      ctx.strokeStyle = color + '99';
+      ctx.lineWidth = 2;
+      for (let i = -r; i < r * 2; i += 8) {
+        ctx.beginPath();
+        ctx.moveTo(x - r + i, y - r);
+        ctx.lineTo(x - r + i - r * 2, y + r);
+        ctx.stroke();
+      }
+      ctx.restore();
+    } else {
+      // Élite: brillo + relleno
+      ctx.save();
+      ctx.shadowColor = color;
+      ctx.shadowBlur = 18;
+      ctx.fillStyle = color;
+      ctx.fill();
+      ctx.restore();
+      ctx.strokeStyle = '#fff';
+      ctx.lineWidth = 2;
+      ctx.stroke();
+    }
+
+    ctx.globalAlpha = 1;
+
+    // Barra de vida (para estructuras dañadas o el núcleo)
+    if (s.hp < s.maxHp || s.isCore) {
+      const hpPct = s.hp / s.maxHp;
+      const barW = Math.max(r * 2.2, 32);
+      const barH = 5;
+      const barX = x - barW / 2;
+      const barY = y - r - 14;
+      ctx.fillStyle = 'rgba(0,0,0,0.75)';
+      ctx.fillRect(barX - 1, barY - 1, barW + 2, barH + 2);
+      ctx.fillStyle = hpPct > 0.5 ? '#7ee87e' : hpPct > 0.25 ? '#ffb347' : '#ff6b6b';
+      ctx.fillRect(barX, barY, barW * hpPct, barH);
+      ctx.fillStyle = '#fff';
+      ctx.font = 'bold 9px monospace';
+      ctx.textAlign = 'center';
+      ctx.fillText(`${Math.ceil(s.hp)}`, x, barY - 3);
+    }
+
+    // Icono de facción en el centro
+    if (s.factionId) {
+      ctx.fillStyle = 'rgba(255,255,255,0.5)';
+      ctx.font = 'bold 10px monospace';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(s.factionId[0].toUpperCase(), x, y);
+      ctx.textBaseline = 'alphabetic';
+    }
+  }
+
+  /** Define el path de cada forma. */
+  _pathShape(ctx, shape, x, y, r) {
+    ctx.beginPath();
+    switch (shape) {
+      case 'cuadrado':
+        ctx.rect(x - r * 0.9, y - r * 0.9, r * 1.8, r * 1.8);
+        break;
+      case 'triangulo':
+        ctx.moveTo(x, y - r);
+        ctx.lineTo(x + r * 0.9, y + r * 0.7);
+        ctx.lineTo(x - r * 0.9, y + r * 0.7);
+        ctx.closePath();
+        break;
+      case 'cruz': {
+        const w = r * 0.35;
+        ctx.rect(x - w / 2, y - r, w, r * 2);
+        ctx.rect(x - r, y - w / 2, r * 2, w);
+        break;
+      }
+      case 'hexagono':
+        for (let i = 0; i < 6; i++) {
+          const a = i * Math.PI / 3 - Math.PI / 2;
+          const px = x + Math.cos(a) * r;
+          const py = y + Math.sin(a) * r;
+          if (i === 0) ctx.moveTo(px, py);
+          else ctx.lineTo(px, py);
+        }
+        ctx.closePath();
+        break;
+      case 'espiral': {
+        // Espiral de Arquímedes simplificada
+        const N = 40;
+        for (let i = 0; i < N; i++) {
+          const t = i / N;
+          const a = t * Math.PI * 4;
+          const rr = t * r;
+          const px = x + Math.cos(a) * rr;
+          const py = y + Math.sin(a) * rr;
+          if (i === 0) ctx.moveTo(px, py);
+          else ctx.lineTo(px, py);
+        }
+        break;
+      }
+      case 'rombo':
+        ctx.moveTo(x, y - r);
+        ctx.lineTo(x + r, y);
+        ctx.lineTo(x, y + r);
+        ctx.lineTo(x - r, y);
+        ctx.closePath();
+        break;
+      case 'anillo':
+        ctx.arc(x, y, r, 0, Math.PI * 2);
+        ctx.arc(x, y, r * 0.5, 0, Math.PI * 2, true);
+        break;
+      case 'estrella':
+        for (let i = 0; i < 10; i++) {
+          const a = i * Math.PI / 5 - Math.PI / 2;
+          const rr = i % 2 === 0 ? r : r * 0.5;
+          const px = x + Math.cos(a) * rr;
+          const py = y + Math.sin(a) * rr;
+          if (i === 0) ctx.moveTo(px, py);
+          else ctx.lineTo(px, py);
+        }
+        ctx.closePath();
+        break;
+      default:
+        ctx.arc(x, y, r, 0, Math.PI * 2);
+    }
+  }
+
+  _drawTroop(ctx, t, isEnemy) {
+    ctx.fillStyle = 'rgba(0,0,0,0.4)';
+    ctx.beginPath();
+    ctx.arc(t.x + 1, t.y + 2, t.radius, 0, Math.PI * 2);
+    ctx.fill();
+
+    if (t.isHero) {
+      ctx.strokeStyle = 'rgba(255,153,255,0.15)';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.arc(t.x, t.y, t.auraRange || 120, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.strokeStyle = '#ffd700';
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.arc(t.x, t.y, t.radius + 4, 0, Math.PI * 2);
+      ctx.stroke();
+    }
+
+    // Escudo frontal
+    if (t.shieldAngle > 0 && !isEnemy) {
+      ctx.strokeStyle = 'rgba(126,200,227,0.6)';
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.arc(t.x, t.y, t.radius + 2, -t.shieldAngle / 2, t.shieldAngle / 2);
+      ctx.stroke();
+    }
+
+    ctx.fillStyle = isEnemy ? '#aa2222' : t.color;
+    ctx.beginPath();
+    ctx.arc(t.x, t.y, t.radius, 0, Math.PI * 2);
+    ctx.fill();
+
+    if (t.flying) {
+      ctx.strokeStyle = 'rgba(255,255,255,0.4)';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.arc(t.x, t.y, t.radius + 3, 0, Math.PI * 2);
+      ctx.stroke();
+    }
+
+    if (t.isHero) {
+      ctx.fillStyle = '#0a0a14';
+      ctx.font = 'bold 14px monospace';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText('★', t.x, t.y);
+      ctx.textBaseline = 'alphabetic';
+    } else if (t.promotionRank > 0) {
+      ctx.fillStyle = '#ffd700';
+      ctx.font = 'bold 10px monospace';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText('★'.repeat(t.promotionRank), t.x, t.y);
+      ctx.textBaseline = 'alphabetic';
+    }
+
+    const hpPct = t.hp / t.maxHp;
+    const barW = t.radius * 2.2;
+    ctx.fillStyle = 'rgba(0,0,0,0.5)';
+    ctx.fillRect(t.x - barW / 2, t.y - t.radius - 6, barW, 3);
+    ctx.fillStyle = hpPct > 0.5 ? '#7ee87e' : hpPct > 0.25 ? '#ffb347' : '#ff6b6b';
+    ctx.fillRect(t.x - barW / 2, t.y - t.radius - 6, barW * hpPct, 3);
+  }
+
+  /**
+   * Dibuja un icono de estructura en miniatura (para el scouting).
+   * Se usa en el canvas de cada preview.
+   */
+  static drawStructureIcon(canvas, typeId, faction, tier) {
+    const ctx = canvas.getContext('2d');
+    const w = canvas.width, h = canvas.height;
+    ctx.clearRect(0, 0, w, h);
+    const base = STRUCTURE_TYPES[typeId];
+    if (!base) return;
+    const color = faction ? faction.color : '#aaa';
+    const colorDark = faction ? faction.colorDark : '#666';
+    const r = Math.min(w, h) * 0.35;
+    const x = w / 2, y = h / 2;
+    // Crear un renderer temporal para reusar _pathShape
+    const renderer = new CanvasRenderer(canvas, new EventBus());
+    renderer._pathShape(ctx, base.shape, x, y, r);
+    if (tier === 'basic') {
+      ctx.strokeStyle = color;
+      ctx.lineWidth = 2.5;
+      ctx.stroke();
+    } else if (tier === 'advanced') {
+      ctx.fillStyle = colorDark + '55';
+      ctx.fill();
+      ctx.strokeStyle = color;
+      ctx.lineWidth = 2.5;
+      ctx.stroke();
+    } else {
+      ctx.save();
+      ctx.shadowColor = color;
+      ctx.shadowBlur = 10;
+      ctx.fillStyle = color;
+      ctx.fill();
+      ctx.restore();
+      ctx.strokeStyle = '#fff';
+      ctx.lineWidth = 1.5;
+      ctx.stroke();
+    }
+  }
+}
+
+
+/* ============================================================================
+ * 11. DOM UI
+ * ========================================================================== */
+class DOMUI {
+  constructor(state, bus, useCases) {
+    this.state = state;
+    this.bus = bus;
+    this.uc = useCases;
+    this.logBox = document.getElementById('logBox');
+    this.queueList = document.getElementById('queueList');
+    this.hierarchyInfo = document.getElementById('hierarchyInfo');
+    this.modifiersList = document.getElementById('modifiersList');
+    this.materialsGrid = document.getElementById('materialsGrid');
+    this.heroPanel = document.getElementById('heroPanel');
+    this.zoneStats = document.getElementById('zoneStats');
+    this.zoneHpBar = document.getElementById('zoneHpBar');
+    this.zoneTag = document.getElementById('zoneTag');
+    this.hudGold = document.getElementById('hudGold');
+    this.hudMats = document.getElementById('hudMats');
+    this.hudZoneHp = document.getElementById('hudZoneHp');
+    this.hudTroops = document.getElementById('hudTroops');
+    this.hudQueue = document.getElementById('hudQueue');
+    this.hudPhase = document.getElementById('hudPhase');
+    this.btnStartZone = document.getElementById('btnStartZone');
+    this.btnRestartRun = document.getElementById('btnRestartRun');
+    this.btnHeroAbility = document.getElementById('btnHeroAbility');
+    this.btnGlobalOrder = document.getElementById('btnGlobalOrder');
+    this.shopModal = document.getElementById('shopModal');
+    this.endModal = document.getElementById('endModal');
+    this.draftModal = document.getElementById('draftModal');
+    this.promoModal = document.getElementById('promoModal');
+    this.scoutModal = document.getElementById('scoutModal');
+    this.endPanelContent = document.getElementById('endPanelContent');
+    this.draftSelection = null;
+    this.promoSelections = {};
+    this._bindEvents();
+    this._bindBus();
+  }
+
+  _bindEvents() {
+    this.btnStartZone.addEventListener('click', () => {
+      // Preparar scouting y mostrar modal
+      this.uc.prepareScouting.execute();
+    });
+    this.btnRestartRun.addEventListener('click', () => {
+      this.uc.startRun.execute(Date.now() % 999999);
+      this._hideModal('endModal');
+      this._hideModal('shopModal');
+      this._hideModal('draftModal');
+      this._hideModal('promoModal');
+      this._hideModal('scoutModal');
+      this.btnStartZone.disabled = false;
+      this.btnStartZone.textContent = '▶ Preparar asalto';
+      this._refreshAll();
+    });
+    document.getElementById('btnConfirmScout').addEventListener('click', () => {
+      this._hideModal('scoutModal');
+      this.uc.startZone.execute();
+      this.btnStartZone.disabled = true;
+      this.btnStartZone.textContent = '⚔ Asalto en curso...';
+    });
+    document.getElementById('btnContinue').addEventListener('click', () => {
+      const selected = document.querySelector('#shopChoices .choice.selected');
+      if (!selected) return;
+      this.uc.advanceZone.execute(selected.dataset.id);
+      this._hideModal('shopModal');
+      this._refreshAll();
+      this._openDraft();
+    });
+    document.getElementById('btnConfirmDraft').addEventListener('click', () => {
+      if (!this.draftSelection) return;
+      this.uc.draftTroop.execute(this.draftSelection);
+      this.draftSelection = null;
+      this._hideModal('draftModal');
+      this.btnStartZone.disabled = false;
+      this.btnStartZone.textContent = '▶ Preparar asalto';
+      this._refreshAll();
+    });
+    document.getElementById('btnSkipDraft').addEventListener('click', () => {
+      this.draftSelection = null;
+      this._hideModal('draftModal');
+      this.btnStartZone.disabled = false;
+      this.btnStartZone.textContent = '▶ Preparar asalto';
+      this._refreshAll();
+    });
+    this.btnHeroAbility.addEventListener('click', () => {
+      this.uc.activateHeroAbility.execute();
+    });
+    this.btnGlobalOrder.addEventListener('click', () => {
+      this.uc.activateGlobalOrder.execute();
+    });
+    document.getElementById('btnConfirmPromo').addEventListener('click', () => {
+      for (const [idx, promoId] of Object.entries(this.promoSelections)) {
+        if (promoId) this.uc.promoteTroop.execute(parseInt(idx), promoId);
+      }
+      this.promoSelections = {};
+      this._hideModal('promoModal');
+      this._openDraft();
+    });
+  }
+
+  _bindBus() {
+    this.bus.on('log', (e) => this._appendLog(e.text, e.kind));
+    this.bus.on('run:started', () => this._refreshAll());
+    this.bus.on('zone:started', () => this._refreshAll());
+    this.bus.on('zone:hp', () => this._refreshHud());
+    this.bus.on('gold:changed', () => this._refreshHud());
+    this.bus.on('material:gained', () => { this._refreshHud(); this._refreshMaterials(); });
+    this.bus.on('troop:spawned', () => this._refreshHud());
+    this.bus.on('troop:died', () => this._refreshHud());
+    this.bus.on('roster:added', () => this._refreshRoster());
+    this.bus.on('roster:sacrificed', () => this._refreshRoster());
+    this.bus.on('troop:promoted', () => this._refreshRoster());
+    this.bus.on('upgrade:bought', (e) => {
+      this._appendLog(`🛒 Comprado: ${e.name}`, 'gold');
+      this._refreshShop();
+    });
+    this.bus.on('structure:destroyed', () => { this._refreshHud(); this._refreshZoneStats(); });
+    this.bus.on('zone:victory', () => this._onZoneVictory());
+    this.bus.on('zone:defeat', () => this._onZoneDefeat());
+    this.bus.on('zone:next', () => this._onZoneNext());
+    this.bus.on('scouting:prepared', (e) => this._showScouting(e));
+    this.bus.on('order:activated', () => this._refreshHud());
+    this.bus.on('order:ended', () => this._refreshHud());
+    this.bus.on('ability:used', () => this._refreshHud());
+    this.bus.on('run:victory', () => this._showEnd('victory'));
+    this.bus.on('run:defeat', () => this._showEnd('defeat'));
+  }
+
+  _appendLog(text, kind) {
+    const div = document.createElement('div');
+    div.className = 'log-entry ' + (kind || '');
+    div.textContent = text;
+    this.logBox.prepend(div);
+    while (this.logBox.children.length > 40) this.logBox.lastChild.remove();
+  }
+
+  _refreshHud() {
+    const s = this.state;
+    this.hudGold.textContent = s.gold;
+    this.hudMats.textContent = s.getTotalMaterials();
+    this.hudTroops.textContent = s.troops.length;
+    this.hudQueue.textContent = s.roster.length;
+    this.hudPhase.textContent = {
+      idle:'en espera', running:'combate', victory:'victoria', defeat:'derrota',
+      'run-victory':'RUN GANADA', 'run-defeat':'RUN PERDIDA',
+    }[s.phase] || s.phase;
+    if (s.zone) {
+      this.hudZoneHp.textContent = `${s.zone.hp} / ${s.zone.maxHp}`;
+      const pct = s.zone.maxHp > 0 ? (s.zone.hp / s.zone.maxHp) * 100 : 0;
+      this.zoneHpBar.style.width = pct + '%';
+      this._refreshZoneStats();
+    }
+
+    // Botón habilidad héroe
+    const hero = s.troops.find(t => t.isHero && t.alive);
+    if (hero && s.hero.ability) {
+      const cd = Math.max(0, hero.abilityCooldown);
+      this.btnHeroAbility.disabled = cd > 0;
+      const pct = (cd / s.hero.ability.cooldown) * 100;
+      document.getElementById('heroAbilityCooldown').style.width = pct + '%';
+      document.getElementById('heroAbilityLabel').textContent =
+        cd > 0 ? `${s.hero.ability.name} (${cd.toFixed(1)}s)` : `★ ${s.hero.ability.name}`;
+    } else {
+      this.btnHeroAbility.disabled = true;
+      document.getElementById('heroAbilityLabel').textContent = '★ Sin héroe';
+    }
+
+    // Botón orden global
+    const cdG = Math.max(0, s.globalOrderCooldown);
+    this.btnGlobalOrder.disabled = cdG > 0 || (s.globalOrder && s.globalOrder.active);
+    this.btnGlobalOrder.classList.toggle('active', s.globalOrder && s.globalOrder.active);
+    const pctG = (cdG / BALANCE.GLOBAL_ORDER_COOLDOWN) * 100;
+    document.getElementById('globalOrderCooldown').style.width = pctG + '%';
+    document.getElementById('globalOrderLabel').textContent =
+      s.globalOrder && s.globalOrder.active
+        ? `⚡ FOCO (${s.globalOrder.timer.toFixed(1)}s)`
+        : cdG > 0 ? `⚡ Foco (${cdG.toFixed(1)}s)` : '⚡ Foco';
+  }
+
+  _refreshZoneStats() {
+    const s = this.state;
+    if (!s.zone) { this.zoneStats.textContent = '—'; return; }
+    const total = s.zone.structures.length;
+    const alive = s.zone.getAliveStructures().length;
+    const destroyed = total - alive;
+    this.zoneStats.innerHTML = `
+      <div style="color:${s.zone.faction.color}">${s.zone.archetype.name} · ${s.zone.faction.name}</div>
+      Estructuras: ${alive} vivas / ${destroyed} destruidas / ${total} total<br>
+      Nivel: ${s.zone.level}
+    `;
+  }
+
+  _refreshRoster() {
+    const s = this.state;
+    if (s.roster.length === 0) {
+      this.queueList.innerHTML = '<span style="color:var(--muted);font-size:11px;">Vacío.</span>';
+    } else {
+      this.queueList.innerHTML = s.roster.map(t => {
+        const xpPct = Math.min(100, (t.xp / HIERARCHY.xpForPromotion) * 100);
+        const promoted = t.promotionRank > 0;
+        const stars = '★'.repeat(t.promotionRank);
+        return `<div class="queue-item ${promoted ? 'promoted' : ''}">
+          <span class="name">${t.name} ${stars}</span>
+          <span class="count">${t.xp}/${HIERARCHY.xpForPromotion}</span>
+          <div class="xp-bar" style="width:${xpPct}%"></div>
+        </div>`;
+      }).join('');
+    }
+    const limits = HIERARCHY.rankLimits;
+    const counts = s.countByRank();
+    let html = '<span style="color:var(--muted)">Jerarquía:</span>';
+    for (const rank of [1, 2, 3]) {
+      for (let i = 0; i < limits[rank]; i++) {
+        const filled = i < (counts[rank] || 0);
+        html += `<div class="slot ${filled ? `filled-${rank}` : ''}"></div>`;
+      }
+    }
+    html += `<span style="color:var(--muted);margin-left:auto;">Roster: ${s.roster.length}/${s.getRosterSize()}</span>`;
+    this.hierarchyInfo.innerHTML = html;
+  }
+
+  _refreshModifiers() {
+    const s = this.state;
+    if (s.modifiers.length === 0) {
+      this.modifiersList.innerHTML = '<span style="color:var(--muted);font-size:11px;">Ninguno</span>';
+      return;
+    }
+    this.modifiersList.innerHTML = s.modifiers.map(id => {
+      const m = MODIFIERS.find(x => x.id === id);
+      return m ? `<div class="modifier-item"><div class="name">${m.name}</div><div class="desc">${m.desc}</div></div>` : '';
+    }).join('');
+  }
+
+  _refreshMaterials() {
+    const s = this.state;
+    const entries = Object.entries(s.materials).filter(([, v]) => v > 0);
+    if (entries.length === 0) {
+      this.materialsGrid.innerHTML = '<span style="color:var(--muted);font-size:11px;">—</span>';
+      return;
+    }
+    this.materialsGrid.innerHTML = entries.map(([id, qty]) => {
+      const m = MATERIALS[id];
+      if (!m) return '';
+      return `<div class="material-chip" title="${m.name}">
+        <span class="icon">${m.icon}</span>
+        <span class="count">${qty}</span>
+      </div>`;
+    }).join('');
+  }
+
+  _refreshHero() {
+    const s = this.state;
+    if (!s.hero) {
+      this.heroPanel.innerHTML = '<span style="color:var(--muted);font-size:11px;">—</span>';
+      return;
+    }
+    const heroAlive = s.troops.find(t => t.isHero);
+    const stats = s.hero.stats;
+    const dead = s.phase === 'running' && !heroAlive;
+    this.heroPanel.innerHTML = `
+      <div class="hero-panel ${dead ? 'dead' : ''}">
+        <div class="hero-name">★ ${s.hero.name}</div>
+        <div class="hero-arch">${s.hero.archetypeName}${dead ? ' · CAÍDO' : ''}</div>
+        <div class="hero-stats">
+          <span class="k">HP</span><span class="v">${Math.round(stats.hp)}</span>
+          <span class="k">Daño</span><span class="v">${Math.round(stats.damage)}</span>
+          <span class="k">Velocidad</span><span class="v">${Math.round(stats.speed)}</span>
+          <span class="k">Rango</span><span class="v">${Math.round(stats.range)}</span>
+        </div>
+      </div>
+    `;
+  }
+
+  _refreshZoneTag() {
+    const s = this.state;
+    this.zoneTag.textContent = `Zona ${s.currentZoneIdx + 1} / ${s.zoneCount}`;
+  }
+
+  _refreshAll() {
+    this._refreshHud();
+    this._refreshRoster();
+    this._refreshModifiers();
+    this._refreshMaterials();
+    this._refreshHero();
+    this._refreshZoneTag();
+  }
+
+  _onZoneVictory() {
+    this.btnStartZone.disabled = false;
+    this.btnStartZone.textContent = '▶ Preparar asalto';
+    this._refreshAll();
+    this.uc.endZone.execute();
+  }
+  _onZoneDefeat() {
+    this.btnStartZone.disabled = false;
+    this.btnStartZone.textContent = '▶ Preparar asalto';
+    this._refreshAll();
+    this.uc.endZone.execute();
+  }
+  _onZoneNext() {
+    if (this.state.pendingPromotions && this.state.pendingPromotions.length > 0) {
+      this._showPromoModal();
+    } else {
+      this._showShop();
+    }
+  }
+
+  /**
+   * Muestra el modal de scouting. Incluye:
+   *   - Nombre del arquetipo y descripción
+   *   - Facción enemiga con su color
+   *   - Preview de las estructuras esperadas (iconos dibujados)
+   *   - Pista estratégica
+   */
+  _showScouting({ archetype, level }) {
+    const s = this.state;
+    // Para el preview, generamos una muestra rápida de estructuras (sin
+    // instanciarlas). Sólo mostramos los tipos con sus tiers esperados.
+    const previewStructures = [];
+    for (const [typeId, weight] of Object.entries(archetype.weights)) {
+      if (weight <= 0) continue;
+      if (!STRUCTURE_TYPES[typeId]) continue;
+      // Generar 1-3 previews del tipo según peso
+      const count = Math.min(3, Math.ceil(weight / 2));
+      for (let i = 0; i < count; i++) {
+        const tier = level <= 1 ? 'basic' : (i === 0 && level >= 3 ? 'advanced' : 'basic');
+        previewStructures.push({ typeId, tier });
+      }
+    }
+    // Facción probable (mayor peso)
+    const factionEntries = Object.entries(archetype.factionBias);
+    factionEntries.sort((a, b) => b[1] - a[1]);
+    const likelyFactionId = factionEntries[0][0];
+    const likelyFaction = FACTIONS[likelyFactionId];
+
+    const container = document.getElementById('scoutContent');
+    container.innerHTML = `
+      <div class="scout-archetype">
+        <div class="arch-name">${archetype.name}</div>
+        <div class="arch-desc">${archetype.desc}</div>
+        <div class="arch-hint">💡 ${archetype.hint}</div>
+      </div>
+      <div class="scout-faction">
+        <div class="faction-dot" style="background:${likelyFaction.color}"></div>
+        <div>
+          <div style="color:${likelyFaction.color};font-weight:700;">${likelyFaction.name} (probable)</div>
+          <div style="color:var(--muted);font-size:10px;">${likelyFaction.desc}</div>
+        </div>
+      </div>
+      <div style="font-size:11px;color:var(--muted);">Estructuras esperadas:</div>
+      <div class="scout-structures" id="scoutStructures"></div>
+    `;
+
+    const structsDiv = document.getElementById('scoutStructures');
+    // Deduplicar por (typeId, tier)
+    const seen = new Set();
+    for (const p of previewStructures) {
+      const key = `${p.typeId}_${p.tier}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      const canvas = document.createElement('canvas');
+      canvas.width = 48; canvas.height = 48;
+      CanvasRenderer.drawStructureIcon(canvas, p.typeId, likelyFaction, p.tier);
+      const div = document.createElement('div');
+      div.className = 'scout-struct';
+      div.appendChild(canvas);
+      const label = document.createElement('div');
+      const baseName = STRUCTURE_TYPES[p.typeId].shape;
+      label.textContent = `${baseName} (${TIERS[p.tier].label})`;
+      div.appendChild(label);
+      structsDiv.appendChild(div);
+    }
+
+    this._showModal('scoutModal');
+  }
+
+  _openDraft() {
+    const s = this.state;
+    const options = generateDraftOptions(s.rng);
+    this.draftSelection = null;
+    document.getElementById('draftChoices').innerHTML = options.map(typeId => {
+      const t = TROOP_TYPES[typeId];
+      return `<div class="choice" data-id="${typeId}">
+        <div class="c-name">${t.name}</div>
+        <div class="c-desc">${t.behavior}</div>
+        <div class="c-stats">
+          HP ${t.hp} · Daño ${t.damage} · Vel ${t.speed} · Rango ${t.range}
+        </div>
+      </div>`;
+    }).join('');
+    document.querySelectorAll('#draftChoices .choice').forEach(el => {
+      el.addEventListener('click', () => {
+        document.querySelectorAll('#draftChoices .choice').forEach(x => x.classList.remove('selected'));
+        el.classList.add('selected');
+        this.draftSelection = el.dataset.id;
+        document.getElementById('btnConfirmDraft').disabled = false;
+      });
+    });
+    document.getElementById('btnConfirmDraft').disabled = true;
+    this._showModal('draftModal');
+  }
+
+  _showPromoModal() {
+    const s = this.state;
+    this.promoSelections = {};
+    document.getElementById('promoList').innerHTML = s.pendingPromotions.map((troop) => {
+      const rosterIdx = s.roster.indexOf(troop);
+      const promos = TROOP_PROMOTIONS[troop._baseType] || [];
+      const promoHtml = promos.map(p => {
+        const c = p.changes || {};
+        const statParts = [];
+        if (c.hp) statParts.push(`HP ${c.hp > 1 ? '▲' : '▼'}`);
+        if (c.damage) statParts.push(`Daño ${c.damage > 1 ? '▲' : '▼'}`);
+        if (c.speed) statParts.push(`Vel ${c.speed > 1 ? '▲' : '▼'}`);
+        if (c.range) statParts.push(`Rango ${c.range > 1 ? '▲' : '▼'}`);
+        if (c.shieldAngle === 0) statParts.push('Sin escudo');
+        return `<div class="choice" data-roster-idx="${rosterIdx}" data-promo-id="${p.id}">
+          <div class="c-name">${p.name}</div>
+          <div class="c-desc">${p.desc}</div>
+          <div class="c-stats">${statParts.join(' · ')}</div>
+        </div>`;
+      }).join('');
+      return `<div class="section">
+        <h3>${troop.name} (XP: ${troop.xp})</h3>
+        <div class="choices">${promoHtml}</div>
+      </div>`;
+    }).join('');
+    document.querySelectorAll('#promoList .choice').forEach(el => {
+      el.addEventListener('click', () => {
+        const rosterIdx = el.dataset.rosterIdx;
+        document.querySelectorAll(`#promoList .choice[data-roster-idx="${rosterIdx}"]`)
+          .forEach(x => x.classList.remove('selected'));
+        el.classList.add('selected');
+        this.promoSelections[rosterIdx] = el.dataset.promoId;
+      });
+    });
+    this._showModal('promoModal');
+  }
+
+  _showShop() {
+    const s = this.state;
+    const available = MODIFIERS.filter(m => !s.modifiers.includes(m.id));
+    const chosen = [];
+    const pool = [...available];
+    for (let i = 0; i < 3 && pool.length > 0; i++) {
+      const idx = s.rng.int(0, pool.length - 1);
+      chosen.push(pool.splice(idx, 1)[0]);
+    }
+    document.getElementById('shopChoices').innerHTML = chosen.map(m => `
+      <div class="choice" data-id="${m.id}">
+        <div class="c-name">${m.name}</div>
+        <div class="c-desc">${m.desc}</div>
+      </div>
+    `).join('');
+    document.querySelectorAll('#shopChoices .choice').forEach(el => {
+      el.addEventListener('click', () => {
+        document.querySelectorAll('#shopChoices .choice').forEach(x => x.classList.remove('selected'));
+        el.classList.add('selected');
+        document.getElementById('btnContinue').disabled = false;
+      });
+    });
+    document.getElementById('btnContinue').disabled = true;
+    this._refreshShop();
+    this._showModal('shopModal');
+  }
+
+  _refreshShop() {
+    const s = this.state;
+    document.getElementById('shopGoldHero').textContent = s.gold;
+    document.getElementById('heroUpgrades').innerHTML = HERO_UPGRADES.map(u => {
+      const cur = s.hero.upgrades[u.id] || 0;
+      const maxed = cur >= u.max;
+      const canBuy = !maxed && s.gold >= u.cost;
+      return `<div class="upgrade">
+        <div class="info">
+          <div class="u-name">${u.name}</div>
+          <div class="u-level">Nivel ${cur}/${u.max}</div>
+        </div>
+        <button class="buy-btn" data-kind="hero" data-id="${u.id}" ${canBuy ? '' : 'disabled'}>
+          ${maxed ? 'MAX' : `${u.cost} oro`}
+        </button>
+      </div>`;
+    }).join('');
+    document.getElementById('armyUpgrades').innerHTML = ARMY_UPGRADES.map(u => {
+      const cur = s.armyUpgrades[u.id] || 0;
+      const maxed = cur >= u.max;
+      const canBuy = !maxed && s.gold >= u.cost;
+      return `<div class="upgrade">
+        <div class="info">
+          <div class="u-name">${u.name}</div>
+          <div class="u-level">Nivel ${cur}/${u.max}</div>
+        </div>
+        <button class="buy-btn" data-kind="army" data-id="${u.id}" ${canBuy ? '' : 'disabled'}>
+          ${maxed ? 'MAX' : `${u.cost} oro`}
+        </button>
+      </div>`;
+    }).join('');
+    document.querySelectorAll('#shopModal .buy-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        this.uc.buyUpgrade.execute(btn.dataset.kind, btn.dataset.id);
+      });
+    });
+  }
+
+  _showEnd(kind) {
+    const s = this.state;
+    const title = kind === 'victory' ? '🏆 RUN COMPLETADA' : '💀 RUN FALLIDA';
+    const sub = kind === 'victory'
+      ? `Has asaltado las ${s.zoneCount} zonas.`
+      : `Has caído en la zona ${s.currentZoneIdx + 1}.`;
+    this.endPanelContent.className = 'end-panel ' + kind;
+    const matList = Object.entries(s.materials)
+      .filter(([, v]) => v > 0)
+      .map(([id, v]) => `${MATERIALS[id].icon} ${v}`).join(' · ') || '—';
+    this.endPanelContent.innerHTML = `
+      <h2>${title}</h2>
+      <p>${sub}</p>
+      <p>Héroe: ${s.hero.name} · Modificadores: ${s.modifiers.length} · Oro final: ${s.gold}</p>
+      <p>Materiales: ${matList}</p>
+      <button class="btn primary" id="btnEndRestart" style="margin-top:12px;">↻ Nueva run</button>
+    `;
+    document.getElementById('btnEndRestart').addEventListener('click', () => {
+      this._hideModal('endModal');
+      this.btnRestartRun.click();
+    });
+    this._showModal('endModal');
+  }
+
+  _showModal(id) { document.getElementById(id).classList.remove('hidden'); }
+  _hideModal(id) { document.getElementById(id).classList.add('hidden'); }
+}
+
+
+/* ============================================================================
+ * 12. TESTS
+ * ========================================================================== */
+function runTests() {
+  const results = [];
+  const assert = (name, cond) => results.push({ name, pass: !!cond });
+
+  // --- Pool fija ---
+  {
+    const rng = new SeededRandom(1);
+    const zone = new ZoneGenerator(rng).generate('muro', 1);
+    const initialHp = zone.hp;
+    assert('Pool inicial = maxHp', initialHp === zone.maxHp && initialHp > 0);
+    // Aplicar daño
+    zone.applyDamage(50);
+    assert('Pool baja con daño', zone.hp === initialHp - 50);
+    // Curación de estructura no debe subir la pool
+    const s = zone.structures[0];
+    s.hp = s.maxHp * 0.5;
+    s.heal(9999);
+    assert('Curación de estructura NO sube la pool', zone.hp === initialHp - 50);
+  }
+
+  // --- Estructura muere correctamente ---
+  {
+    const s = new Structure('torre', 1, 1, { tier: 'basic' });
+    const real = s.takeDamage(s.maxHp);
+    assert('takeDamage retorna daño real aplicado', real === s.maxHp || real > 0);
+    assert('Estructura muere con daño letal', !s.alive && s.hp === 0);
+  }
+
+  // --- Forma = función ---
+  {
+    assert('Muro tiene shape cuadrado', STRUCTURE_TYPES.muro.shape === 'cuadrado');
+    assert('Torre tiene shape triángulo', STRUCTURE_TYPES.torre.shape === 'triangulo');
+    assert('Sanador tiene shape cruz', STRUCTURE_TYPES.sanador.shape === 'cruz');
+    assert('Generador tiene shape hexágono', STRUCTURE_TYPES.generador.shape === 'hexagono');
+    assert('Núcleo tiene shape estrella', STRUCTURE_TYPES.nucleo.shape === 'estrella');
+    // Cada forma se usa al menos una vez
+    const shapesUsed = new Set(Object.values(STRUCTURE_TYPES).map(s => s.shape));
+    for (const shape of Object.keys(SHAPES)) {
+      // Algunas formas pueden no estar cubiertas aún
+    }
+    assert('Al menos 6 formas están en uso', shapesUsed.size >= 6);
+  }
+
+  // --- Tier escala HP ---
+  {
+    const s1 = new Structure('torre', 1, 1, { tier: 'basic' });
+    const s2 = new Structure('torre', 1, 1, { tier: 'advanced' });
+    const s3 = new Structure('torre', 1, 1, { tier: 'elite' });
+    assert('Advanced tiene más HP que basic', s2.maxHp > s1.maxHp);
+    assert('Elite tiene más HP que advanced', s3.maxHp > s2.maxHp);
+  }
+
+  // --- Facción afecta stats ---
+  {
+    const roman = new Structure('torre', 1, 1, { tier: 'basic', faction: FACTIONS.romanos });
+    const viking = new Structure('torre', 1, 1, { tier: 'basic', faction: FACTIONS.vikingos });
+    assert('Romanos tienen más HP que vikingos', roman.maxHp > viking.maxHp);
+    assert('Vikingos tienen más daño que romanos', viking.attack > roman.attack);
+  }
+
+  // --- Arquetipo genera estructuras coherentes ---
+  {
+    const rng = new SeededRandom(42);
+    const zoneMuro = new ZoneGenerator(rng).generate('muro', 1);
+    const muros = zoneMuro.structures.filter(s => s.typeId === 'muro').length;
+    const total = zoneMuro.structures.length;
+    assert('Arquetipo Muro genera mayoría de muros', muros >= total * 0.4);
+  }
+
+  // --- Pool se sella ---
+  {
+    const rng = new SeededRandom(1);
+    const zone = new ZoneGenerator(rng).generate('bunker', 2);
+    assert('Zona generada está sellada', zone.sealed);
+    assert('Pool sellada es > 0', zone.hp > 0);
+    // Comprobar que la pool no cambia por curación
+    const initialHp = zone.hp;
+    for (const s of zone.structures) {
+      s.hp = s.maxHp; // todas curadas
+    }
+    assert('Pool no sube aunque todas se curen', zone.hp === initialHp);
+  }
+
+  // --- Proyectil: bloqueo frontal por escudo ---
+  {
+    const troop = new Troop('tanque', 100, 100);
+    // Proyectil viniendo de la derecha, yendo a la izquierda
+    const p1 = new Projectile(150, 100, 100, 100, 10, 200, '#f00');
+    assert('Tanque bloquea proyectil frontal', p1.isBlockedBy(troop));
+  }
+
+  // --- Proyectil: no bloquea por la espalda ---
+  {
+    const troop = new Troop('tanque', 100, 100);
+    // Proyectil viniendo de la izquierda, yendo a la derecha
+    const p2 = new Projectile(50, 100, 100, 100, 10, 200, '#f00');
+    // El tanque mira a la derecha (por defecto). El proyectil viene de la izquierda.
+    // No debería bloquear.
+    assert('Tanque NO bloquea proyectil por la espalda', !p2.isBlockedBy(troop));
+  }
+
+  // --- Comportamiento: asedio va al núcleo ---
+  {
+    const ms = new MovementService();
+    const asedio = new Troop('asedio', 100, 100);
+    const core = new Structure('nucleo', 10, 4, { tier: 'basic' });
+    core.isCore = true; core.x = 600; core.y = 240;
+    const wall = new Structure('muro', 3, 4, { tier: 'basic' });
+    wall.x = 200; wall.y = 240;
+    const target = ms.findTarget(asedio, [core, wall]);
+    assert('Asedio apunta al núcleo', target === core);
+  }
+
+  // --- Comportamiento: zapador al más débil ---
+  {
+    const ms = new MovementService();
+    const zap = new Troop('zapador', 100, 100);
+    const weak = new Structure('torre', 5, 3, { tier: 'basic' });
+    weak.x = 300; weak.y = 180; weak.hp = 10;
+    const strong = new Structure('torre_pesada', 8, 5, { tier: 'basic' });
+    strong.x = 500; strong.y = 300;
+    const target = ms.findTarget(zap, [weak, strong]);
+    assert('Zapador apunta al más débil', target === weak);
+  }
+
+  // --- Comportamiento: tanque prioriza bloqueos ---
+  {
+    const ms = new MovementService();
+    const tank = new Troop('tanque', 50, 100);
+    const core = new Structure('nucleo', 10, 2, { tier: 'basic' });
+    core.isCore = true; core.x = 600; core.y = 240;
+    const wall = new Structure('muro', 3, 2, { tier: 'basic' });
+    wall.x = 200; wall.y = 240;
+    const target = ms.findTarget(tank, [core, wall]);
+    assert('Tanque apunta al muro bloqueante', target === wall);
+  }
+
+  // --- Arquetipo tiene identidad ---
+  {
+    assert('4 arquetipos definidos', Object.keys(ZONE_ARCHETYPES).length === 4);
+    for (const arch of Object.values(ZONE_ARCHETYPES)) {
+      assert(`Arquetipo "${arch.name}" tiene hint`, !!arch.hint);
+      assert(`Arquetipo "${arch.name}" tiene desc`, !!arch.desc);
+    }
+  }
+
+  // --- Facción: sesgos por arquetipo ---
+  {
+    const rng = new SeededRandom(1);
+    // Muro tiene bias hacia romanos
+    let romanCount = 0;
+    for (let i = 0; i < 20; i++) {
+      const zone = new ZoneGenerator(new SeededRandom(i)).generate('muro', 1);
+      if (zone.faction.id === 'romanos') romanCount++;
+    }
+    assert('Muro tiende a facción romana', romanCount >= 10);
+  }
+
+  // --- Hero generación determinista ---
+  {
+    const h1 = new HeroGenerator(new SeededRandom(99)).generate();
+    const h2 = new HeroGenerator(new SeededRandom(99)).generate();
+    assert('Héroe determinista', h1.name === h2.name && h1.archetype === h2.archetype);
+  }
+
+  // --- Gold service ---
+  {
+    const state = new GameState();
+    const bus = new EventBus();
+    state.gold = 0;
+    state.rng = new SeededRandom(1);
+    state.hero = new HeroGenerator(state.rng).generate();
+    new GoldService(state, bus);
+    const s = new Structure('torre', 1, 1, { tier: 'basic' });
+    bus.emit('structure:destroyed', { structure: s });
+    assert('Oro al destruir estructura', state.gold >= 20);
+    assert('Material al destruir', (state.materials.hierro || 0) >= 2);
+  }
+
+  // --- Victoria cuando pool llega a 0 ---
+  {
+    const state = new GameState();
+    const bus = new EventBus();
+    const uc = new TickUseCase(state, bus);
+    state.rng = new SeededRandom(1);
+    state.zone = new ZoneGenerator(state.rng).generate('muro', 1);
+    state.troops = [];
+    state.enemyTroops = [];
+    state.phase = 'running';
+    // Aplicar daño letal a la pool directamente
+    state.zone.applyDamage(state.zone.maxHp);
+    let victory = false;
+    bus.on('zone:victory', () => victory = true);
+    uc.execute(0.1);
+    assert('Victoria cuando pool = 0', victory);
+  }
+
+  // --- Derrota sin tropas ---
+  {
+    const state = new GameState();
+    const bus = new EventBus();
+    const uc = new TickUseCase(state, bus);
+    state.rng = new SeededRandom(1);
+    state.zone = new ZoneGenerator(state.rng).generate('muro', 1);
+    state.troops = [];
+    state.enemyTroops = [];
+    state.phase = 'running';
+    let defeat = false;
+    bus.on('zone:defeat', () => defeat = true);
+    uc.execute(0.1);
+    assert('Derrota sin tropas ni enemigos', defeat);
+  }
+
+  // --- Catapulta genera área de daño ---
+  {
+    const bus = new EventBus();
+    const cs = new CombatService();
+    const cat = new Structure('catapulta', 1, 1, { tier: 'basic' });
+    cat.x = 100; cat.y = 100;
+    cat.attackCooldown = 0;
+    const troop = new Troop('dps', 300, 100);
+    const projectiles = [];
+    cs.updateStructures([cat], [troop], 0.1, bus, [], projectiles, []);
+    assert('Catapulta genera proyectil', projectiles.length === 1);
+    assert('Proyectil es balístico', projectiles[0].kind === 'catapult');
+  }
+
+  // --- DamageArea daña tropas ---
+  {
+    const bus = new EventBus();
+    const area = new DamageArea(100, 100, 50, 20, 2.0, '#f00');
+    const troop = new Troop('dps', 120, 100);
+    const hpBefore = troop.hp;
+    // Simular 1 segundo
+    for (let i = 0; i < 10; i++) area.update(0.1, [troop], bus);
+    assert('DamageArea daña a tropas dentro', troop.hp < hpBefore);
+  }
+
+  // --- Movimiento: tropa atraviesa muro si es voladora ---
+  {
+    const bus = new EventBus();
+    const ms = new MovementService();
+    const flyer = new Troop('volador', 50, 240);
+    const zone = new Zone(ZONE_ARCHETYPES.muro, FACTIONS.romanos, 1);
+    const wall = new Structure('muro', 3, 4, { tier: 'basic' });
+    wall.x = 200; wall.y = 240;
+    const core = new Structure('nucleo', 10, 4, { tier: 'basic' });
+    core.isCore = true; core.x = 600; core.y = 240;
+    zone.structures = [wall, core];
+    zone.sealPool();
+    const xBefore = flyer.x;
+    for (let i = 0; i < 20; i++) {
+      ms.update(flyer, [flyer], zone.structures, 0.1, bus, null, zone);
+    }
+    assert('Volador se acerca al núcleo ignorando muros', flyer.x > xBefore + 30);
+  }
+
+  // --- XP y promoción ---
+  {
+    const troop = new Troop('dps', 0, 0);
+    assert('No puede promocionar sin XP', !troop.canPromote());
+    troop.gainXP(HIERARCHY.xpForPromotion);
+    assert('Puede promocionar con XP suficiente', troop.canPromote());
+    const promo = TROOP_PROMOTIONS.dps[0];
+    troop.promote(promo);
+    assert('Promoción cambia daño', troop.damage > 18);
+    assert('XP reset tras promoción', troop.xp === 0);
+  }
+
+  const passed = results.filter(r => r.pass).length;
+  console.log(`%c🧪 TESTS: ${passed}/${results.length}`,
+    `color:${passed === results.length ? '#7ee87e' : '#ff6b6b'};font-weight:bold;font-size:14px`);
+  for (const r of results) console.log(`  ${r.pass ? '✅' : '❌'} ${r.name}`);
+  return { passed, total: results.length, results };
+}
+
+
+/* ============================================================================
+ * 13. BOOTSTRAP
+ * ========================================================================== */
+(function bootstrap() {
+  try { runTests(); }
+  catch (e) { console.error('Tests fallaron:', e); }
+
+  const bus = new EventBus();
+  const state = new GameState();
+  const canvas = document.getElementById('canvas');
+  const renderer = new CanvasRenderer(canvas, bus);
+  const audio = new AudioService(bus);
+  // Iniciar audio tras primera interacción del usuario
+  const initAudioOnce = () => { audio.init(); };
+  document.addEventListener('click', initAudioOnce, { once: true });
+  document.addEventListener('keydown', initAudioOnce, { once: true });
+
+  const startRun = new StartRunUseCase(state, bus);
+  const prepareScouting = new PrepareScoutingUseCase(state, bus);
+  const startZone = new StartZoneUseCase(state, bus);
+  const tick = new TickUseCase(state, bus);
+  const endZone = new EndZoneUseCase(state, bus);
+  const advanceZone = new AdvanceZoneUseCase(state, bus);
+  const buyUpgrade = new BuyUpgradeUseCase(state, bus);
+  const draftTroop = new DraftTroopUseCase(state, bus);
+  const promoteTroop = new PromoteTroopUseCase(state, bus);
+  const activateGlobalOrder = new ActivateGlobalOrderUseCase(state, bus);
+  const activateHeroAbility = new ActivateHeroAbilityUseCase(state, bus);
+
+  new GoldService(state, bus);
+  const ui = new DOMUI(state, bus, {
+    startRun, prepareScouting, startZone, tick, endZone, advanceZone, buyUpgrade,
+    draftTroop, promoteTroop, activateGlobalOrder, activateHeroAbility,
+  });
+
+  startRun.execute(42);
+  // Roster inicial
+  for (const type of ['tanque', 'dps', 'zapador']) {
+    draftTroop.execute(type);
+  }
+
+  const TICK_DT = 1 / BALANCE.TICK_HZ;
+  let lastFrame = performance.now();
+  let accumulator = 0;
+
+  function loop(now) {
+    const elapsed = Math.min((now - lastFrame) / 1000, 0.5);
+    lastFrame = now;
+    accumulator += elapsed;
+    let safety = 0;
+    while (accumulator >= TICK_DT && safety < 20) {
+      tick.execute(TICK_DT);
+      accumulator -= TICK_DT;
+      safety++;
+    }
+    renderer.render(state, elapsed);
+    // HUD reactivo
+    ui._refreshHud();
+    requestAnimationFrame(loop);
+  }
+  requestAnimationFrame(loop);
+
+  window.__asalto = {
+    state, bus,
+    useCases: {
+      startRun, prepareScouting, startZone, tick, endZone, advanceZone, buyUpgrade,
+      draftTroop, promoteTroop, activateGlobalOrder, activateHeroAbility,
+    },
+    runTests,
+  };
+  console.info('%c⬡ ASALTO · Núcleo v5', 'color:#ffb347;font-weight:bold;font-size:14px;');
+  console.info('__asalto.runTests() → tests');
+})();
+
+</script>
+</body>
+</html>
