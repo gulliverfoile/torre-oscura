@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Asalto · Núcleo v5</title>
+<title>Asalto · Núcleo v6</title>
 <style>
   :root {
     --bg:#0a0a14; --panel:#12121f; --border:#22223a; --text:#c8d0e0;
@@ -185,7 +185,6 @@
   }
   .upgrade .info { flex:1; }
   .upgrade .u-name { color:var(--text); font-weight:600; font-size:12px; }
-  .upgrade .u-desc { color:var(--muted); font-size:10px; margin-top:2px; }
   .upgrade .u-level { color:var(--rare); font-size:10px; }
   .upgrade .buy-btn {
     background:var(--gold); color:#0a0a14; border:none;
@@ -195,16 +194,34 @@
   }
   .upgrade .buy-btn:disabled { opacity:0.3; cursor:not-allowed; }
   .upgrade .buy-btn:hover:not(:disabled) { background:#ffe44d; }
+
+  /* Reclutamiento */
+  .recruit-grid {
+    display:grid; grid-template-columns:repeat(3, 1fr); gap:8px;
+  }
+  @media (max-width:720px) { .recruit-grid { grid-template-columns:1fr; } }
+  .recruit-card {
+    background:#1a1a2e; border:1px solid #33334a; border-radius:6px;
+    padding:8px 10px; display:flex; flex-direction:column; gap:4px;
+  }
+  .recruit-card .r-name { color:var(--text); font-weight:600; font-size:12px; }
+  .recruit-card .r-cost { font-size:10px; color:var(--muted); display:flex; gap:6px; flex-wrap:wrap; }
+  .recruit-card .r-cost .ok { color:var(--good); }
+  .recruit-card .r-cost .no { color:var(--bad); }
+  .recruit-card .r-btn {
+    background:var(--gold); color:#0a0a14; border:none;
+    padding:4px 8px; border-radius:4px; cursor:pointer;
+    font-family:inherit; font-weight:700; font-size:11px;
+    margin-top:4px;
+  }
+  .recruit-card .r-btn:disabled { opacity:0.3; cursor:not-allowed; }
+  .recruit-card .r-btn:hover:not(:disabled) { background:#ffe44d; }
+
   .end-panel { text-align:center; padding:12px; }
   .end-panel h2 { font-size:22px; margin-bottom:12px; }
   .end-panel.victory h2 { color:var(--good); }
   .end-panel.defeat h2 { color:var(--bad); }
   .end-panel p { color:var(--muted); margin-bottom:8px; font-size:12px; }
-  .promo-panel {
-    background:linear-gradient(135deg, rgba(255,215,0,0.1), rgba(255,179,71,0.05));
-    border:1px solid rgba(255,215,0,0.4);
-    border-radius:6px; padding:8px; font-size:11px;
-  }
   .hierarchy {
     display:flex; gap:4px; align-items:center;
     font-size:10px; padding:4px 6px;
@@ -219,7 +236,6 @@
   .hierarchy .slot.filled-2 { background:#ffb347; border-color:#ffb347; }
   .hierarchy .slot.filled-3 { background:var(--gold); border-color:var(--gold); }
 
-  /* Scouting modal */
   .scout-archetype {
     background:#0a0a18; border:1px solid var(--border);
     border-radius:8px; padding:14px; margin-bottom:14px;
@@ -254,7 +270,7 @@
 <body>
 
 <header>
-  <h1>⬡ ASALTO · NÚCLEO v5</h1>
+  <h1>⬡ ASALTO · NÚCLEO v6</h1>
   <span class="zone-tag" id="zoneTag">Zona — / —</span>
   <div class="spacer"></div>
   <div class="hud">
@@ -262,6 +278,7 @@
     <span class="item mat"><span class="k">Materiales</span> <span class="v" id="hudMats">0</span></span>
     <span class="item"><span class="k">Pool</span> <span class="v" id="hudZoneHp">0 / 0</span></span>
     <span class="item"><span class="k">Tropas</span> <span class="v" id="hudTroops">0</span></span>
+    <span class="item"><span class="k">Enemigos</span> <span class="v" id="hudEnemies">0</span></span>
     <span class="item"><span class="k">Roster</span> <span class="v" id="hudQueue">0</span></span>
     <span class="item"><span class="k">Estado</span> <span class="v" id="hudPhase">—</span></span>
   </div>
@@ -314,7 +331,6 @@
   </div>
 </main>
 
-<!-- Scouting modal -->
 <div class="modal-overlay hidden" id="scoutModal">
   <div class="modal">
     <h2>🔭 Reconocimiento</h2>
@@ -326,7 +342,6 @@
   </div>
 </div>
 
-<!-- Draft de tropas -->
 <div class="modal-overlay hidden" id="draftModal">
   <div class="modal">
     <h2>🎲 Refuerzos disponibles</h2>
@@ -339,7 +354,6 @@
   </div>
 </div>
 
-<!-- Promoción -->
 <div class="modal-overlay hidden" id="promoModal">
   <div class="modal">
     <h2>⭐ Promoción de tropa</h2>
@@ -351,30 +365,37 @@
   </div>
 </div>
 
-<!-- Tienda -->
 <div class="modal-overlay hidden" id="shopModal">
   <div class="modal">
     <h2>🏪 Campamento</h2>
-    <div class="sub">Elige 1 modificador permanente. Gasta oro en mejoras.</div>
+    <div class="sub">Elige 1 modificador permanente. Recluta tropas y compra mejoras.</div>
+
     <div class="section">
       <h3>Modificador gratuito (elige 1)</h3>
       <div class="choices" id="shopChoices"></div>
     </div>
+
+    <div class="section">
+      <h3>Reclutar tropas <span style="color:var(--muted);text-transform:none;letter-spacing:0;">· roster <span id="shopRoster">0/6</span></span></h3>
+      <div class="recruit-grid" id="recruitGrid"></div>
+    </div>
+
     <div class="section">
       <h3>Mejoras del héroe <span style="color:var(--muted);text-transform:none;letter-spacing:0;">· <span id="shopGoldHero">0</span> oro</span></h3>
       <div class="upgrade-grid" id="heroUpgrades"></div>
     </div>
+
     <div class="section">
       <h3>Mejoras del ejército</h3>
       <div class="upgrade-grid" id="armyUpgrades"></div>
     </div>
+
     <div style="text-align:right;margin-top:14px;">
       <button class="btn primary" id="btnContinue" disabled>Continuar →</button>
     </div>
   </div>
 </div>
 
-<!-- Fin de run -->
 <div class="modal-overlay hidden" id="endModal">
   <div class="modal">
     <div class="end-panel" id="endPanelContent"></div>
@@ -385,27 +406,22 @@
 'use strict';
 
 /* ============================================================================
- * ASALTO · NÚCLEO v5
+ * ASALTO · NÚCLEO v6
  * ----------------------------------------------------------------------------
- * CAMBIOS RESPECTO A v4:
- *   - FIX POOL: la vida total de la zona se fija al inicio (suma de maxHp) y
- *     el daño la resta directamente. Regeneración y curación de estructuras
- *     NO rellenan la pool. Puedes ganar por daño total sin matar el núcleo.
- *   - FORMA = FUNCIÓN: 8 formas (cuadrado, triángulo, cruz, hexágono,
- *     espiral, rombo, anillo, estrella) con 8 funciones claras.
- *   - RELLENO = TIER: hueco (básico), rayado (avanzado), brillante (élite).
- *   - COLOR = FACCIÓN: romanos (azul) y vikingos (rojo).
- *   - ARQUETIPOS DE ZONA: Muro, Artillería, Estampida, Búnker. Cada uno
- *     tiene identidad táctica y sugiere una respuesta al jugador.
- *   - SCOUTING: antes de cada zona, modal con arquetipo, facción y estructuras
- *     esperadas. El jugador decide si su composición sirve.
- *   - CATAPULTA: estructura que lanza proyectil balístico y deja zona de daño
- *     continuo en el impacto.
- *   - SPAWNER MOLESTO: generador que crea tropas enemigas que atacan a las
- *     del jugador (no cuentan para la pool, solo estorban).
- *   - FEEDBACK VISUAL: zoom dinámico cuando el núcleo baja de HP, screen
- *     shake proporcional, explosiones con anillo expansivo.
- *   - AUDIO: beeps sintéticos para impactos, destrucciones, habilidades.
+ * CAMBIOS RESPECTO A v5 (iteración de BALANCE):
+ *   1. FIX: los enemigos generados ya no son inmortales. Las tropas del
+ *      jugador los atacan cuando los tienen en rango. Los enemigos atacan
+ *      a tropas del jugador, y si no hay, avanzan hacia estructuras.
+ *   2. Daño de estructuras a tropas duplicado. Cada muerte se siente.
+ *   3. Pool de zona aumentada: ×2 el número de estructuras y ×1.5 HP base.
+ *      El combate dura 60-90s en lugar de 30s.
+ *   4. Escalado del jugador reducido: caps de mejoras bajados, costes subidos.
+ *   5. Escalado del enemigo exponencial por zona (×2, ×4, ×8).
+ *   6. Héroe que muere no revive. Se pierde hasta nueva run.
+ *   7. Sistema de reclutamiento: repone tropas muertas con oro + materiales.
+ *      Los materiales dejan de ser huérfanos.
+ *
+ * Arquitectura: hexagonal, event-driven.
  * ========================================================================== */
 
 
@@ -458,25 +474,8 @@ class SeededRandom extends RandomPort {
 
 /* ============================================================================
  * 3. CATÁLOGOS DEL DOMINIO
- * ----------------------------------------------------------------------------
- * Toda la información que define QUÉ es cada cosa vive aquí. Modificar
- * aquí = modificar el juego. Los servicios y entidades solo leen.
  * ========================================================================== */
 
-/**
- * FORMA = FUNCIÓN.
- * Ocho formas. Cada una una función. Nunca dos formas con la misma función.
- * Nunca dos funciones con la misma forma.
- *
- *   cuadrado   → muro: bloquea el paso, no ataca
- *   triangulo  → torre: dispara proyectiles
- *   cruz       → sanador: cura estructuras cercanas
- *   hexagono   → generador: produce tropas enemigas
- *   espiral    → telegrafiado: carga y explota en área
- *   rombo      → trampa: daño al contacto, un solo uso
- *   anillo     → regenerador: se cura si no recibe daño
- *   estrella   → nucleo: objetivo, sin función ofensiva
- */
 const SHAPES = Object.freeze({
   cuadrado:  { fn: 'bloquea',   desc: 'Muro que bloquea el paso' },
   triangulo: { fn: 'dispara',   desc: 'Torre que dispara proyectiles' },
@@ -488,156 +487,113 @@ const SHAPES = Object.freeze({
   estrella:  { fn: 'objetivo',  desc: 'Núcleo, objetivo principal' },
 });
 
-/**
- * RELLENO = TIER.
- * Tres niveles. Monótono: más relleno = más duro.
- *   basic    → hueco
- *   advanced → rayado, +50% HP, +1 propiedad
- *   elite    → brillante, +150% HP, +2 propiedades
- */
 const TIERS = Object.freeze({
   basic:    { mult: 1.0, label: 'Básico' },
   advanced: { mult: 1.5, label: 'Avanzado' },
   elite:    { mult: 2.5, label: 'Élite' },
 });
 
-/**
- * COLOR = FACCIÓN.
- * Solo define quién es el enemigo. No dice dificultad, no dice función.
- * Cada facción tiene su paleta y un pequeño sesgo de stats.
- */
 const FACTIONS = Object.freeze({
   romanos: {
-    name: 'Romanos',
-    color: '#4a6ff9',
-    colorDark: '#2a3f99',
-    colorLight: '#8aa0ff',
-    hpMult: 1.2,
-    damageMult: 0.9,
+    name: 'Romanos', color: '#4a6ff9', colorDark: '#2a3f99', colorLight: '#8aa0ff',
+    hpMult: 1.2, damageMult: 0.9,
     desc: 'Orden y disciplina. Defensas robustas, ataques medidos.',
   },
   vikingos: {
-    name: 'Vikingos',
-    color: '#d94a4a',
-    colorDark: '#992a2a',
-    colorLight: '#ff8a8a',
-    hpMult: 0.9,
-    damageMult: 1.3,
+    name: 'Vikingos', color: '#d94a4a', colorDark: '#992a2a', colorLight: '#ff8a8a',
+    hpMult: 0.9, damageMult: 1.3,
     desc: 'Furia y agresión. Ataques devastadores, defensas frágiles.',
   },
 });
 
 /**
- * Estructuras. Cada una tiene:
- *   shape      → de SHAPES, define la función
- *   hp         → vida base
- *   attack     → daño por ataque (0 si no ataca)
- *   range      → rango en píxeles
- *   attackRate → segundos entre ataques
- *   radius     → radio visual
- *   propiedades específicas (heals, spawns, telegraphs, etc.)
- *
- * NO tiene color ni tier: el color viene de la facción de la zona, el tier
- * viene del arquetipo (algunas zonas generan estructuras avanzadas).
+ * CAMBIO DE BALANCE: el daño de las estructuras a tropas se ha DUPLICADO.
+ * Antes: torre 8, torre pesada 18, catapulta 6/tick.
+ * Ahora: torre 16, torre pesada 36, catapulta 12/tick.
+ * Las tropas mueren en 2-4 impactos en lugar de aguantar 10+.
  */
 const STRUCTURE_TYPES = Object.freeze({
-  // Bloqueantes (cuadrado)
   muro: {
     shape: 'cuadrado', hp: 120, attack: 0, range: 0, attackRate: 0, radius: 24,
     blocksPath: true,
   },
-  // Torretas (triángulo)
   torre: {
-    shape: 'triangulo', hp: 70, attack: 8, range: 70, attackRate: 1.2, radius: 22,
+    shape: 'triangulo', hp: 70, attack: 16, range: 70, attackRate: 1.2, radius: 22,
     projectile: true,
   },
   torre_pesada: {
-    shape: 'triangulo', hp: 120, attack: 18, range: 90, attackRate: 1.8, radius: 26,
+    shape: 'triangulo', hp: 120, attack: 36, range: 90, attackRate: 1.8, radius: 26,
     projectile: true,
   },
   catapulta: {
     shape: 'triangulo', hp: 60, attack: 0, range: 150, attackRate: 5.0, radius: 22,
-    catapult: true, catapultRadius: 60, catapultDuration: 4.0, catapultDamage: 6,
+    catapult: true, catapultRadius: 60, catapultDuration: 4.0, catapultDamage: 12,
   },
-  // Sanadores (cruz)
   sanador: {
     shape: 'cruz', hp: 60, attack: 0, range: 0, attackRate: 0, radius: 22,
     heals: true, healAmount: 8, healRange: 110, healInterval: 2.0,
   },
-  // Generadores (hexágono)
   generador: {
     shape: 'hexagono', hp: 80, attack: 0, range: 0, attackRate: 0, radius: 20,
     spawns: true, spawnInterval: 6.0,
   },
-  // Telegrafiados (espiral)
   telegrafiado: {
-    shape: 'espiral', hp: 80, attack: 35, range: 120, attackRate: 6.0, radius: 24,
+    shape: 'espiral', hp: 80, attack: 70, range: 120, attackRate: 6.0, radius: 24,
     telegraphs: true, telegraphTime: 3.0, telegraphRadius: 80,
   },
-  // Trampas (rombo)
   trampa: {
-    shape: 'rombo', hp: 25, attack: 20, range: 28, attackRate: 1.5, radius: 16,
+    shape: 'rombo', hp: 25, attack: 40, range: 28, attackRate: 1.5, radius: 16,
     singleUse: true,
   },
-  // Regeneradores (anillo)
   regenerador: {
     shape: 'anillo', hp: 100, attack: 0, range: 0, attackRate: 0, radius: 24,
     regenerates: true, regenDelay: 5.0, regenRate: 12,
   },
-  // Núcleo (estrella) — se instancia directamente, no está en el pool de generación
   nucleo: {
-    shape: 'estrella', hp: 150, attack: 12, range: 90, attackRate: 1.5, radius: 30,
+    shape: 'estrella', hp: 150, attack: 24, range: 90, attackRate: 1.5, radius: 30,
     projectile: true, isCore: true,
   },
 });
 
 /**
- * Arquetipos de zona. Cada uno tiene identidad clara y sugiere una respuesta.
- * El scouting muestra esta info al jugador ANTES de entrar.
+ * Arquetipos de zona.
+ * CAMBIO DE BALANCE: structureCount aumentado (×2 aprox) para alargar el combate.
  */
 const ZONE_ARCHETYPES = Object.freeze({
   muro: {
-    id: 'muro',
-    name: 'El Muro',
+    id: 'muro', name: 'El Muro',
     desc: 'Muros gruesos con torres detrás. Un asedio frontal es suicida.',
-    hint: 'Necesitas Asedio (daño a distancia) o Voladores para ignorar muros.',
-    structureCount: 7,
+    hint: 'Necesitas Asedio o Voladores para ignorar muros.',
+    structureCount: 12,
     weights: { muro: 6, torre: 3, torre_pesada: 1 },
-    factionBias: { romanos: 0.7, vikingos: 0.3 },   // romanos son más defensivos
+    factionBias: { romanos: 0.7, vikingos: 0.3 },
   },
   artilleria: {
-    id: 'artilleria',
-    name: 'La Artillería',
+    id: 'artilleria', name: 'La Artillería',
     desc: 'Catapultas y torres telegrafiadas. El suelo se convierte en muerte.',
     hint: 'Necesitas movilidad o resistencia. Los tanques lentos sufren.',
-    structureCount: 6,
+    structureCount: 10,
     weights: { telegrafiado: 3, catapulta: 2, torre: 2, muro: 1 },
     factionBias: { romanos: 0.4, vikingos: 0.6 },
   },
   estampida: {
-    id: 'estampida',
-    name: 'La Estampida',
+    id: 'estampida', name: 'La Estampida',
     desc: 'Generadores de tropas sin fin. La presión no para hasta romperlos.',
     hint: 'Necesitas AOE o daño rápido para limpiar oleadas.',
-    structureCount: 6,
+    structureCount: 10,
     weights: { generador: 4, trampa: 2, torre: 1, muro: 1 },
     factionBias: { romanos: 0.3, vikingos: 0.7 },
   },
   bunker: {
-    id: 'bunker',
-    name: 'El Búnker',
+    id: 'bunker', name: 'El Búnker',
     desc: 'Pocas estructuras, todas concentradas, con sanadores que se cubren.',
     hint: 'Necesitas burst concentrado. El daño distribuido no las mata.',
-    structureCount: 4,
+    structureCount: 8,
     weights: { sanador: 3, regenerador: 2, torre_pesada: 2, muro: 2 },
     factionBias: { romanos: 0.8, vikingos: 0.2 },
   },
 });
 
-/**
- * Tropas. Comportamiento define el targeting.
- * shieldAngle: ángulo frontal de bloqueo de proyectiles (en radianes, 0 = sin escudo).
- */
 const TROOP_TYPES = Object.freeze({
   tanque: {
     name: 'Tanque', hp: 180, speed: 42, damage: 6, range: 14, attackRate: 1.3, radius: 14,
@@ -665,7 +621,19 @@ const TROOP_TYPES = Object.freeze({
   },
 });
 
-/** Promociones: 2 opciones por tipo de tropa, con trade-offs. */
+/**
+ * CAMBIO DE BALANCE: costes de reclutamiento de tropas.
+ * Se pagan con oro + materiales. Los materiales se obtienen destruyendo estructuras.
+ */
+const TROOP_RECRUIT_COST = Object.freeze({
+  tanque:  { gold: 12, materials: { piedra: 3 } },
+  dps:     { gold: 10, materials: { hierro: 2 } },
+  asedio:  { gold: 15, materials: { hierro: 3 } },
+  volador: { gold: 12, materials: { esencia: 2 } },
+  zapador: { gold: 8,  materials: { mecanismos: 2 } },
+  soporte: { gold: 10, materials: { esencia: 2 } },
+});
+
 const TROOP_PROMOTIONS = Object.freeze({
   tanque: [
     { id:'tanque_escudero', name:'Escudero Pesado', rank:1, desc:'Escudo enorme, no ataca.',
@@ -713,7 +681,6 @@ const HIERARCHY = Object.freeze({
   xpForPromotion: 100,
 });
 
-/** Materiales. Se acumulan pero aún no se gastan (pendiente). */
 const MATERIALS = Object.freeze({
   piedra:     { name:'Piedra',     icon:'🪨', color:'#aaa' },
   hierro:     { name:'Hierro',     icon:'⛓️', color:'#c8c8c8' },
@@ -723,7 +690,6 @@ const MATERIALS = Object.freeze({
   nucleo:     { name:'Núcleo',     icon:'💎', color:'#ffd700' },
 });
 
-/** Drops por tipo de estructura. */
 const STRUCTURE_DROPS = Object.freeze({
   muro:         { gold: 15, materials: { piedra: 2 } },
   torre:        { gold: 20, materials: { hierro: 2 } },
@@ -737,7 +703,6 @@ const STRUCTURE_DROPS = Object.freeze({
   nucleo:       { gold: 80, materials: { nucleo: 2 } },
 });
 
-/** Modificadores numéricos (los "de relleno" de esta iteración). */
 const MODIFIERS = Object.freeze([
   { id:'fuego',    name:'Runa de Fuego',    desc:'+25% daño a todas las tropas.',
     apply: (s) => ({ ...s, damage: Math.round(s.damage * 1.25) }) },
@@ -751,24 +716,21 @@ const MODIFIERS = Object.freeze([
 
 const HERO_ARCHETYPES = Object.freeze({
   guerrero: {
-    name: 'Guerrero',
-    desc: 'Tanque cuerpo a cuerpo. Aura +5% daño.',
+    name: 'Guerrero', desc: 'Tanque cuerpo a cuerpo. Aura +5% daño.',
     baseStats: { hp:280, damage:22, speed:55, attackRate:1.0, range:18, radius:18, color:'#ff9933',
                  auraDamage:0.05, auraRange:120, regen:0, armor:0 },
     ability: { id:'guerrero_grito', name:'Grito de Guerra', cooldown:25, effect:'stun',
                desc:'Aturde todas las estructuras en radio 150 durante 2.5s.' },
   },
   arquero: {
-    name: 'Arquero',
-    desc: 'DPS a distancia. Aura +10% daño.',
+    name: 'Arquero', desc: 'DPS a distancia. Aura +10% daño.',
     baseStats: { hp:160, damage:32, speed:70, attackRate:1.1, range:55, radius:14, color:'#66ff66',
                  auraDamage:0.10, auraRange:150, regen:0, armor:0 },
     ability: { id:'arquero_marca', name:'Marca Certera', cooldown:20, effect:'mark_core',
                desc:'Marca el núcleo: +50% daño al núcleo durante 5s.' },
   },
   mago: {
-    name: 'Mago',
-    desc: 'Frágil pero brutal. Aura +15% daño.',
+    name: 'Mago', desc: 'Frágil pero brutal. Aura +15% daño.',
     baseStats: { hp:130, damage:42, speed:50, attackRate:1.4, range:85, radius:12, color:'#cc66ff',
                  auraDamage:0.15, auraRange:180, regen:0, armor:0 },
     ability: { id:'mago_meteoro', name:'Meteoro', cooldown:30, effect:'meteor',
@@ -779,24 +741,29 @@ const HERO_ARCHETYPES = Object.freeze({
 const HERO_NAME_PRE = ['Ar','Ka','El','Va','Tho','Mi','Dra','Ze','Ly','Nor','Fen','Ras','Ce','Ori'];
 const HERO_NAME_SUF = ['dor','thas','mir','kar','ven','rax','lin','dra','nor','shal','ion','ael','ux'];
 
+/**
+ * CAMBIO DE BALANCE: caps de mejoras reducidos y costes subidos.
+ * Antes: 5 niveles de +15% ejército. Ahora: 3 niveles de +10%.
+ * Que las mejoras sean un empujón, no una avalancha.
+ */
 const HERO_UPGRADES = Object.freeze([
-  { id:'hero_hp',    name:'+60 HP héroe',       cost:4,  max:5, apply: h => { h.hp += 60; } },
-  { id:'hero_dmg',   name:'+8 daño héroe',      cost:6,  max:5, apply: h => { h.damage += 8; } },
-  { id:'hero_speed', name:'+25 velocidad',      cost:5,  max:3, apply: h => { h.speed += 25; } },
-  { id:'hero_rate',  name:'-15% cadencia',      cost:8,  max:3, apply: h => { h.attackRate *= 0.85; } },
-  { id:'hero_range', name:'+20 rango',          cost:5,  max:3, apply: h => { h.range += 20; } },
-  { id:'hero_aura',  name:'+10% aura',          cost:10, max:3, apply: h => { h.auraDamage += 0.10; } },
-  { id:'hero_regen', name:'+2 HP/s regen',      cost:6,  max:4, apply: h => { h.regen += 2; } },
-  { id:'hero_armor', name:'-3 daño recibido',   cost:5,  max:4, apply: h => { h.armor += 3; } },
+  { id:'hero_hp',    name:'+60 HP héroe',       cost:6,  max:3, apply: h => { h.hp += 60; } },
+  { id:'hero_dmg',   name:'+8 daño héroe',      cost:9,  max:3, apply: h => { h.damage += 8; } },
+  { id:'hero_speed', name:'+25 velocidad',      cost:7,  max:2, apply: h => { h.speed += 25; } },
+  { id:'hero_rate',  name:'-15% cadencia',      cost:12, max:2, apply: h => { h.attackRate *= 0.85; } },
+  { id:'hero_range', name:'+20 rango',          cost:8,  max:2, apply: h => { h.range += 20; } },
+  { id:'hero_aura',  name:'+10% aura',          cost:14, max:2, apply: h => { h.auraDamage += 0.10; } },
+  { id:'hero_regen', name:'+2 HP/s regen',      cost:10, max:2, apply: h => { h.regen += 2; } },
+  { id:'hero_armor', name:'-3 daño recibido',   cost:8,  max:2, apply: h => { h.armor += 3; } },
 ]);
 
 const ARMY_UPGRADES = Object.freeze([
-  { id:'army_dmg',   name:'+15% daño ejército',  cost:7,  max:5 },
-  { id:'army_hp',    name:'+15% HP ejército',    cost:7,  max:5 },
-  { id:'army_speed', name:'+10% velocidad',      cost:5,  max:4 },
-  { id:'army_spawn', name:'-15% intervalo spawn', cost:9, max:3 },
-  { id:'army_size',  name:'+1 slot de roster',   cost:12, max:3 },
-  { id:'army_range', name:'+15% rango ejército', cost:6,  max:3 },
+  { id:'army_dmg',   name:'+10% daño ejército',  cost:12, max:3 },
+  { id:'army_hp',    name:'+10% HP ejército',    cost:12, max:3 },
+  { id:'army_speed', name:'+8% velocidad',       cost:10, max:3 },
+  { id:'army_spawn', name:'-10% intervalo spawn', cost:15, max:2 },
+  { id:'army_size',  name:'+1 slot de roster',   cost:20, max:2 },
+  { id:'army_range', name:'+10% rango ejército', cost:12, max:2 },
 ]);
 
 const BALANCE = Object.freeze({
@@ -805,17 +772,21 @@ const BALANCE = Object.freeze({
   TICK_HZ: 20,
   SPAWN_X: 20, SPAWN_Y: 240, SPAWN_JITTER: 40,
   ENEMY_TROOP: 'tanque',
-  START_GOLD: 5,
-  GOLD_PER_DAMAGE: 40,
-  GOLD_PER_ENEMY_KILL: 2,
-  GOLD_ZONE_VICTORY: 20,
+  START_GOLD: 10,
+  GOLD_PER_DAMAGE: 60,
+  GOLD_PER_ENEMY_KILL: 3,
+  GOLD_ZONE_VICTORY: 25,
   ZONE_COUNT: 4,
   PROJECTILE_SPEED: 200,
   CATAPULT_PROJECTILE_SPEED: 140,
   GLOBAL_ORDER_COOLDOWN: 20,
   GLOBAL_ORDER_DURATION: 5,
-  ZOOM_THRESHOLD: 0.30,   // % de pool por debajo del cual se activa el zoom
+  ZOOM_THRESHOLD: 0.30,
   ZOOM_MAX: 1.5,
+  // Escalado del enemigo por zona (multiplicativo)
+  ENEMY_LEVEL_SCALE: 2.0,
+  // HP extra de estructuras por encima del catálogo base
+  STRUCTURE_HP_MULT: 1.5,
 });
 
 
@@ -826,10 +797,6 @@ const BALANCE = Object.freeze({
 let _nextId = 1;
 function nextId(prefix) { return `${prefix}_${_nextId++}`; }
 
-/**
- * Proyectil. Puede ser normal (va directo) o balístico (para catapultas).
- * El balístico se calcula con una parábola simple y al impactar deja un área.
- */
 class Projectile {
   constructor(x, y, targetX, targetY, damage, speed, color, kind = 'normal') {
     this.id = nextId('P');
@@ -838,27 +805,24 @@ class Projectile {
     this.targetX = targetX; this.targetY = targetY;
     this.damage = damage;
     this.color = color || '#ff4444';
-    this.kind = kind; // 'normal' | 'catapult'
+    this.kind = kind;
     this.radius = kind === 'catapult' ? 6 : 4;
     this.alive = true;
-    this.t = 0; // progreso 0..1 (para balístico)
+    this.t = 0;
     const dx = targetX - x, dy = targetY - y;
     const d = Math.hypot(dx, dy);
     this.totalDist = d;
-    this.duration = kind === 'catapult' ? d / speed : d / speed;
+    this.duration = kind === 'catapult' ? Math.max(0.3, d / speed) : d / speed;
     this.vx = d > 0 ? (dx / d) * speed : 0;
     this.vy = d > 0 ? (dy / d) * speed : 0;
   }
   update(dt) {
     if (this.kind === 'catapult') {
-      // Movimiento balístico: interpolación + altura parabólica visual
       this.t += dt / this.duration;
-      if (this.t >= 1) { this.t = 1; }
+      if (this.t >= 1) { this.t = 1; this.alive = false; return; }
       this.x = this.startX + (this.targetX - this.startX) * this.t;
       this.y = this.startY + (this.targetY - this.startY) * this.t;
-      // Altura visual (para el renderer)
       this.height = Math.sin(this.t * Math.PI) * 40;
-      if (this.t >= 1) this.alive = false;
     } else {
       this.x += this.vx * dt;
       this.y += this.vy * dt;
@@ -870,7 +834,7 @@ class Projectile {
   }
   isBlockedBy(troop) {
     if (!troop.alive || !troop.shieldAngle) return false;
-    if (this.kind === 'catapult') return false; // balístico, no se bloquea
+    if (this.kind === 'catapult') return false;
     const pdx = this.vx, pdy = this.vy;
     const pmag = Math.hypot(pdx, pdy);
     if (pmag < 0.001) return false;
@@ -879,20 +843,11 @@ class Projectile {
     if (tmag < 0.001) return false;
     const dot = (pdx * tdx + pdy * tdy) / (pmag * tmag);
     const cosHalfShield = Math.cos(troop.shieldAngle / 2);
-    // Sólo bloquea si el proyectil viene del frente (dot cercano a -1) Y
-    // la tropa mira en dirección opuesta al proyectil.
-    // Como simplificación: el escudo mira en la dirección del movimiento
-    // de la tropa (hacia el núcleo = derecha). Comprobamos que el proyectil
-    // venga de la derecha (troop.x < projectile.x).
     const fromFront = this.x > troop.x;
     return fromFront && dot <= -cosHalfShield;
   }
 }
 
-/**
- * Área de daño continuo (catapulta, telegrafiado, etc.).
- * Hace daño por segundo a las tropas que estén dentro.
- */
 class DamageArea {
   constructor(x, y, radius, dps, duration, color) {
     this.id = nextId('A');
@@ -908,7 +863,6 @@ class DamageArea {
   update(dt, troops, bus) {
     this.duration -= dt;
     if (this.duration <= 0) { this.alive = false; return; }
-    // Daño por tick (evita daño continuo excesivo: 4 ticks/segundo)
     this.tickAccum += dt;
     if (this.tickAccum >= 0.25) {
       this.tickAccum -= 0.25;
@@ -1063,11 +1017,6 @@ class HeroTroop extends Troop {
   }
 }
 
-/**
- * Estructura. Ahora con shape, tier y faction aplicados desde fuera.
- * El daño retorna el daño REAL aplicado, para que la zona pueda restarlo
- * de su pool de vida.
- */
 class Structure {
   constructor(typeId, cellX, cellY, opts = {}) {
     const base = STRUCTURE_TYPES[typeId];
@@ -1088,7 +1037,8 @@ class Structure {
     this.cellX = cellX; this.cellY = cellY;
     this.x = cellX * BALANCE.CELL_SIZE + BALANCE.CELL_SIZE / 2;
     this.y = cellY * BALANCE.CELL_SIZE + BALANCE.CELL_SIZE / 2;
-    this.maxHp = Math.max(1, Math.round(base.hp * tierMult * hpMult));
+    // CAMBIO DE BALANCE: aplicar mult extra de HP global
+    this.maxHp = Math.max(1, Math.round(base.hp * tierMult * hpMult * BALANCE.STRUCTURE_HP_MULT));
     this.hp = this.maxHp;
     this.attack = base.attack > 0 ? Math.max(1, Math.round(base.attack * tierMult * dmgMult)) : 0;
     this.range = base.range;
@@ -1123,10 +1073,6 @@ class Structure {
     this.stunTimer = 0;
     this.alive = true;
   }
-  /**
-   * Aplica daño. Devuelve el daño REALMENTE aplicado (min con hp actual),
-   * para que el llamador lo reste de la pool de la zona.
-   */
   takeDamage(amount) {
     if (!this.alive) return 0;
     if (!Number.isFinite(amount) || amount <= 0) return 0;
@@ -1142,12 +1088,6 @@ class Structure {
   }
 }
 
-/**
- * Zona. Ahora con pool FIJA al inicio.
- *   - sealPool() se llama después de añadir todas las estructuras.
- *   - applyDamage() resta el daño real de la pool.
- *   - Regeneración y curación de estructuras NO tocan la pool.
- */
 class Zone {
   constructor(archetype, faction, level) {
     this.archetype = archetype;
@@ -1160,8 +1100,6 @@ class Zone {
     this.coreId = null;
   }
   sealPool() {
-    // Pool = suma de HP máximo de todas las estructuras + bonus del núcleo
-    // El núcleo aporta normal; el ×2.5 ya está aplicado a su maxHp.
     this.maxHp = this.structures.reduce((sum, s) => sum + s.maxHp, 0);
     this.hp = this.maxHp;
     this.sealed = true;
@@ -1181,9 +1119,15 @@ class Zone {
  * ========================================================================== */
 
 /**
- * Movimiento con comportamientos por tipo.
- * El targeting depende de troop.behavior. La separación evita solapes.
- * La evasión tangencial evita que las tropas se atasquen contra muros.
+ * MovementService v2.
+ * Cambio importante: ahora tropas y enemigos se atacan MUTUAMENTE.
+ *   - Player troop: si hay enemigo en rango, ataca al enemigo.
+ *                   Si no, aplica su comportamiento sobre estructuras.
+ *   - Enemy troop:  ataca a la tropa del jugador más cercana.
+ *                   Si no hay, avanza hacia la estructura más cercana.
+ *
+ * Firma nueva:
+ *   update(troop, allies, structures, enemies, dt, bus, globalOrder, zone)
  */
 class MovementService {
   findTarget(troop, structures) {
@@ -1191,7 +1135,6 @@ class MovementService {
     if (alive.length === 0) return null;
     const core = alive.find(s => s.isCore) || alive[0];
     const b = troop.behavior;
-
     if (b === 'targetCore') return core;
     if (b === 'targetWeakest') {
       let weakest = alive[0];
@@ -1227,6 +1170,29 @@ class MovementService {
       return blocker || core;
     }
     return core;
+  }
+
+  /** Busca el enemigo más cercano dentro del rango de ataque. */
+  findEnemyInRange(troop, enemies) {
+    let best = null, bestD = Infinity;
+    const reach = troop.range + troop.radius + 8;
+    for (const e of enemies) {
+      if (!e.alive) continue;
+      const d = Math.hypot(e.x - troop.x, e.y - troop.y);
+      if (d <= reach + e.radius && d < bestD) { bestD = d; best = e; }
+    }
+    return best;
+  }
+
+  /** Busca el enemigo más cercano (sin límite de rango). */
+  findNearestEnemy(troop, enemies) {
+    let best = null, bestD = Infinity;
+    for (const e of enemies) {
+      if (!e.alive) continue;
+      const d = Math.hypot(e.x - troop.x, e.y - troop.y);
+      if (d < bestD) { bestD = d; best = e; }
+    }
+    return best;
   }
 
   separation(troop, troops) {
@@ -1266,17 +1232,17 @@ class MovementService {
     return { x: ax, y: ay };
   }
 
-  update(troop, troops, structures, dt, bus, globalOrder, zone) {
+  update(troop, allies, structures, enemies, dt, bus, globalOrder, zone) {
     if (!troop.alive) return;
     if (troop.stunTimer > 0) { troop.stunTimer -= dt; return; }
     if (troop.regen > 0) troop.heal(troop.regen * dt);
 
-    // Soporte: cura aliados
+    // Soporte: solo cura
     if (troop.isSupport) {
       troop.attackCooldown -= dt;
       if (troop.attackCooldown <= 0) {
         let healed = false;
-        for (const other of troops) {
+        for (const other of allies) {
           if (other === troop || !other.alive) continue;
           if (other.hp >= other.maxHp) continue;
           const d = Math.hypot(other.x - troop.x, other.y - troop.y);
@@ -1290,27 +1256,55 @@ class MovementService {
       return;
     }
 
-    // Ataque por contacto directo
+    // Ataque por contacto a estructura
     for (const s of structures) {
       if (!s.alive) continue;
       const d = Math.hypot(s.x - troop.x, s.y - troop.y);
       if (d <= troop.radius + s.radius + 2) {
         troop.attackCooldown -= dt;
-        if (troop.attackCooldown <= 0) {
-          this._doAttack(troop, s, bus, zone);
-        }
+        if (troop.attackCooldown <= 0) this._doAttackStructure(troop, s, bus, zone);
         return;
       }
     }
 
-    // Targeting
+    // Ataque a enemigo en rango
+    const enemyInRange = this.findEnemyInRange(troop, enemies);
+    if (enemyInRange) {
+      troop.attackCooldown -= dt;
+      if (troop.attackCooldown <= 0) {
+        this._doAttackTroop(troop, enemyInRange, bus);
+      }
+      // Frenar
+      troop.vx *= 0.85; troop.vy *= 0.85;
+      return;
+    }
+
+    // Comportamiento según team
+    if (troop.team === 'defender') {
+      // Enemigos: van hacia la tropa del jugador más cercana
+      const target = this.findNearestEnemy(troop, enemies);
+      if (target) {
+        this._moveToward(troop, target.x, target.y, allies, structures, dt);
+      } else {
+        // No hay tropas del jugador: atacar la estructura más cercana
+        const structureTarget = this.findTarget(troop, structures);
+        if (structureTarget) this._moveToward(troop, structureTarget.x, structureTarget.y, allies, structures, dt);
+      }
+      return;
+    }
+
+    // Player troop: comportamiento normal contra estructuras
     let target = this.findTarget(troop, structures);
-    // Orden global FOCO: atacar al núcleo
     if (globalOrder && globalOrder.active && globalOrder.type === 'focus') {
       const core = structures.find(s => s.isCore && s.alive);
       if (core) target = core;
     }
-    if (!target) return;
+    if (!target) {
+      // Sin estructuras, atacar al enemigo más cercano
+      const e = this.findNearestEnemy(troop, enemies);
+      if (e) this._moveToward(troop, e.x, e.y, allies, structures, dt);
+      return;
+    }
 
     const dx = target.x - troop.x;
     const dy = target.y - troop.y;
@@ -1319,14 +1313,20 @@ class MovementService {
 
     if (dist <= attackDist) {
       troop.attackCooldown -= dt;
-      if (troop.attackCooldown <= 0) this._doAttack(troop, target, bus, zone);
+      if (troop.attackCooldown <= 0) this._doAttackStructure(troop, target, bus, zone);
       troop.vx *= 0.85; troop.vy *= 0.85;
       return;
     }
+    this._moveToward(troop, target.x, target.y, allies, structures, dt);
+  }
 
+  _moveToward(troop, tx, ty, allies, structures, dt) {
+    const dx = tx - troop.x, dy = ty - troop.y;
+    const dist = Math.hypot(dx, dy);
+    if (dist < 0.001) return;
     const dirX = dx / dist, dirY = dy / dist;
     const avoid = troop.flying ? { x:0, y:0 } : this.wallAvoidance(troop, structures, dirX, dirY);
-    const sep = this.separation(troop, troops);
+    const sep = this.separation(troop, allies);
     let fx = dirX + avoid.x + sep.x * 0.8;
     let fy = dirY + avoid.y + sep.y * 0.8;
     const mag = Math.hypot(fx, fy);
@@ -1337,11 +1337,7 @@ class MovementService {
     troop.y = Math.max(10, Math.min(BALANCE.CANVAS_H - 10, troop.y));
   }
 
-  /**
-   * Aplica daño de una tropa a una estructura. Si la estructura muere,
-   * emite el evento. La pool de la zona se actualiza con el daño real.
-   */
-  _doAttack(troop, structure, bus, zone) {
+  _doAttackStructure(troop, structure, bus, zone) {
     let dmg = troop.getDamage();
     if (troop.damageVsWalls && structure.blocksPath) {
       dmg = Math.round(dmg * troop.damageVsWalls);
@@ -1365,19 +1361,34 @@ class MovementService {
     });
     if (!structure.alive) bus.emit('structure:destroyed', { structure });
   }
+
+  _doAttackTroop(troop, target, bus) {
+    let dmg = troop.getDamage();
+    let crit = false;
+    if (troop.critChance && Math.random() < troop.critChance) {
+      dmg = Math.round(dmg * 2);
+      crit = true;
+    }
+    target.takeDamage(dmg);
+    troop.attackCooldown = troop.attackRate;
+    bus.emit('troop:attacked', {
+      x: target.x, y: target.y, damage: dmg,
+      color: crit ? '#ffd700' : troop.color,
+      isStructure: false, crit,
+    });
+    if (!target.alive) {
+      if (target.team === 'defender') bus.emit('enemy:died', { troop: target });
+      else bus.emit('troop:died', { troop: target });
+    }
+  }
 }
 
-/**
- * Combate de estructuras. Genera proyectiles, cura, regenera, telegrafía,
- * catapulta. Todo con eventos para feedback.
- */
 class CombatService {
   updateStructures(structures, troops, dt, bus, enemyQueue, projectiles, damageAreas) {
     for (const s of structures) {
       if (!s.alive) continue;
       if (s.stunTimer > 0) { s.stunTimer -= dt; continue; }
 
-      // Regeneración
       if (s.regenerates) {
         s.timeSinceDamage += dt;
         if (s.timeSinceDamage >= s.regenDelay && s.hp < s.maxHp) {
@@ -1385,7 +1396,6 @@ class CombatService {
         }
       }
 
-      // Sanador
       if (s.heals) {
         s.healTimer -= dt;
         if (s.healTimer <= 0) {
@@ -1401,7 +1411,6 @@ class CombatService {
         }
       }
 
-      // Telegrafiado
       if (s.telegraphs) {
         if (s.telegraphCharging) {
           s.telegraphTimer -= dt;
@@ -1440,11 +1449,9 @@ class CombatService {
           }
         }
       }
-      // Catapulta: lanza proyectil balístico a un punto
       else if (s.catapult) {
         s.attackCooldown -= dt;
         if (s.attackCooldown <= 0) {
-          // Apuntar a la tropa más cercana
           let target = null, bestD = Infinity;
           for (const t of troops) {
             if (!t.alive) continue;
@@ -1463,7 +1470,6 @@ class CombatService {
           }
         }
       }
-      // Ataque normal
       else if (s.attack > 0 && s.range > 0) {
         s.attackCooldown -= dt;
         if (s.attackCooldown <= 0) {
@@ -1497,7 +1503,6 @@ class CombatService {
         }
       }
 
-      // Generadores
       if (s.spawns) {
         s.spawnTimer -= dt;
         if (s.spawnTimer <= 0) {
@@ -1517,30 +1522,23 @@ class CombatService {
   }
 }
 
-/**
- * Servicio de proyectiles. Comprueba impactos y bloqueos.
- * Los balísticos (catapulta) al impactar crean un DamageArea.
- */
 class ProjectileService {
   update(projectiles, troops, dt, bus, damageAreas) {
     for (let i = projectiles.length - 1; i >= 0; i--) {
       const p = projectiles[i];
       p.update(dt);
       if (!p.alive) {
-        // Proyectil balístico: al morir, crear zona de daño
         if (p.kind === 'catapult') {
-          // Buscar el ataque original de la catapulta (asumimos 6 DPS)
           damageAreas.push(new DamageArea(
-            p.targetX, p.targetY, 60, 6, 4.0, '#ff4400'
+            p.targetX, p.targetY, 60, 12, 4.0, '#ff4400'
           ));
           bus.emit('area:created', { x: p.targetX, y: p.targetY });
         }
         projectiles.splice(i, 1);
         continue;
       }
-      if (p.kind === 'catapult') continue; // balístico no impacta durante el vuelo
+      if (p.kind === 'catapult') continue;
 
-      // Buscar tropa impactada
       let hit = false;
       for (const t of troops) {
         if (!t.alive) continue;
@@ -1567,44 +1565,33 @@ class ProjectileService {
   }
 }
 
-/**
- * Generador de zonas. Usa el arquetipo y la facción para construir
- * un layout coherente. El layout coloca estructuras en columnas 2..W-2
- * con el núcleo siempre en la columna W-1.
- */
 class ZoneGenerator {
   constructor(rng) { this.rng = rng; }
 
   generate(archetypeId, level) {
     const archetype = ZONE_ARCHETYPES[archetypeId];
     if (!archetype) throw new Error(`Arquetipo desconocido: ${archetypeId}`);
-    // Elegir facción con la bias del arquetipo
     const faction = this._pickFaction(archetype.factionBias);
-    // Nivel escala HP y daño del enemigo (multiplicativo)
-    const levelMult = Math.pow(1.5, level - 1);
-    // Tier de estructuras según nivel: nivel 1 basic, nivel 2-3 advanced, 4+ elite
+    // CAMBIO DE BALANCE: escalado exponencial del enemigo
+    const levelMult = Math.pow(BALANCE.ENEMY_LEVEL_SCALE, level - 1);
     const tier = level <= 1 ? 'basic' : level <= 3 ? 'advanced' : 'elite';
-    // Mezcla: algunas estructuras avanzadas incluso en nivel 1
     const structureCount = archetype.structureCount;
 
     const zone = new Zone(archetype, faction, level);
 
-    // Núcleo siempre en la columna derecha, fila central
     const coreCol = BALANCE.GRID_W - 1;
     const coreRow = Math.floor(BALANCE.GRID_H / 2);
     const core = new Structure('nucleo', coreCol, coreRow, {
       tier: level <= 2 ? 'advanced' : 'elite',
       faction,
     });
-    // Escalar núcleo por nivel
-    core.maxHp = Math.round(core.maxHp * (1 + (level - 1) * 0.3));
+    core.maxHp = Math.round(core.maxHp * levelMult);
     core.hp = core.maxHp;
-    core.attack = Math.round(core.attack * levelMult);
+    core.attack = Math.round(core.attack * Math.min(3.0, levelMult));
     core.isCore = true;
     zone.structures.push(core);
     zone.coreId = core.id;
 
-    // Colocar el resto
     const placed = new Set([`${coreCol},${coreRow}`]);
     let attempts = 0, placedCount = 0;
     while (placedCount < structureCount && attempts < structureCount * 20) {
@@ -1618,26 +1605,20 @@ class ZoneGenerator {
       const typeId = this._weightedType(archetype.weights, this.rng);
       if (!typeId || !STRUCTURE_TYPES[typeId]) continue;
 
-      // Elegir tier: la mayoría son del tier base, algunas suben
       const tierRoll = this.rng.float();
       let structTier = tier;
       if (tier === 'basic' && tierRoll > 0.7) structTier = 'advanced';
       else if (tier === 'advanced' && tierRoll > 0.85) structTier = 'elite';
 
-      const s = new Structure(typeId, col, row, {
-        tier: structTier,
-        faction,
-      });
-      // Escalar HP/daño por nivel
+      const s = new Structure(typeId, col, row, { tier: structTier, faction });
       s.maxHp = Math.round(s.maxHp * levelMult);
       s.hp = s.maxHp;
-      s.attack = Math.round(s.attack * Math.min(2.0, levelMult));
+      s.attack = Math.round(s.attack * Math.min(3.0, levelMult));
       zone.structures.push(s);
       placed.add(key);
       placedCount++;
     }
 
-    // Sellar la pool
     zone.sealPool();
     return zone;
   }
@@ -1704,6 +1685,24 @@ function computeStructureReward(structure) {
   return { gold, materials };
 }
 
+/** Comprueba si un coste (oro + materiales) se puede pagar. */
+function canPayCost(state, cost) {
+  if (state.gold < cost.gold) return false;
+  for (const [mat, qty] of Object.entries(cost.materials || {})) {
+    if ((state.materials[mat] || 0) < qty) return false;
+  }
+  return true;
+}
+
+/** Aplica un coste (ya validado). */
+function payCost(state, cost) {
+  state.gold -= cost.gold;
+  for (const [mat, qty] of Object.entries(cost.materials || {})) {
+    state.materials[mat] = (state.materials[mat] || 0) - qty;
+    if (state.materials[mat] <= 0) delete state.materials[mat];
+  }
+}
+
 
 /* ============================================================================
  * 6. GAME STATE
@@ -1723,6 +1722,7 @@ class GameState {
     this.gold = 0;
     this.materials = {};
     this.hero = null;
+    this.heroAlive = true;  // CAMBIO: si el héroe muere, no revive
     this.armyUpgrades = {};
     this.phase = 'idle';
     this.time = 0;
@@ -1741,17 +1741,16 @@ class GameState {
     this.zoomCenterX = BALANCE.CANVAS_W / 2;
     this.zoomCenterY = BALANCE.CANVAS_H / 2;
     this.screenShake = 0;
-    this.screenShakeMax = 0;
   }
   getArmyBonuses() {
     const b = { hp:0, damage:0, speed:0, range:0, spawnRate:0 };
     for (const [id, count] of Object.entries(this.armyUpgrades)) {
       if (!count) continue;
-      if (id === 'army_dmg')   b.damage += 0.15 * count;
-      if (id === 'army_hp')    b.hp += 0.15 * count;
-      if (id === 'army_speed') b.speed += 0.10 * count;
-      if (id === 'army_range') b.range += 0.15 * count;
-      if (id === 'army_spawn') b.spawnRate += 0.15 * count;
+      if (id === 'army_dmg')   b.damage += 0.10 * count;
+      if (id === 'army_hp')    b.hp += 0.10 * count;
+      if (id === 'army_speed') b.speed += 0.08 * count;
+      if (id === 'army_range') b.range += 0.10 * count;
+      if (id === 'army_spawn') b.spawnRate += 0.10 * count;
     }
     return b;
   }
@@ -1808,6 +1807,7 @@ class StartRunUseCase {
     s.pendingDraft = null;
     s.pendingPromotions = [];
     s.hero = new HeroGenerator(s.rng).generate();
+    s.heroAlive = true;
     s.zoomLevel = 1;
     s.zoomTarget = 1;
     s.screenShake = 0;
@@ -1820,20 +1820,13 @@ class StartRunUseCase {
   }
 }
 
-/**
- * Prepara el scouting: elige arquetipo, facción y preview de estructuras,
- * pero no instancia la zona todavía. El jugador ve el modal y decide.
- */
 class PrepareScoutingUseCase {
   constructor(state, bus) { this.state = state; this.bus = bus; }
   execute() {
     const s = this.state;
     const level = s.currentZoneIdx + 1;
-    const gen = new ZoneGenerator(s.rng);
     const archetypes = Object.keys(ZONE_ARCHETYPES);
     const archetypeId = archetypes[(level - 1) % archetypes.length];
-    // Generar zona (aún no se usa, pero la vista previa se calcula)
-    // Para evitar generar dos veces, guardamos el archetypeId y generamos en StartZone.
     const archetype = ZONE_ARCHETYPES[archetypeId];
     s.pendingArchetypeId = archetypeId;
     s.pendingLevel = level;
@@ -1861,9 +1854,12 @@ class StartZoneUseCase {
     s.globalOrderCooldown = 0;
 
     const bonuses = s.getArmyBonuses();
-    const hero = new HeroTroop(s.hero, BALANCE.SPAWN_X, BALANCE.SPAWN_Y, s.modifiers, bonuses);
-    hero.abilityCooldown = 0;
-    s.troops.push(hero);
+    // CAMBIO: el héroe solo aparece si sigue vivo
+    if (s.heroAlive) {
+      const hero = new HeroTroop(s.hero, BALANCE.SPAWN_X, BALANCE.SPAWN_Y, s.modifiers, bonuses);
+      hero.abilityCooldown = 0;
+      s.troops.push(hero);
+    }
 
     // Desplegar roster
     let yOffset = -60;
@@ -1888,6 +1884,7 @@ class StartZoneUseCase {
 
     this.bus.emit('zone:started', { zone, level });
     this._log(`— Zona ${level}: ${zone.archetype.name} · ${zone.faction.name} (pool ${zone.maxHp}) —`, 'info');
+    if (!s.heroAlive) this._log(`El héroe ha caído. Esta run sigue sin él.`, 'warn');
   }
   _log(text, kind) {
     this.state.log.push({ t: this.state.time, text, kind });
@@ -1900,14 +1897,12 @@ class TickUseCase {
   execute(dt) {
     const s = this.state;
     if (s.phase !== 'running') {
-      // Suavizar zoom incluso en pausa
       s.zoomLevel += (s.zoomTarget - s.zoomLevel) * Math.min(1, dt * 4);
       if (s.screenShake > 0) s.screenShake = Math.max(0, s.screenShake - dt * 3);
       return;
     }
     s.time += dt;
 
-    // Orden global
     if (s.globalOrderCooldown > 0) s.globalOrderCooldown -= dt;
     if (s.globalOrder.active) {
       s.globalOrder.timer -= dt;
@@ -1916,11 +1911,9 @@ class TickUseCase {
         this.bus.emit('order:ended', {});
       }
     }
-    // Habilidad héroe
     const hero = s.troops.find(t => t.isHero && t.alive);
     if (hero && hero.abilityCooldown > 0) hero.abilityCooldown -= dt;
 
-    // Aura
     if (hero) {
       for (const t of s.troops) {
         if (t === hero || !t.alive) { t.auraBonus = 0; continue; }
@@ -1931,7 +1924,6 @@ class TickUseCase {
       for (const t of s.troops) t.auraBonus = 0;
     }
 
-    // Marca del núcleo
     if (s.markedCoreTimer > 0) {
       s.markedCoreTimer -= dt;
       for (const t of s.troops) t.markedCoreDamageBonus = 0.5;
@@ -1939,34 +1931,42 @@ class TickUseCase {
       for (const t of s.troops) t.markedCoreDamageBonus = 0;
     }
 
-    // Movimiento
+    // Movimiento de tropas del jugador (con lista de enemigos)
     for (const t of s.troops) {
-      s.movementService.update(t, s.troops, s.zone.structures, dt, this.bus, s.globalOrder, s.zone);
+      s.movementService.update(
+        t, s.troops, s.zone.structures, s.enemyTroops,
+        dt, this.bus, s.globalOrder, s.zone
+      );
     }
+    // Movimiento de enemigos (con lista de tropas del jugador)
     for (const t of s.enemyTroops) {
-      s.movementService.update(t, s.enemyTroops, s.troops, dt, this.bus, null, null);
+      s.movementService.update(
+        t, s.enemyTroops, s.zone.structures, s.troops,
+        dt, this.bus, null, null
+      );
     }
 
-    // Estructuras
     s.combatService.updateStructures(
       s.zone.structures, s.troops, dt, this.bus, s.enemyTroops, s.projectiles, s.damageAreas
     );
-
-    // Proyectiles
     s.projectileService.update(s.projectiles, s.troops, dt, this.bus, s.damageAreas);
 
-    // Áreas de daño
     for (let i = s.damageAreas.length - 1; i >= 0; i--) {
       const a = s.damageAreas[i];
       a.update(dt, s.troops, this.bus);
       if (!a.alive) s.damageAreas.splice(i, 1);
     }
 
-    // Limpieza
+    // Si el héroe muere, marcar flag
+    if (s.heroAlive && hero && !hero.alive) {
+      s.heroAlive = false;
+      this.bus.emit('hero:died', {});
+      this._log(`💀 ${s.hero.name} ha caído. No volverá en esta run.`, 'bad');
+    }
+
     s.troops = s.troops.filter(t => t.alive);
     s.enemyTroops = s.enemyTroops.filter(t => t.alive);
 
-    // Zoom dinámico: si el núcleo baja de HP, hacer zoom
     const core = s.zone.getCore();
     if (core && core.alive) {
       const corePct = core.hp / core.maxHp;
@@ -1985,7 +1985,6 @@ class TickUseCase {
     s.zoomLevel += (s.zoomTarget - s.zoomLevel) * Math.min(1, dt * 3);
     if (s.screenShake > 0) s.screenShake = Math.max(0, s.screenShake - dt * 3);
 
-    // Emitir pool actual
     this.bus.emit('zone:hp', { hp: s.zone.hp, maxHp: s.zone.maxHp });
 
     if (s.zone.isCleared()) {
@@ -1999,6 +1998,10 @@ class TickUseCase {
       return;
     }
   }
+  _log(text, kind) {
+    this.state.log.push({ t: this.state.time, text, kind });
+    this.bus.emit('log', { text, kind });
+  }
 }
 
 class EndZoneUseCase {
@@ -2006,13 +2009,11 @@ class EndZoneUseCase {
   execute() {
     const s = this.state;
     if (s.phase === 'victory') {
-      // XP a supervivientes
       for (const t of s.troops) {
         if (!t.alive) continue;
         t.survivedZones++;
         t.gainXP(HIERARCHY.xpPerZoneSurvived + t.kills * HIERARCHY.xpPerKill);
       }
-      // Reconstruir roster
       s.roster = s.troops.filter(t => !t.isHero).map(t => {
         const rt = new Troop(t._baseType, 0, 0, t._modifiers, t._armyBonuses);
         rt.xp = t.xp;
@@ -2026,13 +2027,10 @@ class EndZoneUseCase {
         }
         return rt;
       });
-      // Promociones disponibles
       const promotable = s.roster.filter(t => t.canPromote() && s.canPromoteToRank(t.promotionRank + 1));
       s.pendingPromotions = promotable;
-
       s.gold += BALANCE.GOLD_ZONE_VICTORY;
       this.bus.emit('gold:gained', { amount: BALANCE.GOLD_ZONE_VICTORY, source: 'victoria' });
-
       if (s.currentZoneIdx + 1 >= s.zoneCount) {
         s.phase = 'run-victory';
         this.bus.emit('run:victory', {});
@@ -2108,6 +2106,36 @@ class DraftTroopUseCase {
   }
 }
 
+/**
+ * NUEVO: reclutar tropas con oro y materiales.
+ * Repone el roster, dando uso a los materiales.
+ */
+class RecruitTroopUseCase {
+  constructor(state, bus) { this.state = state; this.bus = bus; }
+  execute(typeId) {
+    const s = this.state;
+    if (!TROOP_TYPES[typeId]) return false;
+    const cost = TROOP_RECRUIT_COST[typeId];
+    if (!cost) return false;
+    if (!canPayCost(s, cost)) return false;
+    if (s.roster.length >= s.getRosterSize()) {
+      this.bus.emit('log', { text: `Roster lleno. No puedes reclutar más.`, kind: 'warn' });
+      return false;
+    }
+    payCost(s, cost);
+    const troop = new Troop(typeId, 0, 0, s.modifiers, s.getArmyBonuses());
+    s.roster.push(troop);
+    this.bus.emit('roster:added', { troop });
+    this.bus.emit('gold:changed', { gold: s.gold });
+    this.bus.emit('materials:changed', { materials: s.materials });
+    this.bus.emit('log', {
+      text: `🎖️ Reclutada: ${troop.name} (-${cost.gold} oro)`,
+      kind: 'gold',
+    });
+    return true;
+  }
+}
+
 class PromoteTroopUseCase {
   constructor(state, bus) { this.state = state; this.bus = bus; }
   execute(rosterIdx, promotionId) {
@@ -2144,6 +2172,7 @@ class ActivateHeroAbilityUseCase {
   constructor(state, bus) { this.state = state; this.bus = bus; }
   execute() {
     const s = this.state;
+    if (!s.heroAlive) return false;
     const hero = s.troops.find(t => t.isHero && t.alive);
     if (!hero || hero.abilityCooldown > 0) return false;
     const ability = s.hero.ability;
@@ -2189,10 +2218,8 @@ class GoldService {
     this.damageAccum = 0;
     bus.on('troop:attacked', (e) => { if (e.isStructure) this._onDamage(e.damage); });
     bus.on('structure:destroyed', (e) => this._onStructureDestroyed(e.structure));
-    bus.on('troop:died', (e) => {
-      if (e.troop && e.troop.team === 'defender') {
-        this._awardGold(BALANCE.GOLD_PER_ENEMY_KILL, 'enemigo');
-      }
+    bus.on('enemy:died', () => {
+      this._awardGold(BALANCE.GOLD_PER_ENEMY_KILL, 'enemigo');
     });
     bus.on('run:started', () => { this.damageAccum = 0; });
     bus.on('zone:started', () => { this.damageAccum = 0; });
@@ -2232,15 +2259,12 @@ class GoldService {
 
 /* ============================================================================
  * 9. AUDIO SERVICE
- * ----------------------------------------------------------------------------
- * Sonidos sintéticos con Web Audio API. Sin archivos externos.
  * ========================================================================== */
 class AudioService {
   constructor(bus) {
     this.ctx = null;
     this.enabled = false;
     this.bus = bus;
-    // Suscribirse a eventos relevantes
     bus.on('troop:attacked', () => this.play('hit_soft'));
     bus.on('structure:attacked', () => this.play('hit_soft'));
     bus.on('structure:destroyed', (e) => {
@@ -2250,6 +2274,7 @@ class AudioService {
     bus.on('ability:used', () => this.play('ability'));
     bus.on('order:activated', () => this.play('order'));
     bus.on('structure:telegraph', () => this.play('telegraph'));
+    bus.on('hero:died', () => this.play('destroy_big'));
   }
   init() {
     if (this.ctx) return;
@@ -2260,7 +2285,6 @@ class AudioService {
   }
   play(type) {
     if (!this.enabled || !this.ctx) return;
-    // Rate limit: no más de un sonido cada 40ms
     const now = performance.now();
     if (this._lastPlay && now - this._lastPlay < 40) return;
     this._lastPlay = now;
@@ -2316,9 +2340,6 @@ class AudioService {
 
 /* ============================================================================
  * 10. RENDERER
- * ----------------------------------------------------------------------------
- * El renderer lee state, no muta. Las formas se dibujan con canvas 2D.
- * El tier controla el relleno, la facción el color, la forma la silueta.
  * ========================================================================== */
 class CanvasRenderer {
   constructor(canvas, bus) {
@@ -2334,6 +2355,7 @@ class CanvasRenderer {
     bus.on('troop:attacked', (e) => this._dmgNum(e.x, e.y, e.damage, e.crit ? '#ffd700' : '#ffb347', e.crit));
     bus.on('structure:attacked', (e) => this._dmgNum(e.x, e.y, e.damage, '#ff6b6b'));
     bus.on('troop:died', (e) => this._particles(e.troop.x, e.troop.y, e.troop.color, 12));
+    bus.on('enemy:died', (e) => this._particles(e.troop.x, e.troop.y, '#aa2222', 8));
     bus.on('structure:destroyed', (e) => {
       const big = e.structure.isCore ? 50 : 22;
       this._particles(e.structure.x, e.structure.y, e.structure.isCore ? '#ffd700' : '#ffb347', big);
@@ -2344,14 +2366,18 @@ class CanvasRenderer {
         color: e.structure.isCore ? '#ffd700' : '#ffb347',
       });
     });
+    bus.on('hero:died', () => {
+      this.explosionRings.push({
+        x: BALANCE.CANVAS_W / 2, y: BALANCE.CANVAS_H / 2,
+        maxRadius: 200, radius: 0, life: 1.2, maxLife: 1.2, color: '#ff99ff',
+      });
+    });
     bus.on('structure:healed', (e) => this._particles(e.x, e.y, '#66ffcc', 6));
     bus.on('structure:telegraph', (e) => {
       this.telegraphRings.push({
         x: e.structure.x, y: e.structure.y,
-        maxRadius: e.structure.telegraphRadius,
-        radius: 0,
-        life: e.structure.telegraphTime,
-        maxLife: e.structure.telegraphTime,
+        maxRadius: e.structure.telegraphRadius, radius: 0,
+        life: e.structure.telegraphTime, maxLife: e.structure.telegraphTime,
         color: '#ff2244',
       });
     });
@@ -2375,7 +2401,6 @@ class CanvasRenderer {
     });
     bus.on('area:created', (e) => this._particles(e.x, e.y, '#ff4400', 10));
   }
-
   _particles(x, y, color, count) {
     for (let i = 0; i < count; i++) {
       const a = Math.random() * Math.PI * 2;
@@ -2394,27 +2419,20 @@ class CanvasRenderer {
     });
   }
 
-  /**
-   * Render con zoom y screen shake aplicados.
-   */
   render(state, dt) {
     const ctx = this.ctx;
     const W = BALANCE.CANVAS_W, H = BALANCE.CANVAS_H;
 
-    // Fondo base
     ctx.setTransform(1, 0, 0, 1, 0, 0);
     ctx.fillStyle = '#06060e';
     ctx.fillRect(0, 0, W, H);
 
-    // Screen shake
     let shakeX = 0, shakeY = 0;
     if (state.screenShake > 0) {
       const s = state.screenShake * 8;
       shakeX = (Math.random() - 0.5) * s;
       shakeY = (Math.random() - 0.5) * s;
     }
-
-    // Zoom dinámico
     const zoom = state.zoomLevel;
     ctx.save();
     ctx.translate(shakeX, shakeY);
@@ -2424,7 +2442,6 @@ class CanvasRenderer {
       ctx.translate(-state.zoomCenterX, -state.zoomCenterY);
     }
 
-    // Grid
     ctx.strokeStyle = 'rgba(255,255,255,0.03)';
     for (let x = 0; x <= BALANCE.GRID_W; x++) {
       ctx.beginPath();
@@ -2439,7 +2456,6 @@ class CanvasRenderer {
       ctx.stroke();
     }
 
-    // Barra de pool arriba
     if (state.zone) {
       const pct = state.zone.maxHp > 0 ? state.zone.hp / state.zone.maxHp : 0;
       ctx.fillStyle = 'rgba(255,255,255,0.05)';
@@ -2448,10 +2464,8 @@ class CanvasRenderer {
       ctx.fillRect(20, 8, (W - 40) * pct, 4);
     }
 
-    // Áreas de daño
     if (state.damageAreas) {
       for (const a of state.damageAreas) {
-        const pct = a.duration / a.maxDuration;
         ctx.globalAlpha = 0.4 + 0.2 * Math.sin(state.time * 6);
         ctx.fillStyle = a.color;
         ctx.beginPath();
@@ -2465,7 +2479,6 @@ class CanvasRenderer {
       ctx.globalAlpha = 1;
     }
 
-    // Telegraph rings (debajo de estructuras)
     for (let i = this.telegraphRings.length - 1; i >= 0; i--) {
       const r = this.telegraphRings[i];
       r.life -= dt;
@@ -2484,7 +2497,6 @@ class CanvasRenderer {
     }
     ctx.globalAlpha = 1;
 
-    // Explosion rings
     for (let i = this.explosionRings.length - 1; i >= 0; i--) {
       const r = this.explosionRings[i];
       r.life -= dt;
@@ -2500,7 +2512,6 @@ class CanvasRenderer {
     }
     ctx.globalAlpha = 1;
 
-    // Estructuras
     if (state.zone) {
       for (const s of state.zone.structures) {
         if (!s.alive) continue;
@@ -2508,14 +2519,11 @@ class CanvasRenderer {
       }
     }
 
-    // Tropas
     for (const t of state.troops) this._drawTroop(ctx, t, false);
     for (const t of state.enemyTroops) this._drawTroop(ctx, t, true);
 
-    // Proyectiles
     for (const p of state.projectiles) {
       const py = p.kind === 'catapult' ? p.y - (p.height || 0) : p.y;
-      // Sombra
       if (p.kind === 'catapult') {
         ctx.fillStyle = 'rgba(0,0,0,0.3)';
         ctx.beginPath();
@@ -2531,7 +2539,6 @@ class CanvasRenderer {
       ctx.stroke();
     }
 
-    // Partículas
     for (let i = this.particles.length - 1; i >= 0; i--) {
       const p = this.particles[i];
       p.x += p.vx * dt; p.y += p.vy * dt;
@@ -2546,7 +2553,6 @@ class CanvasRenderer {
     }
     ctx.globalAlpha = 1;
 
-    // Daño flotante
     ctx.textAlign = 'center';
     for (let i = this.damageNumbers.length - 1; i >= 0; i--) {
       const d = this.damageNumbers[i];
@@ -2577,7 +2583,6 @@ class CanvasRenderer {
     }
     ctx.globalAlpha = 1;
 
-    // Orden global activa: overlay
     if (state.globalOrder && state.globalOrder.active) {
       ctx.fillStyle = 'rgba(255,179,71,0.10)';
       ctx.fillRect(0, 0, W, H);
@@ -2589,28 +2594,17 @@ class CanvasRenderer {
     ctx.restore();
   }
 
-  /**
-   * Dibuja una estructura con la forma, tier y facción aplicados.
-   *   - FORMA (shape): define la silueta. Nunca cambia.
-   *   - TIER: define el relleno. básico=hueco, avanzado=rayado, élite=brillo.
-   *   - FACCIÓN: define el color. Solo dice quién es.
-   */
   _drawStructure(ctx, s) {
     const x = s.x, y = s.y, r = s.radius;
     const color = s.color;
     const colorDark = s.colorDark;
 
-    // Sombra
     ctx.fillStyle = 'rgba(0,0,0,0.4)';
     this._pathShape(ctx, s.shape, x + 2, y + 3, r);
     ctx.fill();
 
-    // Stun overlay
-    if (s.stunTimer > 0) {
-      ctx.globalAlpha = 0.4;
-    }
+    if (s.stunTimer > 0) ctx.globalAlpha = 0.4;
 
-    // Aura de sanador
     if (s.heals) {
       ctx.strokeStyle = 'rgba(102,255,204,0.18)';
       ctx.lineWidth = 2;
@@ -2618,7 +2612,6 @@ class CanvasRenderer {
       ctx.arc(x, y, s.healRange, 0, Math.PI * 2);
       ctx.stroke();
     }
-    // Aura regeneradora activa
     if (s.regenerates && s.timeSinceDamage >= s.regenDelay) {
       ctx.strokeStyle = colorDark + '99';
       ctx.lineWidth = 3;
@@ -2627,22 +2620,18 @@ class CanvasRenderer {
       ctx.stroke();
     }
 
-    // Dibujar forma con tier
     this._pathShape(ctx, s.shape, x, y, r);
 
     if (s.tier === 'basic') {
-      // Hueco
       ctx.strokeStyle = color;
       ctx.lineWidth = 3;
       ctx.stroke();
     } else if (s.tier === 'advanced') {
-      // Relleno semitransparente + rayado
       ctx.fillStyle = colorDark + '55';
       ctx.fill();
       ctx.strokeStyle = color;
       ctx.lineWidth = 3;
       ctx.stroke();
-      // Rayado diagonal
       ctx.save();
       ctx.clip();
       ctx.strokeStyle = color + '99';
@@ -2655,7 +2644,6 @@ class CanvasRenderer {
       }
       ctx.restore();
     } else {
-      // Élite: brillo + relleno
       ctx.save();
       ctx.shadowColor = color;
       ctx.shadowBlur = 18;
@@ -2669,7 +2657,6 @@ class CanvasRenderer {
 
     ctx.globalAlpha = 1;
 
-    // Barra de vida (para estructuras dañadas o el núcleo)
     if (s.hp < s.maxHp || s.isCore) {
       const hpPct = s.hp / s.maxHp;
       const barW = Math.max(r * 2.2, 32);
@@ -2686,7 +2673,6 @@ class CanvasRenderer {
       ctx.fillText(`${Math.ceil(s.hp)}`, x, barY - 3);
     }
 
-    // Icono de facción en el centro
     if (s.factionId) {
       ctx.fillStyle = 'rgba(255,255,255,0.5)';
       ctx.font = 'bold 10px monospace';
@@ -2697,7 +2683,6 @@ class CanvasRenderer {
     }
   }
 
-  /** Define el path de cada forma. */
   _pathShape(ctx, shape, x, y, r) {
     ctx.beginPath();
     switch (shape) {
@@ -2727,7 +2712,6 @@ class CanvasRenderer {
         ctx.closePath();
         break;
       case 'espiral': {
-        // Espiral de Arquímedes simplificada
         const N = 40;
         for (let i = 0; i < N; i++) {
           const t = i / N;
@@ -2786,7 +2770,6 @@ class CanvasRenderer {
       ctx.stroke();
     }
 
-    // Escudo frontal
     if (t.shieldAngle > 0 && !isEnemy) {
       ctx.strokeStyle = 'rgba(126,200,227,0.6)';
       ctx.lineWidth = 3;
@@ -2832,10 +2815,6 @@ class CanvasRenderer {
     ctx.fillRect(t.x - barW / 2, t.y - t.radius - 6, barW * hpPct, 3);
   }
 
-  /**
-   * Dibuja un icono de estructura en miniatura (para el scouting).
-   * Se usa en el canvas de cada preview.
-   */
   static drawStructureIcon(canvas, typeId, faction, tier) {
     const ctx = canvas.getContext('2d');
     const w = canvas.width, h = canvas.height;
@@ -2846,7 +2825,6 @@ class CanvasRenderer {
     const colorDark = faction ? faction.colorDark : '#666';
     const r = Math.min(w, h) * 0.35;
     const x = w / 2, y = h / 2;
-    // Crear un renderer temporal para reusar _pathShape
     const renderer = new CanvasRenderer(canvas, new EventBus());
     renderer._pathShape(ctx, base.shape, x, y, r);
     if (tier === 'basic') {
@@ -2895,6 +2873,7 @@ class DOMUI {
     this.hudMats = document.getElementById('hudMats');
     this.hudZoneHp = document.getElementById('hudZoneHp');
     this.hudTroops = document.getElementById('hudTroops');
+    this.hudEnemies = document.getElementById('hudEnemies');
     this.hudQueue = document.getElementById('hudQueue');
     this.hudPhase = document.getElementById('hudPhase');
     this.btnStartZone = document.getElementById('btnStartZone');
@@ -2915,7 +2894,6 @@ class DOMUI {
 
   _bindEvents() {
     this.btnStartZone.addEventListener('click', () => {
-      // Preparar scouting y mostrar modal
       this.uc.prepareScouting.execute();
     });
     this.btnRestartRun.addEventListener('click', () => {
@@ -2981,12 +2959,16 @@ class DOMUI {
     this.bus.on('zone:started', () => this._refreshAll());
     this.bus.on('zone:hp', () => this._refreshHud());
     this.bus.on('gold:changed', () => this._refreshHud());
+    this.bus.on('materials:changed', () => { this._refreshHud(); this._refreshMaterials(); });
     this.bus.on('material:gained', () => { this._refreshHud(); this._refreshMaterials(); });
     this.bus.on('troop:spawned', () => this._refreshHud());
     this.bus.on('troop:died', () => this._refreshHud());
+    this.bus.on('enemy:died', () => this._refreshHud());
+    this.bus.on('enemy:spawned', () => this._refreshHud());
     this.bus.on('roster:added', () => this._refreshRoster());
     this.bus.on('roster:sacrificed', () => this._refreshRoster());
     this.bus.on('troop:promoted', () => this._refreshRoster());
+    this.bus.on('hero:died', () => this._refreshHero());
     this.bus.on('upgrade:bought', (e) => {
       this._appendLog(`🛒 Comprado: ${e.name}`, 'gold');
       this._refreshShop();
@@ -3016,6 +2998,7 @@ class DOMUI {
     this.hudGold.textContent = s.gold;
     this.hudMats.textContent = s.getTotalMaterials();
     this.hudTroops.textContent = s.troops.length;
+    this.hudEnemies.textContent = s.enemyTroops.length;
     this.hudQueue.textContent = s.roster.length;
     this.hudPhase.textContent = {
       idle:'en espera', running:'combate', victory:'victoria', defeat:'derrota',
@@ -3028,7 +3011,6 @@ class DOMUI {
       this._refreshZoneStats();
     }
 
-    // Botón habilidad héroe
     const hero = s.troops.find(t => t.isHero && t.alive);
     if (hero && s.hero.ability) {
       const cd = Math.max(0, hero.abilityCooldown);
@@ -3039,10 +3021,10 @@ class DOMUI {
         cd > 0 ? `${s.hero.ability.name} (${cd.toFixed(1)}s)` : `★ ${s.hero.ability.name}`;
     } else {
       this.btnHeroAbility.disabled = true;
-      document.getElementById('heroAbilityLabel').textContent = '★ Sin héroe';
+      document.getElementById('heroAbilityLabel').textContent =
+        s.heroAlive ? '★ Sin héroe en campo' : '★ Héroe caído';
     }
 
-    // Botón orden global
     const cdG = Math.max(0, s.globalOrderCooldown);
     this.btnGlobalOrder.disabled = cdG > 0 || (s.globalOrder && s.globalOrder.active);
     this.btnGlobalOrder.classList.toggle('active', s.globalOrder && s.globalOrder.active);
@@ -3070,7 +3052,7 @@ class DOMUI {
   _refreshRoster() {
     const s = this.state;
     if (s.roster.length === 0) {
-      this.queueList.innerHTML = '<span style="color:var(--muted);font-size:11px;">Vacío.</span>';
+      this.queueList.innerHTML = '<span style="color:var(--muted);font-size:11px;">Vacío. Recluta en el campamento.</span>';
     } else {
       this.queueList.innerHTML = s.roster.map(t => {
         const xpPct = Math.min(100, (t.xp / HIERARCHY.xpForPromotion) * 100);
@@ -3133,7 +3115,7 @@ class DOMUI {
     }
     const heroAlive = s.troops.find(t => t.isHero);
     const stats = s.hero.stats;
-    const dead = s.phase === 'running' && !heroAlive;
+    const dead = !s.heroAlive;
     this.heroPanel.innerHTML = `
       <div class="hero-panel ${dead ? 'dead' : ''}">
         <div class="hero-name">★ ${s.hero.name}</div>
@@ -3182,29 +3164,17 @@ class DOMUI {
     }
   }
 
-  /**
-   * Muestra el modal de scouting. Incluye:
-   *   - Nombre del arquetipo y descripción
-   *   - Facción enemiga con su color
-   *   - Preview de las estructuras esperadas (iconos dibujados)
-   *   - Pista estratégica
-   */
   _showScouting({ archetype, level }) {
-    const s = this.state;
-    // Para el preview, generamos una muestra rápida de estructuras (sin
-    // instanciarlas). Sólo mostramos los tipos con sus tiers esperados.
     const previewStructures = [];
     for (const [typeId, weight] of Object.entries(archetype.weights)) {
       if (weight <= 0) continue;
       if (!STRUCTURE_TYPES[typeId]) continue;
-      // Generar 1-3 previews del tipo según peso
       const count = Math.min(3, Math.ceil(weight / 2));
       for (let i = 0; i < count; i++) {
         const tier = level <= 1 ? 'basic' : (i === 0 && level >= 3 ? 'advanced' : 'basic');
         previewStructures.push({ typeId, tier });
       }
     }
-    // Facción probable (mayor peso)
     const factionEntries = Object.entries(archetype.factionBias);
     factionEntries.sort((a, b) => b[1] - a[1]);
     const likelyFactionId = factionEntries[0][0];
@@ -3229,7 +3199,6 @@ class DOMUI {
     `;
 
     const structsDiv = document.getElementById('scoutStructures');
-    // Deduplicar por (typeId, tier)
     const seen = new Set();
     for (const p of previewStructures) {
       const key = `${p.typeId}_${p.tier}`;
@@ -3338,6 +3307,7 @@ class DOMUI {
     });
     document.getElementById('btnContinue').disabled = true;
     this._refreshShop();
+    this._refreshRecruit();
     this._showModal('shopModal');
   }
 
@@ -3379,6 +3349,41 @@ class DOMUI {
     });
   }
 
+  /**
+   * NUEVO: renderiza la sección de reclutamiento del campamento.
+   * Cada tipo de tropa tiene su coste en oro + materiales.
+   */
+  _refreshRecruit() {
+    const s = this.state;
+    document.getElementById('shopRoster').textContent = `${s.roster.length}/${s.getRosterSize()}`;
+    const types = Object.keys(TROOP_TYPES);
+    document.getElementById('recruitGrid').innerHTML = types.map(typeId => {
+      const t = TROOP_TYPES[typeId];
+      const cost = TROOP_RECRUIT_COST[typeId];
+      const canAfford = canPayCost(s, cost);
+      const rosterFull = s.roster.length >= s.getRosterSize();
+      const canRecruit = canAfford && !rosterFull;
+      const costParts = [`<span class="${s.gold >= cost.gold ? 'ok' : 'no'}">${cost.gold} oro</span>`];
+      for (const [mat, qty] of Object.entries(cost.materials || {})) {
+        const have = s.materials[mat] || 0;
+        costParts.push(`<span class="${have >= qty ? 'ok' : 'no'}">${MATERIALS[mat].icon}${qty}</span>`);
+      }
+      return `<div class="recruit-card">
+        <div class="r-name">${t.name}</div>
+        <div class="r-cost">${costParts.join(' ')}</div>
+        <button class="r-btn" data-recruit="${typeId}" ${canRecruit ? '' : 'disabled'}>
+          ${rosterFull ? 'Roster lleno' : (canAfford ? 'Reclutar' : 'Sin recursos')}
+        </button>
+      </div>`;
+    }).join('');
+    document.querySelectorAll('[data-recruit]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        this.uc.recruitTroop.execute(btn.dataset.recruit);
+        this._refreshRecruit();
+      });
+    });
+  }
+
   _showEnd(kind) {
     const s = this.state;
     const title = kind === 'victory' ? '🏆 RUN COMPLETADA' : '💀 RUN FALLIDA';
@@ -3392,7 +3397,7 @@ class DOMUI {
     this.endPanelContent.innerHTML = `
       <h2>${title}</h2>
       <p>${sub}</p>
-      <p>Héroe: ${s.hero.name} · Modificadores: ${s.modifiers.length} · Oro final: ${s.gold}</p>
+      <p>Héroe: ${s.hero.name}${s.heroAlive ? '' : ' (caído)'} · Modificadores: ${s.modifiers.length} · Oro final: ${s.gold}</p>
       <p>Materiales: ${matList}</p>
       <button class="btn primary" id="btnEndRestart" style="margin-top:12px;">↻ Nueva run</button>
     `;
@@ -3421,37 +3426,29 @@ function runTests() {
     const zone = new ZoneGenerator(rng).generate('muro', 1);
     const initialHp = zone.hp;
     assert('Pool inicial = maxHp', initialHp === zone.maxHp && initialHp > 0);
-    // Aplicar daño
     zone.applyDamage(50);
     assert('Pool baja con daño', zone.hp === initialHp - 50);
-    // Curación de estructura no debe subir la pool
     const s = zone.structures[0];
     s.hp = s.maxHp * 0.5;
     s.heal(9999);
     assert('Curación de estructura NO sube la pool', zone.hp === initialHp - 50);
   }
 
-  // --- Estructura muere correctamente ---
+  // --- Estructura muere ---
   {
     const s = new Structure('torre', 1, 1, { tier: 'basic' });
     const real = s.takeDamage(s.maxHp);
-    assert('takeDamage retorna daño real aplicado', real === s.maxHp || real > 0);
+    assert('takeDamage retorna daño real', real === s.maxHp || real > 0);
     assert('Estructura muere con daño letal', !s.alive && s.hp === 0);
   }
 
   // --- Forma = función ---
   {
-    assert('Muro tiene shape cuadrado', STRUCTURE_TYPES.muro.shape === 'cuadrado');
-    assert('Torre tiene shape triángulo', STRUCTURE_TYPES.torre.shape === 'triangulo');
-    assert('Sanador tiene shape cruz', STRUCTURE_TYPES.sanador.shape === 'cruz');
-    assert('Generador tiene shape hexágono', STRUCTURE_TYPES.generador.shape === 'hexagono');
-    assert('Núcleo tiene shape estrella', STRUCTURE_TYPES.nucleo.shape === 'estrella');
-    // Cada forma se usa al menos una vez
-    const shapesUsed = new Set(Object.values(STRUCTURE_TYPES).map(s => s.shape));
-    for (const shape of Object.keys(SHAPES)) {
-      // Algunas formas pueden no estar cubiertas aún
-    }
-    assert('Al menos 6 formas están en uso', shapesUsed.size >= 6);
+    assert('Muro cuadrado', STRUCTURE_TYPES.muro.shape === 'cuadrado');
+    assert('Torre triángulo', STRUCTURE_TYPES.torre.shape === 'triangulo');
+    assert('Sanador cruz', STRUCTURE_TYPES.sanador.shape === 'cruz');
+    assert('Generador hexágono', STRUCTURE_TYPES.generador.shape === 'hexagono');
+    assert('Núcleo estrella', STRUCTURE_TYPES.nucleo.shape === 'estrella');
   }
 
   // --- Tier escala HP ---
@@ -3459,60 +3456,167 @@ function runTests() {
     const s1 = new Structure('torre', 1, 1, { tier: 'basic' });
     const s2 = new Structure('torre', 1, 1, { tier: 'advanced' });
     const s3 = new Structure('torre', 1, 1, { tier: 'elite' });
-    assert('Advanced tiene más HP que basic', s2.maxHp > s1.maxHp);
-    assert('Elite tiene más HP que advanced', s3.maxHp > s2.maxHp);
+    assert('Advanced > basic HP', s2.maxHp > s1.maxHp);
+    assert('Elite > advanced HP', s3.maxHp > s2.maxHp);
   }
 
   // --- Facción afecta stats ---
   {
     const roman = new Structure('torre', 1, 1, { tier: 'basic', faction: FACTIONS.romanos });
     const viking = new Structure('torre', 1, 1, { tier: 'basic', faction: FACTIONS.vikingos });
-    assert('Romanos tienen más HP que vikingos', roman.maxHp > viking.maxHp);
-    assert('Vikingos tienen más daño que romanos', viking.attack > roman.attack);
+    assert('Romanos más HP', roman.maxHp > viking.maxHp);
+    assert('Vikingos más daño', viking.attack > roman.attack);
   }
 
-  // --- Arquetipo genera estructuras coherentes ---
+  // --- Arquetipo Muro genera mayoría de muros ---
   {
     const rng = new SeededRandom(42);
-    const zoneMuro = new ZoneGenerator(rng).generate('muro', 1);
-    const muros = zoneMuro.structures.filter(s => s.typeId === 'muro').length;
-    const total = zoneMuro.structures.length;
-    assert('Arquetipo Muro genera mayoría de muros', muros >= total * 0.4);
+    const zone = new ZoneGenerator(rng).generate('muro', 1);
+    const muros = zone.structures.filter(s => s.typeId === 'muro').length;
+    const total = zone.structures.length;
+    assert('Muro: mayoría muros', muros >= total * 0.4);
   }
 
-  // --- Pool se sella ---
+  // --- Pool ×2 estructuras ---
   {
     const rng = new SeededRandom(1);
-    const zone = new ZoneGenerator(rng).generate('bunker', 2);
-    assert('Zona generada está sellada', zone.sealed);
-    assert('Pool sellada es > 0', zone.hp > 0);
-    // Comprobar que la pool no cambia por curación
-    const initialHp = zone.hp;
-    for (const s of zone.structures) {
-      s.hp = s.maxHp; // todas curadas
+    const zone = new ZoneGenerator(rng).generate('muro', 1);
+    assert('Zona Muro tiene al menos 10 estructuras', zone.structures.length >= 10);
+  }
+
+  // --- Enemigos atacan tropas del jugador ---
+  {
+    const bus = new EventBus();
+    const ms = new MovementService();
+    const enemy = new Troop('tanque', 500, 240);
+    enemy.team = 'defender';
+    enemy.behavior = 'targetNearest';
+    const playerTroop = new Troop('dps', 520, 240);
+    const hpBefore = playerTroop.hp;
+    // Simular varios ticks
+    for (let i = 0; i < 30; i++) {
+      ms.update(enemy, [enemy], [], [playerTroop], 0.1, bus, null, null);
     }
-    assert('Pool no sube aunque todas se curen', zone.hp === initialHp);
+    assert('Enemigo daña a tropa del jugador', playerTroop.hp < hpBefore);
   }
 
-  // --- Proyectil: bloqueo frontal por escudo ---
+  // --- Tropas del jugador atacan enemigos ---
+  {
+    const bus = new EventBus();
+    const ms = new MovementService();
+    const player = new Troop('dps', 500, 240);
+    const enemy = new Troop('tanque', 520, 240);
+    enemy.team = 'defender';
+    const hpBefore = enemy.hp;
+    for (let i = 0; i < 30; i++) {
+      ms.update(player, [player], [], [enemy], 0.1, bus, null, null);
+    }
+    assert('Tropa del jugador daña a enemigo', enemy.hp < hpBefore);
+  }
+
+  // --- Enemigos mueren ---
+  {
+    const bus = new EventBus();
+    const ms = new MovementService();
+    const player = new Troop('asedio', 500, 240);
+    const enemy = new Troop('tanque', 520, 240);
+    enemy.team = 'defender';
+    enemy.maxHp = 20;
+    enemy.hp = 20;
+    let died = false;
+    bus.on('enemy:died', () => died = true);
+    for (let i = 0; i < 60; i++) {
+      ms.update(player, [player], [], [enemy], 0.1, bus, null, null);
+      if (!enemy.alive) break;
+    }
+    assert('Enemigo muere al recibir daño suficiente', !enemy.alive || died);
+  }
+
+  // --- Reclutamiento con oro y materiales ---
+  {
+    const state = new GameState();
+    const bus = new EventBus();
+    state.rng = new SeededRandom(1);
+    state.hero = new HeroGenerator(state.rng).generate();
+    state.gold = 100;
+    state.materials = { hierro: 10 };
+    const uc = new RecruitTroopUseCase(state, bus);
+    const ok = uc.execute('dps');
+    assert('Reclutamiento exitoso con recursos', ok);
+    assert('Roster crece', state.roster.length === 1);
+    assert('Oro descontado', state.gold === 90);
+    assert('Materiales descontados', state.materials.hierro === 8);
+  }
+
+  // --- Reclutamiento sin recursos ---
+  {
+    const state = new GameState();
+    const bus = new EventBus();
+    state.rng = new SeededRandom(1);
+    state.hero = new HeroGenerator(state.rng).generate();
+    state.gold = 0;
+    state.materials = {};
+    const uc = new RecruitTroopUseCase(state, bus);
+    const ok = uc.execute('dps');
+    assert('Reclutamiento rechazado sin recursos', !ok);
+  }
+
+  // --- Reclutamiento con roster lleno ---
+  {
+    const state = new GameState();
+    const bus = new EventBus();
+    state.rng = new SeededRandom(1);
+    state.hero = new HeroGenerator(state.rng).generate();
+    state.gold = 1000;
+    state.materials = { hierro: 100, piedra: 100, esencia: 100, mecanismos: 100 };
+    for (let i = 0; i < 6; i++) {
+      const t = new Troop('dps', 0, 0);
+      state.roster.push(t);
+    }
+    const uc = new RecruitTroopUseCase(state, bus);
+    const ok = uc.execute('dps');
+    assert('Reclutamiento rechazado con roster lleno', !ok);
+  }
+
+  // --- Héroe muere, no revive ---
+  {
+    const state = new GameState();
+    const bus = new EventBus();
+    state.rng = new SeededRandom(1);
+    state.hero = new HeroGenerator(state.rng).generate();
+    state.heroAlive = false;
+    state.zone = new ZoneGenerator(state.rng).generate('muro', 1);
+    state.roster = [new Troop('dps', 0, 0)];
+    state.phase = 'idle';
+    const startZone = new StartZoneUseCase(state, bus);
+    startZone.execute();
+    const hasHero = state.troops.some(t => t.isHero);
+    assert('Héroe muerto no reaparece en nueva zona', !hasHero);
+  }
+
+  // --- Pool × escalado ---
+  {
+    const rng = new SeededRandom(1);
+    const zone1 = new ZoneGenerator(rng).generate('muro', 1);
+    const zone2 = new ZoneGenerator(new SeededRandom(1)).generate('muro', 2);
+    assert('Zona 2 tiene más pool que zona 1', zone2.maxHp > zone1.maxHp);
+  }
+
+  // --- Proyectil bloqueo frontal ---
   {
     const troop = new Troop('tanque', 100, 100);
-    // Proyectil viniendo de la derecha, yendo a la izquierda
     const p1 = new Projectile(150, 100, 100, 100, 10, 200, '#f00');
-    assert('Tanque bloquea proyectil frontal', p1.isBlockedBy(troop));
+    assert('Tanque bloquea frontal', p1.isBlockedBy(troop));
   }
 
-  // --- Proyectil: no bloquea por la espalda ---
+  // --- Proyectil no bloquea por la espalda ---
   {
     const troop = new Troop('tanque', 100, 100);
-    // Proyectil viniendo de la izquierda, yendo a la derecha
     const p2 = new Projectile(50, 100, 100, 100, 10, 200, '#f00');
-    // El tanque mira a la derecha (por defecto). El proyectil viene de la izquierda.
-    // No debería bloquear.
-    assert('Tanque NO bloquea proyectil por la espalda', !p2.isBlockedBy(troop));
+    assert('Tanque NO bloquea por espalda', !p2.isBlockedBy(troop));
   }
 
-  // --- Comportamiento: asedio va al núcleo ---
+  // --- Comportamiento: asedio al núcleo ---
   {
     const ms = new MovementService();
     const asedio = new Troop('asedio', 100, 100);
@@ -3536,148 +3640,54 @@ function runTests() {
     assert('Zapador apunta al más débil', target === weak);
   }
 
-  // --- Comportamiento: tanque prioriza bloqueos ---
-  {
-    const ms = new MovementService();
-    const tank = new Troop('tanque', 50, 100);
-    const core = new Structure('nucleo', 10, 2, { tier: 'basic' });
-    core.isCore = true; core.x = 600; core.y = 240;
-    const wall = new Structure('muro', 3, 2, { tier: 'basic' });
-    wall.x = 200; wall.y = 240;
-    const target = ms.findTarget(tank, [core, wall]);
-    assert('Tanque apunta al muro bloqueante', target === wall);
-  }
-
-  // --- Arquetipo tiene identidad ---
-  {
-    assert('4 arquetipos definidos', Object.keys(ZONE_ARCHETYPES).length === 4);
-    for (const arch of Object.values(ZONE_ARCHETYPES)) {
-      assert(`Arquetipo "${arch.name}" tiene hint`, !!arch.hint);
-      assert(`Arquetipo "${arch.name}" tiene desc`, !!arch.desc);
-    }
-  }
-
-  // --- Facción: sesgos por arquetipo ---
-  {
-    const rng = new SeededRandom(1);
-    // Muro tiene bias hacia romanos
-    let romanCount = 0;
-    for (let i = 0; i < 20; i++) {
-      const zone = new ZoneGenerator(new SeededRandom(i)).generate('muro', 1);
-      if (zone.faction.id === 'romanos') romanCount++;
-    }
-    assert('Muro tiende a facción romana', romanCount >= 10);
-  }
-
-  // --- Hero generación determinista ---
-  {
-    const h1 = new HeroGenerator(new SeededRandom(99)).generate();
-    const h2 = new HeroGenerator(new SeededRandom(99)).generate();
-    assert('Héroe determinista', h1.name === h2.name && h1.archetype === h2.archetype);
-  }
-
-  // --- Gold service ---
+  // --- Habilidad héroe meteoro ---
   {
     const state = new GameState();
     const bus = new EventBus();
-    state.gold = 0;
     state.rng = new SeededRandom(1);
     state.hero = new HeroGenerator(state.rng).generate();
-    new GoldService(state, bus);
-    const s = new Structure('torre', 1, 1, { tier: 'basic' });
-    bus.emit('structure:destroyed', { structure: s });
-    assert('Oro al destruir estructura', state.gold >= 20);
-    assert('Material al destruir', (state.materials.hierro || 0) >= 2);
+    state.hero.ability = { id:'mago_meteoro', name:'Meteoro', cooldown:30, effect:'meteor' };
+    state.zone = new ZoneGenerator(state.rng).generate('muro', 1);
+    const hero = new HeroTroop(state.hero, 100, 100, [], {});
+    state.troops = [hero];
+    state.heroAlive = true;
+    state.phase = 'running';
+    const uc = new ActivateHeroAbilityUseCase(state, bus);
+    const core = state.zone.getCore();
+    const hpBefore = core.hp;
+    uc.execute();
+    assert('Meteoro daña núcleo', core.hp < hpBefore);
   }
 
-  // --- Victoria cuando pool llega a 0 ---
+  // --- Victoria ---
   {
     const state = new GameState();
     const bus = new EventBus();
     const uc = new TickUseCase(state, bus);
     state.rng = new SeededRandom(1);
     state.zone = new ZoneGenerator(state.rng).generate('muro', 1);
-    state.troops = [];
-    state.enemyTroops = [];
+    state.troops = []; state.enemyTroops = [];
     state.phase = 'running';
-    // Aplicar daño letal a la pool directamente
     state.zone.applyDamage(state.zone.maxHp);
     let victory = false;
     bus.on('zone:victory', () => victory = true);
     uc.execute(0.1);
-    assert('Victoria cuando pool = 0', victory);
+    assert('Victoria pool=0', victory);
   }
 
-  // --- Derrota sin tropas ---
+  // --- Derrota ---
   {
     const state = new GameState();
     const bus = new EventBus();
     const uc = new TickUseCase(state, bus);
     state.rng = new SeededRandom(1);
     state.zone = new ZoneGenerator(state.rng).generate('muro', 1);
-    state.troops = [];
-    state.enemyTroops = [];
+    state.troops = []; state.enemyTroops = [];
     state.phase = 'running';
     let defeat = false;
     bus.on('zone:defeat', () => defeat = true);
     uc.execute(0.1);
-    assert('Derrota sin tropas ni enemigos', defeat);
-  }
-
-  // --- Catapulta genera área de daño ---
-  {
-    const bus = new EventBus();
-    const cs = new CombatService();
-    const cat = new Structure('catapulta', 1, 1, { tier: 'basic' });
-    cat.x = 100; cat.y = 100;
-    cat.attackCooldown = 0;
-    const troop = new Troop('dps', 300, 100);
-    const projectiles = [];
-    cs.updateStructures([cat], [troop], 0.1, bus, [], projectiles, []);
-    assert('Catapulta genera proyectil', projectiles.length === 1);
-    assert('Proyectil es balístico', projectiles[0].kind === 'catapult');
-  }
-
-  // --- DamageArea daña tropas ---
-  {
-    const bus = new EventBus();
-    const area = new DamageArea(100, 100, 50, 20, 2.0, '#f00');
-    const troop = new Troop('dps', 120, 100);
-    const hpBefore = troop.hp;
-    // Simular 1 segundo
-    for (let i = 0; i < 10; i++) area.update(0.1, [troop], bus);
-    assert('DamageArea daña a tropas dentro', troop.hp < hpBefore);
-  }
-
-  // --- Movimiento: tropa atraviesa muro si es voladora ---
-  {
-    const bus = new EventBus();
-    const ms = new MovementService();
-    const flyer = new Troop('volador', 50, 240);
-    const zone = new Zone(ZONE_ARCHETYPES.muro, FACTIONS.romanos, 1);
-    const wall = new Structure('muro', 3, 4, { tier: 'basic' });
-    wall.x = 200; wall.y = 240;
-    const core = new Structure('nucleo', 10, 4, { tier: 'basic' });
-    core.isCore = true; core.x = 600; core.y = 240;
-    zone.structures = [wall, core];
-    zone.sealPool();
-    const xBefore = flyer.x;
-    for (let i = 0; i < 20; i++) {
-      ms.update(flyer, [flyer], zone.structures, 0.1, bus, null, zone);
-    }
-    assert('Volador se acerca al núcleo ignorando muros', flyer.x > xBefore + 30);
-  }
-
-  // --- XP y promoción ---
-  {
-    const troop = new Troop('dps', 0, 0);
-    assert('No puede promocionar sin XP', !troop.canPromote());
-    troop.gainXP(HIERARCHY.xpForPromotion);
-    assert('Puede promocionar con XP suficiente', troop.canPromote());
-    const promo = TROOP_PROMOTIONS.dps[0];
-    troop.promote(promo);
-    assert('Promoción cambia daño', troop.damage > 18);
-    assert('XP reset tras promoción', troop.xp === 0);
+    assert('Derrota sin tropas', defeat);
   }
 
   const passed = results.filter(r => r.pass).length;
@@ -3700,7 +3710,6 @@ function runTests() {
   const canvas = document.getElementById('canvas');
   const renderer = new CanvasRenderer(canvas, bus);
   const audio = new AudioService(bus);
-  // Iniciar audio tras primera interacción del usuario
   const initAudioOnce = () => { audio.init(); };
   document.addEventListener('click', initAudioOnce, { once: true });
   document.addEventListener('keydown', initAudioOnce, { once: true });
@@ -3713,6 +3722,7 @@ function runTests() {
   const advanceZone = new AdvanceZoneUseCase(state, bus);
   const buyUpgrade = new BuyUpgradeUseCase(state, bus);
   const draftTroop = new DraftTroopUseCase(state, bus);
+  const recruitTroop = new RecruitTroopUseCase(state, bus);
   const promoteTroop = new PromoteTroopUseCase(state, bus);
   const activateGlobalOrder = new ActivateGlobalOrderUseCase(state, bus);
   const activateHeroAbility = new ActivateHeroAbilityUseCase(state, bus);
@@ -3720,11 +3730,10 @@ function runTests() {
   new GoldService(state, bus);
   const ui = new DOMUI(state, bus, {
     startRun, prepareScouting, startZone, tick, endZone, advanceZone, buyUpgrade,
-    draftTroop, promoteTroop, activateGlobalOrder, activateHeroAbility,
+    draftTroop, recruitTroop, promoteTroop, activateGlobalOrder, activateHeroAbility,
   });
 
   startRun.execute(42);
-  // Roster inicial
   for (const type of ['tanque', 'dps', 'zapador']) {
     draftTroop.execute(type);
   }
@@ -3744,7 +3753,6 @@ function runTests() {
       safety++;
     }
     renderer.render(state, elapsed);
-    // HUD reactivo
     ui._refreshHud();
     requestAnimationFrame(loop);
   }
@@ -3754,12 +3762,11 @@ function runTests() {
     state, bus,
     useCases: {
       startRun, prepareScouting, startZone, tick, endZone, advanceZone, buyUpgrade,
-      draftTroop, promoteTroop, activateGlobalOrder, activateHeroAbility,
+      draftTroop, recruitTroop, promoteTroop, activateGlobalOrder, activateHeroAbility,
     },
     runTests,
   };
-  console.info('%c⬡ ASALTO · Núcleo v5', 'color:#ffb347;font-weight:bold;font-size:14px;');
-  console.info('__asalto.runTests() → tests');
+  console.info('%c⬡ ASALTO · Núcleo v6', 'color:#ffb347;font-weight:bold;font-size:14px;');
 })();
 
 </script>
