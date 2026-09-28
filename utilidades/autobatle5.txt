@@ -1,0 +1,227 @@
+================================================================================
+ASALTO · NÚCLEO
+Autobattler roguelike de asedio con estructuras procedurales
+================================================================================
+
+Un juego de asedio por turnos en tiempo real donde controlas un ejército
+de tropas contra fortalezas generadas proceduralmente. Inspirado en
+Slay the Spire (progresión de run), Into the Breach (grid táctico) y
+Loop Hero (autobattle con placement).
+
+
+--------------------------------------------------------------------------------
+CÓMO JUGAR
+--------------------------------------------------------------------------------
+
+1. Abre index.html en un navegador moderno (Chrome, Firefox, Edge).
+   No requiere instalación ni servidor.
+
+2. Al iniciar la run se genera un héroe aleatorio y un roster inicial
+   de 3 tropas.
+
+3. Pulsa "Preparar asalto" para ver el reconocimiento de la próxima zona.
+   El scouting te dice:
+     - El arquetipo enemigo (Muro, Artillería, Estampida, Búnker)
+     - La facción probable (Romanos o Vikingos)
+     - Las estructuras esperadas con su tier
+
+4. Pulsa "Asaltar" para empezar el combate.
+
+5. Durante el combate puedes:
+     - Ver cómo tus tropas asaltan la fortaleza automáticamente
+     - Pulsar "⚡ Foco" para ordenar ataque concentrado al núcleo
+       (cooldown 20s, dura 5s)
+     - Pulsar la habilidad del héroe según su arquetipo
+       (Guerrero: aturdir / Arquero: marcar / Mago: meteoro)
+
+6. Al ganar la zona entras al campamento donde puedes:
+     - Elegir 1 modificador permanente
+     - Reclutar tropas muertas con oro + materiales
+     - Comprar mejoras de héroe y ejército
+     - Promocionar tropas que hayan subido XP
+
+7. Una run dura 4 zonas. Si ganas las 4, has completado la run.
+   Si pierdes todas las tropas, game over.
+
+
+--------------------------------------------------------------------------------
+CARACTERÍSTICAS PRINCIPALES
+--------------------------------------------------------------------------------
+
+LENGUAJE VISUAL DE TRES CANALES
+  Forma = función       Cuadrado bloquea, triángulo dispara, cruz cura,
+                        hexágono genera, espiral telegrafía, rombo
+                        es trampa, anillo regenera, estrella es núcleo.
+  Relleno = tier        Hueco (básico), rayado (avanzado), brillante (élite).
+  Color = facción       Azul = romanos (defensivos), rojo = vikingos (agresivos).
+
+ARQUETIPOS DE ZONA
+  Cada zona tiene una identidad táctica. El scouting te avisa ANTES de
+  entrar, así que puedes preparar la composición. El arquetipo Muro
+  necesita asedio. El Búnker necesita burst. La Estampida necesita AOE.
+
+SISTEMA DE POOL FIJA
+  La vida total de la zona se fija al inicio (suma de HP de todas las
+  estructuras). El daño la resta directamente. Regeneración y sanadores
+  curan las estructuras pero NO la pool. Puedes ganar concentrando daño
+  en el núcleo sin matar todo lo demás.
+
+PROGRESIÓN DE TROPAS
+  - Draft: al inicio de cada zona eliges 1 tropa de 3 opciones.
+  - XP: las tropas que sobreviven acumulan XP. Al llegar a 100 XP
+    pueden promocionar.
+  - Promoción: cada tipo de tropa tiene 2 opciones con trade-offs.
+    El escudero pesado pierde daño pero gana HP y escudo. El berserker
+    suelta el escudo y dobla el daño.
+  - Jerarquía: máximo 3 tropas de rango 1, 2 de rango 2, 1 de rango 3.
+
+RECLUTAMIENTO
+  Las tropas muertas se pierden permanentemente del roster. Puedes
+  reponerlas con oro + materiales en el campamento. Los materiales
+  se obtienen destruyendo estructuras.
+
+HÉROE PERSISTENTE
+  El héroe tiene habilidad activa por arquetipo, aura de daño, y stats
+  propios. Si muere durante una zona, NO revive en la misma run.
+  Perderlo es un golpe real.
+
+ESCALADO EXPONENCIAL
+  Las zonas escalan x2 en HP y daño enemigo. La zona 4 es un reto de
+  verdad. Las mejoras del jugador están capadas para que el enemigo
+  pueda competir.
+
+
+--------------------------------------------------------------------------------
+ARQUITECTURA
+--------------------------------------------------------------------------------
+
+Arquitectura hexagonal (puertos y adaptadores) con event-driven design.
+
+CAPAS
+  [DOMINIO]        Catálogos, entidades, servicios puros.
+                   Sin DOM, sin localStorage, sin RNG global.
+  [PUERTOS]        RandomPort, ClockPort, StoragePort (contratos).
+  [ADAPTADORES]    SeededRandom, SystemClock, LocalStorageAdapter.
+  [APLICACIÓN]     GameState + UseCases. Orquesta comandos y emite eventos.
+  [UI/INFRA]       CanvasRenderer, DOMUI, AudioService.
+
+CONVENCIONES
+  - Todas las mutaciones pasan por use cases.
+  - Los use cases emiten eventos al EventBus. La UI escucha.
+  - El RNG es inyectado y determinista (misma seed = misma run).
+  - Los servicios de dominio son funciones puras o métodos sin efectos.
+
+EVENTOS PRINCIPALES
+  run:started, zone:started, zone:victory, zone:defeat,
+  troop:spawned, troop:died, enemy:spawned, enemy:died,
+  structure:destroyed, structure:healed, structure:telegraph,
+  projectile:blocked, ability:used, order:activated, hero:died,
+  gold:gained, material:gained, upgrade:bought, roster:added
+
+TESTS
+  El juego corre 25+ tests al cargar. Se ejecutan en la consola.
+  Cubren: pool fija, estructuras nuevas, targeting mutuo entre
+  tropas y enemigos, proyectiles y bloqueo, comportamientos de
+  tropa, sistema de reclutamiento, héroe persistente, jerarquía,
+  habilidades de héroe, victoria y derrota.
+
+  Para re-ejecutar: __asalto.runTests() en consola.
+
+
+--------------------------------------------------------------------------------
+CONTROLES
+--------------------------------------------------------------------------------
+
+  Botones en pantalla. No requiere teclado.
+  El audio se inicializa tras la primera interacción (política de
+  navegadores).
+
+
+--------------------------------------------------------------------------------
+ESTRUCTURA DEL PROYECTO
+--------------------------------------------------------------------------------
+
+  asalto/
+  ├── index.html      (todo el juego en un archivo)
+  ├── README.txt      (este archivo)
+  └── LICENSE         (AGPL-3.0)
+
+  El juego está en un solo HTML para facilitar la iteración y la
+  distribución. Para portarlo a un proyecto con build, separar en:
+
+  src/
+    domain/
+      catalogs.js       (STRUCTURE_TYPES, TROOP_TYPES, etc.)
+      entities.js       (Troop, Structure, Zone, Projectile)
+      services.js       (MovementService, CombatService)
+      generators.js     (ZoneGenerator, HeroGenerator)
+    application/
+      GameState.js
+      useCases/
+      EventBus.js
+    infrastructure/
+      CanvasRenderer.js
+      DOMUI.js
+      AudioService.js
+    ports/
+    adapters/
+    bootstrap.js
+    tests/
+    index.html
+
+
+--------------------------------------------------------------------------------
+ROADMAP
+--------------------------------------------------------------------------------
+
+v7 (próximo)
+  - Habilidades aleatorias por tropa (pool de 6-8 por tipo)
+  - Nivel 1-3 por tropa con bonus pequeños
+  - Ítems del héroe (4 slots tipados)
+  - Modificadores de reglas (no numéricos)
+
+v8
+  - Desbloqueos persistentes con localStorage
+  - Árbol de héroe con 3 ramas cortas
+  - Semillas de run con modificadores
+
+v9
+  - Más facciones (mongoles, tercios)
+  - Mecánicas de asedio avanzadas (túneles, escalas)
+  - Modo endless
+
+
+--------------------------------------------------------------------------------
+LICENCIA
+--------------------------------------------------------------------------------
+
+Este proyecto está licenciado bajo AGPL-3.0.
+
+    Asalto · Núcleo
+    Copyright (C) 2024
+
+    This program is free software: you can redistribute it and/or modify
+    it under the terms of the GNU Affero General Public License as
+    published by the Free Software Foundation, either version 3 of the
+    License, or (at your option) any later version.
+
+    This program is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+    GNU Affero General Public License for more details.
+
+    You should have received a copy of the GNU Affero General Public
+    License along with this program. If not, see
+    <https://www.gnu.org/licenses/>.
+
+El texto completo de la licencia está en el archivo LICENSE.
+
+
+--------------------------------------------------------------------------------
+CRÉDITOS
+--------------------------------------------------------------------------------
+
+Diseño y código: [tu nombre aquí]
+Inspirado en: Slay the Spire, Into the Breach, Loop Hero, TFT.
+
+================================================================================
