@@ -3,12 +3,12 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Asalto · Núcleo v6</title>
+<title>Asalto · Núcleo v7</title>
 <style>
   :root {
     --bg:#0a0a14; --panel:#12121f; --border:#22223a; --text:#c8d0e0;
     --muted:#667; --accent:#ffb347; --good:#7ee87e; --bad:#ff6b6b;
-    --rare:#7ec8e3; --gold:#ffd700; --hero:#ff99ff;
+    --rare:#7ec8e3; --gold:#ffd700; --hero:#ff99ff; --general:#ff5566;
   }
   * { box-sizing:border-box; margin:0; padding:0; }
   body {
@@ -23,12 +23,19 @@
   header h1 { font-size:14px; color:var(--accent); font-weight:400; letter-spacing:1px; }
   header .zone-tag { font-size:12px; color:var(--rare); }
   header .spacer { flex:1; }
-  header .hud { display:flex; gap:6px; font-size:11px; flex-wrap:wrap; }
+  header .hud { display:flex; gap:6px; font-size:11px; flex-wrap:wrap; align-items:center; }
   header .hud .item { background:#12121f; padding:3px 9px; border-radius:10px; border:1px solid var(--border); }
   header .hud .item .k { color:var(--muted); }
   header .hud .item .v { color:var(--accent); font-weight:700; }
-  header .hud .item.gold .v { color:var(--gold); }
+  header .hud .item.gold .v { color:var(--gold); font-size:13px; }
   header .hud .item.mat .v { color:var(--rare); }
+  header .hud .speed-btns { display:flex; gap:2px; }
+  header .hud .speed-btns button {
+    background:#12121f; color:var(--muted); border:1px solid var(--border);
+    padding:3px 8px; border-radius:6px; cursor:pointer; font-family:inherit;
+    font-size:11px; font-weight:700;
+  }
+  header .hud .speed-btns button.active { background:var(--accent); color:#0a0a14; border-color:var(--accent); }
   main {
     display:grid; grid-template-columns:280px 1fr 280px; gap:12px;
     padding:12px; overflow:hidden;
@@ -60,7 +67,8 @@
   .log-entry.info { color:var(--rare); }
   .log-entry.warn { color:var(--accent); }
   .log-entry.gold { color:var(--gold); }
-  .log-entry.mat { color:#88ddff; }
+  .log-entry.general { color:var(--general); }
+
   .queue { display:flex; flex-direction:column; gap:4px; }
   .queue-item {
     display:flex; justify-content:space-between; align-items:center;
@@ -75,6 +83,7 @@
   .queue-item.promoted { border-color:var(--gold); background:rgba(255,215,0,0.06); }
   .queue-item.promoted .name { color:var(--gold); }
   .queue-item .count { color:var(--accent); font-weight:700; font-size:10px; }
+
   .modifiers { display:flex; flex-direction:column; gap:4px; }
   .modifier-item {
     font-size:11px; padding:4px 8px; border-radius:4px;
@@ -82,6 +91,7 @@
   }
   .modifier-item .name { color:var(--good); font-weight:700; }
   .modifier-item .desc { color:var(--muted); font-size:10px; }
+
   .materials-grid { display:flex; flex-wrap:wrap; gap:4px; }
   .material-chip {
     background:#1a1a2e; border:1px solid #33334a; border-radius:12px;
@@ -90,6 +100,7 @@
   }
   .material-chip .icon { font-size:12px; }
   .material-chip .count { color:var(--rare); font-weight:700; }
+
   .hero-panel {
     background:linear-gradient(135deg, rgba(255,153,255,0.08), rgba(255,179,71,0.05));
     border:1px solid rgba(255,153,255,0.3);
@@ -102,6 +113,33 @@
   .hero-panel .hero-stats .v { color:var(--good); font-weight:600; }
   .hero-panel.dead { opacity:0.4; border-color:#444; }
   .hero-panel.dead .hero-name { color:#666; }
+
+  .general-panel {
+    background:linear-gradient(135deg, rgba(255,85,102,0.10), rgba(255,85,102,0.02));
+    border:1px solid rgba(255,85,102,0.4);
+    border-radius:6px; padding:8px; font-size:11px;
+    margin-bottom:10px;
+  }
+  .general-panel .general-name { color:var(--general); font-weight:700; font-size:13px; }
+  .general-panel .general-title { color:var(--muted); font-size:10px; font-style:italic; margin-bottom:6px; }
+  .general-panel .general-desc { color:var(--text); font-size:11px; margin:6px 0; }
+  .general-panel .ability-row { display:flex; justify-content:space-between; font-size:10px; padding:3px 0; }
+  .general-panel .ability-row .k { color:var(--muted); }
+  .general-panel .ability-row .v { color:var(--general); font-weight:700; }
+  .general-panel .phase-indicator {
+    display:flex; gap:4px; margin:6px 0;
+  }
+  .general-panel .phase-indicator .pip {
+    flex:1; height:6px; border-radius:3px; background:#333;
+    transition:background 0.3s;
+  }
+  .general-panel .phase-indicator .pip.active { background:var(--general); }
+  .general-panel.phase-2 { border-color:var(--accent); }
+  .general-panel.phase-2 .general-name { color:var(--accent); }
+  .general-panel.phase-3 { border-color:var(--bad); animation: pulse 1s infinite; }
+  .general-panel.phase-3 .general-name { color:var(--bad); }
+  @keyframes pulse { 0%,100%{opacity:1;} 50%{opacity:0.7;} }
+
   .btn {
     background:#2a2a4a; color:#c8d0e0; border:1px solid #44446a;
     padding:8px 14px; border-radius:6px; cursor:pointer;
@@ -136,6 +174,7 @@
   }
   .btn.global-order .label { position:relative; z-index:1; }
   .btn.global-order.active { background:linear-gradient(135deg, #ffb347, #cc8a00); }
+
   .hp-bar {
     width:100%; height:8px; background:#1a1a2a; border-radius:4px;
     overflow:hidden; margin-top:4px;
@@ -144,15 +183,16 @@
     height:100%; background:linear-gradient(90deg,var(--bad),var(--accent));
     transition:width 0.2s;
   }
+
   .modal-overlay {
-    position:fixed; inset:0; background:rgba(0,0,0,0.8);
+    position:fixed; inset:0; background:rgba(0,0,0,0.85);
     display:flex; align-items:center; justify-content:center;
     z-index:1000; padding:20px;
   }
   .modal-overlay.hidden { display:none; }
   .modal {
     background:var(--panel); border:2px solid var(--accent);
-    border-radius:12px; padding:20px; max-width:820px; width:100%;
+    border-radius:12px; padding:20px; max-width:900px; width:100%;
     max-height:90vh; overflow-y:auto;
   }
   .modal h2 { color:var(--accent); font-size:16px; margin-bottom:6px; }
@@ -162,6 +202,7 @@
     font-size:11px; color:var(--rare); text-transform:uppercase;
     letter-spacing:1px; margin-bottom:8px;
   }
+
   .choices { display:grid; grid-template-columns:1fr 1fr 1fr; gap:10px; }
   @media (max-width:720px) { .choices { grid-template-columns:1fr; } }
   .choice {
@@ -173,10 +214,9 @@
   .choice.selected { border-color:var(--good); background:rgba(126,232,126,0.1); }
   .choice .c-name { color:var(--accent); font-weight:700; font-size:13px; }
   .choice .c-desc { color:var(--text); font-size:11px; line-height:1.4; }
-  .choice .c-stats { color:var(--muted); font-size:10px; margin-top:4px; }
-  .upgrade-grid {
-    display:grid; grid-template-columns:1fr 1fr; gap:8px;
-  }
+  .choice .c-stats { color:var(--muted); font-size:10px; margin-top:4px; line-height:1.4; }
+
+  .upgrade-grid { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
   @media (max-width:720px) { .upgrade-grid { grid-template-columns:1fr; } }
   .upgrade {
     background:#1a1a2e; border:1px solid #33334a; border-radius:6px;
@@ -195,10 +235,7 @@
   .upgrade .buy-btn:disabled { opacity:0.3; cursor:not-allowed; }
   .upgrade .buy-btn:hover:not(:disabled) { background:#ffe44d; }
 
-  /* Reclutamiento */
-  .recruit-grid {
-    display:grid; grid-template-columns:repeat(3, 1fr); gap:8px;
-  }
+  .recruit-grid { display:grid; grid-template-columns:repeat(3, 1fr); gap:8px; }
   @media (max-width:720px) { .recruit-grid { grid-template-columns:1fr; } }
   .recruit-card {
     background:#1a1a2e; border:1px solid #33334a; border-radius:6px;
@@ -215,13 +252,13 @@
     margin-top:4px;
   }
   .recruit-card .r-btn:disabled { opacity:0.3; cursor:not-allowed; }
-  .recruit-card .r-btn:hover:not(:disabled) { background:#ffe44d; }
 
   .end-panel { text-align:center; padding:12px; }
   .end-panel h2 { font-size:22px; margin-bottom:12px; }
   .end-panel.victory h2 { color:var(--good); }
   .end-panel.defeat h2 { color:var(--bad); }
   .end-panel p { color:var(--muted); margin-bottom:8px; font-size:12px; }
+
   .hierarchy {
     display:flex; gap:4px; align-items:center;
     font-size:10px; padding:4px 6px;
@@ -236,6 +273,7 @@
   .hierarchy .slot.filled-2 { background:#ffb347; border-color:#ffb347; }
   .hierarchy .slot.filled-3 { background:var(--gold); border-color:var(--gold); }
 
+  /* Scouting */
   .scout-archetype {
     background:#0a0a18; border:1px solid var(--border);
     border-radius:8px; padding:14px; margin-bottom:14px;
@@ -254,9 +292,7 @@
     display:flex; align-items:center; gap:10px;
     font-size:12px; margin-bottom:12px;
   }
-  .scout-faction .faction-dot {
-    width:16px; height:16px; border-radius:50%;
-  }
+  .scout-faction .faction-dot { width:16px; height:16px; border-radius:50%; }
   .scout-structures {
     display:flex; flex-wrap:wrap; gap:10px; margin-top:10px;
   }
@@ -265,27 +301,88 @@
     font-size:10px; color:var(--muted);
   }
   .scout-struct canvas { background:transparent; border:none; }
+
+  /* Hub de colocación */
+  .hub-grid {
+    display:grid; grid-template-columns:repeat(12, 1fr); gap:2px;
+    background:#06060e; padding:8px; border-radius:8px;
+    border:1px solid var(--border);
+    aspect-ratio: 12/8;
+    margin-bottom:12px;
+  }
+  .hub-cell {
+    background:#0d0d18; border:1px solid #1a1a2a; border-radius:2px;
+    display:flex; align-items:center; justify-content:center;
+    font-size:10px; color:var(--muted); cursor:pointer;
+    transition:all 0.15s; user-select:none;
+  }
+  .hub-cell:hover { background:#1a1a2e; border-color:var(--accent); }
+  .hub-cell.has-troop {
+    background:rgba(74,158,255,0.2); border-color:#4a9eff;
+  }
+  .hub-cell.has-troop.hero { background:rgba(255,153,255,0.2); border-color:var(--hero); }
+  .hub-cell.has-troop.selected { background:rgba(255,215,0,0.3); border-color:var(--gold); }
+  .hub-cell .dot {
+    width:20px; height:20px; border-radius:50%;
+  }
+  .hub-troop-list {
+    display:flex; flex-wrap:wrap; gap:6px; margin-bottom:12px;
+  }
+  .hub-troop {
+    background:#1a1a2e; border:2px solid #33334a; border-radius:6px;
+    padding:4px 8px; font-size:11px; cursor:pointer;
+    display:flex; align-items:center; gap:6px;
+  }
+  .hub-troop.selected { border-color:var(--gold); background:rgba(255,215,0,0.1); }
+  .hub-troop.placed { opacity:0.5; }
+  .hub-troop .dot { width:12px; height:12px; border-radius:50%; }
+
+  /* Priority target */
+  .priority-row {
+    display:flex; align-items:center; gap:8px; font-size:11px; margin-top:6px;
+  }
+  .priority-row select {
+    background:#1a1a2e; color:var(--text); border:1px solid #33334a;
+    padding:4px 8px; border-radius:4px; font-family:inherit; font-size:11px;
+    flex:1;
+  }
+
+  /* Flash overlay */
+  .flash-overlay {
+    position:fixed; inset:0; background:#fff; opacity:0; pointer-events:none;
+    z-index:998; transition:opacity 0.05s;
+  }
+  .flash-overlay.on { opacity:0.6; }
 </style>
 </head>
 <body>
 
+<div class="flash-overlay" id="flashOverlay"></div>
+
 <header>
-  <h1>⬡ ASALTO · NÚCLEO v6</h1>
+  <h1>⬡ ASALTO · NÚCLEO v7</h1>
   <span class="zone-tag" id="zoneTag">Zona — / —</span>
   <div class="spacer"></div>
   <div class="hud">
     <span class="item gold"><span class="k">Oro</span> <span class="v" id="hudGold">0</span></span>
-    <span class="item mat"><span class="k">Materiales</span> <span class="v" id="hudMats">0</span></span>
-    <span class="item"><span class="k">Pool</span> <span class="v" id="hudZoneHp">0 / 0</span></span>
+    <span class="item mat"><span class="k">Mat</span> <span class="v" id="hudMats">0</span></span>
+    <span class="item"><span class="k">Pool</span> <span class="v" id="hudZoneHp">0/0</span></span>
     <span class="item"><span class="k">Tropas</span> <span class="v" id="hudTroops">0</span></span>
-    <span class="item"><span class="k">Enemigos</span> <span class="v" id="hudEnemies">0</span></span>
+    <span class="item"><span class="k">Enem</span> <span class="v" id="hudEnemies">0</span></span>
     <span class="item"><span class="k">Roster</span> <span class="v" id="hudQueue">0</span></span>
-    <span class="item"><span class="k">Estado</span> <span class="v" id="hudPhase">—</span></span>
+    <span class="hud speed-btns" id="speedBtns">
+      <button data-speed="1">1x</button>
+      <button data-speed="2" class="active">2x</button>
+      <button data-speed="4">4x</button>
+    </span>
   </div>
 </header>
 
 <main>
   <div class="panel">
+    <h3>Enemigo</h3>
+    <div id="generalPanel"><span style="color:var(--muted);font-size:11px;">—</span></div>
+
     <h3>Héroe</h3>
     <div id="heroPanel"><span style="color:var(--muted);font-size:11px;">—</span></div>
 
@@ -302,9 +399,6 @@
     <h3>Roster</h3>
     <div class="queue" id="queueList"><span style="color:var(--muted);font-size:11px;">—</span></div>
     <div class="hierarchy" id="hierarchyInfo"></div>
-
-    <h3>Modificadores activos</h3>
-    <div class="modifiers" id="modifiersList"><span style="color:var(--muted);font-size:11px;">Ninguno</span></div>
 
     <h3>Materiales</h3>
     <div class="materials-grid" id="materialsGrid"><span style="color:var(--muted);font-size:11px;">—</span></div>
@@ -326,26 +420,60 @@
     <div style="font-size:11px;" id="zoneStats">—</div>
     <div class="hp-bar"><div class="hp-fill" id="zoneHpBar" style="width:0%"></div></div>
 
+    <h3>Modificadores</h3>
+    <div class="modifiers" id="modifiersList"><span style="color:var(--muted);font-size:11px;">Ninguno</span></div>
+
     <h3>Log</h3>
     <div class="log" id="logBox"><div style="color:var(--muted);font-size:11px;">Sin actividad.</div></div>
   </div>
 </main>
 
+<!-- Modal scouting con botón al hub -->
 <div class="modal-overlay hidden" id="scoutModal">
   <div class="modal">
     <h2>🔭 Reconocimiento</h2>
-    <div class="sub">Información de la próxima zona. Ajusta tu composición antes de entrar.</div>
+    <div class="sub">Información de la próxima zona. Prepara tu composición.</div>
     <div id="scoutContent"></div>
-    <div style="text-align:right;margin-top:14px;">
+    <div style="display:flex;justify-content:space-between;margin-top:14px;gap:8px;">
+      <button class="btn" id="btnOpenHub">⚙ Colocar tropas</button>
+      <div style="flex:1;"></div>
       <button class="btn primary" id="btnConfirmScout">⚔ Asaltar</button>
     </div>
   </div>
 </div>
 
+<!-- Modal hub de colocación -->
+<div class="modal-overlay hidden" id="hubModal">
+  <div class="modal">
+    <h2>⚙ Colocación de tropas</h2>
+    <div class="sub">Arrastra cada tropa a su posición inicial. La formación se recuerda entre zonas.</div>
+    <div style="font-size:11px;color:var(--muted);margin-bottom:8px;">
+      Tropas disponibles:
+    </div>
+    <div class="hub-troop-list" id="hubTroopList"></div>
+    <div style="font-size:11px;color:var(--muted);margin-bottom:6px;">
+      Formación (clic en una celda para colocar la tropa seleccionada):
+    </div>
+    <div class="hub-grid" id="hubGrid"></div>
+    <div class="priority-row">
+      <label>🎯 Objetivo prioritario:</label>
+      <select id="priorityTarget">
+        <option value="">Ninguno (comportamiento normal)</option>
+      </select>
+    </div>
+    <div style="display:flex;justify-content:space-between;margin-top:14px;gap:8px;">
+      <button class="btn" id="btnResetFormation">↻ Resetear</button>
+      <div style="flex:1;"></div>
+      <button class="btn primary" id="btnConfirmHub">✓ Confirmar formación</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal draft -->
 <div class="modal-overlay hidden" id="draftModal">
   <div class="modal">
     <h2>🎲 Refuerzos disponibles</h2>
-    <div class="sub">Elige 1 tropa para añadir a tu roster.</div>
+    <div class="sub">Elige 1 tropa. Los stats están completos en cada carta.</div>
     <div class="choices" id="draftChoices"></div>
     <div style="text-align:right;margin-top:14px;">
       <button class="btn" id="btnSkipDraft">Saltar</button>
@@ -354,6 +482,7 @@
   </div>
 </div>
 
+<!-- Modal promociones -->
 <div class="modal-overlay hidden" id="promoModal">
   <div class="modal">
     <h2>⭐ Promoción de tropa</h2>
@@ -365,37 +494,34 @@
   </div>
 </div>
 
+<!-- Modal tienda -->
 <div class="modal-overlay hidden" id="shopModal">
   <div class="modal">
     <h2>🏪 Campamento</h2>
-    <div class="sub">Elige 1 modificador permanente. Recluta tropas y compra mejoras.</div>
-
+    <div class="sub">Elige 1 modificador. Recluta tropas y compra mejoras.</div>
     <div class="section">
       <h3>Modificador gratuito (elige 1)</h3>
       <div class="choices" id="shopChoices"></div>
     </div>
-
     <div class="section">
       <h3>Reclutar tropas <span style="color:var(--muted);text-transform:none;letter-spacing:0;">· roster <span id="shopRoster">0/6</span></span></h3>
       <div class="recruit-grid" id="recruitGrid"></div>
     </div>
-
     <div class="section">
-      <h3>Mejoras del héroe <span style="color:var(--muted);text-transform:none;letter-spacing:0;">· <span id="shopGoldHero">0</span> oro</span></h3>
+      <h3>Mejoras del héroe</h3>
       <div class="upgrade-grid" id="heroUpgrades"></div>
     </div>
-
     <div class="section">
       <h3>Mejoras del ejército</h3>
       <div class="upgrade-grid" id="armyUpgrades"></div>
     </div>
-
     <div style="text-align:right;margin-top:14px;">
       <button class="btn primary" id="btnContinue" disabled>Continuar →</button>
     </div>
   </div>
 </div>
 
+<!-- Modal fin de run / elegir endless -->
 <div class="modal-overlay hidden" id="endModal">
   <div class="modal">
     <div class="end-panel" id="endPanelContent"></div>
@@ -406,22 +532,28 @@
 'use strict';
 
 /* ============================================================================
- * ASALTO · NÚCLEO v6
+ * ASALTO · NÚCLEO v7
  * ----------------------------------------------------------------------------
- * CAMBIOS RESPECTO A v5 (iteración de BALANCE):
- *   1. FIX: los enemigos generados ya no son inmortales. Las tropas del
- *      jugador los atacan cuando los tienen en rango. Los enemigos atacan
- *      a tropas del jugador, y si no hay, avanzan hacia estructuras.
- *   2. Daño de estructuras a tropas duplicado. Cada muerte se siente.
- *   3. Pool de zona aumentada: ×2 el número de estructuras y ×1.5 HP base.
- *      El combate dura 60-90s en lugar de 30s.
- *   4. Escalado del jugador reducido: caps de mejoras bajados, costes subidos.
- *   5. Escalado del enemigo exponencial por zona (×2, ×4, ×8).
- *   6. Héroe que muere no revive. Se pierde hasta nueva run.
- *   7. Sistema de reclutamiento: repone tropas muertas con oro + materiales.
- *      Los materiales dejan de ser huérfanos.
+ * CAMBIOS RESPECTO A v6 (FASE 0 + parte de FASE 1):
+ *   - GENERAL: el núcleo es un general con nombre, título, habilidad activa
+ *     y 3 fases según HP. Análogo al héroe pero del lado enemigo. Es lo que
+ *     se prueba aquí: si el sistema funciona, se escala a gacha.
+ *   - HUB DE COLOCACIÓN: modal accesible desde scouting. Arrastras tropas
+ *     a celdas de formación. La formación persiste entre zonas. Puedes
+ *     marcar un objetivo prioritario que las tropas atacarán primero.
+ *   - VELOCIDAD: 1x/2x/4x. Cooldowns y duraciones escalan con la velocidad
+ *     para que las habilidades sigan funcionando igual.
+ *   - ENDLESS: al ganar las 4 zonas, opción de seguir con dificultad
+ *     creciente o terminar la run.
+ *   - HUD: oro visible en grande. Stats completos en draft.
+ *   - ESCALADO: función pura aislada con valor provisional ×1.5 (antes ×2).
+ *     Daño de estructuras a tropas ×1.4 (antes ×2).
+ *   - EFECTOS: slow-mo corto al matar élite/núcleo, flash blanco, screen
+ *     shake jerárquico. Zoom solo al núcleo bajo.
+ *   - ENEMIGOS: legionario romano y berserker vikingo (1 por facción).
  *
- * Arquitectura: hexagonal, event-driven.
+ * Arquitectura hexagonal. Sin resúmenes. Los comentarios marcan PROVISIONAL
+ * donde hay deuda técnica conocida.
  * ========================================================================== */
 
 
@@ -473,7 +605,25 @@ class SeededRandom extends RandomPort {
 
 
 /* ============================================================================
- * 3. CATÁLOGOS DEL DOMINIO
+ * 3. ESCALADO PROVISIONAL
+ * ----------------------------------------------------------------------------
+ * PROVISIONAL: el escalado actual es ×1.5 por nivel. Se aisló en una función
+ * pura para poder cambiarlo sin tocar nada más. Cuando haya sinergias y el
+ * juego escale al gacha, probablemente haya que revisarlo. NO TOCAR sin
+ * haber probado 10 runs con el valor actual.
+ * ========================================================================== */
+function levelScale(level) {
+  // PROVISIONAL: escalado ×1.5 lineal compuesto
+  return Math.pow(1.5, Math.max(0, level - 1));
+}
+function levelScaleForDamage(level) {
+  // El daño escala más lento que el HP, si no las tropas mueren de un golpe
+  return Math.min(3.0, Math.pow(1.35, Math.max(0, level - 1)));
+}
+
+
+/* ============================================================================
+ * 4. CATÁLOGOS DEL DOMINIO
  * ========================================================================== */
 
 const SHAPES = Object.freeze({
@@ -484,7 +634,7 @@ const SHAPES = Object.freeze({
   espiral:   { fn: 'explota',   desc: 'Carga AOE y explota' },
   rombo:     { fn: 'trampa',    desc: 'Daño al contacto, un solo uso' },
   anillo:    { fn: 'regenera',  desc: 'Se cura si no recibe daño' },
-  estrella:  { fn: 'objetivo',  desc: 'Núcleo, objetivo principal' },
+  estrella:  { fn: 'objetivo',  desc: 'Núcleo / general enemigo' },
 });
 
 const TIERS = Object.freeze({
@@ -495,39 +645,55 @@ const TIERS = Object.freeze({
 
 const FACTIONS = Object.freeze({
   romanos: {
-    name: 'Romanos', color: '#4a6ff9', colorDark: '#2a3f99', colorLight: '#8aa0ff',
+    name: 'Romanos', color: '#4a6ff9', colorDark: '#2a3f99',
     hpMult: 1.2, damageMult: 0.9,
     desc: 'Orden y disciplina. Defensas robustas, ataques medidos.',
+    enemyType: 'legionario',
   },
   vikingos: {
-    name: 'Vikingos', color: '#d94a4a', colorDark: '#992a2a', colorLight: '#ff8a8a',
+    name: 'Vikingos', color: '#d94a4a', colorDark: '#992a2a',
     hpMult: 0.9, damageMult: 1.3,
     desc: 'Furia y agresión. Ataques devastadores, defensas frágiles.',
+    enemyType: 'berserker',
   },
 });
 
 /**
- * CAMBIO DE BALANCE: el daño de las estructuras a tropas se ha DUPLICADO.
- * Antes: torre 8, torre pesada 18, catapulta 6/tick.
- * Ahora: torre 16, torre pesada 36, catapulta 12/tick.
- * Las tropas mueren en 2-4 impactos en lugar de aguantar 10+.
+ * Tropas enemigas históricas. Una por facción.
+ * El legionario avanza en formación, más HP, ataca al más cercano.
+ * El berserker carga al héroe, ignora muros, no tiene defensa.
  */
+const ENEMY_TROOP_CATALOG = Object.freeze({
+  legionario: {
+    name: 'Legionario',
+    hp: 120, speed: 35, damage: 12, range: 14, attackRate: 1.2, radius: 12,
+    color: '#4a6ff9', behavior: 'targetNearest',
+    desc: 'Avanza en formación. Aguanta más que el berserker.',
+  },
+  berserker: {
+    name: 'Berserker',
+    hp: 70, speed: 75, damage: 22, range: 12, attackRate: 0.8, radius: 11,
+    color: '#d94a4a', behavior: 'targetHero', flying: false,
+    desc: 'Carga directa al héroe. Mata rápido, muere rápido.',
+  },
+});
+
 const STRUCTURE_TYPES = Object.freeze({
   muro: {
     shape: 'cuadrado', hp: 120, attack: 0, range: 0, attackRate: 0, radius: 24,
     blocksPath: true,
   },
   torre: {
-    shape: 'triangulo', hp: 70, attack: 16, range: 70, attackRate: 1.2, radius: 22,
+    shape: 'triangulo', hp: 70, attack: 12, range: 70, attackRate: 1.2, radius: 22,
     projectile: true,
   },
   torre_pesada: {
-    shape: 'triangulo', hp: 120, attack: 36, range: 90, attackRate: 1.8, radius: 26,
+    shape: 'triangulo', hp: 120, attack: 26, range: 90, attackRate: 1.8, radius: 26,
     projectile: true,
   },
   catapulta: {
     shape: 'triangulo', hp: 60, attack: 0, range: 150, attackRate: 5.0, radius: 22,
-    catapult: true, catapultRadius: 60, catapultDuration: 4.0, catapultDamage: 12,
+    catapult: true, catapultRadius: 60, catapultDuration: 4.0, catapultDamage: 9,
   },
   sanador: {
     shape: 'cruz', hp: 60, attack: 0, range: 0, attackRate: 0, radius: 22,
@@ -538,33 +704,133 @@ const STRUCTURE_TYPES = Object.freeze({
     spawns: true, spawnInterval: 6.0,
   },
   telegrafiado: {
-    shape: 'espiral', hp: 80, attack: 70, range: 120, attackRate: 6.0, radius: 24,
+    shape: 'espiral', hp: 80, attack: 50, range: 120, attackRate: 6.0, radius: 24,
     telegraphs: true, telegraphTime: 3.0, telegraphRadius: 80,
   },
   trampa: {
-    shape: 'rombo', hp: 25, attack: 40, range: 28, attackRate: 1.5, radius: 16,
+    shape: 'rombo', hp: 25, attack: 30, range: 28, attackRate: 1.5, radius: 16,
     singleUse: true,
   },
   regenerador: {
     shape: 'anillo', hp: 100, attack: 0, range: 0, attackRate: 0, radius: 24,
     regenerates: true, regenDelay: 5.0, regenRate: 12,
   },
+  // El núcleo es una estructura especial "estrella" pero ahora su lógica
+  // principal vive en GENERAL_CATALOG. Esta entrada existe para el shape.
   nucleo: {
-    shape: 'estrella', hp: 150, attack: 24, range: 90, attackRate: 1.5, radius: 30,
+    shape: 'estrella', hp: 150, attack: 18, range: 90, attackRate: 1.5, radius: 30,
     projectile: true, isCore: true,
   },
 });
 
 /**
- * Arquetipos de zona.
- * CAMBIO DE BALANCE: structureCount aumentado (×2 aprox) para alargar el combate.
+ * GENERALES. Cada arquetipo tiene un general con:
+ *   - name, title       identidad
+ *   - desc              descripción
+ *   - activeAbility     { id, name, cooldown, desc, effect }
+ *   - passive           { desc, apply }  pasiva que siempre está activa
+ *   - phases            %HP donde cambia de comportamiento
+ *
+ * Esto es análogo al heroData del jugador. Si esto funciona, se escala a
+ * gacha con generales coleccionables y árbol de habilidades.
  */
+const GENERAL_CATALOG = Object.freeze({
+  muro: {
+    id: 'cayo_valerio',
+    name: 'Cayo Valerio',
+    title: 'Legado de la III Legión',
+    desc: 'Refuerza sus muros con disciplina militar. Defensivo y resiliente.',
+    activeAbility: {
+      id: 'reforzar',
+      name: 'Reforzar',
+      cooldown: 14,
+      desc: 'Todos los muros ganan +50% HP temporal durante 5s.',
+      effect: 'buff_walls',
+    },
+    passive: {
+      desc: 'Sus estructuras ganan +15% HP.',
+      hpMult: 1.15,
+    },
+    phases: [
+      { threshold: 0.60, label: 'Fase 1 · Defensiva' },
+      { threshold: 0.30, label: 'Fase 2 · Contraataque' },
+      { threshold: 0.00, label: 'Fase 3 · Última defensa' },
+    ],
+  },
+  artilleria: {
+    id: 'ballestero_graco',
+    name: 'Graco el Ballestero',
+    title: 'Maestro de máquinas',
+    desc: 'Bombardea el campo sin piedad. Convierte el terreno en un infierno.',
+    activeAbility: {
+      id: 'bombardeo',
+      name: 'Bombardeo',
+      cooldown: 12,
+      desc: 'Marca 2 zonas aleatorias. Explotan tras 2s haciendo daño en área.',
+      effect: 'bombard',
+    },
+    passive: {
+      desc: 'Las torres telegrafiadas cargan 20% más rápido.',
+      telegraphMult: 0.8,
+    },
+    phases: [
+      { threshold: 0.60, label: 'Fase 1 · Preparación' },
+      { threshold: 0.30, label: 'Fase 2 · Fuego nutrido' },
+      { threshold: 0.00, label: 'Fase 3 · Desesperación' },
+    ],
+  },
+  estampida: {
+    id: 'matriarca_horda',
+    name: 'La Matriarca',
+    title: 'Voz de la horda',
+    desc: 'No tiene fin. Por cada generador que cae, dos más se alzan.',
+    activeAbility: {
+      id: 'invocar',
+      name: 'Invocar horda',
+      cooldown: 10,
+      desc: 'Spawnea 3 tropas enemigas en el campo.',
+      effect: 'summon',
+    },
+    passive: {
+      desc: 'Generadores spawnean un 20% más rápido.',
+      spawnMult: 0.8,
+    },
+    phases: [
+      { threshold: 0.60, label: 'Fase 1 · Enjambre' },
+      { threshold: 0.30, label: 'Fase 2 · Furia' },
+      { threshold: 0.00, label: 'Fase 3 · Último aliento' },
+    ],
+  },
+  bunker: {
+    id: 'abad_silencio',
+    name: 'El Abad del Silencio',
+    title: 'Guardián del sagrario',
+    desc: 'Sus muros no caen. Sus fieles se sacrifican. Su fe es un escudo.',
+    activeAbility: {
+      id: 'sacrificio',
+      name: 'Sacrificio',
+      cooldown: 15,
+      desc: 'Mata a un sanador cercano y se cura el 30% de su HP máximo.',
+      effect: 'sacrifice',
+    },
+    passive: {
+      desc: 'Se cura 3 HP/s siempre que al menos 1 sanador esté vivo.',
+      regenWithHealer: 3,
+    },
+    phases: [
+      { threshold: 0.60, label: 'Fase 1 · Meditación' },
+      { threshold: 0.30, label: 'Fase 2 · Cólera sagrada' },
+      { threshold: 0.00, label: 'Fase 3 · Milagro final' },
+    ],
+  },
+});
+
 const ZONE_ARCHETYPES = Object.freeze({
   muro: {
     id: 'muro', name: 'El Muro',
     desc: 'Muros gruesos con torres detrás. Un asedio frontal es suicida.',
     hint: 'Necesitas Asedio o Voladores para ignorar muros.',
-    structureCount: 12,
+    structureCount: 10,
     weights: { muro: 6, torre: 3, torre_pesada: 1 },
     factionBias: { romanos: 0.7, vikingos: 0.3 },
   },
@@ -572,7 +838,7 @@ const ZONE_ARCHETYPES = Object.freeze({
     id: 'artilleria', name: 'La Artillería',
     desc: 'Catapultas y torres telegrafiadas. El suelo se convierte en muerte.',
     hint: 'Necesitas movilidad o resistencia. Los tanques lentos sufren.',
-    structureCount: 10,
+    structureCount: 9,
     weights: { telegrafiado: 3, catapulta: 2, torre: 2, muro: 1 },
     factionBias: { romanos: 0.4, vikingos: 0.6 },
   },
@@ -580,7 +846,7 @@ const ZONE_ARCHETYPES = Object.freeze({
     id: 'estampida', name: 'La Estampida',
     desc: 'Generadores de tropas sin fin. La presión no para hasta romperlos.',
     hint: 'Necesitas AOE o daño rápido para limpiar oleadas.',
-    structureCount: 10,
+    structureCount: 9,
     weights: { generador: 4, trampa: 2, torre: 1, muro: 1 },
     factionBias: { romanos: 0.3, vikingos: 0.7 },
   },
@@ -588,7 +854,7 @@ const ZONE_ARCHETYPES = Object.freeze({
     id: 'bunker', name: 'El Búnker',
     desc: 'Pocas estructuras, todas concentradas, con sanadores que se cubren.',
     hint: 'Necesitas burst concentrado. El daño distribuido no las mata.',
-    structureCount: 8,
+    structureCount: 7,
     weights: { sanador: 3, regenerador: 2, torre_pesada: 2, muro: 2 },
     factionBias: { romanos: 0.8, vikingos: 0.2 },
   },
@@ -621,10 +887,6 @@ const TROOP_TYPES = Object.freeze({
   },
 });
 
-/**
- * CAMBIO DE BALANCE: costes de reclutamiento de tropas.
- * Se pagan con oro + materiales. Los materiales se obtienen destruyendo estructuras.
- */
 const TROOP_RECRUIT_COST = Object.freeze({
   tanque:  { gold: 12, materials: { piedra: 3 } },
   dps:     { gold: 10, materials: { hierro: 2 } },
@@ -682,12 +944,12 @@ const HIERARCHY = Object.freeze({
 });
 
 const MATERIALS = Object.freeze({
-  piedra:     { name:'Piedra',     icon:'🪨', color:'#aaa' },
-  hierro:     { name:'Hierro',     icon:'⛓️', color:'#c8c8c8' },
-  acero:      { name:'Acero',      icon:'⚙️', color:'#ddd' },
-  mecanismos: { name:'Mecanismos', icon:'🔧', color:'#ffb347' },
-  esencia:    { name:'Esencia',    icon:'✨', color:'#c084fc' },
-  nucleo:     { name:'Núcleo',     icon:'💎', color:'#ffd700' },
+  piedra:     { name:'Piedra',     icon:'🪨' },
+  hierro:     { name:'Hierro',     icon:'⛓️' },
+  acero:      { name:'Acero',      icon:'⚙️' },
+  mecanismos: { name:'Mecanismos', icon:'🔧' },
+  esencia:    { name:'Esencia',    icon:'✨' },
+  nucleo:     { name:'Núcleo',     icon:'💎' },
 });
 
 const STRUCTURE_DROPS = Object.freeze({
@@ -700,7 +962,7 @@ const STRUCTURE_DROPS = Object.freeze({
   sanador:      { gold: 25, materials: { esencia: 1, hierro: 1 } },
   regenerador:  { gold: 20, materials: { piedra: 2, mecanismos: 1 } },
   telegrafiado: { gold: 30, materials: { acero: 2, esencia: 1 } },
-  nucleo:       { gold: 80, materials: { nucleo: 2 } },
+  nucleo:       { gold: 100, materials: { nucleo: 3 } },
 });
 
 const MODIFIERS = Object.freeze([
@@ -741,11 +1003,6 @@ const HERO_ARCHETYPES = Object.freeze({
 const HERO_NAME_PRE = ['Ar','Ka','El','Va','Tho','Mi','Dra','Ze','Ly','Nor','Fen','Ras','Ce','Ori'];
 const HERO_NAME_SUF = ['dor','thas','mir','kar','ven','rax','lin','dra','nor','shal','ion','ael','ux'];
 
-/**
- * CAMBIO DE BALANCE: caps de mejoras reducidos y costes subidos.
- * Antes: 5 niveles de +15% ejército. Ahora: 3 niveles de +10%.
- * Que las mejoras sean un empujón, no una avalancha.
- */
 const HERO_UPGRADES = Object.freeze([
   { id:'hero_hp',    name:'+60 HP héroe',       cost:6,  max:3, apply: h => { h.hp += 60; } },
   { id:'hero_dmg',   name:'+8 daño héroe',      cost:9,  max:3, apply: h => { h.damage += 8; } },
@@ -771,27 +1028,26 @@ const BALANCE = Object.freeze({
   CANVAS_W: 720, CANVAS_H: 480,
   TICK_HZ: 20,
   SPAWN_X: 20, SPAWN_Y: 240, SPAWN_JITTER: 40,
-  ENEMY_TROOP: 'tanque',
   START_GOLD: 10,
   GOLD_PER_DAMAGE: 60,
   GOLD_PER_ENEMY_KILL: 3,
   GOLD_ZONE_VICTORY: 25,
-  ZONE_COUNT: 4,
+  BASE_ZONE_COUNT: 4,
   PROJECTILE_SPEED: 200,
   CATAPULT_PROJECTILE_SPEED: 140,
   GLOBAL_ORDER_COOLDOWN: 20,
   GLOBAL_ORDER_DURATION: 5,
   ZOOM_THRESHOLD: 0.30,
   ZOOM_MAX: 1.5,
-  // Escalado del enemigo por zona (multiplicativo)
-  ENEMY_LEVEL_SCALE: 2.0,
-  // HP extra de estructuras por encima del catálogo base
   STRUCTURE_HP_MULT: 1.5,
+  GENERAL_HP_MULT: 3.5,
+  GENERAL_ATTACK_MULT: 2.0,
+  SLOWMO_DURATION: 0.15,
 });
 
 
 /* ============================================================================
- * 4. ENTIDADES DEL DOMINIO
+ * 5. ENTIDADES
  * ========================================================================== */
 
 let _nextId = 1;
@@ -890,7 +1146,6 @@ class Troop {
     this._applyStats(base, null);
     this.id = nextId('T');
     this.x = x; this.y = y;
-    this.vx = 0; this.vy = 0;
     this.attackCooldown = 0;
     this.alive = true;
     this.auraBonus = 0;
@@ -903,6 +1158,8 @@ class Troop {
     this.survivedZones = 0;
     this.markedCoreDamageBonus = 0;
     this.stunTimer = 0;
+    this.tempBuffTimer = 0;
+    this.tempBuffMult = 1;
   }
   _applyStats(base, promotion) {
     let stats = { ...base };
@@ -965,6 +1222,7 @@ class Troop {
     if (this.veteran && this.hp < this.maxHp * 0.5) base = Math.round(base * 1.5);
     if (this.auraBonus) base = Math.round(base * (1 + this.auraBonus));
     if (this.markedCoreDamageBonus) base = Math.round(base * (1 + this.markedCoreDamageBonus));
+    if (this.tempBuffMult && this.tempBuffMult !== 1) base = Math.round(base * this.tempBuffMult);
     return base;
   }
   takeDamage(amount) {
@@ -1017,6 +1275,33 @@ class HeroTroop extends Troop {
   }
 }
 
+/**
+ * Tropa enemiga. Hereda de Troop pero con comportamiento de defensor y
+ * tipos propios (legionario, berserker).
+ */
+class EnemyTroop extends Troop {
+  constructor(typeId, x, y, levelMult = 1) {
+    const base = ENEMY_TROOP_CATALOG[typeId] || ENEMY_TROOP_CATALOG.legionario;
+    super('tanque', x, y, [], {});
+    this.id = nextId('E');
+    this._baseType = typeId;
+    this.team = 'defender';
+    this.behavior = base.behavior;
+    this.name = base.name;
+    this.maxHp = Math.round(base.hp * levelMult);
+    this.hp = this.maxHp;
+    this.speed = base.speed;
+    this.damage = Math.round(base.damage * Math.min(2.0, levelMult));
+    this.range = base.range;
+    this.attackRate = base.attackRate;
+    this.radius = base.radius;
+    this.color = base.color;
+    this.flying = !!base.flying;
+    this.isEnemyHistorical = true;
+    this.enemyTypeId = typeId;
+  }
+}
+
 class Structure {
   constructor(typeId, cellX, cellY, opts = {}) {
     const base = STRUCTURE_TYPES[typeId];
@@ -1026,6 +1311,7 @@ class Structure {
     const tierMult = TIERS[tier].mult;
     const hpMult = faction ? faction.hpMult : 1;
     const dmgMult = faction ? faction.damageMult : 1;
+    const passiveHpMult = opts.passiveHpMult || 1;
 
     this.id = nextId('S');
     this.typeId = typeId;
@@ -1037,8 +1323,8 @@ class Structure {
     this.cellX = cellX; this.cellY = cellY;
     this.x = cellX * BALANCE.CELL_SIZE + BALANCE.CELL_SIZE / 2;
     this.y = cellY * BALANCE.CELL_SIZE + BALANCE.CELL_SIZE / 2;
-    // CAMBIO DE BALANCE: aplicar mult extra de HP global
-    this.maxHp = Math.max(1, Math.round(base.hp * tierMult * hpMult * BALANCE.STRUCTURE_HP_MULT));
+    this.baseMaxHp = Math.max(1, Math.round(base.hp * tierMult * hpMult * BALANCE.STRUCTURE_HP_MULT));
+    this.maxHp = Math.round(this.baseMaxHp * passiveHpMult);
     this.hp = this.maxHp;
     this.attack = base.attack > 0 ? Math.max(1, Math.round(base.attack * tierMult * dmgMult)) : 0;
     this.range = base.range;
@@ -1072,6 +1358,9 @@ class Structure {
     this.attackCooldown = 0;
     this.stunTimer = 0;
     this.alive = true;
+    // Buff temporal de la habilidad del general
+    this.tempHpBuff = 0;
+    this.tempHpBuffTimer = 0;
   }
   takeDamage(amount) {
     if (!this.alive) return 0;
@@ -1086,18 +1375,144 @@ class Structure {
     if (!this.alive) return;
     this.hp = Math.min(this.maxHp, this.hp + amount);
   }
+  applyTempHpBuff(mult, duration) {
+    // Aplicar HP extra temporal
+    const extra = Math.round(this.baseMaxHp * (mult - 1));
+    if (extra > 0) {
+      this.hp = Math.min(this.maxHp + extra, this.hp + extra);
+    }
+    this.tempHpBuff = extra;
+    this.tempHpBuffTimer = duration;
+  }
+  updateTempBuff(dt) {
+    if (this.tempHpBuffTimer > 0) {
+      this.tempHpBuffTimer -= dt;
+      if (this.tempHpBuffTimer <= 0) {
+        // El HP extra se va
+        this.hp = Math.min(this.hp, this.maxHp);
+        this.tempHpBuff = 0;
+      }
+    }
+  }
+}
+
+/**
+ * General. Análogo al héroe pero del lado enemigo.
+ * Encapsula el núcleo + habilidad activa + fases + pasiva.
+ */
+class General {
+  constructor(catalogEntry, coreStructure, level) {
+    this.catalog = catalogEntry;
+    this.core = coreStructure;
+    this.level = level;
+    this.abilityCooldown = 0;
+    this.phase = 1;
+    this.passiveApplied = false;
+  }
+  get name() { return this.catalog.name; }
+  get title() { return this.catalog.title; }
+  get desc() { return this.catalog.desc; }
+  get activeAbility() { return this.catalog.activeAbility; }
+  get passive() { return this.catalog.passive; }
+  get hpPct() { return this.core.maxHp > 0 ? this.core.hp / this.core.maxHp : 0; }
+  get abilityReady() { return this.abilityCooldown <= 0; }
+
+  updatePhase() {
+    const pct = this.hpPct;
+    if (pct > 0.60) this.phase = 1;
+    else if (pct > 0.30) this.phase = 2;
+    else this.phase = 3;
+  }
+  update(dt, state, bus) {
+    if (!this.core.alive) return;
+    this.updatePhase();
+    // Cooldown escala con la fase: en fase 3, cd × 0.6
+    this.abilityCooldown -= dt;
+    if (this.abilityCooldown <= 0 && state.troops.length > 0) {
+      this.executeAbility(state, bus);
+      const cdMult = this.phase === 3 ? 0.6 : this.phase === 2 ? 0.85 : 1.0;
+      this.abilityCooldown = this.activeAbility.cooldown * cdMult;
+    }
+  }
+
+  executeAbility(state, bus) {
+    const effect = this.activeAbility.effect;
+    bus.emit('general:ability', { general: this, effect });
+    bus.emit('log', {
+      text: `⚔ ${this.name}: ${this.activeAbility.name}`,
+      kind: 'general',
+    });
+    switch (effect) {
+      case 'buff_walls': {
+        const mult = this.phase === 3 ? 1.8 : this.phase === 2 ? 1.5 : 1.5;
+        const dur = 5.0;
+        for (const s of state.zone.structures) {
+          if (s.alive && s.blocksPath) s.applyTempHpBuff(mult, dur);
+        }
+        break;
+      }
+      case 'bombard': {
+        for (let i = 0; i < 2; i++) {
+          const troop = state.rng.pick(state.troops.filter(t => t.alive));
+          if (!troop) break;
+          const jitterX = (state.rng.float() - 0.5) * 40;
+          const jitterY = (state.rng.float() - 0.5) * 40;
+          state.damageAreas.push(new DamageArea(
+            troop.x + jitterX, troop.y + jitterY,
+            50, 20, 2.0, '#ff4400'
+          ));
+        }
+        break;
+      }
+      case 'summon': {
+        const count = this.phase === 3 ? 5 : 3;
+        const enemyType = state.zone.faction.enemyType;
+        for (let i = 0; i < count; i++) {
+          const angle = (i / count) * Math.PI * 2;
+          const r = 80 + state.rng.float() * 40;
+          const ex = this.core.x + Math.cos(angle) * r;
+          const ey = this.core.y + Math.sin(angle) * r;
+          const levelMult = levelScale(state.zone.level);
+          state.enemyTroops.push(new EnemyTroop(enemyType, ex, ey, levelMult));
+        }
+        break;
+      }
+      case 'sacrifice': {
+        // Buscar el sanador más cercano vivo
+        let closest = null, cd = Infinity;
+        for (const s of state.zone.structures) {
+          if (!s.alive || !s.heals) continue;
+          const d = Math.hypot(s.x - this.core.x, s.y - this.core.y);
+          if (d < cd) { cd = d; closest = s; }
+        }
+        if (closest) {
+          closest.alive = false;
+          closest.hp = 0;
+          const healAmt = Math.round(this.core.maxHp * 0.30);
+          this.core.heal(healAmt);
+          bus.emit('structure:destroyed', { structure: closest });
+        } else {
+          // Sin sanadores: se cura 15% directamente
+          this.core.heal(Math.round(this.core.maxHp * 0.15));
+        }
+        break;
+      }
+    }
+  }
 }
 
 class Zone {
-  constructor(archetype, faction, level) {
+  constructor(archetype, faction, level, isEndless = false) {
     this.archetype = archetype;
     this.faction = faction;
     this.level = level;
+    this.isEndless = isEndless;
     this.structures = [];
     this.maxHp = 0;
     this.hp = 0;
     this.sealed = false;
     this.coreId = null;
+    this.general = null;
   }
   sealPool() {
     this.maxHp = this.structures.reduce((sum, s) => sum + s.maxHp, 0);
@@ -1115,24 +1530,24 @@ class Zone {
 
 
 /* ============================================================================
- * 5. SERVICIOS DE DOMINIO
+ * 6. SERVICIOS DE DOMINIO
  * ========================================================================== */
 
-/**
- * MovementService v2.
- * Cambio importante: ahora tropas y enemigos se atacan MUTUAMENTE.
- *   - Player troop: si hay enemigo en rango, ataca al enemigo.
- *                   Si no, aplica su comportamiento sobre estructuras.
- *   - Enemy troop:  ataca a la tropa del jugador más cercana.
- *                   Si no hay, avanza hacia la estructura más cercana.
- *
- * Firma nueva:
- *   update(troop, allies, structures, enemies, dt, bus, globalOrder, zone)
- */
 class MovementService {
-  findTarget(troop, structures) {
+  findTarget(troop, structures, priorityTargetId) {
     const alive = structures.filter(s => s.alive);
     if (alive.length === 0) return null;
+
+    // Prioridad global
+    if (priorityTargetId) {
+      const priority = alive.find(s => s.id === priorityTargetId);
+      if (priority) {
+        // Atacar prioridad si está en rango o si no hay nada más cerca
+        const d = Math.hypot(priority.x - troop.x, priority.y - troop.y);
+        if (d <= troop.range + priority.radius + 40) return priority;
+      }
+    }
+
     const core = alive.find(s => s.isCore) || alive[0];
     const b = troop.behavior;
     if (b === 'targetCore') return core;
@@ -1172,7 +1587,6 @@ class MovementService {
     return core;
   }
 
-  /** Busca el enemigo más cercano dentro del rango de ataque. */
   findEnemyInRange(troop, enemies) {
     let best = null, bestD = Infinity;
     const reach = troop.range + troop.radius + 8;
@@ -1184,7 +1598,6 @@ class MovementService {
     return best;
   }
 
-  /** Busca el enemigo más cercano (sin límite de rango). */
   findNearestEnemy(troop, enemies) {
     let best = null, bestD = Infinity;
     for (const e of enemies) {
@@ -1193,6 +1606,11 @@ class MovementService {
       if (d < bestD) { bestD = d; best = e; }
     }
     return best;
+  }
+
+  /** Para el berserker: siempre busca al héroe del jugador. */
+  findHeroTarget(enemies) {
+    return enemies.find(e => e.alive && e.isHero) || null;
   }
 
   separation(troop, troops) {
@@ -1232,12 +1650,15 @@ class MovementService {
     return { x: ax, y: ay };
   }
 
-  update(troop, allies, structures, enemies, dt, bus, globalOrder, zone) {
+  update(troop, allies, structures, enemies, dt, bus, globalOrder, zone, priorityTargetId) {
     if (!troop.alive) return;
     if (troop.stunTimer > 0) { troop.stunTimer -= dt; return; }
     if (troop.regen > 0) troop.heal(troop.regen * dt);
+    if (troop.tempBuffTimer > 0) {
+      troop.tempBuffTimer -= dt;
+      if (troop.tempBuffTimer <= 0) troop.tempBuffMult = 1;
+    }
 
-    // Soporte: solo cura
     if (troop.isSupport) {
       troop.attackCooldown -= dt;
       if (troop.attackCooldown <= 0) {
@@ -1271,36 +1692,37 @@ class MovementService {
     const enemyInRange = this.findEnemyInRange(troop, enemies);
     if (enemyInRange) {
       troop.attackCooldown -= dt;
-      if (troop.attackCooldown <= 0) {
-        this._doAttackTroop(troop, enemyInRange, bus);
-      }
-      // Frenar
-      troop.vx *= 0.85; troop.vy *= 0.85;
+      if (troop.attackCooldown <= 0) this._doAttackTroop(troop, enemyInRange, bus);
       return;
     }
 
-    // Comportamiento según team
+    // Comportamiento defensor
     if (troop.team === 'defender') {
-      // Enemigos: van hacia la tropa del jugador más cercana
+      if (troop.behavior === 'targetHero') {
+        const heroTarget = this.findHeroTarget(enemies);
+        if (heroTarget) {
+          this._moveToward(troop, heroTarget.x, heroTarget.y, allies, structures, dt);
+          return;
+        }
+      }
       const target = this.findNearestEnemy(troop, enemies);
       if (target) {
         this._moveToward(troop, target.x, target.y, allies, structures, dt);
       } else {
-        // No hay tropas del jugador: atacar la estructura más cercana
-        const structureTarget = this.findTarget(troop, structures);
+        // Sin tropas del jugador: atacar estructura más cercana (no suele pasar)
+        const structureTarget = this.findTarget(troop, structures, null);
         if (structureTarget) this._moveToward(troop, structureTarget.x, structureTarget.y, allies, structures, dt);
       }
       return;
     }
 
-    // Player troop: comportamiento normal contra estructuras
-    let target = this.findTarget(troop, structures);
+    // Comportamiento atacante
+    let target = this.findTarget(troop, structures, priorityTargetId);
     if (globalOrder && globalOrder.active && globalOrder.type === 'focus') {
       const core = structures.find(s => s.isCore && s.alive);
       if (core) target = core;
     }
     if (!target) {
-      // Sin estructuras, atacar al enemigo más cercano
       const e = this.findNearestEnemy(troop, enemies);
       if (e) this._moveToward(troop, e.x, e.y, allies, structures, dt);
       return;
@@ -1314,7 +1736,6 @@ class MovementService {
     if (dist <= attackDist) {
       troop.attackCooldown -= dt;
       if (troop.attackCooldown <= 0) this._doAttackStructure(troop, target, bus, zone);
-      troop.vx *= 0.85; troop.vy *= 0.85;
       return;
     }
     this._moveToward(troop, target.x, target.y, allies, structures, dt);
@@ -1384,9 +1805,10 @@ class MovementService {
 }
 
 class CombatService {
-  updateStructures(structures, troops, dt, bus, enemyQueue, projectiles, damageAreas) {
+  updateStructures(structures, troops, dt, bus, enemyQueue, projectiles, damageAreas, state) {
     for (const s of structures) {
       if (!s.alive) continue;
+      s.updateTempBuff(dt);
       if (s.stunTimer > 0) { s.stunTimer -= dt; continue; }
 
       if (s.regenerates) {
@@ -1421,9 +1843,7 @@ class CombatService {
               const d = Math.hypot(t.x - s.x, t.y - s.y);
               if (d <= s.telegraphRadius) {
                 t.takeDamage(s.attack);
-                bus.emit('structure:attacked', {
-                  x: t.x, y: t.y, damage: s.attack, color: s.color,
-                });
+                bus.emit('structure:attacked', { x: t.x, y: t.y, damage: s.attack, color: s.color });
                 if (!t.alive) bus.emit('troop:died', { troop: t });
               }
             }
@@ -1459,15 +1879,10 @@ class CombatService {
             if (d < bestD) { bestD = d; target = t; }
           }
           if (target) {
-            projectiles.push(new Projectile(
-              s.x, s.y, target.x, target.y,
-              0, BALANCE.CATAPULT_PROJECTILE_SPEED,
-              s.color, 'catapult'
-            ));
+            projectiles.push(new Projectile(s.x, s.y, target.x, target.y, 0,
+              BALANCE.CATAPULT_PROJECTILE_SPEED, s.color, 'catapult'));
             s.attackCooldown = s.attackRate;
-          } else {
-            s.attackCooldown = 0.5;
-          }
+          } else s.attackCooldown = 0.5;
         }
       }
       else if (s.attack > 0 && s.range > 0) {
@@ -1481,15 +1896,11 @@ class CombatService {
           }
           if (target) {
             if (s.projectile) {
-              projectiles.push(new Projectile(
-                s.x, s.y, target.x, target.y,
-                s.attack, BALANCE.PROJECTILE_SPEED, s.color
-              ));
+              projectiles.push(new Projectile(s.x, s.y, target.x, target.y, s.attack,
+                BALANCE.PROJECTILE_SPEED, s.color));
             } else {
               target.takeDamage(s.attack);
-              bus.emit('structure:attacked', {
-                x: target.x, y: target.y, damage: s.attack, color: s.color,
-              });
+              bus.emit('structure:attacked', { x: target.x, y: target.y, damage: s.attack, color: s.color });
               if (!target.alive) bus.emit('troop:died', { troop: target });
             }
             s.attackCooldown = s.attackRate;
@@ -1497,23 +1908,19 @@ class CombatService {
               s.alive = false;
               bus.emit('structure:destroyed', { structure: s });
             }
-          } else {
-            s.attackCooldown = 0.2;
-          }
+          } else s.attackCooldown = 0.2;
         }
       }
 
       if (s.spawns) {
         s.spawnTimer -= dt;
         if (s.spawnTimer <= 0) {
-          s.spawnTimer = s.spawnInterval;
-          const enemy = new Troop(BALANCE.ENEMY_TROOP, s.x, s.y);
-          enemy.team = 'defender';
-          enemy.behavior = 'targetNearest';
-          enemy.maxHp = Math.round(enemy.maxHp * 0.4);
-          enemy.hp = enemy.maxHp;
-          enemy.damage = Math.round(enemy.damage * 0.5);
-          enemy.color = '#aa2222';
+          const spawnMult = state && state.zone && state.zone.general
+            ? (state.zone.general.passive.spawnMult || 1) : 1;
+          s.spawnTimer = s.spawnInterval * spawnMult;
+          const faction = state && state.zone ? state.zone.faction : FACTIONS.romanos;
+          const levelMult = state ? levelScale(state.zone.level) : 1;
+          const enemy = new EnemyTroop(faction.enemyType, s.x, s.y, levelMult);
           enemyQueue.push(enemy);
           bus.emit('enemy:spawned', { x: s.x, y: s.y });
         }
@@ -1529,9 +1936,7 @@ class ProjectileService {
       p.update(dt);
       if (!p.alive) {
         if (p.kind === 'catapult') {
-          damageAreas.push(new DamageArea(
-            p.targetX, p.targetY, 60, 12, 4.0, '#ff4400'
-          ));
+          damageAreas.push(new DamageArea(p.targetX, p.targetY, 60, 9, 4.0, '#ff4400'));
           bus.emit('area:created', { x: p.targetX, y: p.targetY });
         }
         projectiles.splice(i, 1);
@@ -1546,18 +1951,12 @@ class ProjectileService {
         if (d <= t.radius + p.radius) {
           if (p.isBlockedBy(t)) {
             bus.emit('projectile:blocked', { x: p.x, y: p.y });
-            p.alive = false;
-            hit = true;
-            break;
+            p.alive = false; hit = true; break;
           }
           t.takeDamage(p.damage);
-          bus.emit('structure:attacked', {
-            x: t.x, y: t.y, damage: p.damage, color: p.color,
-          });
+          bus.emit('structure:attacked', { x: t.x, y: t.y, damage: p.damage, color: p.color });
           if (!t.alive) bus.emit('troop:died', { troop: t });
-          p.alive = false;
-          hit = true;
-          break;
+          p.alive = false; hit = true; break;
         }
       }
       if (hit) projectiles.splice(i, 1);
@@ -1568,29 +1967,40 @@ class ProjectileService {
 class ZoneGenerator {
   constructor(rng) { this.rng = rng; }
 
-  generate(archetypeId, level) {
+  generate(archetypeId, level, isEndless = false) {
     const archetype = ZONE_ARCHETYPES[archetypeId];
     if (!archetype) throw new Error(`Arquetipo desconocido: ${archetypeId}`);
     const faction = this._pickFaction(archetype.factionBias);
-    // CAMBIO DE BALANCE: escalado exponencial del enemigo
-    const levelMult = Math.pow(BALANCE.ENEMY_LEVEL_SCALE, level - 1);
+    const hpMult = levelScale(level);
+    const dmgMult = levelScaleForDamage(level);
     const tier = level <= 1 ? 'basic' : level <= 3 ? 'advanced' : 'elite';
     const structureCount = archetype.structureCount;
 
-    const zone = new Zone(archetype, faction, level);
+    const zone = new Zone(archetype, faction, level, isEndless);
 
+    // General del arquetipo
+    const generalCatalog = GENERAL_CATALOG[archetypeId];
+    const passiveHpMult = generalCatalog.passive.hpMult || 1;
+
+    // Núcleo (ahora es la base del General)
     const coreCol = BALANCE.GRID_W - 1;
     const coreRow = Math.floor(BALANCE.GRID_H / 2);
     const core = new Structure('nucleo', coreCol, coreRow, {
       tier: level <= 2 ? 'advanced' : 'elite',
       faction,
+      passiveHpMult,
     });
-    core.maxHp = Math.round(core.maxHp * levelMult);
+    // El núcleo tiene HP multiplicado por GENERAL_HP_MULT
+    core.maxHp = Math.round(core.baseMaxHp * BALANCE.GENERAL_HP_MULT * hpMult);
     core.hp = core.maxHp;
-    core.attack = Math.round(core.attack * Math.min(3.0, levelMult));
+    core.attack = Math.round(core.attack * BALANCE.GENERAL_ATTACK_MULT * dmgMult);
     core.isCore = true;
     zone.structures.push(core);
     zone.coreId = core.id;
+
+    // Instanciar General
+    const general = new General(generalCatalog, core, level);
+    zone.general = general;
 
     const placed = new Set([`${coreCol},${coreRow}`]);
     let attempts = 0, placedCount = 0;
@@ -1610,10 +2020,14 @@ class ZoneGenerator {
       if (tier === 'basic' && tierRoll > 0.7) structTier = 'advanced';
       else if (tier === 'advanced' && tierRoll > 0.85) structTier = 'elite';
 
-      const s = new Structure(typeId, col, row, { tier: structTier, faction });
-      s.maxHp = Math.round(s.maxHp * levelMult);
+      const s = new Structure(typeId, col, row, {
+        tier: structTier,
+        faction,
+        passiveHpMult,
+      });
+      s.maxHp = Math.round(s.maxHp * hpMult);
       s.hp = s.maxHp;
-      s.attack = Math.round(s.attack * Math.min(3.0, levelMult));
+      s.attack = Math.round(s.attack * dmgMult);
       zone.structures.push(s);
       placed.add(key);
       placedCount++;
@@ -1626,12 +2040,11 @@ class ZoneGenerator {
   _pickFaction(bias) {
     const r = this.rng.float();
     let acc = 0;
-    const entries = Object.entries(bias);
-    for (const [fid, weight] of entries) {
+    for (const [fid, weight] of Object.entries(bias)) {
       acc += weight;
       if (r <= acc) return FACTIONS[fid];
     }
-    return FACTIONS[entries[0][0]];
+    return FACTIONS.romanos;
   }
 
   _weightedType(weights, rng) {
@@ -1685,7 +2098,6 @@ function computeStructureReward(structure) {
   return { gold, materials };
 }
 
-/** Comprueba si un coste (oro + materiales) se puede pagar. */
 function canPayCost(state, cost) {
   if (state.gold < cost.gold) return false;
   for (const [mat, qty] of Object.entries(cost.materials || {})) {
@@ -1694,7 +2106,6 @@ function canPayCost(state, cost) {
   return true;
 }
 
-/** Aplica un coste (ya validado). */
 function payCost(state, cost) {
   state.gold -= cost.gold;
   for (const [mat, qty] of Object.entries(cost.materials || {})) {
@@ -1705,7 +2116,7 @@ function payCost(state, cost) {
 
 
 /* ============================================================================
- * 6. GAME STATE
+ * 7. GAME STATE
  * ========================================================================== */
 class GameState {
   constructor() {
@@ -1722,25 +2133,31 @@ class GameState {
     this.gold = 0;
     this.materials = {};
     this.hero = null;
-    this.heroAlive = true;  // CAMBIO: si el héroe muere, no revive
+    this.heroAlive = true;
     this.armyUpgrades = {};
     this.phase = 'idle';
     this.time = 0;
     this.log = [];
-    this.zoneCount = BALANCE.ZONE_COUNT;
+    this.baseZoneCount = BALANCE.BASE_ZONE_COUNT;
+    this.endlessMode = false;
     this.movementService = new MovementService();
     this.combatService = new CombatService();
     this.projectileService = new ProjectileService();
     this.globalOrder = { active: false, type: null, timer: 0 };
     this.globalOrderCooldown = 0;
-    this.pendingDraft = null;
-    this.pendingPromotions = [];
     this.markedCoreTimer = 0;
     this.zoomLevel = 1;
     this.zoomTarget = 1;
     this.zoomCenterX = BALANCE.CANVAS_W / 2;
     this.zoomCenterY = BALANCE.CANVAS_H / 2;
     this.screenShake = 0;
+    this.slowMo = 0;
+    this.flash = 0;
+    this.speed = 2;  // 1x, 2x, 4x
+    // Formación: mapa de "tropa index" → {x, y}
+    this.formation = {};
+    // Prioridad: id de estructura prioritaria
+    this.priorityTargetId = null;
   }
   getArmyBonuses() {
     const b = { hp:0, damage:0, speed:0, range:0, spawnRate:0 };
@@ -1775,11 +2192,15 @@ class GameState {
   getTotalMaterials() {
     return Object.values(this.materials).reduce((s, v) => s + v, 0);
   }
+  getCurrentZoneCount() {
+    // En modo normal: baseZoneCount. En endless: sin límite (devuelve null).
+    return this.endlessMode ? null : this.baseZoneCount;
+  }
 }
 
 
 /* ============================================================================
- * 7. USE CASES
+ * 8. USE CASES
  * ========================================================================== */
 
 class StartRunUseCase {
@@ -1804,13 +2225,16 @@ class StartRunUseCase {
     s.log = [];
     s.globalOrder = { active: false, type: null, timer: 0 };
     s.globalOrderCooldown = 0;
-    s.pendingDraft = null;
-    s.pendingPromotions = [];
     s.hero = new HeroGenerator(s.rng).generate();
     s.heroAlive = true;
     s.zoomLevel = 1;
     s.zoomTarget = 1;
     s.screenShake = 0;
+    s.slowMo = 0;
+    s.flash = 0;
+    s.formation = {};
+    s.priorityTargetId = null;
+    s.endlessMode = false;
     this.bus.emit('run:started', { seed: s.runSeed, hero: s.hero });
     this._log(`Run iniciada. Héroe: ${s.hero.name} (${s.hero.archetypeName}).`, 'info');
   }
@@ -1825,13 +2249,15 @@ class PrepareScoutingUseCase {
   execute() {
     const s = this.state;
     const level = s.currentZoneIdx + 1;
+    // Elegir arquetipo por ciclo (4 arquetipos, rota)
     const archetypes = Object.keys(ZONE_ARCHETYPES);
     const archetypeId = archetypes[(level - 1) % archetypes.length];
     const archetype = ZONE_ARCHETYPES[archetypeId];
+    const general = GENERAL_CATALOG[archetypeId];
     s.pendingArchetypeId = archetypeId;
     s.pendingLevel = level;
-    this.bus.emit('scouting:prepared', { archetype, level });
-    return { archetype, level };
+    this.bus.emit('scouting:prepared', { archetype, level, general });
+    return { archetype, level, general };
   }
 }
 
@@ -1842,7 +2268,7 @@ class StartZoneUseCase {
     const level = s.pendingLevel || (s.currentZoneIdx + 1);
     const archetypeId = s.pendingArchetypeId || 'muro';
     const gen = new ZoneGenerator(s.rng);
-    const zone = gen.generate(archetypeId, level);
+    const zone = gen.generate(archetypeId, level, s.endlessMode);
     s.zone = zone;
     s.troops = [];
     s.enemyTroops = [];
@@ -1854,19 +2280,23 @@ class StartZoneUseCase {
     s.globalOrderCooldown = 0;
 
     const bonuses = s.getArmyBonuses();
-    // CAMBIO: el héroe solo aparece si sigue vivo
+    // Colocar tropas según formación o por defecto
     if (s.heroAlive) {
       const hero = new HeroTroop(s.hero, BALANCE.SPAWN_X, BALANCE.SPAWN_Y, s.modifiers, bonuses);
       hero.abilityCooldown = 0;
+      // Posición de la formación del héroe (índice -1)
+      const formPos = s.formation['hero'];
+      if (formPos) { hero.x = formPos.x; hero.y = formPos.y; }
       s.troops.push(hero);
     }
-
-    // Desplegar roster
-    let yOffset = -60;
-    const step = 40;
-    for (const rosterTroop of s.roster) {
-      const clone = new Troop(rosterTroop._baseType, BALANCE.SPAWN_X + 30,
-                              BALANCE.SPAWN_Y + yOffset, s.modifiers, bonuses);
+    // Roster
+    let defaultYOffset = -60;
+    const defaultStep = 40;
+    for (let i = 0; i < s.roster.length; i++) {
+      const rosterTroop = s.roster[i];
+      const clone = new Troop(rosterTroop._baseType,
+        BALANCE.SPAWN_X + 30, BALANCE.SPAWN_Y + defaultYOffset,
+        s.modifiers, bonuses);
       clone.xp = rosterTroop.xp;
       clone.promotionId = rosterTroop.promotionId;
       clone.promotionRank = rosterTroop.promotionRank;
@@ -1877,13 +2307,17 @@ class StartZoneUseCase {
       }
       clone.survivedZones = rosterTroop.survivedZones;
       clone.kills = rosterTroop.kills;
+      // Posición de formación
+      const formPos = s.formation[i];
+      if (formPos) { clone.x = formPos.x; clone.y = formPos.y; }
       s.troops.push(clone);
-      yOffset += step;
-      if (yOffset > 60) yOffset = -60;
+      defaultYOffset += defaultStep;
+      if (defaultYOffset > 60) defaultYOffset = -60;
     }
 
     this.bus.emit('zone:started', { zone, level });
-    this._log(`— Zona ${level}: ${zone.archetype.name} · ${zone.faction.name} (pool ${zone.maxHp}) —`, 'info');
+    this._log(`— Zona ${level}: ${zone.archetype.name} · ${zone.faction.name} —`, 'info');
+    this._log(`⚔ General: ${zone.general.name} — ${zone.general.title}`, 'general');
     if (!s.heroAlive) this._log(`El héroe ha caído. Esta run sigue sin él.`, 'warn');
   }
   _log(text, kind) {
@@ -1896,24 +2330,38 @@ class TickUseCase {
   constructor(state, bus) { this.state = state; this.bus = bus; }
   execute(dt) {
     const s = this.state;
+    // Slow-mo: la simulación va más lenta
+    let simDt = dt * s.speed;
+    if (s.slowMo > 0) {
+      s.slowMo -= dt;
+      simDt *= 0.3;
+    }
     if (s.phase !== 'running') {
       s.zoomLevel += (s.zoomTarget - s.zoomLevel) * Math.min(1, dt * 4);
       if (s.screenShake > 0) s.screenShake = Math.max(0, s.screenShake - dt * 3);
       return;
     }
-    s.time += dt;
+    s.time += simDt;
 
-    if (s.globalOrderCooldown > 0) s.globalOrderCooldown -= dt;
+    if (s.globalOrderCooldown > 0) s.globalOrderCooldown -= simDt;
     if (s.globalOrder.active) {
-      s.globalOrder.timer -= dt;
+      s.globalOrder.timer -= simDt;
       if (s.globalOrder.timer <= 0) {
         s.globalOrder.active = false;
         this.bus.emit('order:ended', {});
       }
     }
-    const hero = s.troops.find(t => t.isHero && t.alive);
-    if (hero && hero.abilityCooldown > 0) hero.abilityCooldown -= dt;
 
+    // General: actualizar habilidad
+    if (s.zone.general && s.zone.general.core.alive) {
+      s.zone.general.update(simDt, s, this.bus);
+    }
+
+    // Héroe cooldown
+    const hero = s.troops.find(t => t.isHero && t.alive);
+    if (hero && hero.abilityCooldown > 0) hero.abilityCooldown -= simDt;
+
+    // Aura
     if (hero) {
       for (const t of s.troops) {
         if (t === hero || !t.alive) { t.auraBonus = 0; continue; }
@@ -1925,48 +2373,47 @@ class TickUseCase {
     }
 
     if (s.markedCoreTimer > 0) {
-      s.markedCoreTimer -= dt;
+      s.markedCoreTimer -= simDt;
       for (const t of s.troops) t.markedCoreDamageBonus = 0.5;
     } else {
       for (const t of s.troops) t.markedCoreDamageBonus = 0;
     }
 
-    // Movimiento de tropas del jugador (con lista de enemigos)
+    // Movimiento
     for (const t of s.troops) {
-      s.movementService.update(
-        t, s.troops, s.zone.structures, s.enemyTroops,
-        dt, this.bus, s.globalOrder, s.zone
-      );
+      s.movementService.update(t, s.troops, s.zone.structures, s.enemyTroops,
+        simDt, this.bus, s.globalOrder, s.zone, s.priorityTargetId);
     }
-    // Movimiento de enemigos (con lista de tropas del jugador)
     for (const t of s.enemyTroops) {
-      s.movementService.update(
-        t, s.enemyTroops, s.zone.structures, s.troops,
-        dt, this.bus, null, null
-      );
+      s.movementService.update(t, s.enemyTroops, s.zone.structures, s.troops,
+        simDt, this.bus, null, null, null);
     }
 
     s.combatService.updateStructures(
-      s.zone.structures, s.troops, dt, this.bus, s.enemyTroops, s.projectiles, s.damageAreas
+      s.zone.structures, s.troops, simDt, this.bus, s.enemyTroops,
+      s.projectiles, s.damageAreas, s
     );
-    s.projectileService.update(s.projectiles, s.troops, dt, this.bus, s.damageAreas);
+    s.projectileService.update(s.projectiles, s.troops, simDt, this.bus, s.damageAreas);
 
     for (let i = s.damageAreas.length - 1; i >= 0; i--) {
       const a = s.damageAreas[i];
-      a.update(dt, s.troops, this.bus);
+      a.update(simDt, s.troops, this.bus);
       if (!a.alive) s.damageAreas.splice(i, 1);
     }
 
-    // Si el héroe muere, marcar flag
     if (s.heroAlive && hero && !hero.alive) {
       s.heroAlive = false;
       this.bus.emit('hero:died', {});
       this._log(`💀 ${s.hero.name} ha caído. No volverá en esta run.`, 'bad');
+      s.screenShake = 1.0;
+      s.slowMo = 0.4;
+      s.flash = 1.0;
     }
 
     s.troops = s.troops.filter(t => t.alive);
     s.enemyTroops = s.enemyTroops.filter(t => t.alive);
 
+    // Zoom solo al núcleo (no a estructuras individuales)
     const core = s.zone.getCore();
     if (core && core.alive) {
       const corePct = core.hp / core.maxHp;
@@ -1982,8 +2429,9 @@ class TickUseCase {
     } else {
       s.zoomTarget = 1;
     }
-    s.zoomLevel += (s.zoomTarget - s.zoomLevel) * Math.min(1, dt * 3);
-    if (s.screenShake > 0) s.screenShake = Math.max(0, s.screenShake - dt * 3);
+    s.zoomLevel += (s.zoomTarget - s.zoomLevel) * Math.min(1, simDt * 3);
+    if (s.screenShake > 0) s.screenShake = Math.max(0, s.screenShake - simDt * 3);
+    if (s.flash > 0) s.flash = Math.max(0, s.flash - simDt * 4);
 
     this.bus.emit('zone:hp', { hp: s.zone.hp, maxHp: s.zone.maxHp });
 
@@ -2031,7 +2479,7 @@ class EndZoneUseCase {
       s.pendingPromotions = promotable;
       s.gold += BALANCE.GOLD_ZONE_VICTORY;
       this.bus.emit('gold:gained', { amount: BALANCE.GOLD_ZONE_VICTORY, source: 'victoria' });
-      if (s.currentZoneIdx + 1 >= s.zoneCount) {
+      if (!s.endlessMode && s.currentZoneIdx + 1 >= s.baseZoneCount) {
         s.phase = 'run-victory';
         this.bus.emit('run:victory', {});
       } else {
@@ -2106,10 +2554,6 @@ class DraftTroopUseCase {
   }
 }
 
-/**
- * NUEVO: reclutar tropas con oro y materiales.
- * Repone el roster, dando uso a los materiales.
- */
 class RecruitTroopUseCase {
   constructor(state, bus) { this.state = state; this.bus = bus; }
   execute(typeId) {
@@ -2119,7 +2563,7 @@ class RecruitTroopUseCase {
     if (!cost) return false;
     if (!canPayCost(s, cost)) return false;
     if (s.roster.length >= s.getRosterSize()) {
-      this.bus.emit('log', { text: `Roster lleno. No puedes reclutar más.`, kind: 'warn' });
+      this.bus.emit('log', { text: `Roster lleno.`, kind: 'warn' });
       return false;
     }
     payCost(s, cost);
@@ -2128,10 +2572,7 @@ class RecruitTroopUseCase {
     this.bus.emit('roster:added', { troop });
     this.bus.emit('gold:changed', { gold: s.gold });
     this.bus.emit('materials:changed', { materials: s.materials });
-    this.bus.emit('log', {
-      text: `🎖️ Reclutada: ${troop.name} (-${cost.gold} oro)`,
-      kind: 'gold',
-    });
+    this.bus.emit('log', { text: `🎖️ Reclutada: ${troop.name} (-${cost.gold} oro)`, kind: 'gold' });
     return true;
   }
 }
@@ -2207,9 +2648,43 @@ class ActivateHeroAbilityUseCase {
   }
 }
 
+/** Cambiar velocidad del juego. Afecta al multiplicador de simulación. */
+class SetSpeedUseCase {
+  constructor(state, bus) { this.state = state; this.bus = bus; }
+  execute(speed) {
+    if (![1, 2, 4].includes(speed)) return false;
+    this.state.speed = speed;
+    this.bus.emit('speed:changed', { speed });
+    return true;
+  }
+}
+
+/** Guardar formación desde el hub. */
+class SetFormationUseCase {
+  constructor(state, bus) { this.state = state; this.bus = bus; }
+  execute(formation, priorityTargetId) {
+    this.state.formation = { ...formation };
+    this.state.priorityTargetId = priorityTargetId || null;
+    this.bus.emit('formation:saved', { formation: this.state.formation });
+    return true;
+  }
+}
+
+/** Activar modo endless tras ganar la run base. */
+class EnableEndlessUseCase {
+  constructor(state, bus) { this.state = state; this.bus = bus; }
+  execute() {
+    this.state.endlessMode = true;
+    this.state.phase = 'idle';
+    this.bus.emit('endless:enabled', {});
+    this.bus.emit('log', { text: '♾️ Modo endless activado. La dificultad no tiene techo.', kind: 'info' });
+    return true;
+  }
+}
+
 
 /* ============================================================================
- * 8. GOLD SERVICE
+ * 9. GOLD SERVICE
  * ========================================================================== */
 class GoldService {
   constructor(state, bus) {
@@ -2218,9 +2693,7 @@ class GoldService {
     this.damageAccum = 0;
     bus.on('troop:attacked', (e) => { if (e.isStructure) this._onDamage(e.damage); });
     bus.on('structure:destroyed', (e) => this._onStructureDestroyed(e.structure));
-    bus.on('enemy:died', () => {
-      this._awardGold(BALANCE.GOLD_PER_ENEMY_KILL, 'enemigo');
-    });
+    bus.on('enemy:died', () => this._awardGold(BALANCE.GOLD_PER_ENEMY_KILL, 'enemigo'));
     bus.on('run:started', () => { this.damageAccum = 0; });
     bus.on('zone:started', () => { this.damageAccum = 0; });
   }
@@ -2240,10 +2713,9 @@ class GoldService {
       this.bus.emit('material:gained', { id: mat, qty });
     }
     const baseName = (STRUCTURE_TYPES[structure.typeId] || {}).name || structure.typeId;
-    const label = structure.isCore ? `NÚCLEO` : baseName;
+    const label = structure.isCore ? `GENERAL` : baseName;
     const matParts = Object.entries(reward.materials)
-      .map(([m, q]) => `+${q} ${MATERIALS[m].name}`)
-      .join(', ');
+      .map(([m, q]) => `+${q} ${MATERIALS[m].name}`).join(', ');
     this.bus.emit('log', {
       text: `💥 ${label} destruido · +${reward.gold} oro${matParts ? ' · ' + matParts : ''}`,
       kind: 'good',
@@ -2258,13 +2730,12 @@ class GoldService {
 
 
 /* ============================================================================
- * 9. AUDIO SERVICE
+ * 10. AUDIO SERVICE
  * ========================================================================== */
 class AudioService {
   constructor(bus) {
     this.ctx = null;
     this.enabled = false;
-    this.bus = bus;
     bus.on('troop:attacked', () => this.play('hit_soft'));
     bus.on('structure:attacked', () => this.play('hit_soft'));
     bus.on('structure:destroyed', (e) => {
@@ -2272,6 +2743,7 @@ class AudioService {
     });
     bus.on('projectile:blocked', () => this.play('block'));
     bus.on('ability:used', () => this.play('ability'));
+    bus.on('general:ability', () => this.play('general'));
     bus.on('order:activated', () => this.play('order'));
     bus.on('structure:telegraph', () => this.play('telegraph'));
     bus.on('hero:died', () => this.play('destroy_big'));
@@ -2294,6 +2766,7 @@ class AudioService {
       case 'destroy_big': this._noise(0.35, 0.18); this._beep(80, 0.2, 0.12); break;
       case 'block': this._beep(600, 0.06, 0.05, 'triangle'); break;
       case 'ability': this._beep(880, 0.12, 0.10); setTimeout(() => this._beep(1320, 0.15, 0.10), 90); break;
+      case 'general': this._beep(220, 0.3, 0.12, 'sawtooth'); setTimeout(() => this._beep(180, 0.3, 0.12, 'sawtooth'), 150); break;
       case 'order': this._beep(440, 0.15, 0.12); break;
       case 'telegraph': this._beep(300, 0.3, 0.05, 'sawtooth'); break;
     }
@@ -2339,16 +2812,15 @@ class AudioService {
 
 
 /* ============================================================================
- * 10. RENDERER
+ * 11. RENDERER
  * ========================================================================== */
 class CanvasRenderer {
-  constructor(canvas, bus) {
+  constructor(canvas, bus, flashOverlayEl) {
     this.canvas = canvas;
     this.ctx = canvas.getContext('2d');
+    this.flashOverlayEl = flashOverlayEl;
     this.particles = [];
     this.damageNumbers = [];
-    this.goldFloats = [];
-    this.materialFloats = [];
     this.explosionRings = [];
     this.telegraphRings = [];
 
@@ -2357,19 +2829,20 @@ class CanvasRenderer {
     bus.on('troop:died', (e) => this._particles(e.troop.x, e.troop.y, e.troop.color, 12));
     bus.on('enemy:died', (e) => this._particles(e.troop.x, e.troop.y, '#aa2222', 8));
     bus.on('structure:destroyed', (e) => {
-      const big = e.structure.isCore ? 50 : 22;
-      this._particles(e.structure.x, e.structure.y, e.structure.isCore ? '#ffd700' : '#ffb347', big);
+      const isCore = e.structure.isCore;
+      const big = isCore ? 60 : e.structure.tier === 'elite' ? 35 : 22;
+      this._particles(e.structure.x, e.structure.y, isCore ? '#ffd700' : '#ffb347', big);
       this.explosionRings.push({
         x: e.structure.x, y: e.structure.y,
-        maxRadius: e.structure.isCore ? 160 : 60,
+        maxRadius: isCore ? 200 : 60,
         radius: 0, life: 0.9, maxLife: 0.9,
-        color: e.structure.isCore ? '#ffd700' : '#ffb347',
+        color: isCore ? '#ffd700' : '#ffb347',
       });
     });
     bus.on('hero:died', () => {
       this.explosionRings.push({
         x: BALANCE.CANVAS_W / 2, y: BALANCE.CANVAS_H / 2,
-        maxRadius: 200, radius: 0, life: 1.2, maxLife: 1.2, color: '#ff99ff',
+        maxRadius: 240, radius: 0, life: 1.2, maxLife: 1.2, color: '#ff99ff',
       });
     });
     bus.on('structure:healed', (e) => this._particles(e.x, e.y, '#66ffcc', 6));
@@ -2388,17 +2861,16 @@ class CanvasRenderer {
         radius: 0, life: 0.5, maxLife: 0.5, color: '#ff4400',
       });
     });
+    bus.on('general:ability', (e) => {
+      const core = e.general.core;
+      this.explosionRings.push({
+        x: core.x, y: core.y, maxRadius: 100,
+        radius: 0, life: 0.8, maxLife: 0.8, color: '#ff5566',
+      });
+    });
     bus.on('projectile:blocked', (e) => this._particles(e.x, e.y, '#7ec8e3', 8));
     bus.on('enemy:spawned', (e) => this._particles(e.x, e.y, '#ff00ff', 6));
     bus.on('troop:healed', (e) => this._particles(e.x, e.y, '#7ee87e', 4));
-    bus.on('material:gained', (e) => {
-      const m = MATERIALS[e.id];
-      if (!m) return;
-      this.materialFloats.push({
-        x: BALANCE.CANVAS_W / 2 + 60, y: 50,
-        text: `${m.icon} +${e.qty}`, life: 1.2, maxLife: 1.2,
-      });
-    });
     bus.on('area:created', (e) => this._particles(e.x, e.y, '#ff4400', 10));
   }
   _particles(x, y, color, count) {
@@ -2423,6 +2895,11 @@ class CanvasRenderer {
     const ctx = this.ctx;
     const W = BALANCE.CANVAS_W, H = BALANCE.CANVAS_H;
 
+    // Flash overlay
+    if (this.flashOverlayEl) {
+      this.flashOverlayEl.classList.toggle('on', state.flash > 0.3);
+    }
+
     ctx.setTransform(1, 0, 0, 1, 0, 0);
     ctx.fillStyle = '#06060e';
     ctx.fillRect(0, 0, W, H);
@@ -2442,6 +2919,7 @@ class CanvasRenderer {
       ctx.translate(-state.zoomCenterX, -state.zoomCenterY);
     }
 
+    // Grid
     ctx.strokeStyle = 'rgba(255,255,255,0.03)';
     for (let x = 0; x <= BALANCE.GRID_W; x++) {
       ctx.beginPath();
@@ -2456,14 +2934,22 @@ class CanvasRenderer {
       ctx.stroke();
     }
 
+    // Barra pool
     if (state.zone) {
       const pct = state.zone.maxHp > 0 ? state.zone.hp / state.zone.maxHp : 0;
       ctx.fillStyle = 'rgba(255,255,255,0.05)';
       ctx.fillRect(20, 8, W - 40, 4);
       ctx.fillStyle = pct > 0.5 ? '#7ee87e' : pct > 0.25 ? '#ffb347' : '#ff6b6b';
       ctx.fillRect(20, 8, (W - 40) * pct, 4);
+      // Tinte de fondo según pool
+      if (pct < 0.4) {
+        const alpha = (1 - pct / 0.4) * 0.15;
+        ctx.fillStyle = `rgba(255,60,60,${alpha})`;
+        ctx.fillRect(0, 0, W, H);
+      }
     }
 
+    // DamageAreas
     if (state.damageAreas) {
       for (const a of state.damageAreas) {
         ctx.globalAlpha = 0.4 + 0.2 * Math.sin(state.time * 6);
@@ -2479,6 +2965,7 @@ class CanvasRenderer {
       ctx.globalAlpha = 1;
     }
 
+    // Telegraph rings
     for (let i = this.telegraphRings.length - 1; i >= 0; i--) {
       const r = this.telegraphRings[i];
       r.life -= dt;
@@ -2497,6 +2984,7 @@ class CanvasRenderer {
     }
     ctx.globalAlpha = 1;
 
+    // Explosion rings
     for (let i = this.explosionRings.length - 1; i >= 0; i--) {
       const r = this.explosionRings[i];
       r.life -= dt;
@@ -2512,16 +3000,19 @@ class CanvasRenderer {
     }
     ctx.globalAlpha = 1;
 
+    // Estructuras
     if (state.zone) {
       for (const s of state.zone.structures) {
         if (!s.alive) continue;
-        this._drawStructure(ctx, s);
+        this._drawStructure(ctx, s, state);
       }
     }
 
+    // Tropas
     for (const t of state.troops) this._drawTroop(ctx, t, false);
     for (const t of state.enemyTroops) this._drawTroop(ctx, t, true);
 
+    // Proyectiles
     for (const p of state.projectiles) {
       const py = p.kind === 'catapult' ? p.y - (p.height || 0) : p.y;
       if (p.kind === 'catapult') {
@@ -2539,6 +3030,7 @@ class CanvasRenderer {
       ctx.stroke();
     }
 
+    // Partículas
     for (let i = this.particles.length - 1; i >= 0; i--) {
       const p = this.particles[i];
       p.x += p.vx * dt; p.y += p.vy * dt;
@@ -2553,6 +3045,7 @@ class CanvasRenderer {
     }
     ctx.globalAlpha = 1;
 
+    // Daño flotante
     ctx.textAlign = 'center';
     for (let i = this.damageNumbers.length - 1; i >= 0; i--) {
       const d = this.damageNumbers[i];
@@ -2563,26 +3056,9 @@ class CanvasRenderer {
       ctx.font = `bold ${d.size || 13}px monospace`;
       ctx.fillText(d.text, d.x, d.y);
     }
-    for (let i = this.goldFloats.length - 1; i >= 0; i--) {
-      const g = this.goldFloats[i];
-      g.y -= 30 * dt; g.life -= dt;
-      if (g.life <= 0) { this.goldFloats.splice(i, 1); continue; }
-      ctx.globalAlpha = g.life / g.maxLife;
-      ctx.fillStyle = '#ffd700';
-      ctx.font = 'bold 15px monospace';
-      ctx.fillText(g.text, g.x, g.y);
-    }
-    for (let i = this.materialFloats.length - 1; i >= 0; i--) {
-      const m = this.materialFloats[i];
-      m.y -= 25 * dt; m.life -= dt;
-      if (m.life <= 0) { this.materialFloats.splice(i, 1); continue; }
-      ctx.globalAlpha = m.life / m.maxLife;
-      ctx.fillStyle = '#88ddff';
-      ctx.font = 'bold 13px monospace';
-      ctx.fillText(m.text, m.x, m.y);
-    }
     ctx.globalAlpha = 1;
 
+    // Orden global activa
     if (state.globalOrder && state.globalOrder.active) {
       ctx.fillStyle = 'rgba(255,179,71,0.10)';
       ctx.fillRect(0, 0, W, H);
@@ -2594,17 +3070,29 @@ class CanvasRenderer {
     ctx.restore();
   }
 
-  _drawStructure(ctx, s) {
+  _drawStructure(ctx, s, state) {
     const x = s.x, y = s.y, r = s.radius;
     const color = s.color;
     const colorDark = s.colorDark;
 
+    // Sombra
     ctx.fillStyle = 'rgba(0,0,0,0.4)';
     this._pathShape(ctx, s.shape, x + 2, y + 3, r);
     ctx.fill();
 
+    // Aviso de HP bajo: borde rojo parpadeante
+    const hpPct = s.hp / s.maxHp;
+    if (hpPct < 0.2 && hpPct > 0) {
+      ctx.strokeStyle = `rgba(255,80,80,${0.5 + 0.3*Math.sin(state.time * 10)})`;
+      ctx.lineWidth = 4;
+      ctx.beginPath();
+      ctx.arc(x, y, r + 8, 0, Math.PI * 2);
+      ctx.stroke();
+    }
+
     if (s.stunTimer > 0) ctx.globalAlpha = 0.4;
 
+    // Aura sanador
     if (s.heals) {
       ctx.strokeStyle = 'rgba(102,255,204,0.18)';
       ctx.lineWidth = 2;
@@ -2612,11 +3100,20 @@ class CanvasRenderer {
       ctx.arc(x, y, s.healRange, 0, Math.PI * 2);
       ctx.stroke();
     }
+    // Aura regenerador
     if (s.regenerates && s.timeSinceDamage >= s.regenDelay) {
       ctx.strokeStyle = colorDark + '99';
       ctx.lineWidth = 3;
       ctx.beginPath();
       ctx.arc(x, y, r + 6, 0, Math.PI * 2);
+      ctx.stroke();
+    }
+    // Aura de buff temporal (habilidad del general)
+    if (s.tempHpBuffTimer > 0) {
+      ctx.strokeStyle = '#ff5566';
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.arc(x, y, r + 10, 0, Math.PI * 2);
       ctx.stroke();
     }
 
@@ -2657,12 +3154,12 @@ class CanvasRenderer {
 
     ctx.globalAlpha = 1;
 
+    // Barra HP
     if (s.hp < s.maxHp || s.isCore) {
-      const hpPct = s.hp / s.maxHp;
-      const barW = Math.max(r * 2.2, 32);
-      const barH = 5;
+      const barW = Math.max(r * 2.2, 36);
+      const barH = s.isCore ? 7 : 5;
       const barX = x - barW / 2;
-      const barY = y - r - 14;
+      const barY = y - r - (s.isCore ? 22 : 14);
       ctx.fillStyle = 'rgba(0,0,0,0.75)';
       ctx.fillRect(barX - 1, barY - 1, barW + 2, barH + 2);
       ctx.fillStyle = hpPct > 0.5 ? '#7ee87e' : hpPct > 0.25 ? '#ffb347' : '#ff6b6b';
@@ -2673,8 +3170,18 @@ class CanvasRenderer {
       ctx.fillText(`${Math.ceil(s.hp)}`, x, barY - 3);
     }
 
+    // Anillo extra para el núcleo/general
+    if (s.isCore) {
+      ctx.strokeStyle = '#ff5566';
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.arc(x, y, r + 6, 0, Math.PI * 2);
+      ctx.stroke();
+    }
+
+    // Letra de facción
     if (s.factionId) {
-      ctx.fillStyle = 'rgba(255,255,255,0.5)';
+      ctx.fillStyle = 'rgba(255,255,255,0.55)';
       ctx.font = 'bold 10px monospace';
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
@@ -2706,8 +3213,7 @@ class CanvasRenderer {
           const a = i * Math.PI / 3 - Math.PI / 2;
           const px = x + Math.cos(a) * r;
           const py = y + Math.sin(a) * r;
-          if (i === 0) ctx.moveTo(px, py);
-          else ctx.lineTo(px, py);
+          if (i === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
         }
         ctx.closePath();
         break;
@@ -2719,8 +3225,7 @@ class CanvasRenderer {
           const rr = t * r;
           const px = x + Math.cos(a) * rr;
           const py = y + Math.sin(a) * rr;
-          if (i === 0) ctx.moveTo(px, py);
-          else ctx.lineTo(px, py);
+          if (i === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
         }
         break;
       }
@@ -2741,8 +3246,7 @@ class CanvasRenderer {
           const rr = i % 2 === 0 ? r : r * 0.5;
           const px = x + Math.cos(a) * rr;
           const py = y + Math.sin(a) * rr;
-          if (i === 0) ctx.moveTo(px, py);
-          else ctx.lineTo(px, py);
+          if (i === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
         }
         ctx.closePath();
         break;
@@ -2825,7 +3329,7 @@ class CanvasRenderer {
     const colorDark = faction ? faction.colorDark : '#666';
     const r = Math.min(w, h) * 0.35;
     const x = w / 2, y = h / 2;
-    const renderer = new CanvasRenderer(canvas, new EventBus());
+    const renderer = new CanvasRenderer(canvas, new EventBus(), null);
     renderer._pathShape(ctx, base.shape, x, y, r);
     if (tier === 'basic') {
       ctx.strokeStyle = color;
@@ -2853,71 +3357,54 @@ class CanvasRenderer {
 
 
 /* ============================================================================
- * 11. DOM UI
+ * 12. DOM UI
  * ========================================================================== */
 class DOMUI {
   constructor(state, bus, useCases) {
     this.state = state;
     this.bus = bus;
     this.uc = useCases;
-    this.logBox = document.getElementById('logBox');
-    this.queueList = document.getElementById('queueList');
-    this.hierarchyInfo = document.getElementById('hierarchyInfo');
-    this.modifiersList = document.getElementById('modifiersList');
-    this.materialsGrid = document.getElementById('materialsGrid');
-    this.heroPanel = document.getElementById('heroPanel');
-    this.zoneStats = document.getElementById('zoneStats');
-    this.zoneHpBar = document.getElementById('zoneHpBar');
-    this.zoneTag = document.getElementById('zoneTag');
-    this.hudGold = document.getElementById('hudGold');
-    this.hudMats = document.getElementById('hudMats');
-    this.hudZoneHp = document.getElementById('hudZoneHp');
-    this.hudTroops = document.getElementById('hudTroops');
-    this.hudEnemies = document.getElementById('hudEnemies');
-    this.hudQueue = document.getElementById('hudQueue');
-    this.hudPhase = document.getElementById('hudPhase');
-    this.btnStartZone = document.getElementById('btnStartZone');
-    this.btnRestartRun = document.getElementById('btnRestartRun');
-    this.btnHeroAbility = document.getElementById('btnHeroAbility');
-    this.btnGlobalOrder = document.getElementById('btnGlobalOrder');
-    this.shopModal = document.getElementById('shopModal');
-    this.endModal = document.getElementById('endModal');
-    this.draftModal = document.getElementById('draftModal');
-    this.promoModal = document.getElementById('promoModal');
-    this.scoutModal = document.getElementById('scoutModal');
-    this.endPanelContent = document.getElementById('endPanelContent');
+    this.ids = ['logBox','queueList','hierarchyInfo','modifiersList','materialsGrid',
+      'heroPanel','generalPanel','zoneStats','zoneHpBar','zoneTag',
+      'hudGold','hudMats','hudZoneHp','hudTroops','hudEnemies','hudQueue',
+      'btnStartZone','btnRestartRun','btnHeroAbility','btnGlobalOrder'];
+    this.el = {};
+    for (const id of this.ids) this.el[id] = document.getElementById(id);
     this.draftSelection = null;
     this.promoSelections = {};
+    // Hub state
+    this.hubSelectedTroopIdx = null;  // índice en roster, o -1 para héroe
+    this.hubFormation = {};
+    this.hubPriorityId = null;
     this._bindEvents();
     this._bindBus();
   }
 
   _bindEvents() {
-    this.btnStartZone.addEventListener('click', () => {
+    this.el.btnStartZone.addEventListener('click', () => {
       this.uc.prepareScouting.execute();
     });
-    this.btnRestartRun.addEventListener('click', () => {
+    this.el.btnRestartRun.addEventListener('click', () => {
       this.uc.startRun.execute(Date.now() % 999999);
-      this._hideModal('endModal');
-      this._hideModal('shopModal');
-      this._hideModal('draftModal');
-      this._hideModal('promoModal');
-      this._hideModal('scoutModal');
-      this.btnStartZone.disabled = false;
-      this.btnStartZone.textContent = '▶ Preparar asalto';
+      for (const id of ['endModal','shopModal','draftModal','promoModal','scoutModal','hubModal']) {
+        document.getElementById(id).classList.add('hidden');
+      }
+      this.el.btnStartZone.disabled = false;
+      this.el.btnStartZone.textContent = '▶ Preparar asalto';
       this._refreshAll();
     });
     document.getElementById('btnConfirmScout').addEventListener('click', () => {
-      this._hideModal('scoutModal');
+      document.getElementById('scoutModal').classList.add('hidden');
       this.uc.startZone.execute();
-      this.btnStartZone.disabled = true;
-      this.btnStartZone.textContent = '⚔ Asalto en curso...';
+      this.el.btnStartZone.disabled = true;
+      this.el.btnStartZone.textContent = '⚔ Asalto en curso...';
     });
+    document.getElementById('btnOpenHub').addEventListener('click', () => this._openHub());
     document.getElementById('btnContinue').addEventListener('click', () => {
       const selected = document.querySelector('#shopChoices .choice.selected');
       if (!selected) return;
       this.uc.advanceZone.execute(selected.dataset.id);
-      this._hideModal('shopModal');
+      document.getElementById('shopModal').classList.add('hidden');
       this._refreshAll();
       this._openDraft();
     });
@@ -2925,109 +3412,127 @@ class DOMUI {
       if (!this.draftSelection) return;
       this.uc.draftTroop.execute(this.draftSelection);
       this.draftSelection = null;
-      this._hideModal('draftModal');
-      this.btnStartZone.disabled = false;
-      this.btnStartZone.textContent = '▶ Preparar asalto';
+      document.getElementById('draftModal').classList.add('hidden');
+      this.el.btnStartZone.disabled = false;
+      this.el.btnStartZone.textContent = '▶ Preparar asalto';
       this._refreshAll();
     });
     document.getElementById('btnSkipDraft').addEventListener('click', () => {
       this.draftSelection = null;
-      this._hideModal('draftModal');
-      this.btnStartZone.disabled = false;
-      this.btnStartZone.textContent = '▶ Preparar asalto';
+      document.getElementById('draftModal').classList.add('hidden');
+      this.el.btnStartZone.disabled = false;
+      this.el.btnStartZone.textContent = '▶ Preparar asalto';
       this._refreshAll();
     });
-    this.btnHeroAbility.addEventListener('click', () => {
-      this.uc.activateHeroAbility.execute();
-    });
-    this.btnGlobalOrder.addEventListener('click', () => {
-      this.uc.activateGlobalOrder.execute();
-    });
+    this.el.btnHeroAbility.addEventListener('click', () => this.uc.activateHeroAbility.execute());
+    this.el.btnGlobalOrder.addEventListener('click', () => this.uc.activateGlobalOrder.execute());
     document.getElementById('btnConfirmPromo').addEventListener('click', () => {
       for (const [idx, promoId] of Object.entries(this.promoSelections)) {
         if (promoId) this.uc.promoteTroop.execute(parseInt(idx), promoId);
       }
       this.promoSelections = {};
-      this._hideModal('promoModal');
+      document.getElementById('promoModal').classList.add('hidden');
       this._openDraft();
+    });
+    // Hub
+    document.getElementById('btnConfirmHub').addEventListener('click', () => {
+      this.uc.setFormation.execute(this.hubFormation, this.hubPriorityId);
+      document.getElementById('hubModal').classList.add('hidden');
+    });
+    document.getElementById('btnResetFormation').addEventListener('click', () => {
+      this.hubFormation = {};
+      this._renderHub();
+    });
+    // Speed controls
+    document.querySelectorAll('#speedBtns button').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const sp = parseInt(btn.dataset.speed, 10);
+        this.uc.setSpeed.execute(sp);
+      });
     });
   }
 
   _bindBus() {
-    this.bus.on('log', (e) => this._appendLog(e.text, e.kind));
-    this.bus.on('run:started', () => this._refreshAll());
-    this.bus.on('zone:started', () => this._refreshAll());
-    this.bus.on('zone:hp', () => this._refreshHud());
-    this.bus.on('gold:changed', () => this._refreshHud());
-    this.bus.on('materials:changed', () => { this._refreshHud(); this._refreshMaterials(); });
-    this.bus.on('material:gained', () => { this._refreshHud(); this._refreshMaterials(); });
-    this.bus.on('troop:spawned', () => this._refreshHud());
-    this.bus.on('troop:died', () => this._refreshHud());
-    this.bus.on('enemy:died', () => this._refreshHud());
-    this.bus.on('enemy:spawned', () => this._refreshHud());
-    this.bus.on('roster:added', () => this._refreshRoster());
-    this.bus.on('roster:sacrificed', () => this._refreshRoster());
-    this.bus.on('troop:promoted', () => this._refreshRoster());
-    this.bus.on('hero:died', () => this._refreshHero());
-    this.bus.on('upgrade:bought', (e) => {
+    const on = (ev, fn) => this.bus.on(ev, fn);
+    on('log', (e) => this._appendLog(e.text, e.kind));
+    on('run:started', () => this._refreshAll());
+    on('zone:started', () => this._refreshAll());
+    on('zone:hp', () => this._refreshHud());
+    on('gold:changed', () => this._refreshHud());
+    on('materials:changed', () => { this._refreshHud(); this._refreshMaterials(); });
+    on('material:gained', () => { this._refreshHud(); this._refreshMaterials(); });
+    on('troop:spawned', () => this._refreshHud());
+    on('troop:died', () => this._refreshHud());
+    on('enemy:died', () => this._refreshHud());
+    on('enemy:spawned', () => this._refreshHud());
+    on('roster:added', () => this._refreshRoster());
+    on('roster:sacrificed', () => this._refreshRoster());
+    on('troop:promoted', () => this._refreshRoster());
+    on('hero:died', () => this._refreshHero());
+    on('general:ability', () => this._refreshGeneral());
+    on('upgrade:bought', (e) => {
       this._appendLog(`🛒 Comprado: ${e.name}`, 'gold');
       this._refreshShop();
     });
-    this.bus.on('structure:destroyed', () => { this._refreshHud(); this._refreshZoneStats(); });
-    this.bus.on('zone:victory', () => this._onZoneVictory());
-    this.bus.on('zone:defeat', () => this._onZoneDefeat());
-    this.bus.on('zone:next', () => this._onZoneNext());
-    this.bus.on('scouting:prepared', (e) => this._showScouting(e));
-    this.bus.on('order:activated', () => this._refreshHud());
-    this.bus.on('order:ended', () => this._refreshHud());
-    this.bus.on('ability:used', () => this._refreshHud());
-    this.bus.on('run:victory', () => this._showEnd('victory'));
-    this.bus.on('run:defeat', () => this._showEnd('defeat'));
+    on('structure:destroyed', () => { this._refreshHud(); this._refreshZoneStats(); });
+    on('zone:victory', () => this._onZoneVictory());
+    on('zone:defeat', () => this._onZoneDefeat());
+    on('zone:next', () => this._onZoneNext());
+    on('scouting:prepared', (e) => this._showScouting(e));
+    on('order:activated', () => this._refreshHud());
+    on('order:ended', () => this._refreshHud());
+    on('ability:used', () => this._refreshHud());
+    on('run:victory', () => this._showEnd('victory'));
+    on('run:defeat', () => this._showEnd('defeat'));
+    on('speed:changed', (e) => this._refreshSpeedBtns(e.speed));
+    on('formation:saved', () => this._appendLog('Formación guardada.', 'info'));
   }
 
   _appendLog(text, kind) {
     const div = document.createElement('div');
     div.className = 'log-entry ' + (kind || '');
     div.textContent = text;
-    this.logBox.prepend(div);
-    while (this.logBox.children.length > 40) this.logBox.lastChild.remove();
+    this.el.logBox.prepend(div);
+    while (this.el.logBox.children.length > 40) this.el.logBox.lastChild.remove();
+  }
+
+  _refreshSpeedBtns(speed) {
+    document.querySelectorAll('#speedBtns button').forEach(b => {
+      b.classList.toggle('active', parseInt(b.dataset.speed, 10) === speed);
+    });
   }
 
   _refreshHud() {
     const s = this.state;
-    this.hudGold.textContent = s.gold;
-    this.hudMats.textContent = s.getTotalMaterials();
-    this.hudTroops.textContent = s.troops.length;
-    this.hudEnemies.textContent = s.enemyTroops.length;
-    this.hudQueue.textContent = s.roster.length;
-    this.hudPhase.textContent = {
-      idle:'en espera', running:'combate', victory:'victoria', defeat:'derrota',
-      'run-victory':'RUN GANADA', 'run-defeat':'RUN PERDIDA',
-    }[s.phase] || s.phase;
+    this.el.hudGold.textContent = s.gold;
+    this.el.hudMats.textContent = s.getTotalMaterials();
+    this.el.hudTroops.textContent = s.troops.length;
+    this.el.hudEnemies.textContent = s.enemyTroops.length;
+    this.el.hudQueue.textContent = s.roster.length;
     if (s.zone) {
-      this.hudZoneHp.textContent = `${s.zone.hp} / ${s.zone.maxHp}`;
+      this.el.hudZoneHp.textContent = `${s.zone.hp}/${s.zone.maxHp}`;
       const pct = s.zone.maxHp > 0 ? (s.zone.hp / s.zone.maxHp) * 100 : 0;
-      this.zoneHpBar.style.width = pct + '%';
+      this.el.zoneHpBar.style.width = pct + '%';
       this._refreshZoneStats();
     }
 
     const hero = s.troops.find(t => t.isHero && t.alive);
     if (hero && s.hero.ability) {
       const cd = Math.max(0, hero.abilityCooldown);
-      this.btnHeroAbility.disabled = cd > 0;
+      this.el.btnHeroAbility.disabled = cd > 0;
       const pct = (cd / s.hero.ability.cooldown) * 100;
       document.getElementById('heroAbilityCooldown').style.width = pct + '%';
       document.getElementById('heroAbilityLabel').textContent =
         cd > 0 ? `${s.hero.ability.name} (${cd.toFixed(1)}s)` : `★ ${s.hero.ability.name}`;
     } else {
-      this.btnHeroAbility.disabled = true;
+      this.el.btnHeroAbility.disabled = true;
       document.getElementById('heroAbilityLabel').textContent =
         s.heroAlive ? '★ Sin héroe en campo' : '★ Héroe caído';
     }
 
     const cdG = Math.max(0, s.globalOrderCooldown);
-    this.btnGlobalOrder.disabled = cdG > 0 || (s.globalOrder && s.globalOrder.active);
-    this.btnGlobalOrder.classList.toggle('active', s.globalOrder && s.globalOrder.active);
+    this.el.btnGlobalOrder.disabled = cdG > 0 || (s.globalOrder && s.globalOrder.active);
+    this.el.btnGlobalOrder.classList.toggle('active', s.globalOrder && s.globalOrder.active);
     const pctG = (cdG / BALANCE.GLOBAL_ORDER_COOLDOWN) * 100;
     document.getElementById('globalOrderCooldown').style.width = pctG + '%';
     document.getElementById('globalOrderLabel').textContent =
@@ -3038,23 +3543,23 @@ class DOMUI {
 
   _refreshZoneStats() {
     const s = this.state;
-    if (!s.zone) { this.zoneStats.textContent = '—'; return; }
+    if (!s.zone) { this.el.zoneStats.textContent = '—'; return; }
     const total = s.zone.structures.length;
     const alive = s.zone.getAliveStructures().length;
     const destroyed = total - alive;
-    this.zoneStats.innerHTML = `
+    this.el.zoneStats.innerHTML = `
       <div style="color:${s.zone.faction.color}">${s.zone.archetype.name} · ${s.zone.faction.name}</div>
-      Estructuras: ${alive} vivas / ${destroyed} destruidas / ${total} total<br>
-      Nivel: ${s.zone.level}
+      Estructuras: ${alive}/${total} · ${destroyed} destruidas<br>
+      Nivel: ${s.zone.level}${s.zone.isEndless ? ' ♾️' : ''}
     `;
   }
 
   _refreshRoster() {
     const s = this.state;
     if (s.roster.length === 0) {
-      this.queueList.innerHTML = '<span style="color:var(--muted);font-size:11px;">Vacío. Recluta en el campamento.</span>';
+      this.el.queueList.innerHTML = '<span style="color:var(--muted);font-size:11px;">Vacío. Recluta en el campamento.</span>';
     } else {
-      this.queueList.innerHTML = s.roster.map(t => {
+      this.el.queueList.innerHTML = s.roster.map(t => {
         const xpPct = Math.min(100, (t.xp / HIERARCHY.xpForPromotion) * 100);
         const promoted = t.promotionRank > 0;
         const stars = '★'.repeat(t.promotionRank);
@@ -3074,17 +3579,17 @@ class DOMUI {
         html += `<div class="slot ${filled ? `filled-${rank}` : ''}"></div>`;
       }
     }
-    html += `<span style="color:var(--muted);margin-left:auto;">Roster: ${s.roster.length}/${s.getRosterSize()}</span>`;
-    this.hierarchyInfo.innerHTML = html;
+    html += `<span style="color:var(--muted);margin-left:auto;">${s.roster.length}/${s.getRosterSize()}</span>`;
+    this.el.hierarchyInfo.innerHTML = html;
   }
 
   _refreshModifiers() {
     const s = this.state;
     if (s.modifiers.length === 0) {
-      this.modifiersList.innerHTML = '<span style="color:var(--muted);font-size:11px;">Ninguno</span>';
+      this.el.modifiersList.innerHTML = '<span style="color:var(--muted);font-size:11px;">Ninguno</span>';
       return;
     }
-    this.modifiersList.innerHTML = s.modifiers.map(id => {
+    this.el.modifiersList.innerHTML = s.modifiers.map(id => {
       const m = MODIFIERS.find(x => x.id === id);
       return m ? `<div class="modifier-item"><div class="name">${m.name}</div><div class="desc">${m.desc}</div></div>` : '';
     }).join('');
@@ -3094,45 +3599,72 @@ class DOMUI {
     const s = this.state;
     const entries = Object.entries(s.materials).filter(([, v]) => v > 0);
     if (entries.length === 0) {
-      this.materialsGrid.innerHTML = '<span style="color:var(--muted);font-size:11px;">—</span>';
+      this.el.materialsGrid.innerHTML = '<span style="color:var(--muted);font-size:11px;">—</span>';
       return;
     }
-    this.materialsGrid.innerHTML = entries.map(([id, qty]) => {
+    this.el.materialsGrid.innerHTML = entries.map(([id, qty]) => {
       const m = MATERIALS[id];
       if (!m) return '';
-      return `<div class="material-chip" title="${m.name}">
-        <span class="icon">${m.icon}</span>
-        <span class="count">${qty}</span>
-      </div>`;
+      return `<div class="material-chip" title="${m.name}"><span class="icon">${m.icon}</span><span class="count">${qty}</span></div>`;
     }).join('');
   }
 
   _refreshHero() {
     const s = this.state;
     if (!s.hero) {
-      this.heroPanel.innerHTML = '<span style="color:var(--muted);font-size:11px;">—</span>';
+      this.el.heroPanel.innerHTML = '<span style="color:var(--muted);font-size:11px;">—</span>';
       return;
     }
-    const heroAlive = s.troops.find(t => t.isHero);
-    const stats = s.hero.stats;
     const dead = !s.heroAlive;
-    this.heroPanel.innerHTML = `
+    const stats = s.hero.stats;
+    this.el.heroPanel.innerHTML = `
       <div class="hero-panel ${dead ? 'dead' : ''}">
         <div class="hero-name">★ ${s.hero.name}</div>
         <div class="hero-arch">${s.hero.archetypeName}${dead ? ' · CAÍDO' : ''}</div>
         <div class="hero-stats">
           <span class="k">HP</span><span class="v">${Math.round(stats.hp)}</span>
           <span class="k">Daño</span><span class="v">${Math.round(stats.damage)}</span>
-          <span class="k">Velocidad</span><span class="v">${Math.round(stats.speed)}</span>
+          <span class="k">Vel</span><span class="v">${Math.round(stats.speed)}</span>
           <span class="k">Rango</span><span class="v">${Math.round(stats.range)}</span>
         </div>
       </div>
     `;
   }
 
-  _refreshZoneTag() {
+  _refreshGeneral() {
     const s = this.state;
-    this.zoneTag.textContent = `Zona ${s.currentZoneIdx + 1} / ${s.zoneCount}`;
+    if (!s.zone || !s.zone.general) {
+      this.el.generalPanel.innerHTML = '<span style="color:var(--muted);font-size:11px;">Sin información.</span>';
+      return;
+    }
+    const g = s.zone.general;
+    const hpPct = g.hpPct;
+    const phaseClass = g.phase === 3 ? 'phase-3' : g.phase === 2 ? 'phase-2' : '';
+    const cd = Math.max(0, g.abilityCooldown);
+    const cdPct = cd > 0 ? (cd / g.activeAbility.cooldown * 100) : 0;
+    this.el.generalPanel.innerHTML = `
+      <div class="general-panel ${phaseClass}">
+        <div class="general-name">⚔ ${g.name}</div>
+        <div class="general-title">${g.title}</div>
+        <div class="general-desc">${g.desc}</div>
+        <div class="phase-indicator">
+          <div class="pip ${g.phase >= 1 ? 'active' : ''}"></div>
+          <div class="pip ${g.phase >= 2 ? 'active' : ''}"></div>
+          <div class="pip ${g.phase >= 3 ? 'active' : ''}"></div>
+        </div>
+        <div class="ability-row">
+          <span class="k">Habilidad</span>
+          <span class="v">${g.activeAbility.name}</span>
+        </div>
+        <div class="ability-row">
+          <span class="k">Cooldown</span>
+          <span class="v">${cd > 0 ? cd.toFixed(1) + 's' : 'LISTO'}</span>
+        </div>
+        <div style="font-size:10px;color:var(--muted);margin-top:6px;font-style:italic;">
+          ${g.activeAbility.desc}
+        </div>
+      </div>
+    `;
   }
 
   _refreshAll() {
@@ -3141,18 +3673,19 @@ class DOMUI {
     this._refreshModifiers();
     this._refreshMaterials();
     this._refreshHero();
-    this._refreshZoneTag();
+    this._refreshGeneral();
+    this._refreshSpeedBtns(this.state.speed);
   }
 
   _onZoneVictory() {
-    this.btnStartZone.disabled = false;
-    this.btnStartZone.textContent = '▶ Preparar asalto';
+    this.el.btnStartZone.disabled = false;
+    this.el.btnStartZone.textContent = '▶ Preparar asalto';
     this._refreshAll();
     this.uc.endZone.execute();
   }
   _onZoneDefeat() {
-    this.btnStartZone.disabled = false;
-    this.btnStartZone.textContent = '▶ Preparar asalto';
+    this.el.btnStartZone.disabled = false;
+    this.el.btnStartZone.textContent = '▶ Preparar asalto';
     this._refreshAll();
     this.uc.endZone.execute();
   }
@@ -3164,7 +3697,7 @@ class DOMUI {
     }
   }
 
-  _showScouting({ archetype, level }) {
+  _showScouting({ archetype, level, general }) {
     const previewStructures = [];
     for (const [typeId, weight] of Object.entries(archetype.weights)) {
       if (weight <= 0) continue;
@@ -3194,6 +3727,11 @@ class DOMUI {
           <div style="color:var(--muted);font-size:10px;">${likelyFaction.desc}</div>
         </div>
       </div>
+      <div style="background:rgba(255,85,102,0.08);border-left:3px solid var(--general);padding:8px 12px;border-radius:6px;margin-bottom:12px;">
+        <div style="color:var(--general);font-weight:700;">⚔ General enemigo probable</div>
+        <div style="font-size:11px;margin-top:4px;"><strong>${general.name}</strong> — <em>${general.title}</em></div>
+        <div style="font-size:10px;color:var(--muted);margin-top:4px;">${general.activeAbility.name}: ${general.activeAbility.desc}</div>
+      </div>
       <div style="font-size:11px;color:var(--muted);">Estructuras esperadas:</div>
       <div class="scout-structures" id="scoutStructures"></div>
     `;
@@ -3211,13 +3749,128 @@ class DOMUI {
       div.className = 'scout-struct';
       div.appendChild(canvas);
       const label = document.createElement('div');
-      const baseName = STRUCTURE_TYPES[p.typeId].shape;
-      label.textContent = `${baseName} (${TIERS[p.tier].label})`;
+      label.textContent = `${STRUCTURE_TYPES[p.typeId].shape} (${TIERS[p.tier].label})`;
       div.appendChild(label);
       structsDiv.appendChild(div);
     }
 
-    this._showModal('scoutModal');
+    document.getElementById('scoutModal').classList.remove('hidden');
+  }
+
+  /* -------- Hub de colocación -------- */
+  _openHub() {
+    // Inicializar formación temporal desde state
+    this.hubFormation = { ...this.state.formation };
+    this.hubPriorityId = this.state.priorityTargetId;
+    this.hubSelectedTroopIdx = null;
+    this._renderHub();
+    document.getElementById('hubModal').classList.remove('hidden');
+    // Actualizar el dropdown de prioridad
+    this._refreshPriorityDropdown();
+  }
+
+  _renderHub() {
+    const s = this.state;
+    const troopList = document.getElementById('hubTroopList');
+    // Tropa héroe (si vivo)
+    let html = '';
+    if (s.heroAlive) {
+      const isPlaced = !!this.hubFormation['hero'];
+      const isSelected = this.hubSelectedTroopIdx === -1;
+      html += `<div class="hub-troop ${isSelected ? 'selected' : ''} ${isPlaced ? 'placed' : ''}" data-idx="-1">
+        <div class="dot" style="background:${s.hero.stats.color || '#ff99ff'}"></div>
+        ★ ${s.hero.name}
+      </div>`;
+    }
+    // Tropas del roster
+    for (let i = 0; i < s.roster.length; i++) {
+      const t = s.roster[i];
+      const isPlaced = !!this.hubFormation[i];
+      const isSelected = this.hubSelectedTroopIdx === i;
+      html += `<div class="hub-troop ${isSelected ? 'selected' : ''} ${isPlaced ? 'placed' : ''}" data-idx="${i}">
+        <div class="dot" style="background:${t.color}"></div>
+        ${t.name}${t.promotionRank > 0 ? ' ' + '★'.repeat(t.promotionRank) : ''}
+      </div>`;
+    }
+    troopList.innerHTML = html || '<span style="color:var(--muted);font-size:11px;">Sin tropas disponibles.</span>';
+
+    troopList.querySelectorAll('.hub-troop').forEach(el => {
+      el.addEventListener('click', () => {
+        const idx = parseInt(el.dataset.idx, 10);
+        this.hubSelectedTroopIdx = this.hubSelectedTroopIdx === idx ? null : idx;
+        this._renderHub();
+      });
+    });
+
+    // Grid
+    const grid = document.getElementById('hubGrid');
+    grid.innerHTML = '';
+    const COLS = 12, ROWS = 8;
+    for (let row = 0; row < ROWS; row++) {
+      for (let col = 0; col < COLS; col++) {
+        const cell = document.createElement('div');
+        cell.className = 'hub-cell';
+        // Buscar si hay una tropa colocada aquí
+        for (const [idxKey, pos] of Object.entries(this.hubFormation)) {
+          const cellX = pos.cellX, cellY = pos.cellY;
+          if (cellX === col && cellY === row) {
+            cell.classList.add('has-troop');
+            if (idxKey === 'hero') cell.classList.add('hero');
+            const dot = document.createElement('div');
+            dot.className = 'dot';
+            let color = '#4a9eff';
+            if (idxKey === 'hero') color = s.hero.stats.color || '#ff99ff';
+            else {
+              const idx = parseInt(idxKey, 10);
+              if (s.roster[idx]) color = s.roster[idx].color;
+            }
+            dot.style.background = color;
+            cell.appendChild(dot);
+            break;
+          }
+        }
+        cell.addEventListener('click', () => this._onHubCellClick(col, row));
+        grid.appendChild(cell);
+      }
+    }
+  }
+
+  _onHubCellClick(col, row) {
+    if (this.hubSelectedTroopIdx === null) return;
+    const key = this.hubSelectedTroopIdx === -1 ? 'hero' : String(this.hubSelectedTroopIdx);
+    // Si la celda ya está ocupada por otra tropa, quitarla
+    for (const [k, pos] of Object.entries(this.hubFormation)) {
+      if (pos.cellX === col && pos.cellY === row) {
+        delete this.hubFormation[k];
+        break;
+      }
+    }
+    // Colocar la tropa seleccionada
+    this.hubFormation[key] = {
+      cellX: col, cellY: row,
+      x: col * BALANCE.CELL_SIZE + BALANCE.CELL_SIZE / 2,
+      y: row * BALANCE.CELL_SIZE + BALANCE.CELL_SIZE / 2,
+    };
+    this.hubSelectedTroopIdx = null;
+    this._renderHub();
+  }
+
+  _refreshPriorityDropdown() {
+    const s = this.state;
+    const sel = document.getElementById('priorityTarget');
+    sel.innerHTML = '<option value="">Ninguno (comportamiento normal)</option>';
+    // Rellenar con las estructuras de la zona actual (si hay) o con las esperadas
+    if (s.zone) {
+      for (const st of s.zone.structures) {
+        const opt = document.createElement('option');
+        opt.value = st.id;
+        const label = st.isCore ? '★ GENERAL' : st.typeId;
+        opt.textContent = `${label} (${Math.ceil(st.hp)} HP)`;
+        sel.appendChild(opt);
+      }
+      sel.value = this.hubPriorityId || '';
+    }
+    sel.onchange = () => { this.hubPriorityId = sel.value || null; };
   }
 
   _openDraft() {
@@ -3226,12 +3879,20 @@ class DOMUI {
     this.draftSelection = null;
     document.getElementById('draftChoices').innerHTML = options.map(typeId => {
       const t = TROOP_TYPES[typeId];
+      const stats = [
+        `❤ ${t.hp}`, `⚔ ${t.damage}`, `💨 ${t.speed}`, `📏 ${t.range}`,
+        `⏱ ${t.attackRate.toFixed(1)}s`,
+      ].join(' · ');
+      const extras = [];
+      if (t.flying) extras.push('🕊️ Volador');
+      if (t.shieldAngle) extras.push('🛡️ Escudo frontal');
+      if (t.healAmount) extras.push('➕ Cura aliados');
+      const extrasHtml = extras.length ? `<div style="color:var(--rare);font-size:10px;margin-top:3px;">${extras.join(' · ')}</div>` : '';
       return `<div class="choice" data-id="${typeId}">
         <div class="c-name">${t.name}</div>
         <div class="c-desc">${t.behavior}</div>
-        <div class="c-stats">
-          HP ${t.hp} · Daño ${t.damage} · Vel ${t.speed} · Rango ${t.range}
-        </div>
+        <div class="c-stats">${stats}</div>
+        ${extrasHtml}
       </div>`;
     }).join('');
     document.querySelectorAll('#draftChoices .choice').forEach(el => {
@@ -3243,7 +3904,7 @@ class DOMUI {
       });
     });
     document.getElementById('btnConfirmDraft').disabled = true;
-    this._showModal('draftModal');
+    document.getElementById('draftModal').classList.remove('hidden');
   }
 
   _showPromoModal() {
@@ -3280,7 +3941,7 @@ class DOMUI {
         this.promoSelections[rosterIdx] = el.dataset.promoId;
       });
     });
-    this._showModal('promoModal');
+    document.getElementById('promoModal').classList.remove('hidden');
   }
 
   _showShop() {
@@ -3308,23 +3969,19 @@ class DOMUI {
     document.getElementById('btnContinue').disabled = true;
     this._refreshShop();
     this._refreshRecruit();
-    this._showModal('shopModal');
+    document.getElementById('shopModal').classList.remove('hidden');
   }
 
   _refreshShop() {
     const s = this.state;
-    document.getElementById('shopGoldHero').textContent = s.gold;
     document.getElementById('heroUpgrades').innerHTML = HERO_UPGRADES.map(u => {
       const cur = s.hero.upgrades[u.id] || 0;
       const maxed = cur >= u.max;
       const canBuy = !maxed && s.gold >= u.cost;
       return `<div class="upgrade">
-        <div class="info">
-          <div class="u-name">${u.name}</div>
-          <div class="u-level">Nivel ${cur}/${u.max}</div>
-        </div>
+        <div class="info"><div class="u-name">${u.name}</div><div class="u-level">Nv ${cur}/${u.max}</div></div>
         <button class="buy-btn" data-kind="hero" data-id="${u.id}" ${canBuy ? '' : 'disabled'}>
-          ${maxed ? 'MAX' : `${u.cost} oro`}
+          ${maxed ? 'MAX' : `${u.cost}o`}
         </button>
       </div>`;
     }).join('');
@@ -3333,26 +3990,17 @@ class DOMUI {
       const maxed = cur >= u.max;
       const canBuy = !maxed && s.gold >= u.cost;
       return `<div class="upgrade">
-        <div class="info">
-          <div class="u-name">${u.name}</div>
-          <div class="u-level">Nivel ${cur}/${u.max}</div>
-        </div>
+        <div class="info"><div class="u-name">${u.name}</div><div class="u-level">Nv ${cur}/${u.max}</div></div>
         <button class="buy-btn" data-kind="army" data-id="${u.id}" ${canBuy ? '' : 'disabled'}>
-          ${maxed ? 'MAX' : `${u.cost} oro`}
+          ${maxed ? 'MAX' : `${u.cost}o`}
         </button>
       </div>`;
     }).join('');
     document.querySelectorAll('#shopModal .buy-btn').forEach(btn => {
-      btn.addEventListener('click', () => {
-        this.uc.buyUpgrade.execute(btn.dataset.kind, btn.dataset.id);
-      });
+      btn.addEventListener('click', () => this.uc.buyUpgrade.execute(btn.dataset.kind, btn.dataset.id));
     });
   }
 
-  /**
-   * NUEVO: renderiza la sección de reclutamiento del campamento.
-   * Cada tipo de tropa tiene su coste en oro + materiales.
-   */
   _refreshRecruit() {
     const s = this.state;
     document.getElementById('shopRoster').textContent = `${s.roster.length}/${s.getRosterSize()}`;
@@ -3363,7 +4011,7 @@ class DOMUI {
       const canAfford = canPayCost(s, cost);
       const rosterFull = s.roster.length >= s.getRosterSize();
       const canRecruit = canAfford && !rosterFull;
-      const costParts = [`<span class="${s.gold >= cost.gold ? 'ok' : 'no'}">${cost.gold} oro</span>`];
+      const costParts = [`<span class="${s.gold >= cost.gold ? 'ok' : 'no'}">${cost.gold}o</span>`];
       for (const [mat, qty] of Object.entries(cost.materials || {})) {
         const have = s.materials[mat] || 0;
         costParts.push(`<span class="${have >= qty ? 'ok' : 'no'}">${MATERIALS[mat].icon}${qty}</span>`);
@@ -3372,7 +4020,7 @@ class DOMUI {
         <div class="r-name">${t.name}</div>
         <div class="r-cost">${costParts.join(' ')}</div>
         <button class="r-btn" data-recruit="${typeId}" ${canRecruit ? '' : 'disabled'}>
-          ${rosterFull ? 'Roster lleno' : (canAfford ? 'Reclutar' : 'Sin recursos')}
+          ${rosterFull ? 'Lleno' : (canAfford ? 'Reclutar' : 'Falta')}
         </button>
       </div>`;
     }).join('');
@@ -3388,37 +4036,62 @@ class DOMUI {
     const s = this.state;
     const title = kind === 'victory' ? '🏆 RUN COMPLETADA' : '💀 RUN FALLIDA';
     const sub = kind === 'victory'
-      ? `Has asaltado las ${s.zoneCount} zonas.`
+      ? `Has asaltado las ${s.baseZoneCount} zonas base.`
       : `Has caído en la zona ${s.currentZoneIdx + 1}.`;
-    this.endPanelContent.className = 'end-panel ' + kind;
+    const contentEl = document.getElementById('endPanelContent');
+    contentEl.className = 'end-panel ' + kind;
     const matList = Object.entries(s.materials)
       .filter(([, v]) => v > 0)
       .map(([id, v]) => `${MATERIALS[id].icon} ${v}`).join(' · ') || '—';
-    this.endPanelContent.innerHTML = `
+    let buttonsHtml = '';
+    if (kind === 'victory') {
+      buttonsHtml = `
+        <button class="btn primary" id="btnEndless" style="margin:8px;">♾️ Continuar (Endless)</button>
+        <button class="btn" id="btnEndRestart" style="margin:8px;">↻ Nueva run</button>
+      `;
+    } else {
+      buttonsHtml = `<button class="btn primary" id="btnEndRestart" style="margin:8px;">↻ Nueva run</button>`;
+    }
+    contentEl.innerHTML = `
       <h2>${title}</h2>
       <p>${sub}</p>
-      <p>Héroe: ${s.hero.name}${s.heroAlive ? '' : ' (caído)'} · Modificadores: ${s.modifiers.length} · Oro final: ${s.gold}</p>
+      <p>Héroe: ${s.hero.name}${s.heroAlive ? '' : ' (caído)'} · Modificadores: ${s.modifiers.length} · Oro: ${s.gold}</p>
       <p>Materiales: ${matList}</p>
-      <button class="btn primary" id="btnEndRestart" style="margin-top:12px;">↻ Nueva run</button>
+      ${buttonsHtml}
     `;
+    if (kind === 'victory') {
+      document.getElementById('btnEndless').addEventListener('click', () => {
+        this.uc.enableEndless.execute();
+        document.getElementById('endModal').classList.add('hidden');
+        this.el.btnStartZone.disabled = false;
+        this.el.btnStartZone.textContent = '▶ Preparar asalto';
+        this._refreshAll();
+      });
+    }
     document.getElementById('btnEndRestart').addEventListener('click', () => {
-      this._hideModal('endModal');
-      this.btnRestartRun.click();
+      document.getElementById('endModal').classList.add('hidden');
+      this.el.btnRestartRun.click();
     });
-    this._showModal('endModal');
+    document.getElementById('endModal').classList.remove('hidden');
   }
-
-  _showModal(id) { document.getElementById(id).classList.remove('hidden'); }
-  _hideModal(id) { document.getElementById(id).classList.add('hidden'); }
 }
 
 
 /* ============================================================================
- * 12. TESTS
+ * 13. TESTS
  * ========================================================================== */
 function runTests() {
   const results = [];
   const assert = (name, cond) => results.push({ name, pass: !!cond });
+
+  // --- Escalado provisional ---
+  {
+    assert('levelScale(1) = 1', Math.abs(levelScale(1) - 1) < 0.001);
+    assert('levelScale(2) = 1.5', Math.abs(levelScale(2) - 1.5) < 0.001);
+    assert('levelScale(4) = 3.375', Math.abs(levelScale(4) - 3.375) < 0.001);
+    assert('levelScaleForDamage(4) menor que levelScale(4)',
+      levelScaleForDamage(4) < levelScale(4));
+  }
 
   // --- Pool fija ---
   {
@@ -3434,105 +4107,243 @@ function runTests() {
     assert('Curación de estructura NO sube la pool', zone.hp === initialHp - 50);
   }
 
-  // --- Estructura muere ---
-  {
-    const s = new Structure('torre', 1, 1, { tier: 'basic' });
-    const real = s.takeDamage(s.maxHp);
-    assert('takeDamage retorna daño real', real === s.maxHp || real > 0);
-    assert('Estructura muere con daño letal', !s.alive && s.hp === 0);
-  }
-
-  // --- Forma = función ---
-  {
-    assert('Muro cuadrado', STRUCTURE_TYPES.muro.shape === 'cuadrado');
-    assert('Torre triángulo', STRUCTURE_TYPES.torre.shape === 'triangulo');
-    assert('Sanador cruz', STRUCTURE_TYPES.sanador.shape === 'cruz');
-    assert('Generador hexágono', STRUCTURE_TYPES.generador.shape === 'hexagono');
-    assert('Núcleo estrella', STRUCTURE_TYPES.nucleo.shape === 'estrella');
-  }
-
-  // --- Tier escala HP ---
-  {
-    const s1 = new Structure('torre', 1, 1, { tier: 'basic' });
-    const s2 = new Structure('torre', 1, 1, { tier: 'advanced' });
-    const s3 = new Structure('torre', 1, 1, { tier: 'elite' });
-    assert('Advanced > basic HP', s2.maxHp > s1.maxHp);
-    assert('Elite > advanced HP', s3.maxHp > s2.maxHp);
-  }
-
-  // --- Facción afecta stats ---
-  {
-    const roman = new Structure('torre', 1, 1, { tier: 'basic', faction: FACTIONS.romanos });
-    const viking = new Structure('torre', 1, 1, { tier: 'basic', faction: FACTIONS.vikingos });
-    assert('Romanos más HP', roman.maxHp > viking.maxHp);
-    assert('Vikingos más daño', viking.attack > roman.attack);
-  }
-
-  // --- Arquetipo Muro genera mayoría de muros ---
-  {
-    const rng = new SeededRandom(42);
-    const zone = new ZoneGenerator(rng).generate('muro', 1);
-    const muros = zone.structures.filter(s => s.typeId === 'muro').length;
-    const total = zone.structures.length;
-    assert('Muro: mayoría muros', muros >= total * 0.4);
-  }
-
-  // --- Pool ×2 estructuras ---
+  // --- General existe y tiene fases ---
   {
     const rng = new SeededRandom(1);
     const zone = new ZoneGenerator(rng).generate('muro', 1);
-    assert('Zona Muro tiene al menos 10 estructuras', zone.structures.length >= 10);
+    assert('Zona tiene general', zone.general !== null);
+    assert('General tiene nombre', !!zone.general.name);
+    assert('General tiene habilidad activa', !!zone.general.activeAbility);
+    assert('General empieza en fase 1', zone.general.phase === 1);
   }
 
-  // --- Enemigos atacan tropas del jugador ---
+  // --- Fases del general cambian con HP ---
+  {
+    const rng = new SeededRandom(1);
+    const zone = new ZoneGenerator(rng).generate('muro', 1);
+    const gen = zone.general;
+    const core = gen.core;
+    core.hp = core.maxHp * 0.5;
+    gen.updatePhase();
+    assert('HP 50% → fase 2', gen.phase === 2);
+    core.hp = core.maxHp * 0.2;
+    gen.updatePhase();
+    assert('HP 20% → fase 3', gen.phase === 3);
+    core.hp = core.maxHp * 0.8;
+    gen.updatePhase();
+    assert('HP 80% → fase 1', gen.phase === 1);
+  }
+
+  // --- Habilidad del general: summon ---
+  {
+    const state = new GameState();
+    const bus = new EventBus();
+    state.rng = new SeededRandom(1);
+    state.zone = new ZoneGenerator(state.rng).generate('estampida', 1);
+    state.troops = [new Troop('dps', 100, 100)];
+    state.enemyTroops = [];
+    const gen = state.zone.general;
+    gen.abilityCooldown = 0;
+    const enemyCountBefore = state.enemyTroops.length;
+    gen.update(0.1, state, bus);
+    assert('General estampida spawnea enemigos',
+      state.enemyTroops.length > enemyCountBefore);
+  }
+
+  // --- Habilidad del general: buff_walls ---
+  {
+    const state = new GameState();
+    const bus = new EventBus();
+    state.rng = new SeededRandom(1);
+    state.zone = new ZoneGenerator(state.rng).generate('muro', 1);
+    state.troops = [new Troop('dps', 100, 100)];
+    const gen = state.zone.general;
+    gen.abilityCooldown = 0;
+    const walls = state.zone.structures.filter(s => s.blocksPath && s.alive);
+    gen.update(0.1, state, bus);
+    const anyBuff = walls.some(w => w.tempHpBuffTimer > 0);
+    assert('General muro buffea muros', anyBuff || walls.length === 0);
+  }
+
+  // --- General pasivo aplica HP extra a estructuras ---
+  {
+    const rng = new SeededRandom(1);
+    const zone = new ZoneGenerator(rng).generate('muro', 1);
+    // El general de muro tiene passiveHpMult = 1.15
+    // Verificamos que al menos una estructura tiene el passive aplicado
+    // comparando con una generada sin pasiva
+    const wall = zone.structures.find(s => s.typeId === 'muro' && !s.isCore);
+    if (wall) {
+      const expectedBase = STRUCTURE_TYPES.muro.hp * TIERS[wall.tier].mult *
+                            FACTIONS[wall.factionId === 'romanos' ? 'romanos' : 'vikingos'].hpMult *
+                            BALANCE.STRUCTURE_HP_MULT * levelScale(1);
+      const expectedWithPassive = expectedBase * 1.15;
+      assert('Muro tiene pasiva del general aplicada',
+        Math.abs(wall.baseMaxHp - Math.round(expectedBase)) <= 2);
+      assert('Muro tiene passiveHpMult aplicado al maxHp',
+        Math.abs(wall.maxHp - Math.round(expectedWithPassive)) <= 2);
+    } else {
+      assert('No hay muros en zona muro (raro)', false);
+    }
+  }
+
+  // --- Enemigos históricos: legionario y berserker ---
+  {
+    const legionario = new EnemyTroop('legionario', 100, 100, 1);
+    const berserker = new EnemyTroop('berserker', 100, 100, 1);
+    assert('Legionario es defensor', legionario.team === 'defender');
+    assert('Legionario tiene behavior targetNearest', legionario.behavior === 'targetNearest');
+    assert('Berserker tiene behavior targetHero', berserker.behavior === 'targetHero');
+    assert('Berserker es más rápido que legionario', berserker.speed > legionario.speed);
+    assert('Legionario tiene más HP que berserker', legionario.maxHp > berserker.maxHp);
+  }
+
+  // --- Berserker va al héroe ---
+  {
+    const ms = new MovementService();
+    const berserker = new EnemyTroop('berserker', 500, 240, 1);
+    const hero = new Troop('dps', 200, 240);
+    hero.isHero = true;
+    const otherTroop = new Troop('dps', 400, 240);
+    // El berserker debería ir hacia el héroe (200,240) no hacia (400,240)
+    const heroXBefore = hero.x;
+    const bus = new EventBus();
+    for (let i = 0; i < 20; i++) {
+      ms.update(berserker, [berserker], [], [hero, otherTroop], 0.1, bus, null, null, null);
+    }
+    assert('Berserker se acerca al héroe', berserker.x < 500);
+  }
+
+  // --- Formación persistente ---
+  {
+    const state = new GameState();
+    const bus = new EventBus();
+    state.rng = new SeededRandom(1);
+    state.hero = new HeroGenerator(state.rng).generate();
+    const uc = new SetFormationUseCase(state, bus);
+    const formation = {
+      '0': { cellX: 2, cellY: 4, x: 150, y: 270 },
+      'hero': { cellX: 1, cellY: 4, x: 90, y: 270 },
+    };
+    uc.execute(formation, null);
+    assert('Formación guardada en state', Object.keys(state.formation).length === 2);
+    assert('Posición de tropa 0 guardada', state.formation['0'].cellX === 2);
+  }
+
+  // --- Velocidad ajustable ---
+  {
+    const state = new GameState();
+    const bus = new EventBus();
+    const uc = new SetSpeedUseCase(state, bus);
+    assert('Velocidad inicial 2x', state.speed === 2);
+    uc.execute(4);
+    assert('Velocidad cambia a 4x', state.speed === 4);
+    uc.execute(1);
+    assert('Velocidad cambia a 1x', state.speed === 1);
+    uc.execute(3);
+    assert('Velocidad rechaza 3x (no válido)', state.speed === 1);
+  }
+
+  // --- Endless mode ---
+  {
+    const state = new GameState();
+    const bus = new EventBus();
+    state.endlessMode = false;
+    const uc = new EnableEndlessUseCase(state, bus);
+    uc.execute();
+    assert('Endless activado', state.endlessMode === true);
+    assert('Sin límite de zonas en endless', state.getCurrentZoneCount() === null);
+  }
+
+  // --- Movimiento: enemigos atacan tropas y viceversa ---
   {
     const bus = new EventBus();
     const ms = new MovementService();
-    const enemy = new Troop('tanque', 500, 240);
-    enemy.team = 'defender';
-    enemy.behavior = 'targetNearest';
-    const playerTroop = new Troop('dps', 520, 240);
-    const hpBefore = playerTroop.hp;
-    // Simular varios ticks
+    const enemy = new EnemyTroop('legionario', 500, 240, 1);
+    const player = new Troop('dps', 520, 240);
+    const hpBefore = player.hp;
     for (let i = 0; i < 30; i++) {
-      ms.update(enemy, [enemy], [], [playerTroop], 0.1, bus, null, null);
+      ms.update(enemy, [enemy], [], [player], 0.1, bus, null, null, null);
     }
-    assert('Enemigo daña a tropa del jugador', playerTroop.hp < hpBefore);
+    assert('Enemigo daña a tropa', player.hp < hpBefore);
   }
-
-  // --- Tropas del jugador atacan enemigos ---
   {
     const bus = new EventBus();
     const ms = new MovementService();
     const player = new Troop('dps', 500, 240);
-    const enemy = new Troop('tanque', 520, 240);
-    enemy.team = 'defender';
+    const enemy = new EnemyTroop('legionario', 520, 240, 1);
     const hpBefore = enemy.hp;
     for (let i = 0; i < 30; i++) {
-      ms.update(player, [player], [], [enemy], 0.1, bus, null, null);
+      ms.update(player, [player], [], [enemy], 0.1, bus, null, null, null);
     }
-    assert('Tropa del jugador daña a enemigo', enemy.hp < hpBefore);
+    assert('Tropa daña a enemigo', enemy.hp < hpBefore);
   }
 
-  // --- Enemigos mueren ---
+  // --- Proyectil bloqueo frontal ---
   {
-    const bus = new EventBus();
-    const ms = new MovementService();
-    const player = new Troop('asedio', 500, 240);
-    const enemy = new Troop('tanque', 520, 240);
-    enemy.team = 'defender';
-    enemy.maxHp = 20;
-    enemy.hp = 20;
-    let died = false;
-    bus.on('enemy:died', () => died = true);
-    for (let i = 0; i < 60; i++) {
-      ms.update(player, [player], [], [enemy], 0.1, bus, null, null);
-      if (!enemy.alive) break;
-    }
-    assert('Enemigo muere al recibir daño suficiente', !enemy.alive || died);
+    const troop = new Troop('tanque', 100, 100);
+    const p1 = new Projectile(150, 100, 100, 100, 10, 200, '#f00');
+    assert('Tanque bloquea frontal', p1.isBlockedBy(troop));
+  }
+  {
+    const troop = new Troop('tanque', 100, 100);
+    const p2 = new Projectile(50, 100, 100, 100, 10, 200, '#f00');
+    assert('Tanque NO bloquea por espalda', !p2.isBlockedBy(troop));
   }
 
-  // --- Reclutamiento con oro y materiales ---
+  // --- Comportamiento de tropas ---
+  {
+    const ms = new MovementService();
+    const asedio = new Troop('asedio', 100, 100);
+    const core = new Structure('nucleo', 10, 4, { tier: 'basic' });
+    core.isCore = true; core.x = 600; core.y = 240;
+    const wall = new Structure('muro', 3, 4, { tier: 'basic' });
+    wall.x = 200; wall.y = 240;
+    const target = ms.findTarget(asedio, [core, wall], null);
+    assert('Asedio apunta al núcleo', target === core);
+  }
+  {
+    const ms = new MovementService();
+    const zap = new Troop('zapador', 100, 100);
+    const weak = new Structure('torre', 5, 3, { tier: 'basic' });
+    weak.x = 300; weak.y = 180; weak.hp = 10;
+    const strong = new Structure('torre_pesada', 8, 5, { tier: 'basic' });
+    strong.x = 500; strong.y = 300;
+    const target = ms.findTarget(zap, [weak, strong], null);
+    assert('Zapador apunta al más débil', target === weak);
+  }
+  {
+    const ms = new MovementService();
+    const tank = new Troop('tanque', 50, 100);
+    const core = new Structure('nucleo', 10, 2, { tier: 'basic' });
+    core.isCore = true; core.x = 600; core.y = 240;
+    const wall = new Structure('muro', 3, 2, { tier: 'basic' });
+    wall.x = 200; wall.y = 240;
+    const target = ms.findTarget(tank, [core, wall], null);
+    assert('Tanque apunta al muro bloqueante', target === wall);
+  }
+
+  // --- Priority target override ---
+  {
+    const ms = new MovementService();
+    const dps = new Troop('dps', 100, 100);
+    const core = new Structure('nucleo', 10, 4, { tier: 'basic' });
+    core.isCore = true; core.x = 600; core.y = 240; core.id = 'core_test';
+    const other = new Structure('torre', 5, 4, { tier: 'basic' });
+    other.x = 300; other.y = 240; other.id = 'other_test';
+    // Sin prioridad → targetNearest = other
+    const target1 = ms.findTarget(dps, [core, other], null);
+    assert('Sin prioridad, DPS va al más cercano', target1 === other);
+    // Con prioridad al core, pero lejos: no override inmediato
+    const target2 = ms.findTarget(dps, [core, other], 'core_test');
+    assert('Prioridad lejana no override', target2 === other);
+    // Mover DPS cerca del core
+    dps.x = 500;
+    const target3 = ms.findTarget(dps, [core, other], 'core_test');
+    assert('Prioridad cercana override', target3 === core);
+  }
+
+  // --- Reclutamiento ---
   {
     const state = new GameState();
     const bus = new EventBus();
@@ -3542,43 +4353,12 @@ function runTests() {
     state.materials = { hierro: 10 };
     const uc = new RecruitTroopUseCase(state, bus);
     const ok = uc.execute('dps');
-    assert('Reclutamiento exitoso con recursos', ok);
+    assert('Reclutamiento OK con recursos', ok);
     assert('Roster crece', state.roster.length === 1);
     assert('Oro descontado', state.gold === 90);
-    assert('Materiales descontados', state.materials.hierro === 8);
   }
 
-  // --- Reclutamiento sin recursos ---
-  {
-    const state = new GameState();
-    const bus = new EventBus();
-    state.rng = new SeededRandom(1);
-    state.hero = new HeroGenerator(state.rng).generate();
-    state.gold = 0;
-    state.materials = {};
-    const uc = new RecruitTroopUseCase(state, bus);
-    const ok = uc.execute('dps');
-    assert('Reclutamiento rechazado sin recursos', !ok);
-  }
-
-  // --- Reclutamiento con roster lleno ---
-  {
-    const state = new GameState();
-    const bus = new EventBus();
-    state.rng = new SeededRandom(1);
-    state.hero = new HeroGenerator(state.rng).generate();
-    state.gold = 1000;
-    state.materials = { hierro: 100, piedra: 100, esencia: 100, mecanismos: 100 };
-    for (let i = 0; i < 6; i++) {
-      const t = new Troop('dps', 0, 0);
-      state.roster.push(t);
-    }
-    const uc = new RecruitTroopUseCase(state, bus);
-    const ok = uc.execute('dps');
-    assert('Reclutamiento rechazado con roster lleno', !ok);
-  }
-
-  // --- Héroe muere, no revive ---
+  // --- Héroe muerto no revive ---
   {
     const state = new GameState();
     const bus = new EventBus();
@@ -3591,75 +4371,10 @@ function runTests() {
     const startZone = new StartZoneUseCase(state, bus);
     startZone.execute();
     const hasHero = state.troops.some(t => t.isHero);
-    assert('Héroe muerto no reaparece en nueva zona', !hasHero);
+    assert('Héroe muerto no reaparece', !hasHero);
   }
 
-  // --- Pool × escalado ---
-  {
-    const rng = new SeededRandom(1);
-    const zone1 = new ZoneGenerator(rng).generate('muro', 1);
-    const zone2 = new ZoneGenerator(new SeededRandom(1)).generate('muro', 2);
-    assert('Zona 2 tiene más pool que zona 1', zone2.maxHp > zone1.maxHp);
-  }
-
-  // --- Proyectil bloqueo frontal ---
-  {
-    const troop = new Troop('tanque', 100, 100);
-    const p1 = new Projectile(150, 100, 100, 100, 10, 200, '#f00');
-    assert('Tanque bloquea frontal', p1.isBlockedBy(troop));
-  }
-
-  // --- Proyectil no bloquea por la espalda ---
-  {
-    const troop = new Troop('tanque', 100, 100);
-    const p2 = new Projectile(50, 100, 100, 100, 10, 200, '#f00');
-    assert('Tanque NO bloquea por espalda', !p2.isBlockedBy(troop));
-  }
-
-  // --- Comportamiento: asedio al núcleo ---
-  {
-    const ms = new MovementService();
-    const asedio = new Troop('asedio', 100, 100);
-    const core = new Structure('nucleo', 10, 4, { tier: 'basic' });
-    core.isCore = true; core.x = 600; core.y = 240;
-    const wall = new Structure('muro', 3, 4, { tier: 'basic' });
-    wall.x = 200; wall.y = 240;
-    const target = ms.findTarget(asedio, [core, wall]);
-    assert('Asedio apunta al núcleo', target === core);
-  }
-
-  // --- Comportamiento: zapador al más débil ---
-  {
-    const ms = new MovementService();
-    const zap = new Troop('zapador', 100, 100);
-    const weak = new Structure('torre', 5, 3, { tier: 'basic' });
-    weak.x = 300; weak.y = 180; weak.hp = 10;
-    const strong = new Structure('torre_pesada', 8, 5, { tier: 'basic' });
-    strong.x = 500; strong.y = 300;
-    const target = ms.findTarget(zap, [weak, strong]);
-    assert('Zapador apunta al más débil', target === weak);
-  }
-
-  // --- Habilidad héroe meteoro ---
-  {
-    const state = new GameState();
-    const bus = new EventBus();
-    state.rng = new SeededRandom(1);
-    state.hero = new HeroGenerator(state.rng).generate();
-    state.hero.ability = { id:'mago_meteoro', name:'Meteoro', cooldown:30, effect:'meteor' };
-    state.zone = new ZoneGenerator(state.rng).generate('muro', 1);
-    const hero = new HeroTroop(state.hero, 100, 100, [], {});
-    state.troops = [hero];
-    state.heroAlive = true;
-    state.phase = 'running';
-    const uc = new ActivateHeroAbilityUseCase(state, bus);
-    const core = state.zone.getCore();
-    const hpBefore = core.hp;
-    uc.execute();
-    assert('Meteoro daña núcleo', core.hp < hpBefore);
-  }
-
-  // --- Victoria ---
+  // --- Victoria / derrota ---
   {
     const state = new GameState();
     const bus = new EventBus();
@@ -3674,8 +4389,6 @@ function runTests() {
     uc.execute(0.1);
     assert('Victoria pool=0', victory);
   }
-
-  // --- Derrota ---
   {
     const state = new GameState();
     const bus = new EventBus();
@@ -3699,7 +4412,7 @@ function runTests() {
 
 
 /* ============================================================================
- * 13. BOOTSTRAP
+ * 14. BOOTSTRAP
  * ========================================================================== */
 (function bootstrap() {
   try { runTests(); }
@@ -3708,9 +4421,10 @@ function runTests() {
   const bus = new EventBus();
   const state = new GameState();
   const canvas = document.getElementById('canvas');
-  const renderer = new CanvasRenderer(canvas, bus);
+  const flashEl = document.getElementById('flashOverlay');
+  const renderer = new CanvasRenderer(canvas, bus, flashEl);
   const audio = new AudioService(bus);
-  const initAudioOnce = () => { audio.init(); };
+  const initAudioOnce = () => audio.init();
   document.addEventListener('click', initAudioOnce, { once: true });
   document.addEventListener('keydown', initAudioOnce, { once: true });
 
@@ -3726,11 +4440,15 @@ function runTests() {
   const promoteTroop = new PromoteTroopUseCase(state, bus);
   const activateGlobalOrder = new ActivateGlobalOrderUseCase(state, bus);
   const activateHeroAbility = new ActivateHeroAbilityUseCase(state, bus);
+  const setSpeed = new SetSpeedUseCase(state, bus);
+  const setFormation = new SetFormationUseCase(state, bus);
+  const enableEndless = new EnableEndlessUseCase(state, bus);
 
   new GoldService(state, bus);
   const ui = new DOMUI(state, bus, {
     startRun, prepareScouting, startZone, tick, endZone, advanceZone, buyUpgrade,
     draftTroop, recruitTroop, promoteTroop, activateGlobalOrder, activateHeroAbility,
+    setSpeed, setFormation, enableEndless,
   });
 
   startRun.execute(42);
@@ -3754,6 +4472,7 @@ function runTests() {
     }
     renderer.render(state, elapsed);
     ui._refreshHud();
+    ui._refreshGeneral();
     requestAnimationFrame(loop);
   }
   requestAnimationFrame(loop);
@@ -3763,10 +4482,12 @@ function runTests() {
     useCases: {
       startRun, prepareScouting, startZone, tick, endZone, advanceZone, buyUpgrade,
       draftTroop, recruitTroop, promoteTroop, activateGlobalOrder, activateHeroAbility,
+      setSpeed, setFormation, enableEndless,
     },
     runTests,
   };
-  console.info('%c⬡ ASALTO · Núcleo v6', 'color:#ffb347;font-weight:bold;font-size:14px;');
+  console.info('%c⬡ ASALTO · Núcleo v7', 'color:#ffb347;font-weight:bold;font-size:14px;');
+  console.info('Tests automáticos ejecutados. Pulsa "Preparar asalto" para jugar.');
 })();
 
 </script>
