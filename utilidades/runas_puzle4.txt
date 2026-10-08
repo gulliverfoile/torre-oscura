@@ -1,0 +1,367 @@
+================================================================================
+RUNAS HEX — Prototipo Infinito v4
+Documento técnico y de diseño
+================================================================================
+
+QUÉ ES
+------
+Un juego de puzzle en tiempo real, de partidas cortas, pensado para jugar en
+móvil o escritorio. El jugador coloca y reordena runas en un tablero hexagonal
+mientras caen nuevas desde arriba. Hacer líneas de 3+ del mismo tipo las hace
+explotar, y las de arriba caen generando cascadas y multiplicadores.
+
+No es un puzzle por turnos. El tiempo corre. Las runas caen solas. El jugador
+interviene cuando quiere, no cuando puede. La partida termina cuando una columna
+se desborda o cuando el jugador decide parar.
+
+Estado: prototipo jugable. Core funcionando, pero la sensación es todavía
+genérica. Falta una capa de identidad que lo diferencie de otros match-3.
+
+
+--------------------------------------------------------------------------------
+QUÉ HACE
+--------------------------------------------------------------------------------
+
+MECÁNICA PRINCIPAL
+------------------
+1. Tablero hexagonal de 6 columnas x 12 filas (flat-top, offset odd-q).
+2. Cada 0.35–1.6 s (según nivel y ocupación) cae una runa nueva en una columna
+   elegida con peso: columnas más vacías reciben más probabilidad.
+3. El jugador puede:
+   - Intercambiar dos runas adyacentes (tap-tap o drag).
+   - Usar la "mano": intercambiar una runa guardada con cualquier runa del
+     tablero (teleport-swap con cooldown).
+4. Hacer línea de 3+ del mismo tipo en cualquier eje hexagonal (N/S, NE/SW,
+   NW/SE) hace explotar esas runas.
+5. Las runas de encima caen, lo que puede formar más líneas → cascada.
+
+CASCADAS Y COMBOS
+-----------------
+- Cada cascada multiplica los puntos x2, x4, x8, x16...
+- Se resetea si pasan 3 s sin cascadas.
+- El multiplicador se muestra en pantalla con un número flotante.
+- El sonido sube por escala pentatónica con cada cascada (nunca suena mal).
+
+COMBO DE ACCIÓN
+---------------
+- Independiente del combo de cascada.
+- Cada swap válido (adyacente o teleport) sube +0.2 hasta un tope de x4.
+- Se resetea si pasan 1.5 s sin hacer un swap.
+- Premia jugar rápido, no solo pensar.
+
+ESPECIALES
+----------
+Tres tipos, creados al hacer líneas largas o clusters:
+
+  FILO
+    Se crea con 4 en línea.
+    Al intercambiarlo, borra toda su columna N-S.
+
+  PRIMIGENIO
+    Se crea con 5+ en línea.
+    Al intercambiarlo, borra todas las runas de su tipo.
+
+  BOMBA
+    Se crea con un cluster de 5+ sin línea recta de 4.
+    Al intercambiarlo, revienta todo en radio 2 (dos saltos de vecindad).
+
+Los especiales NO forman match por sí mismos. Solo se activan al intercambiarlos.
+
+VÉRTICES ILUMINADOS
+-------------------
+- Cada hexágono comparte 6 vértices con sus vecinos.
+- Un vértice se ilumina si los 3 hexágonos que lo comparten tienen el mismo
+  tipo de runa.
+- Cada vértice nuevo iluminado da +5 puntos y +0.3 puntos de tienda.
+- Feedback visual: punto dorado brillante pulsante en la posición del vértice.
+
+PROGRESIÓN
+----------
+- Cada 500 puntos, sube un nivel.
+- Al subir, la velocidad de caída aumenta ligeramente.
+- Cada 3 niveles, aparece una tienda.
+
+TIENDA
+------
+Se abre cada 3 niveles (pausa la partida). Tres opciones aleatorias del catálogo:
+
+  Cámara lenta (5 pts)     5 s de caída a la mitad de velocidad.
+  Limpiar fila (8 pts)     Elimina la fila más baja con runas.
+  Transmutar (6 pts)       El tipo más común se vuelve el menos común.
+  Escudo (10 pts)          Absorbe el próximo game over.
+  Reroll mano (4 pts)      Cambia la runa de la mano por otra al azar.
+  Mano rápida (6 pts)      Reduce el cooldown de la mano a la mitad.
+
+Los puntos de tienda se ganan al explotar runas (1 punto por cada 10 runas).
+
+GAME OVER
+---------
+- Ocurre si una columna tiene su celda superior ocupada durante 2 s.
+- Aviso visual: borde rojo pulsante y overlay sobre la columna en peligro.
+- Si el jugador tiene escudos, se consume uno y la partida continúa.
+
+ANTI-BLOQUEO
+------------
+- Si tras una cascada no hay ningún movimiento válido, el tablero se baraja
+  automáticamente (Fisher-Yates) con aviso visual y sonoro.
+- Se comprueba tras cada estabilización del tablero.
+
+
+--------------------------------------------------------------------------------
+CÓMO LO HACE (arquitectura)
+--------------------------------------------------------------------------------
+
+FILOSOFÍA
+---------
+- Dominio separado de presentación. La lógica del juego no conoce el canvas.
+- Comunicación por eventos. Los módulos no se llaman directamente entre sí.
+- Tests automáticos para las partes críticas (geometría, matches, swap).
+- Preparado para portar a otro renderizador o a un servidor sin tocar el core.
+
+MÓDULOS
+-------
+
+  HexMath
+    Geometría hexagonal pura. Funciones estáticas sin estado.
+    - neighbors(col, row)        → 6 celdas vecinas
+    - neighborInDir(col, row, d) → 1 celda en una dirección
+    - toPixel(col, row, ...)     → centro en píxeles
+    - fromPixel(x, y, ...)       → celda a partir de un punto
+
+    Convención: flat-top odd-q. Columnas impares desplazadas media celda
+    hacia abajo. Los 3 ejes de match son N/S, NE/SW, NW/SE.
+
+  EventBus
+    Sistema pub/sub. Cualquier módulo puede emitir o suscribirse.
+    Desacopla el tablero de la UI, el sonido y la puntuación.
+
+  AudioService
+    Web Audio API pura, sin ficheros. Escala pentatónica para cascadas:
+    cada cascada sube una nota y nunca suena disonante.
+
+  Rune
+    Entidad simple: tipo, especial, posición, estado de animación.
+    - tipo: 'fuego' | 'agua' | 'tierra' | 'aire' | 'sombra'
+    - especial: null | 'filo' | 'primigenio' | 'bomba'
+    - landed: si ya terminó su animación de caída
+
+  Board
+    Pura lógica. Sin canvas, sin input.
+    Estado: matriz cells[col][row] de Rune | null.
+    Métodos principales:
+    - spawnRune()      → coloca la próxima runa con animación
+    - trySwap(c1,r1,c2,r2)  → swap adyacente con reversión
+    - teleportSwap(rune, c, r) → swap con cualquier celda
+    - findMatchedSet() → Set de claves "c,r" con matches
+    - groupMatchedSet() → agrupa por componentes conexas
+    - resolveAll()     → bucle de cascadas
+    - applyGravity()   → compacta cada columna
+    - updateVertices() → recalcula vértices iluminados
+    - hasValidMove()   → ¿hay algún swap útil?
+    - shuffle()        → baraja todo
+
+  Shop
+    Pura lógica de tienda. Catálogo + compra + aplicación de efectos.
+    Cada opción es un objeto {id, name, desc, cost} y una función apply.
+
+  Game
+    Orquestador. Único módulo que toca el DOM y el canvas.
+    - Bucle principal (requestAnimationFrame)
+    - Input (ratón + táctil)
+    - Renderizado
+    - HUD
+    - Gestión de la mano
+    - Suscripción a eventos del Board para feedback visual
+
+FLUJO DE UN SWAP
+----------------
+1. El jugador toca una runa (Game.pointerDown).
+2. Si hay una selección previa adyacente, Game llama a Board.trySwap.
+3. Board intercambia, comprueba si hay match o especial.
+4. Si no hay match y no había especial, revierte y emite 'swap:reverted'.
+5. Si hay match, Board emite 'rune:swapped' y llama a resolveAll.
+6. resolveAll emite 'cascade:level' por cada iteración y 'score:add' por grupo.
+7. Game escucha esos eventos y genera partículas, sonido, números flotantes.
+8. Cuando termina, Board emite 'cascade:end' y actualiza vértices.
+
+FLUJO DE UN TELEPORT-SWAP
+-------------------------
+1. El jugador toca la mano → handSelected = true.
+2. Las runas del tablero se resaltan con aros naranjas.
+3. El jugador toca cualquier runa → Game llama a Board.teleportSwap.
+4. Board coloca la runa de la mano y devuelve la desplazada.
+5. La desplazada pasa a la mano. La mano queda en cooldown.
+6. Se aplica gravedad, se resuelven matches.
+
+CICLO DE VIDA DE UNA RUNA
+-------------------------
+1. Board.pickNextSpawn elige columna (con peso por vacío) y tipo.
+2. Board.spawnRune la coloca en la celda superior vacía de esa columna.
+3. visualY empieza por encima del tablero; update() la anima hasta su celda.
+4. rune.landed = true. Se emite 'rune:landed'.
+5. La runa puede ser:
+   - Intercambiada con un vecino.
+   - Sustituida por teleport-swap.
+   - Parte de un match → explota.
+6. Si explota: se emite 'rune:exploded'. La celda queda null.
+7. applyGravity recoloca las de arriba.
+
+DETECCIÓN DE MATCHES
+--------------------
+Para cada celda ocupada por una runa no-especial:
+  Para cada uno de los 3 ejes (N/S, NE/SW, NW/SE):
+    Extender en ambos sentidos mientras el tipo coincida.
+    Si la línea tiene 3+ celdas, añadirlas al Set de matches.
+Los especiales se ignoran: no forman match ni cuentan como parte de una línea.
+
+Agrupación: sobre el Set de matches, se hace un flood fill hexagonal para
+obtener componentes conexas del mismo tipo. Cada componente es un "grupo".
+
+CÁLCULO DE ESPECIALES
+---------------------
+Para cada grupo:
+  maxLine = longitud de la línea más larga del grupo (en cualquier eje).
+  Si maxLine >= 5 → primigenio
+  Si maxLine >= 4 → filo
+  Si grupo >= 5   → bomba (solo si no se cumple lo anterior)
+El especial se coloca en la celda central del grupo.
+
+PUNTUACIÓN
+----------
+Por cada grupo explotado:
+  puntos = (tamaño del grupo) * 10 * 2^(cascada - 1)
+  puntos_finales = puntos * actionCombo
+
+Donde cascada es el número de iteración en resolveAll (1, 2, 3...).
+Y actionCombo es el multiplicador por swaps rápidos (1.0 a 4.0).
+
+VÉRTICES
+--------
+Mapa de vértices: para cada celda, se generan 6 triples (celda + 2 vecinos
+adyacentes entre sí). Cada triple se canoniza ordenando las 3 claves y uniendo
+con '|'. Los triples únicos son los vértices del tablero.
+
+Un vértice está iluminado si los 3 hexes existen y comparten tipo (sin
+especiales). Se comparan con los iluminados en el frame anterior para saber
+cuáles son nuevos y dar bonus solo por esos.
+
+TESTS
+-----
+Ejecutables con ?test en la URL. Cubren:
+  - Geometría hexagonal (vecinos, round-trip pixel↔celda).
+  - Detección de matches en 3 ejes.
+  - 4 en línea detectado, 4 en zigzag no.
+  - Gravedad.
+  - Teleport-swap con y sin especiales.
+  - Combo de acción (subida y tope).
+  - Vértices (iluminado y no iluminado).
+  - Fórmula de puntuación.
+
+Los tests se ejecutan en un panel superior y también en consola. 17 tests.
+Si uno falla, la línea aparece en rojo con el motivo.
+
+
+--------------------------------------------------------------------------------
+ESTADO ACTUAL Y LO QUE FALTA
+--------------------------------------------------------------------------------
+
+LO QUE FUNCIONA
+---------------
+- Tablero hexagonal con teselado correcto.
+- Caída con peso por vacío.
+- Swap adyacente con reversión.
+- Teleport-swap (mano).
+- Detección de matches en 3 ejes.
+- Cascadas con multiplicadores crecientes.
+- Combo de acción.
+- Tres especiales (filo, primigenio, bomba).
+- Vértices iluminados.
+- Niveles, tienda, game over.
+- Anti-bloqueo con barajado automático.
+- Sonido procedural con escala pentatónica.
+- Tests para las partes críticas.
+
+LO QUE FALTA PARA QUE DEJE DE SER GENÉRICO
+------------------------------------------
+1. Identidad visual. Ahora mismo son hexágonos de colores. Falta que las runas
+   tengan personalidad: texturas, animaciones propias, transiciones de estado.
+
+2. Objetivos. No hay. Solo puntos. Un match-3 sin objetivo es una arena de
+   puntuación, no un juego. Faltan misiones: "recoge 20 de fuego", "rompe
+   10 piedras", "sobrevive 3 oleadas".
+
+3. Oleadas / picos de tensión. El ritmo sube linealmente con el nivel. Falta
+   que haya momentos de "ahora o nunca": oleadas cada 30 s, acelerones, eventos.
+
+4. Narrativa. No hay ninguna. Una partida no cuenta nada. Aunque sea minimal,
+   un hilo ("reconstruyes un alfabeto roto") da contexto.
+
+5. Modo puzzle. Todo es infinito. Un modo por niveles con objetivos fijos
+   daría estructura y haría el juego más reconocible.
+
+6. Meta-progresión entre partidas. Ahora cada partida es independiente. No hay
+   razón para volver. Desbloqueos, logros, runas permanentes.
+
+7. Diferencial mecánico real. Ahora mismo es match-3 hexagonal con un par de
+   giros. Los giros (teleport-swap, vértices) están bien, pero no son
+   suficientemente fuertes para que alguien diga "esto es X juego y no otro".
+
+CANDIDATOS A DIFERENCIAL
+------------------------
+Ideas apuntadas y no implementadas, por orden de potencial:
+
+  - Propiedades en los lados del hexágono. Cada lado tiene un estado
+    (sellado, activo, de color). Cambia las reglas de intercambio y de
+    propagación. Rediseño profundo.
+
+  - Runas vinculadas. Dos runas comparten un vínculo: si una explota,
+    la otra también. Crea puzzles de cadena.
+
+  - Runas que evolucionan. Una runa que participa en N matches sube de nivel
+    y da más puntos, cambia de propiedad, se convierte en especial.
+
+  - Modo cooperativo o competitivo. Dos tableros, ataques entre ellos.
+    El código del Money Merge ya tiene esta lógica, se puede portar.
+
+  - Narrativa emergente. Cada nivel revela un fragmento de un alfabeto roto.
+    Completar el alfabeto desbloquea algo.
+
+SIGUIENTE PASO RECOMENDADO
+--------------------------
+Antes de añadir features, jugar 20 minutos seguidos y responder:
+  - ¿Me aburro?
+  - ¿Sé por qué estoy jugando?
+  - ¿Quiero jugar otra partida al terminar?
+
+Si las respuestas son no/no/no, el problema no es falta de mecánicas. Es falta
+de objetivo y de tensión. En ese caso, el siguiente paso es:
+
+  1. Añadir un objetivo por partida ("recoge 30 runas de fuego en 3 minutos").
+  2. Añadir oleadas de tensión cada 30 s con aviso sonoro y visual.
+  3. Medir si eso cambia la sensación antes de tocar nada más.
+
+Si las respuestas son sí/sí/sí, entonces tiene sentido añadir una de las
+ideas diferenciales de la lista de arriba. Pero una sola, bien hecha, no tres
+a medias.
+
+
+--------------------------------------------------------------------------------
+NOTAS TÉCNICAS
+--------------------------------------------------------------------------------
+
+- HTML + CSS + JS puro. Sin dependencias externas.
+- Un solo archivo autocontenido.
+- Canvas 2D.
+- Web Audio API para sonido procedural.
+- ~1500 líneas de JS comentadas.
+- Compatible con móvil y escritorio.
+- Los tests se ejecutan en navegador con ?test en la URL.
+- El código del Board es portable a un servidor Node sin cambios (no depende
+  del DOM ni del canvas).
+- Los eventos del EventBus tienen nombres en formato "entidad:acción"
+  (rune:spawned, cascade:level, score:add, etc.). Fáciles de loguear y de
+  extender.
+
+================================================================================
+Fin del documento.
+================================================================================
