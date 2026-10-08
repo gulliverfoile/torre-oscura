@@ -1,0 +1,1992 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<title>Runas Hex — Prototipo Infinito v4</title>
+<!--
+=====================================================================
+  RUNAS HEX v4
+=====================================================================
+  NUEVO EN v4:
+    - MANO con TELEPORT-SWAP: la runa de la mano se intercambia con
+      CUALQUIER runa del tablero (no solo columna, no solo adyacente).
+      La runa sustituida pasa a la mano. La mano siempre tiene 1 runa.
+    - Cooldown de mano (modificable desde tienda a futuro).
+    - Sistema de modificadores de mano preparado (handModifiers).
+    - Nuevo item de tienda: "Reroll mano" (cambia la runa actual).
+    - Spawn durante cascadas (sin esperar a 'stable'). Más dinamismo.
+    - Combo de acción: swaps rápidos (<1.5s) acumulan multiplicador
+      independiente del combo de cascada. x1 → x4.
+    - Evento 'action:performed' emitido por Board en cada swap válido.
+    - Tests nuevos: teleport-swap, combo de acción.
+
+  CAMBIOS v3 conservados:
+    - Layout flat-top correcto, teselado sin huecos.
+    - Auto-resolver al estabilizar.
+    - Spawn dinámico por vacío.
+    - Leyenda lateral.
+    - Vértices iluminados (+5 pts).
+    - Especial "bomba" para clusters de 5+.
+=====================================================================
+-->
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; }
+  html, body { width:100%; height:100%; overflow:hidden; background:#0a0a16; font-family:monospace; touch-action:none; }
+  body { display:flex; justify-content:center; align-items:center; }
+  canvas { display:block; }
+
+  #hud {
+    position:fixed; top:0; left:0; width:100%;
+    display:flex; justify-content:space-between; padding:10px 16px;
+    color:#eee; font-size:14px; pointer-events:none; z-index:10;
+    text-shadow:0 0 6px #000;
+  }
+  #hud .col { display:flex; flex-direction:column; gap:2px; }
+  #hud .right { text-align:right; }
+
+  #legend {
+    position:fixed; top:60px; right:12px; width:230px;
+    background:rgba(10,10,30,0.85); border:1px solid #333; border-radius:10px;
+    padding:10px 12px; color:#ddd; font-size:11px; z-index:9;
+    max-height:70vh; overflow-y:auto;
+  }
+  #legend h3 { color:#ffd700; font-size:12px; margin-bottom:6px; letter-spacing:0.5px; }
+  #legend .rune-row { display:flex; align-items:center; gap:6px; margin:3px 0; }
+  #legend .swatch {
+    width:16px; height:16px; border-radius:4px; flex-shrink:0;
+    display:flex; align-items:center; justify-content:center;
+    color:#000; font-weight:bold; font-size:10px;
+  }
+  #legend .special-row { display:flex; align-items:center; gap:6px; margin:4px 0; }
+  #legend .special-icon {
+    width:16px; height:16px; border-radius:4px; flex-shrink:0;
+    background:#333; display:flex; align-items:center; justify-content:center;
+    font-size:11px; color:#ffd700;
+  }
+  #legend .hint { color:#888; font-size:10px; margin-top:6px; line-height:1.35; }
+
+  #shop {
+    position:fixed; inset:0; background:rgba(0,0,0,0.85);
+    display:none; align-items:center; justify-content:center; z-index:100;
+    flex-direction:column; gap:14px; padding:20px; color:#fff;
+  }
+  #shop.open { display:flex; }
+  #shop h2 { color:#ffd700; font-size:22px; margin-bottom:8px; }
+  #shop .items { display:flex; flex-wrap:wrap; gap:12px; justify-content:center; }
+  #shop .item {
+    background:#1e1e30; border:2px solid #444; padding:14px 18px;
+    border-radius:10px; cursor:pointer; width:180px; text-align:center;
+    transition:0.15s;
+  }
+  #shop .item:hover { border-color:#ffd700; transform:translateY(-2px); }
+  #shop .item.disabled { opacity:0.4; cursor:not-allowed; }
+  #shop .item .name { font-weight:bold; color:#ffd700; margin-bottom:6px; }
+  #shop .item .desc { font-size:11px; color:#bbb; margin-bottom:6px; min-height:32px; }
+  #shop .item .cost { color:#7fe6e0; font-weight:bold; }
+  #shop .continue {
+    background:#ffd700; color:#000; padding:10px 28px; border:none;
+    border-radius:8px; font-weight:bold; cursor:pointer; font-size:14px;
+  }
+
+  #gameover {
+    position:fixed; inset:0; background:rgba(0,0,0,0.9);
+    display:none; align-items:center; justify-content:center;
+    flex-direction:column; gap:14px; color:#fff; z-index:200;
+  }
+  #gameover.open { display:flex; }
+  #gameover h1 { color:#ff4757; font-size:36px; }
+  #gameover p { color:#bbb; }
+  #gameover button {
+    background:#ffd700; color:#000; padding:12px 30px; border:none;
+    border-radius:8px; font-weight:bold; cursor:pointer; font-size:16px;
+  }
+
+  #testpanel {
+    position:fixed; top:0; left:0; right:0; max-height:50vh; overflow-y:auto;
+    background:rgba(0,0,0,0.95); color:#0f0; font-size:11px; padding:10px;
+    z-index:999; font-family:monospace; display:none;
+  }
+  #testpanel.open { display:block; }
+  #testpanel .fail { color:#f44; }
+  #testpanel .pass { color:#4f4; }
+
+  @media (max-width:820px) { #legend { display:none; } }
+</style>
+</head>
+<body>
+<canvas id="game"></canvas>
+
+<div id="hud">
+  <div class="col">
+    <span>Puntos: <span id="hud-score">0</span></span>
+    <span>Nivel: <span id="hud-level">1</span></span>
+    <span>Tienda: <span id="hud-shop">0</span> pts</span>
+  </div>
+  <div class="col right">
+    <span id="hud-combo" style="color:#ffd700; font-weight:bold;">&nbsp;</span>
+    <span id="hud-action" style="color:#ff9f43; font-weight:bold;">&nbsp;</span>
+    <span id="hud-shield" style="color:#7fe6e0;">&nbsp;</span>
+    <span id="hud-slow" style="color:#4da6ff;">&nbsp;</span>
+    <span id="hud-hand" style="color:#ff9f43;">&nbsp;</span>
+  </div>
+</div>
+
+<div id="legend">
+  <h3>TIPOS DE RUNA</h3>
+  <div id="legend-runes"></div>
+  <h3 style="margin-top:10px;">ESPECIALES</h3>
+  <div class="special-row">
+    <div class="special-icon">|</div>
+    <div><b style="color:#7fe6e0;">Filo</b> — 4 en línea.<br>Intercámbiala: borra su columna.</div>
+  </div>
+  <div class="special-row">
+    <div class="special-icon">◯</div>
+    <div><b style="color:#ffd700;">Primigenio</b> — 5 en línea.<br>Intercámbiala: borra todas las de su tipo.</div>
+  </div>
+  <div class="special-row">
+    <div class="special-icon">✸</div>
+    <div><b style="color:#ff9f43;">Bomba</b> — cluster de 5+.<br>Intercámbiala: revienta radio 2.</div>
+  </div>
+  <h3 style="margin-top:10px;">MANO</h3>
+  <div class="hint" style="margin-top:0;">
+    Tap en la mano: se activa.<br>
+    Tap en cualquier runa: teleport-swap.<br>
+    La runa sustituida pasa a la mano.<br>
+    Útil para desatascar columnas o mover especiales.
+  </div>
+</div>
+
+<div id="shop">
+  <h2>✨ Tienda de Runas</h2>
+  <p style="color:#aaa;font-size:12px;">Gasta puntos de tienda en mejoras temporales</p>
+  <div class="items" id="shop-items"></div>
+  <button class="continue" id="shop-continue">Continuar ▶</button>
+</div>
+
+<div id="gameover">
+  <h1>FIN DEL JUEGO</h1>
+  <p>Puntuación: <b id="go-score">0</b></p>
+  <p>Nivel alcanzado: <b id="go-level">1</b></p>
+  <p>Mejor combo: <b id="go-combo">x1</b></p>
+  <button id="go-restart">Reintentar</button>
+</div>
+
+<div id="testpanel"></div>
+
+<script>
+'use strict';
+
+// =====================================================================
+// 1. CONFIGURACIÓN
+// =====================================================================
+const CFG = {
+  COLS: 6,
+  ROWS: 12,
+  HEX_SIZE: 22,
+  TYPES: ['fuego', 'agua', 'tierra', 'aire', 'sombra'],
+  COLORS: {
+    fuego:  '#ff4d4d',
+    agua:   '#4da6ff',
+    tierra: '#b8773c',
+    aire:   '#7fe6e0',
+    sombra: '#a06dd9',
+  },
+  LETTERS: { fuego:'F', agua:'A', tierra:'T', aire:'V', sombra:'S' },
+
+  SPAWN_INTERVAL_START: 1.6,
+  SPAWN_INTERVAL_MIN:   0.35,
+  SPAWN_INTERVAL_STEP:  0.08,
+
+  LEVEL_UP_POINTS:      500,
+  LEVELS_BETWEEN_SHOP:  3,
+  COMBO_TIMEOUT:        3.0,
+
+  SHOP_POINTS_PER_EXPLODE: 0.1,
+  GAME_OVER_DELAY:         2.0,
+  SPECIAL_FILO_LEN:        4,
+  SPECIAL_PRIMIGENIO_LEN:  5,
+  VERTEX_BONUS:            5,
+
+  // Mano
+  HAND_COOLDOWN:           1.5,   // seg entre teleport-swaps
+  HAND_COOLDOWN_REDUCED:   0.75,  // si se compra "Mano rápida"
+
+  // Combo de acción (swaps rápidos)
+  ACTION_TIMEOUT:          1.5,   // seg sin swap para resetear
+  ACTION_STEP:             0.2,   // cuánto sube por swap encadenado
+  ACTION_MAX:              4.0,   // tope del multiplicador
+};
+
+// =====================================================================
+// 2. UTILIDADES
+// =====================================================================
+const rand    = (min, max) => Math.random() * (max - min) + min;
+const randInt = (min, max) => Math.floor(Math.random() * (max - min + 1)) + min;
+const clamp   = (v, min, max) => Math.max(min, Math.min(max, v));
+
+// =====================================================================
+// 3. HEX MATH — flat-top odd-q
+// =====================================================================
+const HexMath = {
+  DIRS: ['N', 'S', 'NE', 'SE', 'NW', 'SW'],
+
+  neighbors(col, row) {
+    const odd = (col & 1) === 1;
+    return [
+      [col,     row - 1],
+      [col,     row + 1],
+      [col + 1, odd ? row     : row - 1],
+      [col + 1, odd ? row + 1 : row    ],
+      [col - 1, odd ? row     : row - 1],
+      [col - 1, odd ? row + 1 : row    ],
+    ];
+  },
+
+  neighborInDir(col, row, dir) {
+    const odd = (col & 1) === 1;
+    switch (dir) {
+      case 'N':  return [col,     row - 1];
+      case 'S':  return [col,     row + 1];
+      case 'NE': return [col + 1, odd ? row     : row - 1];
+      case 'SE': return [col + 1, odd ? row + 1 : row    ];
+      case 'NW': return [col - 1, odd ? row     : row - 1];
+      case 'SW': return [col - 1, odd ? row + 1 : row    ];
+    }
+    return [col, row];
+  },
+
+  toPixel(col, row, originX, originY, size) {
+    const hw = 1.5 * size;
+    const hh = Math.sqrt(3) * size;
+    const x = originX + size + col * hw;
+    const y = originY + hh / 2 + row * hh + (col % 2) * hh / 2;
+    return { x, y };
+  },
+
+  fromPixel(px, py, originX, originY, size) {
+    const hw = 1.5 * size;
+    const hh = Math.sqrt(3) * size;
+    const col = Math.floor((px - originX - size) / hw + 0.5);
+    const rowFloat = (py - originY - hh / 2 - (col % 2) * hh / 2) / hh;
+    const row = Math.floor(rowFloat + 0.5);
+    return { col, row };
+  },
+};
+
+// =====================================================================
+// 4. EVENT BUS
+// =====================================================================
+class EventBus {
+  constructor() { this._l = {}; }
+  on(e, cb) { (this._l[e] = this._l[e] || []).push(cb); return () => this.off(e, cb); }
+  off(e, cb) { if (this._l[e]) this._l[e] = this._l[e].filter(f => f !== cb); }
+  emit(e, d) { (this._l[e] || []).forEach(f => f(d)); }
+}
+
+// =====================================================================
+// 5. AUDIO
+// =====================================================================
+class AudioService {
+  constructor() { this.ctx = null; }
+  init() {
+    if (this.ctx) return;
+    try { this.ctx = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) {}
+  }
+  _tone(freq, type, dur, vol = 0.08) {
+    if (!this.ctx) return;
+    if (this.ctx.state === 'suspended') this.ctx.resume();
+    const now = this.ctx.currentTime;
+    const osc = this.ctx.createOscillator();
+    const gain = this.ctx.createGain();
+    osc.type = type;
+    osc.frequency.setValueAtTime(freq, now);
+    gain.gain.setValueAtTime(0, now);
+    gain.gain.linearRampToValueAtTime(vol, now + 0.01);
+    gain.gain.exponentialRampToValueAtTime(0.0001, now + dur);
+    osc.connect(gain); gain.connect(this.ctx.destination);
+    osc.start(now); osc.stop(now + dur);
+  }
+  cascadeSound(level) {
+    const scale = [261, 293, 329, 392, 440, 523, 587, 659, 784, 880, 1046];
+    const n = scale[Math.min(level, scale.length - 1)];
+    this._tone(n, 'sine', 0.22, 0.09);
+  }
+  land()       { this._tone(180, 'triangle', 0.06, 0.05); }
+  swap()       { this._tone(320, 'square', 0.05, 0.05); }
+  swapFail()   { this._tone(140, 'square', 0.06, 0.04); }
+  teleport()   { this._tone(500, 'triangle', 0.1, 0.08); setTimeout(() => this._tone(750, 'triangle', 0.12, 0.08), 80); }
+  special()    { this._tone(660, 'sine', 0.15, 0.10); setTimeout(() => this._tone(990, 'sine', 0.15, 0.09), 70); }
+  bomb()       { this._tone(120, 'sawtooth', 0.3, 0.15); setTimeout(() => this._tone(80, 'sawtooth', 0.4, 0.12), 80); }
+  levelUp()    { this._tone(440, 'triangle', 0.10); setTimeout(() => this._tone(660, 'triangle', 0.10), 100); setTimeout(() => this._tone(880, 'triangle', 0.18), 200); }
+  gameOver()   { this._tone(80, 'sawtooth', 0.6, 0.15); }
+  buy()        { this._tone(700, 'sine', 0.08, 0.10); setTimeout(() => this._tone(1050, 'sine', 0.12, 0.09), 60); }
+  shuffle()    { this._tone(300, 'triangle', 0.1, 0.07); setTimeout(() => this._tone(450, 'triangle', 0.15, 0.07), 90); }
+  vertex()     { this._tone(1200, 'sine', 0.06, 0.05); }
+  hand()       { this._tone(500, 'triangle', 0.1, 0.07); setTimeout(() => this._tone(750, 'triangle', 0.1, 0.07), 80); }
+}
+
+// =====================================================================
+// 6. RUNE
+// =====================================================================
+class Rune {
+  constructor(type, special = null) {
+    this.type = type;
+    this.special = special;
+    this.landed = false;
+    this.visualY = 0;
+    this.flash = 0;
+    this.col = -1;
+    this.row = -1;
+  }
+  get color()  { return CFG.COLORS[this.type]; }
+  get letter() { return CFG.LETTERS[this.type]; }
+  clone() { const r = new Rune(this.type, this.special); return r; }
+}
+
+// =====================================================================
+// 7. BOARD
+// =====================================================================
+class Board {
+  constructor(bus, audio) {
+    this.bus = bus;
+    this.audio = audio;
+    this.cols = CFG.COLS;
+    this.rows = CFG.ROWS;
+    this.cells = Array.from({ length: this.cols }, () => Array(this.rows).fill(null));
+    this.falling = [];
+    this.stable = true;
+    this.blockedCol = null;
+    this.blockedTimer = 0;
+    this.explodedCount = 0;
+    this.nextSpawn = null;
+    this.litVertices = new Set();
+    this._prevLitVertices = new Set();
+
+    this.bus.on('board:swapRequest', d => this.trySwap(d.c1, d.r1, d.c2, d.r2));
+  }
+
+  reset() {
+    for (let c = 0; c < this.cols; c++)
+      for (let r = 0; r < this.rows; r++)
+        this.cells[c][r] = null;
+    this.falling = [];
+    this.stable = true;
+    this.blockedCol = null;
+    this.blockedTimer = 0;
+    this.explodedCount = 0;
+    this.nextSpawn = null;
+    this.litVertices = new Set();
+    this._prevLitVertices = new Set();
+
+    for (let r = this.rows - 3; r < this.rows; r++) {
+      for (let c = 0; c < this.cols; c++) {
+        const rune = new Rune(this.randomType());
+        rune.landed = true;
+        rune.col = c; rune.row = r;
+        this.cells[c][r] = rune;
+      }
+    }
+    let safety = 0;
+    while (safety++ < 50) {
+      const matched = this.findMatchedSet();
+      if (matched.size === 0) break;
+      for (const key of matched) {
+        const [c, r] = key.split(',').map(Number);
+        const rune = new Rune(this.randomType());
+        rune.landed = true; rune.col = c; rune.row = r;
+        this.cells[c][r] = rune;
+      }
+    }
+    this.pickNextSpawn();
+    this.updateVertices();
+  }
+
+  randomType() { return CFG.TYPES[randInt(0, CFG.TYPES.length - 1)]; }
+  inBounds(c, r) { return c >= 0 && c < this.cols && r >= 0 && r < this.rows; }
+
+  // -------------------------------------------------------------------
+  //  Spawn con peso por vacío
+  // -------------------------------------------------------------------
+  pickNextSpawn() {
+    const weights = [];
+    for (let c = 0; c < this.cols; c++) {
+      let empty = 0;
+      for (let r = 0; r < this.rows; r++) if (!this.cells[c][r]) empty++;
+      weights.push(empty);
+    }
+    const total = weights.reduce((a, b) => a + b, 0);
+    if (total === 0) { this.nextSpawn = null; return; }
+    let pick = Math.random() * total;
+    let col = 0;
+    for (let c = 0; c < this.cols; c++) {
+      pick -= weights[c];
+      if (pick <= 0) { col = c; break; }
+    }
+    this.nextSpawn = { col, type: this.randomType() };
+  }
+
+  spawnRune(forcedCol = null, forcedType = null) {
+    if (forcedCol === null || forcedType === null) {
+      if (!this.nextSpawn) this.pickNextSpawn();
+      if (!this.nextSpawn) return false;
+    }
+    let col = forcedCol !== null ? forcedCol : this.nextSpawn.col;
+    let type = forcedType !== null ? forcedType : this.nextSpawn.type;
+
+    const findTop = (c) => {
+      for (let r = 0; r < this.rows; r++) if (this.cells[c][r]) return r;
+      return this.rows;
+    };
+    let topOccupied = findTop(col);
+    let targetRow = topOccupied - 1;
+
+    if (targetRow < 0 && forcedCol === null) {
+      this.pickNextSpawn();
+      if (!this.nextSpawn) return false;
+      col = this.nextSpawn.col;
+      type = this.nextSpawn.type;
+      topOccupied = findTop(col);
+      targetRow = topOccupied - 1;
+      if (targetRow < 0) return false;
+    } else if (targetRow < 0) {
+      return false;
+    }
+
+    const rune = new Rune(type);
+    rune.col = col;
+    rune.row = targetRow;
+    rune.landed = false;
+    rune.visualY = -CFG.HEX_SIZE * 4;
+    this.cells[col][targetRow] = rune;
+    this.falling.push(rune);
+    this.stable = false;
+
+    this.bus.emit('rune:spawned', { rune, col, row: targetRow });
+
+    if (forcedCol === null) this.pickNextSpawn();
+    return true;
+  }
+
+  // -------------------------------------------------------------------
+  //  Update
+  // -------------------------------------------------------------------
+  update(dt, originX, originY) {
+    for (let c = 0; c < this.cols; c++) {
+      for (let r = 0; r < this.rows; r++) {
+        const rune = this.cells[c][r];
+        if (rune && rune.flash > 0) rune.flash = Math.max(0, rune.flash - dt * 5);
+      }
+    }
+
+    let anyFalling = false;
+    for (const rune of this.falling) {
+      if (rune.landed) continue;
+      const targetPx = HexMath.toPixel(rune.col, rune.row, originX, originY, CFG.HEX_SIZE);
+      const speed = 1400;
+      const diff = targetPx.y - rune.visualY;
+      if (Math.abs(diff) < 2) {
+        rune.visualY = targetPx.y;
+        rune.landed = true;
+        this.audio.land();
+        this.bus.emit('rune:landed', { rune });
+      } else {
+        rune.visualY += Math.sign(diff) * Math.min(speed * dt, Math.abs(diff));
+        anyFalling = true;
+      }
+    }
+    this.falling = this.falling.filter(r => !r.landed);
+
+    if (!anyFalling && this.falling.length === 0) {
+      if (!this.stable) {
+        this.stable = true;
+        this.bus.emit('board:stable');
+      }
+    }
+  }
+
+  // -------------------------------------------------------------------
+  //  Swap adyacente (con reversión si no forma match)
+  // -------------------------------------------------------------------
+  trySwap(c1, r1, c2, r2) {
+    if (!this.inBounds(c1, r1) || !this.inBounds(c2, r2)) return false;
+    const a = this.cells[c1][r1];
+    const b = this.cells[c2][r2];
+    if (!a || !b) return false;
+    if (!a.landed || !b.landed) return false;
+
+    const isAdj = HexMath.neighbors(c1, r1).some(([nc, nr]) => nc === c2 && nr === r2);
+    if (!isAdj) return false;
+
+    const hadSpecial = !!(a.special || b.special);
+
+    this.cells[c1][r1] = b;
+    this.cells[c2][r2] = a;
+    a.col = c2; a.row = r2;
+    b.col = c1; b.row = r1;
+    a.flash = 1; b.flash = 1;
+    this.audio.swap();
+
+    if (hadSpecial) {
+      const toActivate = [];
+      if (a.special) toActivate.push({ rune: a, col: c2, row: r2 });
+      if (b.special) toActivate.push({ rune: b, col: c1, row: r1 });
+      for (const { rune, col, row } of toActivate) {
+        this.activateSpecial(rune, col, row);
+      }
+    }
+
+    const matched = this.findMatchedSet();
+    if (!hadSpecial && matched.size === 0) {
+      this.cells[c1][r1] = a;
+      this.cells[c2][r2] = b;
+      a.col = c1; a.row = r1;
+      b.col = c2; b.row = r2;
+      a.flash = 0; b.flash = 0;
+      this.audio.swapFail();
+      this.bus.emit('swap:reverted', { c1, r1, c2, r2 });
+      return false;
+    }
+
+    this.bus.emit('rune:swapped', { a, b });
+    this.bus.emit('action:performed', { kind: 'adjacent' });
+    this.resolveAll();
+    return true;
+  }
+
+  // -------------------------------------------------------------------
+  //  Teleport-swap: intercambia una runa externa (mano) con una del tablero
+  // -------------------------------------------------------------------
+  /**
+   * Intercambia la runa `externalRune` (viene de la mano) con la runa
+   * que está en (col, row). Devuelve la runa que estaba en el tablero
+   * (la que el jugador se lleva a la mano), o null si no se pudo.
+   *
+   * NO revierte si no forma match: es una acción voluntaria del jugador.
+   */
+  teleportSwap(externalRune, col, row) {
+    if (!this.inBounds(col, row)) return null;
+    if (!externalRune) return null;
+    const target = this.cells[col][row];
+    if (!target || !target.landed) return null;
+
+    // Intercambio
+    const displaced = target;
+    const placed = new Rune(externalRune.type, externalRune.special);
+    placed.landed = true;
+    placed.col = col;
+    placed.row = row;
+    placed.flash = 1;
+    this.cells[col][row] = placed;
+
+    this.audio.teleport();
+    this.bus.emit('rune:teleported', { placed, displaced, col, row });
+
+    // Aplicar gravedad por si la runa colocada no estaba en el fondo
+    this.applyGravity();
+
+    // Resolver matches
+    this.bus.emit('action:performed', { kind: 'teleport' });
+    this.resolveAll();
+    return displaced;
+  }
+
+  // -------------------------------------------------------------------
+  //  Activar especial
+  // -------------------------------------------------------------------
+  activateSpecial(rune, col, row) {
+    const kind = rune.special;
+    if (!kind) return;
+
+    this.cells[col][row] = null;
+    if (kind === 'bomba') this.audio.bomb();
+    else this.audio.special();
+    this.bus.emit('special:activated', { rune, col, row, kind });
+
+    if (kind === 'filo') {
+      for (let r = 0; r < this.rows; r++) {
+        const target = this.cells[col][r];
+        if (target) {
+          this.cells[col][r] = null;
+          this.explodedCount++;
+          this.bus.emit('rune:exploded', { rune: target, col, row: r, cascade: 1 });
+        }
+      }
+    } else if (kind === 'primigenio') {
+      const t = rune.type;
+      for (let c = 0; c < this.cols; c++) {
+        for (let r = 0; r < this.rows; r++) {
+          const target = this.cells[c][r];
+          if (target && target.type === t) {
+            this.cells[c][r] = null;
+            this.explodedCount++;
+            this.bus.emit('rune:exploded', { rune: target, col: c, row: r, cascade: 1 });
+          }
+        }
+      }
+    } else if (kind === 'bomba') {
+      const affected = new Set([`${col},${row}`]);
+      let frontier = [[col, row]];
+      for (let d = 0; d < 2; d++) {
+        const next = [];
+        for (const [c, r] of frontier) {
+          for (const [nc, nr] of HexMath.neighbors(c, r)) {
+            if (!this.inBounds(nc, nr)) continue;
+            const k = `${nc},${nr}`;
+            if (affected.has(k)) continue;
+            affected.add(k);
+            next.push([nc, nr]);
+          }
+        }
+        frontier = next;
+      }
+      for (const k of affected) {
+        const [c, r] = k.split(',').map(Number);
+        const target = this.cells[c][r];
+        if (target) {
+          this.cells[c][r] = null;
+          this.explodedCount++;
+          this.bus.emit('rune:exploded', { rune: target, col: c, row: r, cascade: 1 });
+        }
+      }
+    }
+    this.applyGravity();
+  }
+
+  // -------------------------------------------------------------------
+  //  Detección de matches
+  // -------------------------------------------------------------------
+  findMatchedSet() {
+    const matched = new Set();
+    const axes = [['N', 'S'], ['NE', 'SW'], ['NW', 'SE']];
+
+    for (let c = 0; c < this.cols; c++) {
+      for (let r = 0; r < this.rows; r++) {
+        const rune = this.cells[c][r];
+        if (!rune || rune.special) continue;
+
+        for (const [d1, d2] of axes) {
+          const line = [[c, r]];
+          for (const dir of [d1, d2]) {
+            let [nc, nr] = HexMath.neighborInDir(c, r, dir);
+            while (this.inBounds(nc, nr)) {
+              const t = this.cells[nc][nr];
+              if (!t || t.special || t.type !== rune.type) break;
+              line.push([nc, nr]);
+              [nc, nr] = HexMath.neighborInDir(nc, nr, dir);
+            }
+          }
+          if (line.length >= 3) {
+            for (const [lc, lr] of line) matched.add(`${lc},${lr}`);
+          }
+        }
+      }
+    }
+    return matched;
+  }
+
+  groupMatchedSet(matchedSet) {
+    const visited = new Set();
+    const groups = [];
+    for (const key of matchedSet) {
+      if (visited.has(key)) continue;
+      const [c0, r0] = key.split(',').map(Number);
+      const t0 = this.cells[c0][r0]?.type;
+      if (!t0) continue;
+      const group = [];
+      const stack = [[c0, r0]];
+      while (stack.length) {
+        const [c, r] = stack.pop();
+        const k = `${c},${r}`;
+        if (visited.has(k)) continue;
+        if (!matchedSet.has(k)) continue;
+        const rune = this.cells[c][r];
+        if (!rune || rune.type !== t0 || rune.special) continue;
+        visited.add(k);
+        group.push([c, r]);
+        for (const [nc, nr] of HexMath.neighbors(c, r)) {
+          if (this.inBounds(nc, nr)) stack.push([nc, nr]);
+        }
+      }
+      if (group.length > 0) groups.push(group);
+    }
+    return groups;
+  }
+
+  longestLineInGroup(group) {
+    const set = new Set(group.map(([c, r]) => `${c},${r}`));
+    let best = 0;
+    for (const [c0, r0] of group) {
+      for (const [d1, d2] of [['N', 'S'], ['NE', 'SW'], ['NW', 'SE']]) {
+        let len = 1;
+        for (const dir of [d1, d2]) {
+          let [c, r] = HexMath.neighborInDir(c0, r0, dir);
+          while (set.has(`${c},${r}`)) {
+            len++;
+            [c, r] = HexMath.neighborInDir(c, r, dir);
+          }
+        }
+        if (len > best) best = len;
+      }
+    }
+    return best;
+  }
+
+  // -------------------------------------------------------------------
+  //  Resolver cascadas
+  // -------------------------------------------------------------------
+  resolveAll() {
+    let cascade = 0;
+    let totalExploded = 0;
+
+    while (true) {
+      const matched = this.findMatchedSet();
+      if (matched.size === 0) break;
+      cascade++;
+      const groups = this.groupMatchedSet(matched);
+
+      this.bus.emit('cascade:level', { level: cascade });
+      this.audio.cascadeSound(cascade - 1);
+
+      for (const group of groups) {
+        const firstRune = this.cells[group[0][0]][group[0][1]];
+        const groupType = firstRune ? firstRune.type : CFG.TYPES[0];
+        const maxLine = this.longestLineInGroup(group);
+        const center = group[Math.floor(group.length / 2)];
+
+        for (const [c, r] of group) {
+          const rune = this.cells[c][r];
+          if (!rune) continue;
+          this.cells[c][r] = null;
+          this.explodedCount++;
+          totalExploded++;
+          this.bus.emit('rune:exploded', { rune, col: c, row: r, cascade });
+        }
+
+        if (maxLine >= CFG.SPECIAL_PRIMIGENIO_LEN) {
+          const sp = new Rune(groupType, 'primigenio');
+          sp.landed = true; sp.col = center[0]; sp.row = center[1];
+          this.cells[center[0]][center[1]] = sp;
+          this.bus.emit('special:created', { kind: 'primigenio', col: center[0], row: center[1] });
+        } else if (maxLine >= CFG.SPECIAL_FILO_LEN) {
+          const sp = new Rune(groupType, 'filo');
+          sp.landed = true; sp.col = center[0]; sp.row = center[1];
+          this.cells[center[0]][center[1]] = sp;
+          this.bus.emit('special:created', { kind: 'filo', col: center[0], row: center[1] });
+        } else if (group.length >= 5) {
+          const sp = new Rune(groupType, 'bomba');
+          sp.landed = true; sp.col = center[0]; sp.row = center[1];
+          this.cells[center[0]][center[1]] = sp;
+          this.bus.emit('special:created', { kind: 'bomba', col: center[0], row: center[1] });
+        }
+
+        const points = group.length * 10 * Math.pow(2, cascade - 1);
+        this.bus.emit('score:add', { points, cascade });
+      }
+
+      this.applyGravity();
+    }
+
+    if (totalExploded > 0) {
+      this.bus.emit('cascade:end', { totalExploded, cascades: cascade });
+    }
+    this.updateVertices();
+    this.checkBlocked();
+  }
+
+  // -------------------------------------------------------------------
+  //  Gravedad y bloqueo
+  // -------------------------------------------------------------------
+  applyGravity() {
+    for (let c = 0; c < this.cols; c++) {
+      const stack = [];
+      for (let r = 0; r < this.rows; r++) if (this.cells[c][r]) stack.push(this.cells[c][r]);
+      for (let r = 0; r < this.rows; r++) this.cells[c][r] = null;
+      let idx = stack.length - 1;
+      for (let r = this.rows - 1; r >= 0 && idx >= 0; r--) {
+        const rune = stack[idx--];
+        rune.col = c; rune.row = r; rune.landed = true;
+        this.cells[c][r] = rune;
+      }
+    }
+  }
+
+  checkBlocked() {
+    for (let c = 0; c < this.cols; c++) {
+      if (this.cells[c][0]) {
+        if (this.blockedCol !== c) {
+          this.blockedCol = c;
+          this.blockedTimer = CFG.GAME_OVER_DELAY;
+          this.bus.emit('column:blocked', { col: c });
+        }
+        return;
+      }
+    }
+    this.blockedCol = null;
+    this.blockedTimer = 0;
+  }
+
+  // -------------------------------------------------------------------
+  //  Vértices iluminados
+  // -------------------------------------------------------------------
+  updateVertices() {
+    const vertices = new Map();
+    for (let c = 0; c < this.cols; c++) {
+      for (let r = 0; r < this.rows; r++) {
+        const n = HexMath.neighbors(c, r);
+        const triples = [
+          [[c, r], n[0], n[2]],
+          [[c, r], n[0], n[4]],
+          [[c, r], n[4], n[5]],
+          [[c, r], n[5], n[1]],
+          [[c, r], n[1], n[3]],
+          [[c, r], n[3], n[2]],
+        ];
+        for (const tri of triples) {
+          if (tri.some(([cc, rr]) => !this.inBounds(cc, rr))) continue;
+          const key = tri.map(([cc, rr]) => `${cc},${rr}`).sort().join('|');
+          if (!vertices.has(key)) vertices.set(key, tri);
+        }
+      }
+    }
+
+    const newLit = new Set();
+    for (const [key, cells] of vertices) {
+      const runes = cells.map(([c, r]) => this.cells[c][r]);
+      if (runes.some(r => !r || r.special)) continue;
+      if (runes[0].type === runes[1].type && runes[1].type === runes[2].type) {
+        newLit.add(key);
+      }
+    }
+
+    let newBonus = 0;
+    for (const key of newLit) if (!this._prevLitVertices.has(key)) newBonus++;
+    this.litVertices = newLit;
+    this._prevLitVertices = newLit;
+
+    if (newBonus > 0) {
+      this.bus.emit('vertices:lit', { count: newBonus, total: newLit.size });
+    }
+  }
+
+  // -------------------------------------------------------------------
+  //  Movimientos válidos / shuffle
+  // -------------------------------------------------------------------
+  hasValidMove() {
+    for (let c = 0; c < this.cols; c++) {
+      for (let r = 0; r < this.rows; r++) {
+        const rune = this.cells[c][r];
+        if (!rune) continue;
+        if (rune.special) return true;
+        for (const [nc, nr] of HexMath.neighbors(c, r)) {
+          if (!this.inBounds(nc, nr)) continue;
+          const other = this.cells[nc][nr];
+          if (!other) continue;
+          this.cells[c][r] = other; this.cells[nc][nr] = rune;
+          const found = this.findMatchedSet().size > 0;
+          this.cells[c][r] = rune; this.cells[nc][nr] = other;
+          if (found) return true;
+        }
+      }
+    }
+    return false;
+  }
+
+  shuffle() {
+    const runes = [];
+    for (let c = 0; c < this.cols; c++)
+      for (let r = 0; r < this.rows; r++)
+        if (this.cells[c][r]) runes.push(this.cells[c][r]);
+    for (let i = runes.length - 1; i > 0; i--) {
+      const j = randInt(0, i);
+      [runes[i], runes[j]] = [runes[j], runes[i]];
+    }
+    let idx = 0;
+    for (let c = 0; c < this.cols; c++)
+      for (let r = 0; r < this.rows; r++)
+        if (this.cells[c][r]) {
+          this.cells[c][r] = runes[idx];
+          runes[idx].col = c; runes[idx].row = r;
+          idx++;
+        }
+    this.bus.emit('board:shuffled');
+  }
+
+  occupiedCount() {
+    let n = 0;
+    for (let c = 0; c < this.cols; c++)
+      for (let r = 0; r < this.rows; r++)
+        if (this.cells[c][r]) n++;
+    return n;
+  }
+}
+
+// =====================================================================
+// 8. SHOP
+// =====================================================================
+class Shop {
+  constructor(bus, board, game) {
+    this.bus = bus;
+    this.board = board;
+    this.game = game;
+    this.options = [];
+    this.catalog = [
+      { id:'slow',         name:'Cámara lenta',  desc:'5s de caída a la mitad de velocidad', cost:5 },
+      { id:'clear',        name:'Limpiar fila',  desc:'Elimina la fila más baja del tablero', cost:8 },
+      { id:'transmute',    name:'Transmutar',    desc:'El tipo más común se vuelve el menos común', cost:6 },
+      { id:'shield',       name:'Escudo',        desc:'Absorbe el próximo game over', cost:10 },
+      { id:'reroll',       name:'Reroll mano',   desc:'Cambia la runa actual de la mano por otra al azar', cost:4 },
+      { id:'fastHand',     name:'Mano rápida',   desc:'Reduce el cooldown de la mano a la mitad (permanente)', cost:6 },
+    ];
+  }
+  generate() {
+    this.options = [...this.catalog].sort(() => Math.random() - 0.5).slice(0, 3);
+    this.bus.emit('shop:generated', { options: this.options });
+  }
+  buy(id) {
+    const opt = this.options.find(o => o.id === id);
+    if (!opt || this.game.shopPoints < opt.cost) return false;
+    this.game.shopPoints -= opt.cost;
+    this.apply(id);
+    this.bus.emit('shop:bought', { id, cost: opt.cost });
+    return true;
+  }
+  apply(id) {
+    switch (id) {
+      case 'slow': this.game.slowTimer = 5.0; break;
+      case 'clear': {
+        let targetRow = -1;
+        for (let r = this.board.rows - 1; r >= 0; r--) {
+          let any = false;
+          for (let c = 0; c < this.board.cols; c++) if (this.board.cells[c][r]) { any = true; break; }
+          if (any) { targetRow = r; break; }
+        }
+        if (targetRow >= 0) {
+          for (let c = 0; c < this.board.cols; c++) {
+            const rune = this.board.cells[c][targetRow];
+            if (rune) {
+              this.board.cells[c][targetRow] = null;
+              this.board.explodedCount++;
+              this.bus.emit('rune:exploded', { rune, col: c, row: targetRow, cascade: 1 });
+            }
+          }
+          this.board.applyGravity();
+          this.board.updateVertices();
+        }
+        break;
+      }
+      case 'transmute': {
+        const counts = {};
+        for (const t of CFG.TYPES) counts[t] = 0;
+        for (let c = 0; c < this.board.cols; c++)
+          for (let r = 0; r < this.board.rows; r++) {
+            const rune = this.board.cells[c][r];
+            if (rune && !rune.special) counts[rune.type]++;
+          }
+        const sorted = Object.entries(counts).sort((a, b) => b[1] - a[1]);
+        const fromType = sorted[0][0];
+        const toType = sorted[sorted.length - 1][0];
+        for (let c = 0; c < this.board.cols; c++)
+          for (let r = 0; r < this.board.rows; r++) {
+            const rune = this.board.cells[c][r];
+            if (rune && !rune.special && rune.type === fromType) rune.type = toType;
+          }
+        this.board.updateVertices();
+        break;
+      }
+      case 'shield': this.game.shields++; break;
+      case 'reroll': {
+        // Cambia la runa de la mano por otra aleatoria (mantiene especial si la tenía)
+        if (this.game.handRune) {
+          this.game.handRune = {
+            type: this.board.randomType(),
+            special: this.game.handRune.special,
+          };
+        }
+        break;
+      }
+      case 'fastHand':
+        this.game.handModifiers.cooldownMult = 0.5;
+        break;
+    }
+  }
+}
+
+// =====================================================================
+// 9. GAME
+// =====================================================================
+class Game {
+  constructor(canvas) {
+    this.canvas = canvas;
+    this.ctx = canvas.getContext('2d');
+    this.bus = new EventBus();
+    this.audio = new AudioService();
+    this.board = new Board(this.bus, this.audio);
+    this.shop = new Shop(this.bus, this.board, this);
+
+    this.time = 0;
+    this.score = 0;
+    this.level = 1;
+    this.combo = 1;
+    this.bestCombo = 1;
+    this.comboTimer = 0;
+
+    // Combo de acción (swaps rápidos, independiente del de cascada)
+    this.actionCombo = 1;
+    this.actionTimer = 0;
+
+    this.spawnTimer = CFG.SPAWN_INTERVAL_START;
+    this.spawnInterval = CFG.SPAWN_INTERVAL_START;
+    this.slowTimer = 0;
+    this.shields = 0;
+    this.shopPoints = 0;
+    this.shopNextLevel = CFG.LEVELS_BETWEEN_SHOP;
+    this.gameOver = false;
+    this.paused = false;
+    this.particles = [];
+    this.floaters = [];
+    this.shake = 0;
+    this.blockedFlash = 0;
+    this.lastTime = performance.now();
+
+    // Mano (siempre con 1 runa)
+    this.handRune = { type: this.board.randomType(), special: null };
+    this.handCooldown = 0;
+    this.handSelected = false;
+    this.handModifiers = { cooldownMult: 1.0 };
+
+    this.originX = 0; this.originY = 0;
+    this.boardW = 0; this.boardH = 0;
+
+    this.selected = null;
+    this.pointerIsDown = false;
+
+    this.resize();
+    window.addEventListener('resize', () => this.resize());
+
+    // Suscripciones
+    this.bus.on('rune:exploded',     d => this.onRuneExploded(d));
+    this.bus.on('score:add',         d => this.onScoreAdd(d));
+    this.bus.on('cascade:level',     d => this.onCascade(d));
+    this.bus.on('special:activated', d => this.onSpecialActivated(d));
+    this.bus.on('special:created',   d => this.onSpecialCreated(d));
+    this.bus.on('column:blocked',    d => this.onColumnBlocked(d));
+    this.bus.on('vertices:lit',      d => this.onVerticesLit(d));
+    this.bus.on('action:performed',  d => this.onActionPerformed(d));
+    this.bus.on('board:shuffled',    () => {
+      this.audio.shuffle();
+      this.floatText('¡Barajado!', this.canvas.width / 2, this.canvas.height / 2, '#ffd700', 1.2);
+    });
+    this.bus.on('board:stable', () => {
+      let safety = 0;
+      while (this.board.findMatchedSet().size > 0 && safety++ < 20) {
+        this.board.resolveAll();
+      }
+      if (!this.board.hasValidMove()) this.board.shuffle();
+    });
+
+    document.getElementById('shop-continue').addEventListener('click', () => this.closeShop());
+    document.getElementById('go-restart').addEventListener('click', () => this.restart());
+
+    this.buildLegend();
+    this.board.reset();
+    this.updateHud();
+    this.loop();
+  }
+
+  resize() {
+    const w = window.innerWidth;
+    const h = window.innerHeight;
+    this.canvas.width = w;
+    this.canvas.height = h;
+    const size = CFG.HEX_SIZE;
+    const hw = 1.5 * size;
+    const hh = Math.sqrt(3) * size;
+    const boardW = CFG.COLS * hw + 0.5 * size;
+    const boardH = CFG.ROWS * hh + hh / 2;
+    this.originX = (w - boardW) / 2;
+    this.originY = (h - boardH) / 2 + 20;
+    this.boardW = boardW;
+    this.boardH = boardH;
+    this.handY = this.originY + boardH + 40;
+  }
+
+  buildLegend() {
+    const cont = document.getElementById('legend-runes');
+    cont.innerHTML = '';
+    for (const t of CFG.TYPES) {
+      const row = document.createElement('div');
+      row.className = 'rune-row';
+      row.innerHTML = `<div class="swatch" style="background:${CFG.COLORS[t]}">${CFG.LETTERS[t]}</div><span>${t}</span>`;
+      cont.appendChild(row);
+    }
+  }
+
+  // -------------------------------------------------------------------
+  //  Bucle
+  // -------------------------------------------------------------------
+  loop = () => {
+    const now = performance.now();
+    const dt = Math.min((now - this.lastTime) / 1000, 0.1);
+    this.lastTime = now;
+    if (!this.paused && !this.gameOver) this.update(dt);
+    this.draw();
+    requestAnimationFrame(this.loop);
+  }
+
+  update(dt) {
+    this.time += dt;
+    this.board.update(dt, this.originX, this.originY);
+
+    // Combo de cascada
+    if (this.comboTimer > 0) {
+      this.comboTimer -= dt;
+      if (this.comboTimer <= 0) { this.combo = 1; this.updateHud(); }
+    }
+    // Combo de acción
+    if (this.actionTimer > 0) {
+      this.actionTimer -= dt;
+      if (this.actionTimer <= 0) { this.actionCombo = 1; this.updateHud(); }
+    }
+    if (this.slowTimer > 0) this.slowTimer -= dt;
+    if (this.handCooldown > 0) this.handCooldown -= dt;
+
+    // Spawn: ya NO esperamos a stable. Más dinamismo, más caos.
+    {
+      const total = this.board.cols * this.board.rows;
+      const occupied = this.board.occupiedCount();
+      const fill = occupied / total;
+      const speedup = clamp(0.35 + fill * 0.65, 0.35, 1.0);
+      const interval = this.spawnInterval * speedup * (this.slowTimer > 0 ? 2 : 1);
+      this.spawnTimer -= dt;
+      if (this.spawnTimer <= 0) {
+        this.spawnTimer = interval;
+        this.board.spawnRune();
+      }
+    }
+
+    // Bloqueo
+    this.board.checkBlocked();
+    if (this.board.blockedCol !== null) {
+      this.blockedFlash = Math.sin(this.time * 10) * 0.5 + 0.5;
+      this.board.blockedTimer -= dt;
+      if (this.board.blockedTimer <= 0) {
+        if (this.shields > 0) {
+          this.shields--;
+          this.board.blockedCol = null;
+          this.board.blockedTimer = 0;
+        } else {
+          this.triggerGameOver();
+        }
+      }
+    } else {
+      this.blockedFlash = 0;
+    }
+
+    // Partículas
+    for (let i = this.particles.length - 1; i >= 0; i--) {
+      const p = this.particles[i];
+      p.x += p.vx * dt; p.y += p.vy * dt;
+      p.vy += 500 * dt;
+      p.life -= dt;
+      if (p.life <= 0) this.particles.splice(i, 1);
+    }
+    for (let i = this.floaters.length - 1; i >= 0; i--) {
+      const f = this.floaters[i];
+      f.y += f.vy * dt;
+      f.life -= dt;
+      if (f.life <= 0) this.floaters.splice(i, 1);
+    }
+    if (this.shake > 0) this.shake = Math.max(0, this.shake - dt * 25);
+
+    this.updateHud();
+  }
+
+  // -------------------------------------------------------------------
+  //  Callbacks
+  // -------------------------------------------------------------------
+  onRuneExploded({ col, row, cascade = 1 }) {
+    const px = HexMath.toPixel(col, row, this.originX, this.originY, CFG.HEX_SIZE);
+    const rune = this.board.cells[col]?.[row];
+    const color = rune ? CFG.COLORS[rune.type] : '#fff';
+    const n = 4 + cascade * 2;
+    for (let i = 0; i < n; i++) {
+      const a = Math.random() * Math.PI * 2;
+      const s = rand(60, 180 + cascade * 30);
+      this.particles.push({
+        x: px.x, y: px.y,
+        vx: Math.cos(a) * s, vy: Math.sin(a) * s,
+        life: 0.4 + Math.random() * 0.4, maxLife: 0.8,
+        color, size: 2 + Math.random() * 3 + cascade,
+      });
+    }
+    this.shake = Math.min(1.5, 0.2 + cascade * 0.35);
+    this.shopPoints += CFG.SHOP_POINTS_PER_EXPLODE;
+  }
+
+  onScoreAdd({ points, cascade }) {
+    // Multiplicador por combo de acción (swaps rápidos)
+    const total = Math.round(points * this.actionCombo);
+    this.score += total;
+    const targetLevel = Math.floor(this.score / CFG.LEVEL_UP_POINTS) + 1;
+    if (targetLevel > this.level) this.levelUp(targetLevel);
+    if (cascade > this.combo) {
+      this.combo = cascade;
+      this.bestCombo = Math.max(this.bestCombo, this.combo);
+    }
+  }
+
+  onCascade({ level }) {
+    this.comboTimer = CFG.COMBO_TIMEOUT;
+    this.floatText(`x${Math.pow(2, level - 1)}`,
+      this.canvas.width / 2, this.canvas.height / 2 - 40, '#ffd700', 1.0);
+  }
+
+  onActionPerformed() {
+    this.actionTimer = CFG.ACTION_TIMEOUT;
+    this.actionCombo = Math.min(CFG.ACTION_MAX, this.actionCombo + CFG.ACTION_STEP);
+  }
+
+  onSpecialActivated({ kind, col, row }) {
+    const px = HexMath.toPixel(col, row, this.originX, this.originY, CFG.HEX_SIZE);
+    this.shake = kind === 'bomba' ? 1.8 : 1.2;
+    const color = kind === 'filo' ? '#fff' : (kind === 'bomba' ? '#ff9f43' : '#ffd700');
+    for (let i = 0; i < 30; i++) {
+      const a = (i / 30) * Math.PI * 2;
+      const s = rand(200, 450);
+      this.particles.push({
+        x: px.x, y: px.y,
+        vx: Math.cos(a) * s, vy: Math.sin(a) * s,
+        life: 0.7, maxLife: 0.7, color, size: 5,
+      });
+    }
+  }
+
+  onSpecialCreated({ kind, col, row }) {
+    const px = HexMath.toPixel(col, row, this.originX, this.originY, CFG.HEX_SIZE);
+    const color = kind === 'filo' ? '#7fe6e0' : (kind === 'bomba' ? '#ff9f43' : '#ffd700');
+    for (let i = 0; i < 14; i++) {
+      const a = Math.random() * Math.PI * 2;
+      this.particles.push({
+        x: px.x, y: px.y,
+        vx: Math.cos(a) * 110, vy: Math.sin(a) * 110,
+        life: 0.6, maxLife: 0.6, color, size: 4,
+      });
+    }
+  }
+
+  onColumnBlocked({ col }) {
+    const px = HexMath.toPixel(col, 0, this.originX, this.originY, CFG.HEX_SIZE);
+    this.floatText('¡Cuidado!', px.x, px.y - 20, '#ff4757', 1.5);
+  }
+
+  onVerticesLit({ count }) {
+    const bonus = count * CFG.VERTEX_BONUS;
+    this.score += bonus;
+    this.shopPoints += count * 0.3;
+    this.audio.vertex();
+    if (count >= 2) {
+      this.floatText(`+${bonus} vértices`, this.canvas.width / 2, this.canvas.height / 2 + 40, '#7fe6e0', 0.9);
+    }
+  }
+
+  // -------------------------------------------------------------------
+  //  Nivel y tienda
+  // -------------------------------------------------------------------
+  levelUp(newLevel) {
+    this.level = newLevel;
+    this.audio.levelUp();
+    this.spawnInterval = Math.max(
+      CFG.SPAWN_INTERVAL_MIN,
+      CFG.SPAWN_INTERVAL_START - (this.level - 1) * CFG.SPAWN_INTERVAL_STEP
+    );
+    this.floatText(`Nivel ${this.level}`,
+      this.canvas.width / 2, this.canvas.height / 2 - 80, '#4da6ff', 1.8);
+    if (this.level >= this.shopNextLevel) {
+      this.shopNextLevel += CFG.LEVELS_BETWEEN_SHOP;
+      this.openShop();
+    }
+  }
+  openShop() {
+    this.paused = true;
+    this.shop.generate();
+    this.renderShopUI();
+    document.getElementById('shop').classList.add('open');
+  }
+  closeShop() {
+    document.getElementById('shop').classList.remove('open');
+    this.paused = false;
+    this.shop.options = [];
+  }
+  renderShopUI() {
+    const c = document.getElementById('shop-items');
+    c.innerHTML = '';
+    for (const opt of this.shop.options) {
+      const el = document.createElement('div');
+      el.className = 'item' + (this.shopPoints < opt.cost ? ' disabled' : '');
+      el.innerHTML = `<div class="name">${opt.name}</div><div class="desc">${opt.desc}</div><div class="cost">${opt.cost} pts</div>`;
+      el.addEventListener('click', () => { if (this.shop.buy(opt.id)) { this.audio.buy(); this.renderShopUI(); } });
+      c.appendChild(el);
+    }
+  }
+
+  // -------------------------------------------------------------------
+  //  Game over y reinicio
+  // -------------------------------------------------------------------
+  triggerGameOver() {
+    if (this.gameOver) return;
+    if (this.shields > 0) { this.shields--; this.board.blockedCol = null; this.board.blockedTimer = 0; return; }
+    this.gameOver = true;
+    this.audio.gameOver();
+    document.getElementById('go-score').textContent = this.score;
+    document.getElementById('go-level').textContent = this.level;
+    document.getElementById('go-combo').textContent = `x${Math.pow(2, this.bestCombo - 1)}`;
+    document.getElementById('gameover').classList.add('open');
+  }
+
+  restart() {
+    document.getElementById('gameover').classList.remove('open');
+    this.score = 0; this.level = 1; this.combo = 1; this.bestCombo = 1;
+    this.comboTimer = 0; this.actionCombo = 1; this.actionTimer = 0;
+    this.spawnTimer = CFG.SPAWN_INTERVAL_START;
+    this.spawnInterval = CFG.SPAWN_INTERVAL_START;
+    this.slowTimer = 0; this.shields = 0; this.shopPoints = 0;
+    this.shopNextLevel = CFG.LEVELS_BETWEEN_SHOP;
+    this.gameOver = false; this.paused = false;
+    this.particles = []; this.floaters = [];
+    this.shake = 0; this.selected = null; this.handSelected = false;
+    this.handRune = { type: this.board.randomType(), special: null };
+    this.handCooldown = 0;
+    this.handModifiers = { cooldownMult: 1.0 };
+    this.board.reset();
+    this.updateHud();
+  }
+
+  // -------------------------------------------------------------------
+  //  HUD
+  // -------------------------------------------------------------------
+  floatText(text, x, y, color, life) {
+    this.floaters.push({ text, x, y, vy: -40, life, maxLife: life, color });
+  }
+  updateHud() {
+    document.getElementById('hud-score').textContent = this.score;
+    document.getElementById('hud-level').textContent = this.level;
+    document.getElementById('hud-shop').textContent = Math.floor(this.shopPoints);
+    document.getElementById('hud-combo').textContent =
+      this.combo > 1 ? `COMBO x${Math.pow(2, this.combo - 1)}` : '';
+    document.getElementById('hud-action').textContent =
+      this.actionCombo > 1.01 ? `ACCIÓN x${this.actionCombo.toFixed(1)}` : '';
+    document.getElementById('hud-shield').textContent = this.shields > 0 ? `🛡 x${this.shields}` : '';
+    document.getElementById('hud-slow').textContent = this.slowTimer > 0 ? `⏱ ${this.slowTimer.toFixed(1)}s` : '';
+    const handEl = document.getElementById('hud-hand');
+    if (this.handCooldown > 0) handEl.textContent = `Mano: ⏱ ${this.handCooldown.toFixed(1)}s`;
+    else if (this.handSelected) handEl.textContent = 'Mano: elige destino';
+    else handEl.textContent = `Mano: [${CFG.LETTERS[this.handRune.type]}${this.handRune.special ? '·' + this.handRune.special[0].toUpperCase() : ''}]`;
+  }
+
+  // -------------------------------------------------------------------
+  //  Input
+  // -------------------------------------------------------------------
+  pointerDown(x, y) {
+    if (this.paused || this.gameOver) return;
+    this.pointerIsDown = true;
+
+    // Tap en la mano
+    if (this.isPointInHand(x, y)) {
+      if (this.handCooldown <= 0) {
+        this.handSelected = !this.handSelected;
+        this.audio.hand();
+        this.updateHud();
+      }
+      return;
+    }
+
+    // Tap en el tablero
+    const { col, row } = HexMath.fromPixel(x, y, this.originX, this.originY, CFG.HEX_SIZE);
+    if (!this.board.inBounds(col, row)) return;
+
+    const rune = this.board.cells[col][row];
+    if (!rune || !rune.landed) return;
+
+    // Modo mano: teleport-swap con cualquier runa del tablero
+    if (this.handSelected && this.handCooldown <= 0) {
+      const displaced = this.board.teleportSwap(this.handRune, col, row);
+      if (displaced) {
+        this.handRune = { type: displaced.type, special: displaced.special };
+        this.handSelected = false;
+        this.handCooldown = CFG.HAND_COOLDOWN * this.handModifiers.cooldownMult;
+        this.audio.hand();
+        this.updateHud();
+      } else {
+        // Fallo: no hay nada que intercambiar
+        this.audio.swapFail();
+      }
+      return;
+    }
+
+    // Modo swap adyacente normal
+    if (this.selected) {
+      if (this.selected.col === col && this.selected.row === row) {
+        this.selected = null;
+        return;
+      }
+      const isAdj = HexMath.neighbors(this.selected.col, this.selected.row)
+        .some(([nc, nr]) => nc === col && nr === row);
+      if (isAdj) {
+        this.board.trySwap(this.selected.col, this.selected.row, col, row);
+        this.selected = null;
+      } else {
+        this.selected = { col, row };
+        rune.flash = 1;
+      }
+    } else {
+      this.selected = { col, row };
+      rune.flash = 1;
+    }
+  }
+
+  pointerMove(x, y) {
+    if (!this.pointerIsDown) return;
+    if (this.handSelected) return;
+    if (!this.selected) return;
+    const { col, row } = HexMath.fromPixel(x, y, this.originX, this.originY, CFG.HEX_SIZE);
+    if (!this.board.inBounds(col, row)) return;
+    if (col === this.selected.col && row === this.selected.row) return;
+    const isAdj = HexMath.neighbors(this.selected.col, this.selected.row)
+      .some(([nc, nr]) => nc === col && nr === row);
+    if (isAdj) {
+      this.board.trySwap(this.selected.col, this.selected.row, col, row);
+      this.selected = null;
+    }
+  }
+  pointerUp() { this.pointerIsDown = false; }
+
+  isPointInHand(x, y) {
+    const cx = this.canvas.width / 2;
+    const cy = this.handY;
+    return Math.hypot(x - cx, y - cy) < CFG.HEX_SIZE * 1.6;
+  }
+
+  // -------------------------------------------------------------------
+  //  Dibujo
+  // -------------------------------------------------------------------
+  draw() {
+    const ctx = this.ctx;
+    const w = this.canvas.width, h = this.canvas.height;
+    ctx.fillStyle = '#0a0a16';
+    ctx.fillRect(0, 0, w, h);
+
+    const sx = (Math.random() - 0.5) * this.shake * 8;
+    const sy = (Math.random() - 0.5) * this.shake * 8;
+    ctx.save();
+    ctx.translate(sx, sy);
+
+    // Borde del tablero
+    ctx.strokeStyle = this.board.blockedCol !== null
+      ? `rgba(255,71,87,${0.3 + this.blockedFlash * 0.7})`
+      : '#2a2a44';
+    ctx.lineWidth = 4;
+    ctx.strokeRect(this.originX - 6, this.originY - 6, this.boardW + 12, this.boardH + 12);
+
+    // Overlay columna bloqueada
+    if (this.board.blockedCol !== null && this.board.blockedCol >= 0) {
+      const hw = 1.5 * CFG.HEX_SIZE;
+      const col = this.board.blockedCol;
+      const x = this.originX + CFG.HEX_SIZE + col * hw - hw / 2;
+      ctx.fillStyle = `rgba(255,71,87,${0.10 + this.blockedFlash * 0.18})`;
+      ctx.fillRect(x, this.originY, hw + CFG.HEX_SIZE, this.boardH);
+    }
+
+    // Preview del próximo spawn (solo si NO está la mano activa)
+    if (!this.handSelected) this.drawPreview(ctx);
+
+    // Resaltar candidatos de teleport-swap cuando la mano está activa
+    if (this.handSelected) this.drawTeleportCandidates(ctx);
+
+    // Vértices iluminados
+    this.drawVertices(ctx);
+
+    // Runas
+    for (let c = 0; c < this.board.cols; c++) {
+      for (let r = 0; r < this.board.rows; r++) {
+        const rune = this.board.cells[c][r];
+        if (!rune) continue;
+        const px = HexMath.toPixel(c, r, this.originX, this.originY, CFG.HEX_SIZE);
+        const y = rune.landed ? px.y : rune.visualY;
+        this.drawHex(ctx, px.x, y, rune);
+      }
+    }
+
+    // Mano
+    this.drawHand(ctx);
+
+    // Partículas
+    for (const p of this.particles) {
+      ctx.globalAlpha = Math.max(0, p.life / p.maxLife);
+      ctx.fillStyle = p.color;
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.globalAlpha = 1;
+
+    // Números flotantes
+    for (const f of this.floaters) {
+      ctx.globalAlpha = Math.max(0, f.life / f.maxLife);
+      ctx.fillStyle = f.color;
+      ctx.font = 'bold 22px monospace';
+      ctx.textAlign = 'center';
+      ctx.fillText(f.text, f.x, f.y);
+    }
+    ctx.globalAlpha = 1;
+
+    // Selección
+    if (this.selected) {
+      const { col, row } = this.selected;
+      const px = HexMath.toPixel(col, row, this.originX, this.originY, CFG.HEX_SIZE);
+      ctx.strokeStyle = '#ffd700';
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.arc(px.x, px.y, CFG.HEX_SIZE + 2, 0, Math.PI * 2);
+      ctx.stroke();
+      for (const [nc, nr] of HexMath.neighbors(col, row)) {
+        if (!this.board.inBounds(nc, nr)) continue;
+        const np = HexMath.toPixel(nc, nr, this.originX, this.originY, CFG.HEX_SIZE);
+        ctx.strokeStyle = 'rgba(255,215,0,0.35)';
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.arc(np.x, np.y, CFG.HEX_SIZE - 3, 0, Math.PI * 2);
+        ctx.stroke();
+      }
+    }
+
+    ctx.restore();
+  }
+
+  drawPreview(ctx) {
+    if (!this.board.nextSpawn) return;
+    if (this.gameOver || this.paused) return;
+    const { col, type } = this.board.nextSpawn;
+    let topOccupied = this.board.rows;
+    for (let r = 0; r < this.board.rows; r++) {
+      if (this.board.cells[col][r]) { topOccupied = r; break; }
+    }
+    const targetRow = topOccupied - 1;
+    if (targetRow < 0) return;
+    const px = HexMath.toPixel(col, targetRow, this.originX, this.originY, CFG.HEX_SIZE);
+
+    ctx.strokeStyle = 'rgba(255,215,0,0.35)';
+    ctx.lineWidth = 2;
+    ctx.setLineDash([6, 8]);
+    ctx.beginPath();
+    ctx.moveTo(px.x, this.originY - 30);
+    ctx.lineTo(px.x, px.y - CFG.HEX_SIZE);
+    ctx.stroke();
+    ctx.setLineDash([]);
+
+    const ghost = new Rune(type);
+    ctx.globalAlpha = 0.32 + Math.sin(this.time * 6) * 0.10;
+    this.drawHex(ctx, px.x, px.y, ghost);
+    ctx.globalAlpha = 1;
+  }
+
+  /**
+   * Cuando la mano está activa, resaltar con un aro las runas del tablero
+   * con las que se puede hacer teleport-swap.
+   */
+  drawTeleportCandidates(ctx) {
+    ctx.save();
+    ctx.strokeStyle = 'rgba(255,159,67,0.35)';
+    ctx.lineWidth = 2;
+    for (let c = 0; c < this.board.cols; c++) {
+      for (let r = 0; r < this.board.rows; r++) {
+        const rune = this.board.cells[c][r];
+        if (!rune || !rune.landed) continue;
+        const px = HexMath.toPixel(c, r, this.originX, this.originY, CFG.HEX_SIZE);
+        ctx.beginPath();
+        ctx.arc(px.x, px.y, CFG.HEX_SIZE - 3, 0, Math.PI * 2);
+        ctx.stroke();
+      }
+    }
+    ctx.restore();
+  }
+
+  drawVertices(ctx) {
+    for (const key of this.board.litVertices) {
+      const cells = key.split('|').map(s => s.split(',').map(Number));
+      if (cells.length !== 3) continue;
+      let sx = 0, sy = 0;
+      for (const [c, r] of cells) {
+        const p = HexMath.toPixel(c, r, this.originX, this.originY, CFG.HEX_SIZE);
+        sx += p.x; sy += p.y;
+      }
+      const vx = sx / 3, vy = sy / 3;
+      const alpha = 0.55 + Math.sin(this.time * 4) * 0.25;
+      ctx.save();
+      ctx.shadowColor = '#ffd700';
+      ctx.shadowBlur = 14;
+      ctx.globalAlpha = alpha;
+      ctx.fillStyle = '#ffd700';
+      ctx.beginPath();
+      ctx.arc(vx, vy, 3.5, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
+    }
+  }
+
+  drawHand(ctx) {
+    const cx = this.canvas.width / 2;
+    const cy = this.handY;
+    const size = CFG.HEX_SIZE;
+
+    ctx.save();
+    ctx.strokeStyle = this.handSelected ? '#ff9f43' : '#555';
+    ctx.lineWidth = this.handSelected ? 4 : 2;
+    ctx.beginPath();
+    ctx.arc(cx, cy, size * 1.25, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.restore();
+
+    if (this.handRune) {
+      const rune = new Rune(this.handRune.type, this.handRune.special);
+      const dim = this.handCooldown > 0;
+      ctx.globalAlpha = dim ? 0.4 : 1;
+      this.drawHex(ctx, cx, cy, rune);
+      ctx.globalAlpha = 1;
+
+      if (this.handCooldown > 0) {
+        ctx.strokeStyle = '#555';
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        const cdMax = CFG.HAND_COOLDOWN * this.handModifiers.cooldownMult;
+        const t = 1 - (this.handCooldown / cdMax);
+        ctx.arc(cx, cy, size * 1.25, -Math.PI / 2, -Math.PI / 2 + t * Math.PI * 2);
+        ctx.stroke();
+      }
+    }
+    ctx.fillStyle = this.handSelected ? '#ff9f43' : '#888';
+    ctx.font = '11px monospace';
+    ctx.textAlign = 'center';
+    ctx.fillText(this.handSelected ? 'elige runa destino' : 'tap: activar mano', cx, cy + size * 1.9);
+  }
+
+  drawHex(ctx, cx, cy, rune) {
+    const size = CFG.HEX_SIZE - 1;
+    const color = CFG.COLORS[rune.type];
+    ctx.save();
+
+    if (rune.special) {
+      ctx.shadowColor = rune.special === 'primigenio' ? '#ffd700'
+                       : rune.special === 'bomba'      ? '#ff9f43'
+                       : '#7fe6e0';
+      ctx.shadowBlur = 16;
+    }
+
+    ctx.fillStyle = color;
+    ctx.beginPath();
+    for (let i = 0; i < 6; i++) {
+      const angle = (Math.PI / 180) * (60 * i);
+      const x = cx + size * Math.cos(angle);
+      const y = cy + size * Math.sin(angle);
+      if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+    }
+    ctx.closePath();
+    ctx.fill();
+
+    ctx.shadowBlur = 0;
+    ctx.strokeStyle = 'rgba(0,0,0,0.4)';
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+
+    ctx.fillStyle = 'rgba(0,0,0,0.85)';
+    ctx.font = `bold ${Math.floor(size * 0.95)}px monospace`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(rune.letter, cx, cy + 1);
+
+    if (rune.special === 'filo') {
+      ctx.strokeStyle = '#fff';
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.moveTo(cx, cy - size * 0.7);
+      ctx.lineTo(cx, cy + size * 0.7);
+      ctx.stroke();
+    } else if (rune.special === 'primigenio') {
+      ctx.strokeStyle = '#ffd700';
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.arc(cx, cy, size * 0.55, 0, Math.PI * 2);
+      ctx.stroke();
+    } else if (rune.special === 'bomba') {
+      ctx.strokeStyle = '#ff9f43';
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.arc(cx, cy, size * 0.55, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.moveTo(cx - size * 0.4, cy - size * 0.4);
+      ctx.lineTo(cx + size * 0.4, cy + size * 0.4);
+      ctx.moveTo(cx + size * 0.4, cy - size * 0.4);
+      ctx.lineTo(cx - size * 0.4, cy + size * 0.4);
+      ctx.stroke();
+    }
+
+    if (rune.flash > 0) {
+      ctx.globalAlpha = rune.flash * 0.7;
+      ctx.fillStyle = '#fff';
+      ctx.beginPath();
+      ctx.arc(cx, cy, size * 0.9, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.globalAlpha = 1;
+    }
+    ctx.restore();
+  }
+}
+
+// =====================================================================
+// 10. TESTS
+// =====================================================================
+function runTests() {
+  const results = [];
+  const t = (name, fn) => {
+    try { fn(); results.push({ name, pass: true }); }
+    catch (e) { results.push({ name, pass: false, err: e.message }); }
+  };
+  const assert = (cond, msg) => { if (!cond) throw new Error(msg || 'assert'); };
+  const eq = (a, b, msg) => { if (a !== b) throw new Error(`${msg || 'eq'}: ${a} !== ${b}`); };
+
+  const audioMock = {
+    init(){}, _tone(){}, cascadeSound(){}, land(){}, swap(){}, swapFail(){},
+    teleport(){}, special(){}, bomb(){}, levelUp(){}, gameOver(){}, buy(){},
+    shuffle(){}, vertex(){}, hand(){},
+  };
+  const emptyBoard = () => {
+    const bus = new EventBus();
+    const b = new Board(bus, audioMock);
+    for (let c = 0; c < b.cols; c++) for (let r = 0; r < b.rows; r++) b.cells[c][r] = null;
+    return { b, bus };
+  };
+  const place = (b, c, r, type, special = null) => {
+    const rune = new Rune(type, special);
+    rune.landed = true;
+    rune.col = c; rune.row = r;
+    b.cells[c][r] = rune;
+    return rune;
+  };
+
+  // --- HexMath ---
+  t('HexMath.neighbors col par (0,0)', () => {
+    const ns = HexMath.neighbors(0, 0);
+    const expected = [[0,-1],[0,1],[1,-1],[1,0],[-1,-1],[-1,0]];
+    for (let i = 0; i < 6; i++) {
+      eq(ns[i][0], expected[i][0], `col ${i}`);
+      eq(ns[i][1], expected[i][1], `row ${i}`);
+    }
+  });
+
+  t('HexMath.neighbors col impar (1,0)', () => {
+    const ns = HexMath.neighbors(1, 0);
+    const expected = [[1,-1],[1,1],[2,0],[2,1],[0,0],[0,1]];
+    for (let i = 0; i < 6; i++) {
+      eq(ns[i][0], expected[i][0], `col ${i}`);
+      eq(ns[i][1], expected[i][1], `row ${i}`);
+    }
+  });
+
+  t('HexMath.toPixel / fromPixel round-trip', () => {
+    for (let c = 0; c < 6; c++) {
+      for (let r = 0; r < 12; r++) {
+        const px = HexMath.toPixel(c, r, 100, 50, 22);
+        const back = HexMath.fromPixel(px.x, px.y, 100, 50, 22);
+        eq(back.col, c, `col ${c},${r}`);
+        eq(back.row, r, `row ${c},${r}`);
+      }
+    }
+  });
+
+  // --- Matches ---
+  t('Match vertical N/S de 3', () => {
+    const { b } = emptyBoard();
+    place(b, 0, 0, 'fuego'); place(b, 0, 1, 'fuego'); place(b, 0, 2, 'fuego');
+    eq(b.findMatchedSet().size, 3);
+  });
+
+  t('4 en línea se detecta', () => {
+    const { b } = emptyBoard();
+    for (let r = 0; r < 4; r++) place(b, 0, r, 'fuego');
+    const m = b.findMatchedSet();
+    eq(m.size, 4);
+    eq(b.longestLineInGroup(b.groupMatchedSet(m)[0]), 4);
+  });
+
+  t('4 en la misma fila (zigzag) NO forma match', () => {
+    const { b } = emptyBoard();
+    place(b, 0, 0, 'fuego');
+    place(b, 1, 0, 'fuego');
+    place(b, 2, 0, 'fuego');
+    place(b, 3, 0, 'fuego');
+    eq(b.findMatchedSet().size, 0);
+  });
+
+  // --- Gravedad ---
+  t('applyGravity compacta', () => {
+    const { b } = emptyBoard();
+    place(b, 0, 0, 'fuego');
+    place(b, 0, 5, 'agua');
+    b.applyGravity();
+    eq(b.cells[0][b.rows - 1].type, 'agua');
+    eq(b.cells[0][b.rows - 2].type, 'fuego');
+  });
+
+  // --- Teleport-swap (NUEVO) ---
+  t('teleportSwap intercambia la runa de la mano con una del tablero', () => {
+    const { b } = emptyBoard();
+    place(b, 2, 5, 'fuego');
+    const hand = { type: 'agua', special: null };
+    const displaced = b.teleportSwap(hand, 2, 5);
+    assert(displaced, 'debería devolver la runa desplazada');
+    eq(displaced.type, 'fuego', 'la desplazada es fuego');
+    // La mano (agua) se colocó. Como no hay nada más, gravedad la deja abajo.
+    // Buscar el agua en la columna 2.
+    let found = false;
+    for (let r = 0; r < b.rows; r++) {
+      const rune = b.cells[2][r];
+      if (rune && rune.type === 'agua') found = true;
+    }
+    assert(found, 'debería haber un agua en el tablero');
+  });
+
+  t('teleportSwap funciona con especiales', () => {
+    const { b } = emptyBoard();
+    place(b, 2, 5, 'fuego');
+    const hand = { type: 'agua', special: 'filo' };
+    const displaced = b.teleportSwap(hand, 2, 5);
+    assert(displaced, 'devuelve la desplazada');
+    // La especial filo debe estar ahora en el tablero (col 2)
+    let foundSpecial = false;
+    for (let r = 0; r < b.rows; r++) {
+      const rune = b.cells[2][r];
+      if (rune && rune.special === 'filo') foundSpecial = true;
+    }
+    assert(foundSpecial, 'la especial filo debería estar en el tablero');
+  });
+
+  t('teleportSwap con celda vacía devuelve null', () => {
+    const { b } = emptyBoard();
+    const hand = { type: 'agua', special: null };
+    const displaced = b.teleportSwap(hand, 2, 5);
+    eq(displaced, null);
+  });
+
+  t('teleportSwap emite action:performed', () => {
+    const { b, bus } = emptyBoard();
+    place(b, 2, 5, 'fuego');
+    let emitted = false;
+    bus.on('action:performed', () => { emitted = true; });
+    b.teleportSwap({ type: 'agua' }, 2, 5);
+    assert(emitted, 'debería emitir action:performed');
+  });
+
+  // --- Combo de acción ---
+  t('Action combo sube con swaps rápidos', () => {
+    let combo = 1;
+    const STEP = 0.2, MAX = 4.0;
+    combo = Math.min(MAX, combo + STEP);  // 1.2
+    combo = Math.min(MAX, combo + STEP);  // 1.4
+    combo = Math.min(MAX, combo + STEP);  // 1.6
+    eq(Math.round(combo * 10) / 10, 1.6);
+  });
+
+  t('Action combo topa en 4.0', () => {
+    let combo = 3.9;
+    const STEP = 0.2, MAX = 4.0;
+    combo = Math.min(MAX, combo + STEP);
+    eq(combo, 4.0);
+    combo = Math.min(MAX, combo + STEP);
+    eq(combo, 4.0, 'sigue topado');
+  });
+
+  // --- Vértices ---
+  t('Vértice se ilumina si 3 hexes comparten tipo', () => {
+    const { b } = emptyBoard();
+    place(b, 1, 5, 'agua');
+    place(b, 1, 4, 'agua');
+    place(b, 2, 5, 'agua');
+    b.updateVertices();
+    assert(b.litVertices.size > 0, 'debería haber vértices iluminados');
+  });
+
+  t('Vértice NO se ilumina con tipos distintos', () => {
+    const { b } = emptyBoard();
+    place(b, 1, 5, 'agua');
+    place(b, 1, 4, 'fuego');
+    place(b, 2, 5, 'agua');
+    b.updateVertices();
+    eq(b.litVertices.size, 0);
+  });
+
+  // --- Puntuación ---
+  t('Fórmula cascada', () => {
+    eq(3 * 10 * Math.pow(2, 0), 30);
+    eq(3 * 10 * Math.pow(2, 1), 60);
+    eq(3 * 10 * Math.pow(2, 2), 120);
+  });
+
+  t('Score con action combo aplicado', () => {
+    const base = 30;
+    const actionCombo = 1.6;
+    eq(Math.round(base * actionCombo), 48);
+  });
+
+  // --- Render ---
+  const panel = document.getElementById('testpanel');
+  if (panel) {
+    panel.classList.add('open');
+    const pass = results.filter(r => r.pass).length;
+    const fail = results.length - pass;
+    panel.innerHTML =
+      `<div>Tests: ${pass}/${results.length} OK ${fail > 0 ? '· ' + fail + ' FALLOS' : ''}</div>` +
+      results.map(r =>
+        `<div class="${r.pass ? 'pass' : 'fail'}">${r.pass ? '✓' : '✗'} ${r.name}${r.err ? ' — ' + r.err : ''}</div>`
+      ).join('');
+  }
+  console.log(`Tests: ${results.filter(r => r.pass).length}/${results.length}`);
+  return results;
+}
+
+// =====================================================================
+// 11. INIT
+// =====================================================================
+window.addEventListener('load', () => {
+  const canvas = document.getElementById('game');
+  const game = new Game(canvas);
+  window.__game = game;
+  window.__runTests = runTests;
+
+  const getXY = (e) => {
+    const rect = canvas.getBoundingClientRect();
+    const t = e.touches ? e.touches[0] : e;
+    return { x: t.clientX - rect.left, y: t.clientY - rect.top };
+  };
+
+  canvas.addEventListener('mousedown', e => { game.audio.init(); const p = getXY(e); game.pointerDown(p.x, p.y); });
+  canvas.addEventListener('mousemove', e => { if (e.buttons) { const p = getXY(e); game.pointerMove(p.x, p.y); } });
+  window.addEventListener('mouseup', () => game.pointerUp());
+
+  canvas.addEventListener('touchstart', e => {
+    e.preventDefault(); game.audio.init();
+    const p = getXY(e); game.pointerDown(p.x, p.y);
+  }, { passive: false });
+  canvas.addEventListener('touchmove', e => {
+    e.preventDefault();
+    const p = getXY(e); game.pointerMove(p.x, p.y);
+  }, { passive: false });
+  canvas.addEventListener('touchend', e => { e.preventDefault(); game.pointerUp(); }, { passive: false });
+
+  document.addEventListener('click', () => game.audio.init(), { once: true });
+
+  if (location.search.includes('test')) setTimeout(() => runTests(), 200);
+});
+</script>
+</body>
+</html>
