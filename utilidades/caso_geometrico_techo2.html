@@ -1,0 +1,1487 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<title>Juguete B v1.3 · análisis 2D + campo de fuerzas</title>
+<style>
+  :root{--bg:#0f1115;--fg:#e5e7eb;--muted:#9ca3af;--panel:#161922;--border:#2a2f3a;
+        --ok:#22c55e;--bad:#ef4444;--accent:#22d3ee;--warn:#eab308}
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%;font-family:ui-sans-serif,system-ui,sans-serif;
+    background:var(--bg);color:var(--fg);overflow:hidden}
+  #app{display:grid;grid-template-columns:1fr 420px;height:100vh;width:100vw}
+  #stage{position:relative;background:var(--bg)}
+  #cv{position:absolute;inset:0;display:block;width:100%;height:100%}
+  #panel{overflow-y:auto;padding:12px;background:rgba(22,25,34,.96);
+    border-left:1px solid var(--border);font-size:13px}
+  #panel::-webkit-scrollbar{width:8px}
+  #panel::-webkit-scrollbar-thumb{background:#2a2f3a;border-radius:4px}
+  h3{margin:14px 0 6px;font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted)}
+  h3:first-child{margin-top:0}
+  .row{display:flex;gap:8px;align-items:center;margin-bottom:6px}
+  .row label{flex:0 0 130px;color:var(--muted);font-size:12px}
+  .row input[type=range]{flex:1}
+  .row .val{min-width:60px;text-align:right;font-variant-numeric:tabular-nums;
+    color:var(--muted);font-size:11px}
+  .row.check label{flex:1;display:flex;align-items:center;gap:6px;cursor:pointer;color:var(--fg)}
+  select,button,textarea{font-family:inherit;font-size:12px;color:var(--fg);
+    background:#2a2f3a;border:1px solid var(--border);border-radius:4px;padding:4px 8px}
+  button{cursor:pointer}
+  button:hover{background:#353b4a}
+  button.primary{background:#1e3a5f;border-color:#2a4a7f}
+  button.primary:hover{background:#2a4a7f}
+  textarea{width:100%;height:180px;font-family:ui-monospace,monospace;font-size:11px;
+    resize:vertical;padding:6px;line-height:1.4}
+  .btns{display:flex;gap:6px;margin-top:6px;flex-wrap:wrap}
+  .btns button{flex:1;min-width:80px}
+  .kv{display:flex;justify-content:space-between;padding:3px 0;
+    border-bottom:1px solid rgba(255,255,255,.04);font-size:12px}
+  .kv span{color:var(--muted)}
+  .kv b{font-variant-numeric:tabular-nums}
+  .test{padding:2px 4px;border-radius:3px;margin-bottom:2px;
+    font-family:ui-monospace,monospace;font-size:11px}
+  .test.ok{color:#86efac;background:rgba(34,197,94,.08)}
+  .test.fail{color:#fca5a5;background:rgba(239,68,68,.12)}
+  .hint{font-size:11px;color:var(--muted);line-height:1.5;margin-top:6px}
+  .verdict{font-size:14px;font-weight:600;margin:6px 0;padding:8px;border-radius:4px;text-align:center}
+  .verdict.ok{background:rgba(34,197,94,.15);color:#86efac}
+  .verdict.fail{background:rgba(239,68,68,.15);color:#fca5a5}
+  .badge{display:inline-block;padding:1px 6px;border-radius:3px;font-size:10px;
+    text-transform:uppercase;letter-spacing:.05em}
+  .badge.warn{background:var(--warn);color:#000}
+</style>
+</head>
+<body>
+<div id="app">
+  <div id="stage"><canvas id="cv"></canvas></div>
+  <aside id="panel">
+    <h3>Preset</h3>
+    <select id="preset" style="width:100%">
+      <option value="beam_center">Viga biapoyada · carga central</option>
+      <option value="beam_uniform">Viga biapoyada · carga uniforme</option>
+      <option value="cantilever_tip">Voladizo · carga en punta</option>
+      <option value="portal_center">Pórtico · carga central</option>
+      <option value="truss_triangle">Triángulo articulado</option>
+      <option value="counterweight">Voladizo con contrapeso (test #9)</option>
+    </select>
+    <div class="btns" style="margin-top:8px">
+      <button class="primary" id="btn-analyze">Analizar</button>
+      <button class="primary" id="btn-optimize">Optimizar sección</button>
+    </div>
+    <div class="btns">
+      <button id="btn-json">Ver / editar JSON</button>
+      <button id="btn-tests">Ejecutar tests</button>
+    </div>
+
+    <h3>Vista</h3>
+    <div class="row check">
+      <label><input type="checkbox" id="showField" checked> Campo de fuerzas internas</label>
+    </div>
+    <div class="row">
+      <label>Deformada ×</label>
+      <input type="range" id="defScale" min="0" max="200" step="1" value="30">
+      <span class="val" id="defScaleVal">30</span>
+    </div>
+    <div class="row">
+      <label>Escala carga</label>
+      <input type="range" id="loadScale" min="0.1" max="3" step="0.1" value="1">
+      <span class="val" id="loadScaleVal">1.0</span>
+    </div>
+
+    <h3>Resultados</h3>
+    <div id="results"></div>
+
+    <h3>Tests del dominio</h3>
+    <div id="tests-out" class="hint">Pulsa "Ejecutar tests".</div>
+
+    <div id="json-wrap" style="display:none;margin-top:12px">
+      <h3>JSON de entrada</h3>
+      <textarea id="json-in" spellcheck="false"></textarea>
+      <div class="btns">
+        <button class="primary" id="btn-json-apply">Aplicar JSON</button>
+        <button id="btn-json-copy">Copiar al portapapeles</button>
+      </div>
+      <div id="json-error" style="color:#fca5a5;font-size:11px;margin-top:6px"></div>
+    </div>
+
+    <div class="hint" style="margin-top:14px;padding-top:8px;border-top:1px solid var(--border)">
+      <b>Aviso.</b> Herramienta didáctica. Lineal, estático, 2D, sin pandeo ni conexiones.
+      Da órdenes de magnitud. <b>No certifica, no autoriza a construir.</b>
+    </div>
+  </aside>
+</div>
+<script>
+"use strict";
+
+/* ============================================================================
+ * DOMAIN · PRIMITIVES
+ * SI. z vertical, gravedad = -z. Plano de análisis: (x, z).
+ * ========================================================================== */
+const G_ACC = 9.81;
+
+class Material {
+  constructor(id, E, rho, sigmaAdm){ this.id=id; this.E=E; this.rho=rho; this.sigmaAdm=sigmaAdm; }
+}
+class Section {
+  constructor(id, A, I, c){ this.id=id; this.A=A; this.I=I; this.c=c; }
+}
+class Node {
+  constructor(id, x, z){ this.id=id; this.x=x; this.z=z; }
+}
+class Element {
+  constructor(id, node1, node2, materialId, sectionId, type){
+    this.id=id; this.node1=node1; this.node2=node2;
+    this.materialId=materialId; this.sectionId=sectionId;
+    this.type = type || "frame";
+  }
+}
+class Support {
+  constructor(nodeId, type){ this.nodeId=nodeId; this.type=type; }
+  fixedLocalDOFs(){
+    switch(this.type){
+      case "fixed":    return [0,1,2];
+      case "pinned":   return [0,1];
+      case "roller_x": return [0];
+      case "roller_z": return [1];
+      default:         return [];
+    }
+  }
+}
+class UniformLoad {
+  constructor(elementId, wx, wz){ this.type="uniform"; this.elementId=elementId; this.wx=wx||0; this.wz=wz||0; }
+}
+class PointOnElement {
+  constructor(elementId, a, Px, Pz){ this.type="point_elem"; this.elementId=elementId; this.a=a; this.Px=Px||0; this.Pz=Pz||0; }
+}
+class PointOnNode {
+  constructor(nodeId, Fx, Fz, M){ this.type="point_node"; this.nodeId=nodeId;
+    this.Fx=Fx||0; this.Fz=Fz||0; this.M=M||0; }
+}
+class Scene {
+  constructor(){
+    this.nodes = new Map();
+    this.elements = new Map();
+    this.materials = new Map();
+    this.sections = new Map();
+    this.supports = new Map();
+    this.loads = [];
+    this.selfWeight = false;
+    this.constraints = {};
+  }
+}
+
+/* ============================================================================
+ * DOMAIN · BEAM SOLVER  (sin cambios respecto a v1, incluido aquí íntegro)
+ * ========================================================================== */
+class BeamSolver {
+  static elementStiffnessLocal(E, A, I, L, type){
+    if (L < 1e-12) throw new Error("Elemento de longitud cero");
+    if (type === "truss"){
+      const k = E*A/L;
+      return [
+        [ k,0,0,-k,0,0],
+        [ 0,0,0, 0,0,0],
+        [ 0,0,0, 0,0,0],
+        [-k,0,0, k,0,0],
+        [ 0,0,0, 0,0,0],
+        [ 0,0,0, 0,0,0],
+      ];
+    }
+    const k1 = E*A/L;
+    const k2 = 12*E*I/(L*L*L);
+    const k3 =  6*E*I/(L*L);
+    const k4 =  4*E*I/L;
+    const k5 =  2*E*I/L;
+    return [
+      [ k1,  0,  0,-k1,  0,  0],
+      [  0, k2, k3,  0,-k2, k3],
+      [  0, k3, k4,  0,-k3, k5],
+      [-k1,  0,  0, k1,  0,  0],
+      [  0,-k2,-k3,  0, k2,-k3],
+      [  0, k3, k5,  0,-k3, k4],
+    ];
+  }
+  static transformLocalToGlobal(c, s){
+    return [
+      [ c, s, 0, 0, 0, 0],
+      [-s, c, 0, 0, 0, 0],
+      [ 0, 0, 1, 0, 0, 0],
+      [ 0, 0, 0, c, s, 0],
+      [ 0, 0, 0,-s, c, 0],
+      [ 0, 0, 0, 0, 0, 1],
+    ];
+  }
+  static fixedEndUniform(wx, wz, L){
+    return [ -wx*L/2, -wz*L/2, -wz*L*L/12,
+             -wx*L/2, -wz*L/2, +wz*L*L/12 ];
+  }
+  static fixedEndPoint(Px, Pz, a, L){
+    const b = L - a;
+    const L2 = L*L, L3 = L2*L;
+    return [
+      -Px*b/L,
+      -Pz*b*b*(L+2*a)/L3,
+      -Pz*a*b*b/L2,
+      -Px*a/L,
+      -Pz*a*a*(3*L-2*a)/L3,
+       Pz*a*a*b/L2,
+    ];
+  }
+  static matMul(A, B){
+    const n=A.length, m=B[0].length, p=B.length;
+    const C = Array.from({length:n}, ()=>new Array(m).fill(0));
+    for (let i=0;i<n;i++) for (let k=0;k<p;k++) for (let j=0;j<m;j++)
+      C[i][j] += A[i][k]*B[k][j];
+    return C;
+  }
+  static matTranspose(A){ return A[0].map((_,j)=>A.map(row=>row[j])); }
+  static matVec(A, v){ return A.map(row => row.reduce((s,x,i)=>s+x*v[i], 0)); }
+
+  static solveLinearSystem(A, b){
+    const n = b.length;
+    const M = A.map((row,i)=>[...row, b[i]]);
+    for (let i=0;i<n;i++){
+      let piv = i;
+      for (let k=i+1;k<n;k++) if (Math.abs(M[k][i]) > Math.abs(M[piv][i])) piv = k;
+      if (piv !== i) [M[i], M[piv]] = [M[piv], M[i]];
+      if (Math.abs(M[i][i]) < 1e-12)
+        throw new Error("Sistema singular en fila " + i + " (mecanismo o apoyo mal puesto)");
+      for (let k=i+1;k<n;k++){
+        const f = M[k][i]/M[i][i];
+        for (let j=i;j<=n;j++) M[k][j] -= f*M[i][j];
+      }
+    }
+    const x = new Array(n);
+    for (let i=n-1;i>=0;i--){
+      let s = M[i][n];
+      for (let j=i+1;j<n;j++) s -= M[i][j]*x[j];
+      x[i] = s/M[i][i];
+    }
+    return x;
+  }
+
+  static analyze(scene){
+    const nodeList = [...scene.nodes.values()];
+    const nNodes = nodeList.length;
+    const ndof = nNodes * 3;
+    const nodeIndex = new Map();
+    nodeList.forEach((n,i)=>nodeIndex.set(n.id, i));
+
+    const K = Array.from({length:ndof}, ()=>new Array(ndof).fill(0));
+    const F_ext = new Array(ndof).fill(0);
+    const fixedDOFs = new Set();
+    const elementData = [];
+
+    for (const sup of scene.supports.values()){
+      const ni = nodeIndex.get(sup.nodeId);
+      if (ni === undefined) throw new Error("Soporte en nodo inexistente: " + sup.nodeId);
+      for (const local of sup.fixedLocalDOFs()) fixedDOFs.add(ni*3 + local);
+    }
+    const nodesWithFrame = new Set();
+    for (const el of scene.elements.values()){
+      if (el.type === "frame"){ nodesWithFrame.add(el.node1); nodesWithFrame.add(el.node2); }
+    }
+    for (const nd of nodeList){
+      if (!nodesWithFrame.has(nd.id)) fixedDOFs.add(nodeIndex.get(nd.id)*3 + 2);
+    }
+
+    for (const el of scene.elements.values()){
+      const n1 = scene.nodes.get(el.node1);
+      const n2 = scene.nodes.get(el.node2);
+      if (!n1 || !n2) throw new Error("Elemento " + el.id + " con nodo inexistente");
+      const mat = scene.materials.get(el.materialId);
+      const sec = scene.sections.get(el.sectionId);
+      if (!mat || !sec) throw new Error("Elemento " + el.id + " con material/sección inexistente");
+
+      const dx = n2.x - n1.x, dz = n2.z - n1.z;
+      const L = Math.hypot(dx, dz);
+      const c = dx/L, s = dz/L;
+      const Kl = BeamSolver.elementStiffnessLocal(mat.E, sec.A, sec.I, L, el.type);
+      const T = BeamSolver.transformLocalToGlobal(c, s);
+      const Tt = BeamSolver.matTranspose(T);
+      const Kg = BeamSolver.matMul(BeamSolver.matMul(Tt, Kl), T);
+
+      const i1 = nodeIndex.get(el.node1)*3;
+      const i2 = nodeIndex.get(el.node2)*3;
+      const dofs = [i1, i1+1, i1+2, i2, i2+1, i2+2];
+      for (let a=0;a<6;a++) for (let b=0;b<6;b++)
+        K[dofs[a]][dofs[b]] += Kg[a][b];
+
+      elementData.push({ el, n1, n2, L, c, s, Kl, T, Tt, dofs, mat, sec, F_fixed_local: new Array(6).fill(0) });
+    }
+
+    for (const load of scene.loads){
+      if (load.type === "point_node"){
+        const ni = nodeIndex.get(load.nodeId);
+        if (ni === undefined) throw new Error("Carga en nodo inexistente: " + load.nodeId);
+        F_ext[ni*3]   += load.Fx;
+        F_ext[ni*3+1] += load.Fz;
+        F_ext[ni*3+2] += load.M;
+      } else if (load.type === "uniform"){
+        const ed = elementData.find(e => e.el.id === load.elementId);
+        if (!ed) throw new Error("Carga uniforme en elemento inexistente: " + load.elementId);
+        const wx_l =  load.wx*ed.c + load.wz*ed.s;
+        const wz_l = -load.wx*ed.s + load.wz*ed.c;
+        const ffe = BeamSolver.fixedEndUniform(wx_l, wz_l, ed.L);
+        for (let i=0;i<6;i++) ed.F_fixed_local[i] += ffe[i];
+        const ffe_g = BeamSolver.matVec(ed.Tt, ffe);
+        for (let i=0;i<6;i++) F_ext[ed.dofs[i]] += ffe_g[i];
+      } else if (load.type === "point_elem"){
+        const ed = elementData.find(e => e.el.id === load.elementId);
+        if (!ed) throw new Error("Carga puntual en elemento inexistente: " + load.elementId);
+        const px_l =  load.Px*ed.c + load.Pz*ed.s;
+        const pz_l = -load.Px*ed.s + load.Pz*ed.c;
+        const ffe = BeamSolver.fixedEndPoint(px_l, pz_l, load.a, ed.L);
+        for (let i=0;i<6;i++) ed.F_fixed_local[i] += ffe[i];
+        const ffe_g = BeamSolver.matVec(ed.Tt, ffe);
+        for (let i=0;i<6;i++) F_ext[ed.dofs[i]] += ffe_g[i];
+      }
+    }
+
+    if (scene.selfWeight){
+      for (const ed of elementData){
+        const wz_l = -ed.mat.rho * ed.sec.A * G_ACC;
+        const ffe = BeamSolver.fixedEndUniform(0, wz_l, ed.L);
+        for (let i=0;i<6;i++) ed.F_fixed_local[i] += ffe[i];
+        const ffe_g = BeamSolver.matVec(ed.Tt, ffe);
+        for (let i=0;i<6;i++) F_ext[ed.dofs[i]] += ffe_g[i];
+      }
+    }
+
+    const free = [], fixed = [];
+    for (let i=0;i<ndof;i++) (fixedDOFs.has(i) ? fixed : free).push(i);
+    const Kff = free.map(i => free.map(j => K[i][j]));
+    const Ff  = free.map(i => F_ext[i]);
+    const df  = BeamSolver.solveLinearSystem(Kff, Ff);
+    const d = new Array(ndof).fill(0);
+    free.forEach((idx,k)=>d[idx]=df[k]);
+
+    const reactions = [];
+    for (const fi of fixed){
+      let r = 0;
+      for (let j=0;j<ndof;j++) r += K[fi][j]*d[j];
+      r -= F_ext[fi];
+      reactions.push({ dof: fi, value: r });
+    }
+
+    const elementResults = [];
+    for (const ed of elementData){
+      const d_glob = ed.dofs.map(i => d[i]);
+      const d_loc = BeamSolver.matVec(ed.T, d_glob);
+      const f_loc = BeamSolver.matVec(ed.Kl, d_loc).map((v,i)=>v + ed.F_fixed_local[i]);
+
+      const wz_equiv = -ed.F_fixed_local[1]*2/ed.L;
+      const wx_equiv = ed.F_fixed_local[0] !== 0 ? -ed.F_fixed_local[0]*2/ed.L : 0;
+
+      const nPts = 21;
+      const xs = [], N = [], V = [], M = [];
+      for (let k=0;k<nPts;k++){
+        const x = ed.L * k/(nPts-1);
+        xs.push(x);
+        const Fx1 = f_loc[0], Fz1 = f_loc[1], M1 = f_loc[2];
+        N.push(-Fx1 - wx_equiv*x);
+        V.push(Fz1 + wz_equiv*x);
+        M.push(-M1 + Fz1*x + wz_equiv*x*x/2);
+      }
+      elementResults.push({
+        elementId: ed.el.id, L: ed.L,
+        x: xs, N, V, M, f_local: f_loc, d_local: d_loc,
+        mat: ed.mat, sec: ed.sec,
+        c: ed.c, s: ed.s, n1: ed.n1, n2: ed.n2,
+      });
+    }
+
+    let maxDefl = 0, maxMoment = 0, maxUtil = 0, maxAxial = 0;
+    for (let i=0;i<ndof;i++) {
+      const local = i%3;
+      if (local !== 2) maxDefl = Math.max(maxDefl, Math.abs(d[i]));
+    }
+    for (const er of elementResults){
+      for (const m of er.M) maxMoment = Math.max(maxMoment, Math.abs(m));
+      for (const n of er.N) maxAxial = Math.max(maxAxial, Math.abs(n));
+      for (let k=0;k<er.x.length;k++){
+        const sigma = Math.abs(er.N[k])/er.sec.A + Math.abs(er.M[k])*er.sec.c/er.sec.I;
+        const util = sigma / er.mat.sigmaAdm;
+        if (util > maxUtil) maxUtil = util;
+      }
+    }
+    return {
+      displacements: d, reactions, elementResults, nodeIndex,
+      summary: { maxDefl, maxMoment, maxUtil, maxAxial },
+    };
+  }
+}
+
+/* ============================================================================
+ * DOMAIN · FORCE FIELD BUILDER  (paso 2: lógica pura, testeable)
+ * ----------------------------------------------------------------------------
+ * Combina N(x) y V(x) de cada elemento en un vector de fuerza global.
+ * Convención local: eje x_local = dirección node1→node2, z_local = +90° CCW.
+ * Vector en local: (N, V). En global: (N·c − V·s, N·s + V·c).
+ * La dirección de la flecha es la del vector; la longitud, proporcional a |F|.
+ *
+ * Lo que NO hace: no calcula tensiones de sección (eso requeriría distribuir
+ * N/A y M·c/I). Es un campo de resultantes en el eje. Para "ver por dónde va
+ * la fuerza", es suficiente y honesto.
+ * ========================================================================== */
+class ForceFieldBuilder {
+  static build(results, scene, opts = {}){
+    const samples = opts.samplesPerElement || 11;
+    const fields = [];
+    let maxMag = 0;
+    for (const er of results.elementResults){
+      const el = scene.elements.get(er.elementId);
+      if (!el) continue;
+      const n1 = scene.nodes.get(el.node1);
+      const n2 = scene.nodes.get(el.node2);
+      const dx = n2.x - n1.x, dz = n2.z - n1.z;
+      const L = Math.hypot(dx, dz);
+      if (L < 1e-12) continue;
+      const c = dx/L, s = dz/L;
+      const points = [];
+      for (let k=0; k<samples; k++){
+        const xL = L * k / (samples - 1);
+        const Nv = ForceFieldBuilder._interp(er.x, er.N, xL);
+        const Vv = ForceFieldBuilder._interp(er.x, er.V, xL);
+        const Fx = Nv*c - Vv*s;
+        const Fz = Nv*s + Vv*c;
+        const mag = Math.hypot(Fx, Fz);
+        if (mag > maxMag) maxMag = mag;
+        points.push({
+          xLocal: xL, N: Nv, V: Vv,
+          x: n1.x + c*xL, z: n1.z + s*xL,
+          Fx, Fz, mag,
+        });
+      }
+      fields.push({ elementId: er.elementId, points });
+    }
+    return { elements: fields, maxMag };
+  }
+  static _interp(xs, ys, xq){
+    const n = xs.length;
+    if (n === 0) return 0;
+    if (xq <= xs[0]) return ys[0];
+    if (xq >= xs[n-1]) return ys[n-1];
+    for (let i=1; i<n; i++){
+      if (xs[i] >= xq){
+        const t = (xq - xs[i-1]) / (xs[i] - xs[i-1] || 1);
+        return ys[i-1] + t*(ys[i] - ys[i-1]);
+      }
+    }
+    return ys[n-1];
+  }
+}
+
+/* ============================================================================
+ * DOMAIN · CONSTRAINTS  (sin cambios)
+ * ========================================================================== */
+function checkConstraints(scene, results){
+  const violations = [];
+  const c = scene.constraints || {};
+  if (c.maxUtilization != null){
+    if (results.summary.maxUtil > c.maxUtilization){
+      violations.push({ type:"utilization",
+        msg:`Aprovechamiento ${(results.summary.maxUtil*100).toFixed(0)}% > ${(c.maxUtilization*100).toFixed(0)}%` });
+    }
+  }
+  if (c.maxDeflection != null){
+    if (results.summary.maxDefl > c.maxDeflection){
+      violations.push({ type:"deflection",
+        msg:`Flecha ${(results.summary.maxDefl*1000).toFixed(1)} mm > ${(c.maxDeflection*1000).toFixed(1)} mm` });
+    }
+  }
+  if (c.maxDeflectionRelative != null){
+    let Lmax = 0;
+    for (const el of scene.elements.values()){
+      const n1 = scene.nodes.get(el.node1), n2 = scene.nodes.get(el.node2);
+      Lmax = Math.max(Lmax, Math.hypot(n2.x-n1.x, n2.z-n1.z));
+    }
+    const limit = Lmax / c.maxDeflectionRelative;
+    if (results.summary.maxDefl > limit){
+      violations.push({ type:"deflection_rel",
+        msg:`Flecha ${(results.summary.maxDefl*1000).toFixed(1)} mm > L/${c.maxDeflectionRelative} = ${(limit*1000).toFixed(1)} mm` });
+    }
+  }
+  return { ok: violations.length === 0, violations };
+}
+
+/* ============================================================================
+ * DOMAIN · OPTIMIZER  (sin cambios: greedy por catálogo, óptimo local)
+ * ========================================================================== */
+class SectionOptimizer {
+  static optimizeByCatalog(scene, catalog, constraints){
+    const clone = SectionOptimizer._cloneScene(scene);
+    const elementIds = [...clone.elements.keys()];
+    const history = [];
+    for (let iter = 0; iter < 50; iter++){
+      let anyChange = false;
+      for (const elId of elementIds){
+        const el = clone.elements.get(elId);
+        const currentSecId = el.sectionId;
+        let chosen = null, feasible = false;
+        for (let k=0;k<catalog.length;k++){
+          el.sectionId = catalog[k].id;
+          SectionOptimizer._ensureSection(clone, catalog[k]);
+          try {
+            const res = BeamSolver.analyze(clone);
+            const cc = checkConstraints(clone, res);
+            if (cc.ok){ chosen = catalog[k]; feasible = true; break; }
+          } catch(e){}
+        }
+        if (!feasible){
+          el.sectionId = catalog[catalog.length-1].id;
+          SectionOptimizer._ensureSection(clone, catalog[catalog.length-1]);
+          return { scene: clone, iterations: iter, feasible: false,
+            message: "Ninguna sección del catálogo cumple los constraints." };
+        }
+        if (chosen.id !== currentSecId){
+          el.sectionId = chosen.id;
+          anyChange = true;
+          history.push({ iteration: iter, element: elId, from: currentSecId, to: chosen.id });
+        }
+      }
+      if (!anyChange) break;
+    }
+    try {
+      const res = BeamSolver.analyze(clone);
+      const cc = checkConstraints(clone, res);
+      return { scene: clone, iterations: history.length, feasible: cc.ok,
+        message: cc.ok ? "Óptimo local (greedy, catálogo)." : "Sección final no cumple.", history };
+    } catch(e){
+      return { scene: clone, iterations: history.length, feasible: false, message: "Error: " + e.message };
+    }
+  }
+  static _ensureSection(scene, spec){
+    if (!scene.sections.has(spec.id))
+      scene.sections.set(spec.id, new Section(spec.id, spec.A, spec.I, spec.c));
+  }
+  static _cloneScene(scene){
+    const s = new Scene();
+    s.selfWeight = scene.selfWeight;
+    s.constraints = JSON.parse(JSON.stringify(scene.constraints || {}));
+    s.materials = new Map(scene.materials);
+    s.sections = new Map(scene.sections);
+    s.nodes = new Map(scene.nodes);
+    s.elements = new Map();
+    for (const [id, el] of scene.elements)
+      s.elements.set(id, new Element(el.id, el.node1, el.node2, el.materialId, el.sectionId, el.type));
+    s.supports = new Map(scene.supports);
+    s.loads = scene.loads.slice();
+    return s;
+  }
+}
+
+/* ============================================================================
+ * DOMAIN · SCHEMA / LOADER  (sin cambios)
+ * ========================================================================== */
+function loadSceneFromJSON(str){
+  let data;
+  try { data = JSON.parse(str); }
+  catch(e){ throw new Error("JSON inválido: " + e.message); }
+  if (data.units !== "SI") throw new Error('Campo "units" debe ser "SI"');
+  if (!data.materials || Object.keys(data.materials).length === 0) throw new Error("Falta material");
+  if (!data.sections || Object.keys(data.sections).length === 0) throw new Error("Falta sección");
+  if (!Array.isArray(data.nodes) || data.nodes.length < 2) throw new Error("Mínimo 2 nodos");
+  if (!Array.isArray(data.elements) || data.elements.length < 1) throw new Error("Mínimo 1 elemento");
+
+  const scene = new Scene();
+  for (const [id, m] of Object.entries(data.materials)){
+    if (![m.E, m.rho, m.sigmaAdm].every(v => typeof v === "number" && isFinite(v)))
+      throw new Error("Material " + id + " con valores no numéricos");
+    scene.materials.set(id, new Material(id, m.E, m.rho, m.sigmaAdm));
+  }
+  for (const [id, s] of Object.entries(data.sections)){
+    if (![s.A, s.I, s.c].every(v => typeof v === "number" && v > 0))
+      throw new Error("Sección " + id + " no válida");
+    scene.sections.set(id, new Section(id, s.A, s.I, s.c));
+  }
+  for (const n of data.nodes){
+    if (!n.id || ![n.x, n.z].every(v => typeof v === "number" && isFinite(v)))
+      throw new Error("Nodo inválido: " + JSON.stringify(n));
+    if (scene.nodes.has(n.id)) throw new Error("Nodo duplicado: " + n.id);
+    scene.nodes.set(n.id, new Node(n.id, n.x, n.z));
+  }
+  for (const el of data.elements){
+    if (!el.id || !el.node1 || !el.node2) throw new Error("Elemento inválido");
+    if (!scene.nodes.has(el.node1)) throw new Error("Elemento " + el.id + " refiere nodo inexistente: " + el.node1);
+    if (!scene.nodes.has(el.node2)) throw new Error("Elemento " + el.id + " refiere nodo inexistente: " + el.node2);
+    if (!scene.materials.has(el.material)) throw new Error("Material inexistente en " + el.id);
+    if (!scene.sections.has(el.section)) throw new Error("Sección inexistente en " + el.id);
+    scene.elements.set(el.id, new Element(el.id, el.node1, el.node2, el.material, el.section, el.type));
+  }
+  for (const sup of data.supports || []){
+    if (!scene.nodes.has(sup.node)) throw new Error("Soporte en nodo inexistente: " + sup.node);
+    scene.supports.set(sup.node, new Support(sup.node, sup.type));
+  }
+  for (const load of data.loads || []){
+    if (load.type === "point_node"){
+      if (!scene.nodes.has(load.node)) throw new Error("Carga en nodo inexistente");
+      scene.loads.push(new PointOnNode(load.node, load.Fx, load.Fz, load.M));
+    } else if (load.type === "uniform"){
+      if (!scene.elements.has(load.element)) throw new Error("Carga uniforme en elemento inexistente");
+      scene.loads.push(new UniformLoad(load.element, load.wx, load.wz));
+    } else if (load.type === "point_elem"){
+      if (!scene.elements.has(load.element)) throw new Error("Carga puntual en elemento inexistente");
+      scene.loads.push(new PointOnElement(load.element, load.a, load.Px, load.Pz));
+    }
+  }
+  scene.selfWeight = !!data.selfWeight;
+  scene.constraints = data.constraints || {};
+  return scene;
+}
+
+/* ============================================================================
+ * ADAPTERS · RENDERER 2D
+ * ========================================================================== */
+class CanvasRenderer {
+  constructor(canvas){
+    this.cv = canvas;
+    this.ctx = canvas.getContext("2d");
+    this.defScale = 30;
+    this.loadScale = 1;
+    window.addEventListener("resize", () => this.resize());
+    this.resize();
+  }
+  resize(){
+    const dpr = window.devicePixelRatio || 1;
+    const r = this.cv.getBoundingClientRect();
+    this.cv.width = Math.max(1, Math.floor(r.width * dpr));
+    this.cv.height = Math.max(1, Math.floor(r.height * dpr));
+    this.ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    this.W = r.width; this.H = r.height;
+  }
+  fitView(scene){
+    let minX=Infinity,minZ=Infinity,maxX=-Infinity,maxZ=-Infinity;
+    for (const n of scene.nodes.values()){
+      if (n.x<minX)minX=n.x; if (n.x>maxX)maxX=n.x;
+      if (n.z<minZ)minZ=n.z; if (n.z>maxZ)maxZ=n.z;
+    }
+    const w = Math.max(maxX-minX, 1), h = Math.max(maxZ-minZ, 1);
+    const pad = 80;
+    this.view = {
+      cx: (minX+maxX)/2, cz: (minZ+maxZ)/2,
+      scale: Math.min((this.W-2*pad)/w, (this.H-2*pad)/h),
+    };
+  }
+  worldToScreen(x, z){
+    return [
+      (x - this.view.cx) * this.view.scale + this.W/2,
+      -(z - this.view.cz) * this.view.scale + this.H/2,
+    ];
+  }
+  draw(scene, results){
+    const ctx = this.ctx;
+    ctx.clearRect(0, 0, this.W, this.H);
+    this._grid();
+    if (!results) return;
+    const disp = results.displacements;
+    const idx = results.nodeIndex;
+
+    ctx.strokeStyle = "rgba(34,211,238,0.35)";
+    ctx.lineWidth = 1.2;
+    ctx.setLineDash([4,4]);
+    for (const er of results.elementResults){
+      const el = scene.elements.get(er.elementId);
+      const n1 = scene.nodes.get(el.node1), n2 = scene.nodes.get(el.node2);
+      const i1 = idx.get(el.node1), i2 = idx.get(el.node2);
+      const u1 = disp[i1*3]*this.defScale, v1 = disp[i1*3+1]*this.defScale;
+      const u2 = disp[i2*3]*this.defScale, v2 = disp[i2*3+1]*this.defScale;
+      const [sx1,sy1] = this.worldToScreen(n1.x + u1, n1.z + v1);
+      const [sx2,sy2] = this.worldToScreen(n2.x + u2, n2.z + v2);
+      ctx.beginPath(); ctx.moveTo(sx1,sy1); ctx.lineTo(sx2,sy2); ctx.stroke();
+    }
+    ctx.setLineDash([]);
+
+    for (const el of scene.elements.values()){
+      const n1 = scene.nodes.get(el.node1), n2 = scene.nodes.get(el.node2);
+      const [sx1,sy1] = this.worldToScreen(n1.x, n1.z);
+      const [sx2,sy2] = this.worldToScreen(n2.x, n2.z);
+      ctx.beginPath(); ctx.moveTo(sx1,sy1); ctx.lineTo(sx2,sy2);
+      ctx.strokeStyle = el.type === "truss" ? "#a78bfa" : "#22d3ee";
+      ctx.lineWidth = el.type === "truss" ? 1.5 : 2.5;
+      ctx.stroke();
+    }
+
+    for (const n of scene.nodes.values()){
+      const [sx,sy] = this.worldToScreen(n.x, n.z);
+      ctx.beginPath(); ctx.arc(sx, sy, 3.5, 0, Math.PI*2);
+      ctx.fillStyle = "#e5e7eb"; ctx.fill();
+    }
+
+    for (const sup of scene.supports.values()){
+      const n = scene.nodes.get(sup.nodeId);
+      const [sx,sy] = this.worldToScreen(n.x, n.z);
+      this._drawSupport(sx, sy, sup.type);
+    }
+
+    const maxLoad = Math.max(1, ...scene.loads.map(l => Math.hypot(l.Fx||l.wx||0, l.Fz||l.wz||0)*this.loadScale));
+    for (const load of scene.loads){
+      if (load.type === "point_node"){
+        const n = scene.nodes.get(load.nodeId);
+        const [sx,sy] = this.worldToScreen(n.x, n.z);
+        this._arrow(sx, sy, load.Fx*this.loadScale, load.Fz*this.loadScale, maxLoad, 40, "#eab308");
+      } else if (load.type === "uniform"){
+        const el = scene.elements.get(load.elementId);
+        const n1 = scene.nodes.get(el.node1), n2 = scene.nodes.get(el.node2);
+        const [sx1,sy1] = this.worldToScreen(n1.x, n1.z);
+        const [sx2,sy2] = this.worldToScreen(n2.x, n2.z);
+        for (let k=1;k<=4;k++){
+          const t = k/5;
+          const sx = sx1 + (sx2-sx1)*t, sy = sy1 + (sy2-sy1)*t;
+          this._arrow(sx, sy, load.wx*this.loadScale, load.wz*this.loadScale, maxLoad, 25, "#eab308");
+        }
+      } else if (load.type === "point_elem"){
+        const el = scene.elements.get(load.elementId);
+        const n1 = scene.nodes.get(el.node1), n2 = scene.nodes.get(el.node2);
+        const t = load.a / Math.hypot(n2.x-n1.x, n2.z-n1.z);
+        const wx = n1.x + (n2.x-n1.x)*t, wz = n1.z + (n2.z-n1.z)*t;
+        const [sx,sy] = this.worldToScreen(wx, wz);
+        this._arrow(sx, sy, load.Px*this.loadScale, load.Pz*this.loadScale, maxLoad, 35, "#eab308");
+      }
+    }
+  }
+
+  /* --- Paso 3: render del campo. Adapter puro: pinta lo que el dominio
+   *     le entregó. No calcula física. --- */
+  drawForceField(scene, field, opts = {}){
+    if (!field || !field.elements || field.maxMag <= 0) return;
+    const ctx = this.ctx;
+    const maxArrowLen = opts.maxArrowLen || 28;
+    const maxMag = field.maxMag;
+
+    for (const el of field.elements){
+      for (const p of el.points){
+        if (p.mag < 1e-9) continue;
+        const [sx, sy] = this.worldToScreen(p.x, p.z);
+        const ratio = p.mag / maxMag;
+        const len = maxArrowLen * ratio;
+        const ux = p.Fx / p.mag;
+        const uz = p.Fz / p.mag;
+        const ex = sx + ux * len;
+        const ey = sy - uz * len;   // z world+ va hacia arriba en pantalla
+        const color = this._magColor(ratio);
+        ctx.strokeStyle = color;
+        ctx.fillStyle = color;
+        ctx.lineWidth = 1.5;
+        ctx.beginPath(); ctx.moveTo(sx, sy); ctx.lineTo(ex, ey); ctx.stroke();
+        const ang = Math.atan2(ey - sy, ex - sx);
+        ctx.beginPath();
+        ctx.moveTo(ex, ey);
+        ctx.lineTo(ex - 5*Math.cos(ang - 0.45), ey - 5*Math.sin(ang - 0.45));
+        ctx.lineTo(ex - 5*Math.cos(ang + 0.45), ey - 5*Math.sin(ang + 0.45));
+        ctx.closePath(); ctx.fill();
+      }
+    }
+    this._drawLegend(maxMag);
+  }
+  _magColor(ratio){
+    // azul (0) → cian → verde → amarillo → rojo (1)
+    const hue = 240 * (1 - Math.max(0, Math.min(1, ratio)));
+    return `hsl(${hue}, 85%, 55%)`;
+  }
+  _drawLegend(maxMag){
+    const ctx = this.ctx;
+    const x = 20, y = this.H - 80, w = 220, h = 12;
+    const grad = ctx.createLinearGradient(x, 0, x+w, 0);
+    for (let i=0; i<=10; i++) grad.addColorStop(i/10, this._magColor(i/10));
+    ctx.fillStyle = grad; ctx.fillRect(x, y, w, h);
+    ctx.strokeStyle = "#9ca3af"; ctx.lineWidth = 1; ctx.strokeRect(x, y, w, h);
+    ctx.fillStyle = "#9ca3af";
+    ctx.font = "11px ui-sans-serif, system-ui, sans-serif";
+    ctx.textAlign = "left";
+    ctx.fillText("0", x, y + h + 14);
+    ctx.textAlign = "right";
+    ctx.fillText(maxMag.toFixed(0) + " N", x + w, y + h + 14);
+    ctx.textAlign = "left";
+    ctx.fillText("campo de fuerzas internas |F|", x, y - 5);
+  }
+
+  _arrow(x, y, fx, fz, maxMag, maxLen, color){
+    const mag = Math.hypot(fx, fz);
+    if (mag < 1e-9) return;
+    const len = Math.min(maxLen, maxLen * mag/maxMag);
+    const ux = -fx/mag, uy = -fz/mag;
+    const ax = x + ux*len, ay = y + uy*len;
+    const ctx = this.ctx;
+    ctx.strokeStyle = color; ctx.fillStyle = color; ctx.lineWidth = 1.5;
+    ctx.beginPath(); ctx.moveTo(ax, ay); ctx.lineTo(x, y); ctx.stroke();
+    const ang = Math.atan2(y-ay, x-ax);
+    ctx.beginPath();
+    ctx.moveTo(x, y);
+    ctx.lineTo(x - 7*Math.cos(ang-0.4), y - 7*Math.sin(ang-0.4));
+    ctx.lineTo(x - 7*Math.cos(ang+0.4), y - 7*Math.sin(ang+0.4));
+    ctx.closePath(); ctx.fill();
+  }
+  _drawSupport(x, y, type){
+    const ctx = this.ctx;
+    ctx.strokeStyle = "#94a3b8"; ctx.fillStyle = "#94a3b8"; ctx.lineWidth = 1.5;
+    if (type === "pinned" || type === "fixed"){
+      ctx.beginPath();
+      ctx.moveTo(x, y); ctx.lineTo(x-8, y+14); ctx.lineTo(x+8, y+14);
+      ctx.closePath(); ctx.fill();
+    }
+    if (type === "roller_z" || type === "roller_x"){
+      ctx.beginPath();
+      ctx.moveTo(x, y); ctx.lineTo(x-7, y+11); ctx.lineTo(x+7, y+11);
+      ctx.closePath(); ctx.fill();
+      ctx.beginPath(); ctx.arc(x-4, y+15, 2.5, 0, Math.PI*2); ctx.fill();
+      ctx.beginPath(); ctx.arc(x+4, y+15, 2.5, 0, Math.PI*2); ctx.fill();
+    }
+    if (type === "fixed"){
+      for (let k=-10;k<=10;k+=4){
+        ctx.beginPath(); ctx.moveTo(x+k, y+14); ctx.lineTo(x+k-4, y+20); ctx.stroke();
+      }
+    }
+  }
+  _grid(){
+    const ctx = this.ctx;
+    if (!this.view) return;
+    const step = niceStep(60 / this.view.scale);
+    ctx.strokeStyle = "rgba(255,255,255,0.04)"; ctx.lineWidth = 1;
+    const [x0,z0] = [this.view.cx - this.W/(2*this.view.scale), this.view.cz - this.H/(2*this.view.scale)];
+    const [x1,z1] = [this.view.cx + this.W/(2*this.view.scale), this.view.cz + this.H/(2*this.view.scale)];
+    ctx.beginPath();
+    for (let x = Math.ceil(x0/step)*step; x <= x1; x += step){
+      const [sx] = this.worldToScreen(x, 0); ctx.moveTo(sx, 0); ctx.lineTo(sx, this.H);
+    }
+    for (let z = Math.ceil(z0/step)*step; z <= z1; z += step){
+      const [,sy] = this.worldToScreen(0, z); ctx.moveTo(0, sy); ctx.lineTo(this.W, sy);
+    }
+    ctx.stroke();
+  }
+}
+function niceStep(raw){
+  const p = Math.pow(10, Math.floor(Math.log10(raw)));
+  const n = raw/p;
+  return p * (n<1.5?1 : n<3.5?2 : n<7.5?5 : 10);
+}
+
+/* ============================================================================
+ * APPLICATION
+ * ========================================================================== */
+class App {
+  constructor(){
+    this.renderer = new CanvasRenderer(document.getElementById("cv"));
+    this.currentScene = null;
+    this.currentResults = null;
+    this.currentField = null;
+    this.showField = true;
+    this.sectionCatalog = [
+      { id: "sec_S1", A: 0.0010, I: 1.0e-5, c: 0.05 },
+      { id: "sec_S2", A: 0.0015, I: 2.0e-5, c: 0.06 },
+      { id: "sec_S3", A: 0.0020, I: 4.0e-5, c: 0.08 },
+      { id: "sec_S4", A: 0.0030, I: 8.0e-5, c: 0.10 },
+      { id: "sec_S5", A: 0.0040, I: 1.5e-4, c: 0.12 },
+      { id: "sec_S6", A: 0.0060, I: 3.0e-4, c: 0.15 },
+    ];
+    this.bindUI();
+    this.loadPreset("beam_center");
+  }
+
+  bindUI(){
+    document.getElementById("preset").addEventListener("change", e => this.loadPreset(e.target.value));
+    document.getElementById("btn-analyze").addEventListener("click", () => this.analyze());
+    document.getElementById("btn-optimize").addEventListener("click", () => this.optimize());
+    document.getElementById("btn-json").addEventListener("click", () => this.toggleJSON());
+    document.getElementById("btn-json-apply").addEventListener("click", () => this.applyJSON());
+    document.getElementById("btn-json-copy").addEventListener("click", () => this.copyJSON());
+    document.getElementById("btn-tests").addEventListener("click", () => this.runTests());
+    const ds = document.getElementById("defScale");
+    ds.addEventListener("input", () => {
+      this.renderer.defScale = parseFloat(ds.value);
+      document.getElementById("defScaleVal").textContent = ds.value;
+      this._redraw();
+    });
+    const ls = document.getElementById("loadScale");
+    ls.addEventListener("input", () => {
+      this.renderer.loadScale = parseFloat(ls.value);
+      document.getElementById("loadScaleVal").textContent = parseFloat(ls.value).toFixed(1);
+      this._redraw();
+    });
+    document.getElementById("showField").addEventListener("change", e => {
+      this.showField = e.target.checked;
+      this._redraw();
+    });
+  }
+
+  _redraw(){
+    if (!this.currentScene || !this.currentResults) return;
+    this.renderer.draw(this.currentScene, this.currentResults);
+    if (this.showField){
+      this.currentField = ForceFieldBuilder.build(
+        this.currentResults, this.currentScene, { samplesPerElement: 11 });
+      this.renderer.drawForceField(this.currentScene, this.currentField, { maxArrowLen: 28 });
+    } else {
+      this.currentField = null;
+    }
+  }
+
+  loadPreset(name){
+    const presets = {
+      beam_center: {
+        units: "SI", selfWeight: false,
+        materials: { steel: { E: 2.1e11, rho: 7850, sigmaAdm: 1.6e8 } },
+        sections: { IPE200: { A: 2.85e-3, I: 1.94e-5, c: 0.10 } },
+        nodes: [
+          { id: "n1", x: 0, z: 0 },
+          { id: "n2", x: 5, z: 0 },
+          { id: "n3", x: 10, z: 0 },
+        ],
+        elements: [
+          { id: "e1", node1: "n1", node2: "n2", material: "steel", section: "IPE200", type: "frame" },
+          { id: "e2", node1: "n2", node2: "n3", material: "steel", section: "IPE200", type: "frame" },
+        ],
+        supports: [
+          { node: "n1", type: "pinned" },
+          { node: "n3", type: "roller_z" },
+        ],
+        loads: [{ type: "point_node", node: "n2", Fx: 0, Fz: -10000, M: 0 }],
+        constraints: { maxUtilization: 1.0, maxDeflectionRelative: 300 },
+      },
+      beam_uniform: {
+        units: "SI", selfWeight: false,
+        materials: { steel: { E: 2.1e11, rho: 7850, sigmaAdm: 1.6e8 } },
+        sections: { IPE200: { A: 2.85e-3, I: 1.94e-5, c: 0.10 } },
+        nodes: [
+          { id: "n1", x: 0, z: 0 }, { id: "n2", x: 5, z: 0 }, { id: "n3", x: 10, z: 0 },
+        ],
+        elements: [
+          { id: "e1", node1: "n1", node2: "n2", material: "steel", section: "IPE200", type: "frame" },
+          { id: "e2", node1: "n2", node2: "n3", material: "steel", section: "IPE200", type: "frame" },
+        ],
+        supports: [{ node: "n1", type: "pinned" }, { node: "n3", type: "roller_z" }],
+        loads: [
+          { type: "uniform", element: "e1", wx: 0, wz: -2000 },
+          { type: "uniform", element: "e2", wx: 0, wz: -2000 },
+        ],
+        constraints: { maxUtilization: 1.0, maxDeflectionRelative: 300 },
+      },
+      cantilever_tip: {
+        units: "SI", selfWeight: false,
+        materials: { steel: { E: 2.1e11, rho: 7850, sigmaAdm: 1.6e8 } },
+        sections: { IPE200: { A: 2.85e-3, I: 1.94e-5, c: 0.10 } },
+        nodes: [
+          { id: "n1", x: 0, z: 0 }, { id: "n2", x: 2.5, z: 0 }, { id: "n3", x: 5, z: 0 },
+        ],
+        elements: [
+          { id: "e1", node1: "n1", node2: "n2", material: "steel", section: "IPE200", type: "frame" },
+          { id: "e2", node1: "n2", node2: "n3", material: "steel", section: "IPE200", type: "frame" },
+        ],
+        supports: [{ node: "n1", type: "fixed" }],
+        loads: [{ type: "point_node", node: "n3", Fx: 0, Fz: -1000, M: 0 }],
+        constraints: { maxUtilization: 1.0 },
+      },
+      portal_center: {
+        units: "SI", selfWeight: false,
+        materials: { steel: { E: 2.1e11, rho: 7850, sigmaAdm: 1.6e8 } },
+        sections: { IPE200: { A: 2.85e-3, I: 1.94e-5, c: 0.10 } },
+        nodes: [
+          { id: "n1", x: 0, z: 0 }, { id: "n2", x: 0, z: 3 },
+          { id: "n3", x: 5, z: 3 }, { id: "n4", x: 10, z: 3 },
+          { id: "n5", x: 10, z: 0 },
+        ],
+        elements: [
+          { id: "e1", node1: "n1", node2: "n2", material: "steel", section: "IPE200", type: "frame" },
+          { id: "e2", node1: "n2", node2: "n3", material: "steel", section: "IPE200", type: "frame" },
+          { id: "e3", node1: "n3", node2: "n4", material: "steel", section: "IPE200", type: "frame" },
+          { id: "e4", node1: "n4", node2: "n5", material: "steel", section: "IPE200", type: "frame" },
+        ],
+        supports: [{ node: "n1", type: "pinned" }, { node: "n5", type: "pinned" }],
+        loads: [{ type: "point_node", node: "n3", Fx: 0, Fz: -5000, M: 0 }],
+        constraints: { maxUtilization: 1.0 },
+      },
+      truss_triangle: {
+        units: "SI", selfWeight: false,
+        materials: { steel: { E: 2.1e11, rho: 7850, sigmaAdm: 1.6e8 } },
+        sections: { TUBE: { A: 1.0e-3, I: 1.0e-6, c: 0.05 } },
+        nodes: [
+          { id: "nA", x: -5, z: 0 }, { id: "nB", x: 5, z: 0 }, { id: "nC", x: 0, z: 8.66 },
+        ],
+        elements: [
+          { id: "eAB", node1: "nA", node2: "nB", material: "steel", section: "TUBE", type: "truss" },
+          { id: "eAC", node1: "nA", node2: "nC", material: "steel", section: "TUBE", type: "truss" },
+          { id: "eBC", node1: "nB", node2: "nC", material: "steel", section: "TUBE", type: "truss" },
+        ],
+        supports: [{ node: "nA", type: "pinned" }, { node: "nB", type: "roller_z" }],
+        loads: [{ type: "point_node", node: "nC", Fx: 0, Fz: -1000, M: 0 }],
+        constraints: { maxUtilization: 1.0 },
+      },
+      counterweight: {
+        units: "SI", selfWeight: false,
+        materials: { steel: { E: 2.1e11, rho: 7850, sigmaAdm: 1.6e8 } },
+        sections: { IPE200: { A: 2.85e-3, I: 1.94e-5, c: 0.10 } },
+        nodes: [
+          { id: "n1", x: -2, z: 0 }, { id: "n2", x: 0, z: 0 },
+          { id: "n3", x: 10, z: 0 }, { id: "n4", x: 12, z: 0 },
+        ],
+        elements: [
+          { id: "e1", node1: "n1", node2: "n2", material: "steel", section: "IPE200", type: "frame" },
+          { id: "e2", node1: "n2", node2: "n3", material: "steel", section: "IPE200", type: "frame" },
+          { id: "e3", node1: "n3", node2: "n4", material: "steel", section: "IPE200", type: "frame" },
+        ],
+        supports: [{ node: "n2", type: "pinned" }, { node: "n3", type: "roller_z" }],
+        loads: [
+          { type: "point_node", node: "n1", Fx: 0, Fz: -6000, M: 0 },
+          { type: "point_node", node: "n4", Fx: 0, Fz: -1000, M: 0 },
+        ],
+        constraints: { maxUtilization: 1.0 },
+      },
+    };
+    const data = presets[name];
+    if (!data) return;
+    try {
+      this.currentScene = loadSceneFromJSON(JSON.stringify(data));
+      this.renderer.fitView(this.currentScene);
+      this.analyze();
+    } catch(e){
+      this.showResults({ error: e.message });
+    }
+  }
+
+  analyze(){
+    if (!this.currentScene) return;
+    try {
+      this.currentResults = BeamSolver.analyze(this.currentScene);
+      this._redraw();
+      this.showResults(this.currentResults);
+    } catch(e){
+      this.currentResults = null;
+      this.showResults({ error: e.message });
+    }
+  }
+
+  optimize(){
+    if (!this.currentScene) return;
+    try {
+      const constraints = this.currentScene.constraints || { maxUtilization: 1.0 };
+      const res = SectionOptimizer.optimizeByCatalog(this.currentScene, this.sectionCatalog, constraints);
+      this.currentScene = res.scene;
+      this.currentResults = BeamSolver.analyze(this.currentScene);
+      this._redraw();
+      this.showResults(this.currentResults, res);
+    } catch(e){
+      this.showResults({ error: e.message });
+    }
+  }
+
+  toggleJSON(){
+    const wrap = document.getElementById("json-wrap");
+    const ta = document.getElementById("json-in");
+    if (wrap.style.display === "none"){
+      ta.value = JSON.stringify(this._sceneToJSON(this.currentScene), null, 2);
+      wrap.style.display = "block";
+    } else {
+      wrap.style.display = "none";
+    }
+  }
+  applyJSON(){
+    const ta = document.getElementById("json-in");
+    const err = document.getElementById("json-error");
+    try {
+      const scene = loadSceneFromJSON(ta.value);
+      this.currentScene = scene;
+      this.renderer.fitView(scene);
+      this.analyze();
+      err.textContent = "";
+    } catch(e){
+      err.textContent = "Error: " + e.message;
+    }
+  }
+  copyJSON(){
+    const ta = document.getElementById("json-in");
+    ta.select();
+    navigator.clipboard?.writeText(ta.value);
+  }
+
+  _sceneToJSON(scene){
+    const materials = {};
+    for (const m of scene.materials.values())
+      materials[m.id] = { E: m.E, rho: m.rho, sigmaAdm: m.sigmaAdm };
+    const sections = {};
+    for (const s of scene.sections.values())
+      sections[s.id] = { A: s.A, I: s.I, c: s.c };
+    const nodes = [...scene.nodes.values()].map(n => ({ id: n.id, x: n.x, z: n.z }));
+    const elements = [...scene.elements.values()].map(el => ({
+      id: el.id, node1: el.node1, node2: el.node2,
+      material: el.materialId, section: el.sectionId, type: el.type,
+    }));
+    const supports = [...scene.supports.values()].map(s => ({ node: s.nodeId, type: s.type }));
+    const loads = scene.loads.map(l => {
+      if (l.type === "point_node") return { type: "point_node", node: l.nodeId, Fx: l.Fx, Fz: l.Fz, M: l.M };
+      if (l.type === "uniform") return { type: "uniform", element: l.elementId, wx: l.wx, wz: l.wz };
+      if (l.type === "point_elem") return { type: "point_elem", element: l.elementId, a: l.a, Px: l.Px, Pz: l.Pz };
+    });
+    return {
+      units: "SI", selfWeight: !!scene.selfWeight,
+      materials, sections, nodes, elements, supports, loads,
+      constraints: scene.constraints || {},
+    };
+  }
+
+  showResults(results, optInfo){
+    const root = document.getElementById("results");
+    if (results.error){
+      root.innerHTML = `<div class="verdict fail">ERROR</div><div class="hint">${results.error}</div>`;
+      return;
+    }
+    if (!this.currentScene) { root.innerHTML = ""; return; }
+
+    const s = results.summary;
+    const cc = checkConstraints(this.currentScene, results);
+    let html = "";
+    html += `<div class="verdict ${cc.ok ? 'ok' : 'fail'}">${cc.ok ? '✓ CUMPLE' : '✗ NO CUMPLE'}</div>`;
+
+    html += `<h3>Reacciones</h3>`;
+    const reactionsByNode = new Map();
+    const nodeArr = [...this.currentScene.nodes.values()];
+    for (const r of results.reactions){
+      const ni = Math.floor(r.dof/3);
+      const local = r.dof % 3;
+      const node = nodeArr[ni];
+      if (!reactionsByNode.has(node.id)) reactionsByNode.set(node.id, {});
+      reactionsByNode.get(node.id)[local] = r.value;
+    }
+    for (const [nodeId, r] of reactionsByNode){
+      const parts = [];
+      if (r[0] != null) parts.push(`Rx=${r[0].toFixed(0)}`);
+      if (r[1] != null) parts.push(`Rz=${r[1].toFixed(0)}`);
+      if (r[2] != null) parts.push(`M=${r[2].toFixed(0)}`);
+      html += `<div class="kv"><span>Nodo ${nodeId}</span><b>${parts.join(' · ')}</b></div>`;
+    }
+
+    html += `<h3>Resumen</h3>`;
+    html += `<div class="kv"><span>Flecha máx</span><b>${(s.maxDefl*1000).toFixed(2)} mm</b></div>`;
+    html += `<div class="kv"><span>M máx</span><b>${s.maxMoment.toFixed(0)} N·m</b></div>`;
+    html += `<div class="kv"><span>N máx</span><b>${s.maxAxial.toFixed(0)} N</b></div>`;
+    html += `<div class="kv"><span>Aprovechamiento máx</span><b>${(s.maxUtil*100).toFixed(1)} %</b></div>`;
+
+    if (!cc.ok){
+      html += `<h3>Violaciones</h3>`;
+      for (const v of cc.violations){
+        html += `<div class="kv"><span class="badge warn">${v.type}</span><b style="font-weight:400">${v.msg}</b></div>`;
+      }
+    }
+    if (optInfo){
+      html += `<h3>Optimizador</h3>`;
+      html += `<div class="kv"><span>Factible</span><b>${optInfo.feasible ? "sí" : "no"}</b></div>`;
+      html += `<div class="kv"><span>Iteraciones</span><b>${optInfo.iterations}</b></div>`;
+      html += `<div class="hint">${optInfo.message}</div>`;
+    }
+    root.innerHTML = html;
+  }
+
+  /* --- Tests 1–16 --- */
+  runTests(){
+    const out = document.getElementById("tests-out");
+    out.innerHTML = "";
+    let pass = 0, fail = 0;
+    const log = (name, ok, extra="") => {
+      ok ? pass++ : fail++;
+      const d = document.createElement("div");
+      d.className = "test " + (ok ? "ok" : "fail");
+      d.textContent = (ok ? "✅" : "❌") + " " + name + (extra ? "  — " + extra : "");
+      out.appendChild(d);
+      (ok ? console.log : console.error)((ok ? "✅" : "❌") + " " + name, extra);
+    };
+    const approx = (a,b,tol) => Math.abs(a-b) < (tol==null?1e-6:tol);
+
+    function makeBeamScene({ L=10, E=2.1e11, A=0.01, I=1e-4, loads=[], supports=[], elements=null, nodes=null, selfWeight=false }){
+      const data = {
+        units: "SI", selfWeight,
+        materials: { mat: { E, rho: 7850, sigmaAdm: 1.6e8 } },
+        sections: { sec: { A, I, c: 0.1 } },
+        nodes: nodes || [
+          { id: "n1", x: 0, z: 0 }, { id: "n2", x: L/2, z: 0 }, { id: "n3", x: L, z: 0 },
+        ],
+        elements: elements || [
+          { id: "e1", node1: "n1", node2: "n2", material: "mat", section: "sec", type: "frame" },
+          { id: "e2", node1: "n2", node2: "n3", material: "mat", section: "sec", type: "frame" },
+        ],
+        supports: supports.length ? supports : [
+          { node: "n1", type: "pinned" }, { node: "n3", type: "roller_z" },
+        ],
+        loads, constraints: {},
+      };
+      return loadSceneFromJSON(JSON.stringify(data));
+    }
+
+    // T1
+    try {
+      const sc = makeBeamScene({ L: 10, E: 2e11, A: 0.01, I: 1e-4,
+        loads: [{ type: "point_node", node: "n2", Fx: 0, Fz: -1000, M: 0 }] });
+      const r = BeamSolver.analyze(sc);
+      log("T1 M_max = PL/4", approx(r.summary.maxMoment, 2500, 1), `got ${r.summary.maxMoment.toFixed(2)}`);
+      log("T1 δ_max = PL³/(48EI)", approx(r.summary.maxDefl, 1000*1000/(48*2e11*1e-4), 1e-4), `got ${r.summary.maxDefl.toExponential(3)}`);
+    } catch(e){ log("T1", false, e.message); }
+
+    // T2
+    try {
+      const sc = makeBeamScene({ L: 10, E: 2e11, A: 0.01, I: 1e-4,
+        loads: [
+          { type: "uniform", element: "e1", wx: 0, wz: -1000 },
+          { type: "uniform", element: "e2", wx: 0, wz: -1000 },
+        ] });
+      const r = BeamSolver.analyze(sc);
+      log("T2 M_max = qL²/8", approx(r.summary.maxMoment, 12500, 10), `got ${r.summary.maxMoment.toFixed(2)}`);
+      log("T2 δ_max = 5qL⁴/(384EI)", approx(r.summary.maxDefl, 5*1000*10000/(384*2e11*1e-4), 1e-4), `got ${r.summary.maxDefl.toExponential(3)}`);
+    } catch(e){ log("T2", false, e.message); }
+
+    // T3
+    try {
+      const sc = makeBeamScene({ L: 5, E: 2e11, A: 0.01, I: 1e-4,
+        nodes: [ { id: "n1", x: 0, z: 0 }, { id: "n2", x: 2.5, z: 0 }, { id: "n3", x: 5, z: 0 } ],
+        elements: [
+          { id: "e1", node1: "n1", node2: "n2", material: "mat", section: "sec", type: "frame" },
+          { id: "e2", node1: "n2", node2: "n3", material: "mat", section: "sec", type: "frame" },
+        ],
+        supports: [{ node: "n1", type: "fixed" }],
+        loads: [{ type: "point_node", node: "n3", Fx: 0, Fz: -1000, M: 0 }] });
+      const r = BeamSolver.analyze(sc);
+      log("T3 voladizo M = PL", approx(r.summary.maxMoment, 5000, 10), `got ${r.summary.maxMoment.toFixed(2)}`);
+      log("T3 voladizo δ = PL³/(3EI)", approx(r.summary.maxDefl, 1000*125/(3*2e11*1e-4), 1e-4), `got ${r.summary.maxDefl.toExponential(3)}`);
+    } catch(e){ log("T3", false, e.message); }
+
+    // T4
+    try {
+      const sc = makeBeamScene({ L: 5, E: 2e11, A: 0.01, I: 1e-4,
+        nodes: [ { id: "n1", x: 0, z: 0 }, { id: "n2", x: 2.5, z: 0 }, { id: "n3", x: 5, z: 0 } ],
+        elements: [
+          { id: "e1", node1: "n1", node2: "n2", material: "mat", section: "sec", type: "frame" },
+          { id: "e2", node1: "n2", node2: "n3", material: "mat", section: "sec", type: "frame" },
+        ],
+        supports: [{ node: "n1", type: "fixed" }],
+        loads: [
+          { type: "uniform", element: "e1", wx: 0, wz: -1000 },
+          { type: "uniform", element: "e2", wx: 0, wz: -1000 },
+        ] });
+      const r = BeamSolver.analyze(sc);
+      log("T4 voladizo M = qL²/2", approx(r.summary.maxMoment, 12500, 10), `got ${r.summary.maxMoment.toFixed(2)}`);
+      log("T4 voladizo δ = qL⁴/(8EI)", approx(r.summary.maxDefl, 1000*625/(8*2e11*1e-4), 1e-4), `got ${r.summary.maxDefl.toExponential(3)}`);
+    } catch(e){ log("T4", false, e.message); }
+
+    // T5
+    try {
+      const sc = makeBeamScene({ L: 10, E: 2e11, A: 0.01, I: 1e-4,
+        loads: [{ type: "point_node", node: "n1", Fx: 0, Fz: 0, M: 1000 }] });
+      const r = BeamSolver.analyze(sc);
+      log("T5 M(x)=M₀(1−x/L)", approx(r.summary.maxMoment, 1000, 5), `got ${r.summary.maxMoment.toFixed(2)}`);
+    } catch(e){ log("T5", false, e.message); }
+
+    // T6
+    try {
+      const sc = makeBeamScene({ L: 10, E: 2e11, A: 0.01, I: 1e-4,
+        nodes: [ { id: "n1", x: 0, z: 0 }, { id: "n2", x: 5, z: 0 }, { id: "n3", x: 10, z: 0 } ],
+        elements: [
+          { id: "e1", node1: "n1", node2: "n2", material: "mat", section: "sec", type: "frame" },
+          { id: "e2", node1: "n2", node2: "n3", material: "mat", section: "sec", type: "frame" },
+        ],
+        supports: [
+          { node: "n1", type: "pinned" },
+          { node: "n2", type: "roller_z" },
+          { node: "n3", type: "roller_z" },
+        ],
+        loads: [
+          { type: "uniform", element: "e1", wx: 0, wz: -1000 },
+          { type: "uniform", element: "e2", wx: 0, wz: -1000 },
+        ] });
+      const r = BeamSolver.analyze(sc);
+      const Rs = r.reactions.filter(rx => rx.dof % 3 === 1).map(rx => rx.value);
+      const sorted = [...Rs].sort((a,b)=>a-b);
+      log("T6 ∑R = q·2L", approx(Rs.reduce((a,b)=>a+b,0), 10000, 1), `got ${Rs.reduce((a,b)=>a+b,0).toFixed(1)}`);
+      log("T6 R_extremos ≈ 1875", approx(sorted[0], 1875, 5) && approx(sorted[2], 1875, 5), `got ${sorted[0].toFixed(0)}, ${sorted[2].toFixed(0)}`);
+      log("T6 R_intermedia ≈ 6250", approx(sorted[1], 6250, 10), `got ${sorted[1].toFixed(0)}`);
+    } catch(e){ log("T6", false, e.message); }
+
+    // T7
+    try {
+      const sc = makeBeamScene({
+        nodes: [ { id: "nA", x: -5, z: 0 }, { id: "nB", x: 5, z: 0 }, { id: "nC", x: 0, z: 8.66 } ],
+        elements: [
+          { id: "eAB", node1: "nA", node2: "nB", material: "mat", section: "sec", type: "truss" },
+          { id: "eAC", node1: "nA", node2: "nC", material: "mat", section: "sec", type: "truss" },
+          { id: "eBC", node1: "nB", node2: "nC", material: "mat", section: "sec", type: "truss" },
+        ],
+        supports: [{ node: "nA", type: "pinned" }, { node: "nB", type: "roller_z" }],
+        loads: [{ type: "point_node", node: "nC", Fx: 0, Fz: -1000, M: 0 }] });
+      const r = BeamSolver.analyze(sc);
+      const Rz = r.reactions.filter(rx => rx.dof % 3 === 1).map(rx => rx.value);
+      log("T7 truss ∑Rz = 1000", approx(Rz.reduce((a,b)=>a+b,0), 1000, 1), `got ${Rz.reduce((a,b)=>a+b,0).toFixed(1)}`);
+      const erAC = r.elementResults.find(e => e.elementId === "eAC");
+      const N_ac = erAC.N[Math.floor(erAC.N.length/2)];
+      log("T7 N_inclinado ≈ -577", approx(Math.abs(N_ac), 577, 10), `got ${N_ac.toFixed(0)}`);
+    } catch(e){ log("T7", false, e.message); }
+
+    // T8
+    try {
+      const sc = makeBeamScene({
+        nodes: [
+          { id: "n1", x: 0, z: 0 }, { id: "n2", x: 0, z: 3 },
+          { id: "n3", x: 5, z: 3 }, { id: "n4", x: 10, z: 3 },
+          { id: "n5", x: 10, z: 0 },
+        ],
+        elements: [
+          { id: "e1", node1: "n1", node2: "n2", material: "mat", section: "sec", type: "frame" },
+          { id: "e2", node1: "n2", node2: "n3", material: "mat", section: "sec", type: "frame" },
+          { id: "e3", node1: "n3", node2: "n4", material: "mat", section: "sec", type: "frame" },
+          { id: "e4", node1: "n4", node2: "n5", material: "mat", section: "sec", type: "frame" },
+        ],
+        supports: [{ node: "n1", type: "pinned" }, { node: "n5", type: "pinned" }],
+        loads: [{ type: "point_node", node: "n3", Fx: 0, Fz: -5000, M: 0 }] });
+      const r = BeamSolver.analyze(sc);
+      const Rz = r.reactions.filter(rx => rx.dof % 3 === 1).map(rx => rx.value);
+      const Rx = r.reactions.filter(rx => rx.dof % 3 === 0).map(rx => rx.value);
+      log("T8 pórtico ∑Rz = 5000", approx(Rz.reduce((a,b)=>a+b,0), 5000, 1), `got ${Rz.reduce((a,b)=>a+b,0).toFixed(1)}`);
+      log("T8 pórtico simetría", approx(Rz[0], Rz[1], 1), `got ${Rz[0]?.toFixed(0)}, ${Rz[1]?.toFixed(0)}`);
+      log("T8 pórtico ∑Rx = 0", approx(Rx.reduce((a,b)=>a+b,0), 0, 1), `got ${Rx.reduce((a,b)=>a+b,0).toFixed(2)}`);
+    } catch(e){ log("T8", false, e.message); }
+
+    // T9
+    try {
+      const sc = makeBeamScene({
+        nodes: [
+          { id: "n1", x: -2, z: 0 }, { id: "n2", x: 0, z: 0 },
+          { id: "n3", x: 10, z: 0 }, { id: "n4", x: 12, z: 0 },
+        ],
+        elements: [
+          { id: "e1", node1: "n1", node2: "n2", material: "mat", section: "sec", type: "frame" },
+          { id: "e2", node1: "n2", node2: "n3", material: "mat", section: "sec", type: "frame" },
+          { id: "e3", node1: "n3", node2: "n4", material: "mat", section: "sec", type: "frame" },
+        ],
+        supports: [{ node: "n2", type: "pinned" }, { node: "n3", type: "roller_z" }],
+        loads: [
+          { type: "point_node", node: "n1", Fx: 0, Fz: -6000, M: 0 },
+          { type: "point_node", node: "n4", Fx: 0, Fz: -1000, M: 0 },
+        ] });
+      const r = BeamSolver.analyze(sc);
+      const R_n2 = r.reactions.find(rx => rx.dof === 4)?.value;
+      const R_n3 = r.reactions.find(rx => rx.dof === 7)?.value;
+      log("T9 contrapeso R_roller ≈ 0", R_n3 != null && approx(R_n3, 0, 5), `got ${R_n3?.toFixed(1)}`);
+      log("T9 contrapeso R_pin ≈ 7000", R_n2 != null && approx(R_n2, 7000, 10), `got ${R_n2?.toFixed(0)}`);
+    } catch(e){ log("T9", false, e.message); }
+
+    // T10
+    try {
+      const sc = makeBeamScene({ L: 10, E: 2e11, A: 0.01, I: 1e-4,
+        loads: [
+          { type: "uniform", element: "e1", wx: 0, wz: -1000 },
+          { type: "uniform", element: "e2", wx: 0, wz: -1000 },
+        ] });
+      const r = BeamSolver.analyze(sc);
+      const Rz = r.reactions.filter(rx => rx.dof % 3 === 1).map(rx => rx.value);
+      log("T10 conservación ∑Rz = q·L", approx(Rz.reduce((a,b)=>a+b,0), 10000, 1), `got ${Rz.reduce((a,b)=>a+b,0).toFixed(1)}`);
+    } catch(e){ log("T10", false, e.message); }
+
+    // T11
+    try {
+      const sc = makeBeamScene({ L: 10, E: 2e11, A: 0.01, I: 1e-4,
+        loads: [{ type: "point_node", node: "n2", Fx: 0, Fz: -1000, M: 0 }] });
+      const r = BeamSolver.analyze(sc);
+      const Rz = r.reactions.filter(rx => rx.dof % 3 === 1).map(rx => rx.value);
+      log("T11 simetría R₁ = R₂", Rz.length >= 2 && approx(Rz[0], Rz[1], 1), `got ${Rz[0]?.toFixed(1)}, ${Rz[1]?.toFixed(1)}`);
+    } catch(e){ log("T11", false, e.message); }
+
+    // T12
+    try {
+      const sc1 = makeBeamScene({ L: 10, E: 2e11, A: 0.01, I: 1e-4,
+        loads: [{ type: "point_node", node: "n2", Fx: 0, Fz: -1000, M: 0 }] });
+      const r1 = BeamSolver.analyze(sc1);
+      const sc2 = makeBeamScene({ L: 10, E: 4e11, A: 0.01, I: 1e-4,
+        loads: [{ type: "point_node", node: "n2", Fx: 0, Fz: -2000, M: 0 }] });
+      const r2 = BeamSolver.analyze(sc2);
+      log("T12 δ invariante con E×2, P×2",
+        approx(r1.summary.maxDefl, r2.summary.maxDefl, 1e-5),
+        `δ1=${r1.summary.maxDefl.toExponential(3)}, δ2=${r2.summary.maxDefl.toExponential(3)}`);
+      log("T12 M duplica con E×2, P×2",
+        approx(r2.summary.maxMoment / r1.summary.maxMoment, 2, 0.01),
+        `M1=${r1.summary.maxMoment.toFixed(0)}, M2=${r2.summary.maxMoment.toFixed(0)}`);
+    } catch(e){ log("T12", false, e.message); }
+
+    /* ---------- Tests 13–16: campo de fuerzas (paso 2) ---------- */
+
+    // T13: voladizo, |F| constante = P
+    try {
+      const sc = makeBeamScene({
+        nodes: [ { id: "n1", x: 0, z: 0 }, { id: "n2", x: 2.5, z: 0 }, { id: "n3", x: 5, z: 0 } ],
+        elements: [
+          { id: "e1", node1: "n1", node2: "n2", material: "mat", section: "sec", type: "frame" },
+          { id: "e2", node1: "n2", node2: "n3", material: "mat", section: "sec", type: "frame" },
+        ],
+        supports: [{ node: "n1", type: "fixed" }],
+        loads: [{ type: "point_node", node: "n3", Fx: 0, Fz: -1000, M: 0 }] });
+      const r = BeamSolver.analyze(sc);
+      const field = ForceFieldBuilder.build(r, sc, { samplesPerElement: 11 });
+      let maxDev = 0;
+      for (const el of field.elements) for (const p of el.points)
+        maxDev = Math.max(maxDev, Math.abs(p.mag - 1000));
+      log("T13 campo voladizo |F|=P", maxDev < 5, `desv=${maxDev.toFixed(2)} N`);
+    } catch(e){ log("T13", false, e.message); }
+
+    // T14: simetría biapoyada uniforme
+    try {
+      const sc = makeBeamScene({ L: 10, E: 2e11, A: 0.01, I: 1e-4,
+        loads: [
+          { type: "uniform", element: "e1", wx: 0, wz: -1000 },
+          { type: "uniform", element: "e2", wx: 0, wz: -1000 },
+        ] });
+      const r = BeamSolver.analyze(sc);
+      const f = ForceFieldBuilder.build(r, sc, { samplesPerElement: 11 });
+      const m1 = f.elements[0].points.map(p=>p.mag);
+      const m2 = f.elements[1].points.map(p=>p.mag);
+      let maxDiff = 0;
+      for (let i=0; i<m1.length; i++)
+        maxDiff = Math.max(maxDiff, Math.abs(m1[i] - m2[m2.length-1-i]));
+      log("T14 campo simétrico biapoyada", maxDiff < 10, `diff=${maxDiff.toFixed(2)} N`);
+    } catch(e){ log("T14", false, e.message); }
+
+    // T15: conservación |V(0)| = |R|
+    try {
+      const sc = makeBeamScene({ L: 10, E: 2e11, A: 0.01, I: 1e-4,
+        loads: [
+          { type: "uniform", element: "e1", wx: 0, wz: -1000 },
+          { type: "uniform", element: "e2", wx: 0, wz: -1000 },
+        ] });
+      const r = BeamSolver.analyze(sc);
+      const f = ForceFieldBuilder.build(r, sc, { samplesPerElement: 11 });
+      const V0 = f.elements[0].points[0].V;
+      const R = r.reactions.find(rx => rx.dof === 1)?.value;
+      log("T15 campo |V(0)|=|R|",
+        Math.abs(Math.abs(V0) - Math.abs(R)) < 10,
+        `V0=${V0.toFixed(1)} R=${R.toFixed(1)}`);
+    } catch(e){ log("T15", false, e.message); }
+
+    // T16: tracción pura, Fx > 0
+    try {
+      const sc = makeBeamScene({
+        nodes: [ { id: "n1", x: 0, z: 0 }, { id: "n2", x: 5, z: 0 } ],
+        elements: [{ id: "e1", node1: "n1", node2: "n2", material: "mat", section: "sec", type: "truss" }],
+        supports: [{ node: "n1", type: "fixed" }],
+        loads: [{ type: "point_node", node: "n2", Fx: 1000, Fz: 0, M: 0 }] });
+      const r = BeamSolver.analyze(sc);
+      const f = ForceFieldBuilder.build(r, sc, { samplesPerElement: 11 });
+      const mid = f.elements[0].points[5];
+      log("T16 campo tracción pura Fx>0",
+        mid.Fx > 900 && Math.abs(mid.Fz) < 1,
+        `Fx=${mid.Fx.toFixed(1)} Fz=${mid.Fz.toFixed(1)}`);
+    } catch(e){ log("T16", false, e.message); }
+
+    const summary = document.createElement("div");
+    summary.style.marginTop = "8px";
+    summary.style.fontWeight = "600";
+    summary.style.color = fail === 0 ? "#86efac" : "#fca5a5";
+    summary.textContent = `${pass} ✓ · ${fail} ✗`;
+    out.appendChild(summary);
+    console.group(`%cTests dominio · ${pass} ✓ / ${fail} ✗`,
+      `color:${fail?'#ef4444':'#22c55e'};font-weight:bold`);
+    console.groupEnd();
+  }
+}
+
+/* ============================================================================
+ * BOOT
+ * ========================================================================== */
+window.addEventListener("DOMContentLoaded", () => {
+  window.__app = new App();
+});
+</script>
+</body>
+</html>

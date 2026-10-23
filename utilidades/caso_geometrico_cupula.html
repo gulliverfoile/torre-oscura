@@ -1,0 +1,899 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<title>Cúpulas, arcos y empujes · de lo geométrico a lo estructural</title>
+<style>
+  :root{
+    --bg:#0f1115;--fg:#e5e7eb;--muted:#9ca3af;--panel:#161922;--border:#2a2f3a;
+    --ok:#22c55e;--bad:#ef4444;--shell:#22d3ee;--shell2:#0e7490;--load:#eab308;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%;font-family:ui-sans-serif,system-ui,sans-serif;
+    background:var(--bg);color:var(--fg);overflow:hidden}
+  #app{position:relative;height:100vh;width:100vw}
+  #cv3d{position:absolute;inset:0;display:block;background:var(--bg);cursor:grab;width:100%;height:100%}
+  #cv3d:active{cursor:grabbing}
+  #panel{position:fixed;top:12px;right:12px;bottom:12px;width:390px;
+    max-width:calc(100vw - 24px);overflow-y:auto;padding:12px;
+    background:rgba(22,25,34,.96);border:1px solid var(--border);border-radius:8px;
+    font-size:13px;z-index:10;box-shadow:0 8px 32px rgba(0,0,0,.5);
+    transition:transform .2s ease,opacity .2s ease}
+  #panel.hidden{transform:translateX(calc(100% + 24px));opacity:0;pointer-events:none}
+  #panel::-webkit-scrollbar{width:8px}
+  #panel::-webkit-scrollbar-thumb{background:#2a2f3a;border-radius:4px}
+  #toggle-panel{position:fixed;top:12px;left:12px;z-index:20;width:40px;height:40px;
+    display:flex;align-items:center;justify-content:center;font-size:18px;
+    background:#2a2f3a;color:var(--fg);border:1px solid var(--border);border-radius:6px;cursor:pointer}
+  h3{margin:12px 0 6px;font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted)}
+  .row{display:flex;gap:8px;align-items:center;margin-bottom:6px}
+  .row label{flex:1;color:var(--muted);font-size:12px}
+  .row input[type=range]{flex:2}
+  .row .val{min-width:44px;text-align:right;font-variant-numeric:tabular-nums;
+    color:var(--muted);font-size:11px}
+  .row select{flex:1;background:#2a2f3a;color:var(--fg);border:1px solid var(--border);
+    padding:3px 6px;border-radius:4px;font-size:12px}
+  .btns{display:flex;gap:6px;margin-top:8px}
+  button{background:#2a2f3a;color:var(--fg);border:1px solid var(--border);
+    padding:5px 10px;border-radius:4px;cursor:pointer;font-size:12px;flex:1}
+  button:hover{background:#353b4a}
+  button.primary{background:#1e3a5f;border-color:#2a4a7f}
+  button.primary:hover{background:#2a4a7f}
+  .kv{display:flex;justify-content:space-between;padding:3px 0;border-bottom:1px solid rgba(255,255,255,.04);font-size:12px}
+  .kv span{color:var(--muted)}
+  .kv b{font-variant-numeric:tabular-nums}
+  .hint{font-size:11px;color:var(--muted);line-height:1.45;margin-top:6px}
+  #cv2d{display:block;width:100%;height:180px;background:#0a0c10;
+    border:1px solid var(--border);border-radius:6px;margin-top:6px}
+  #tests-out{margin-top:8px;font-family:ui-monospace,monospace;font-size:11px}
+  .test{padding:2px 4px;border-radius:3px;margin-bottom:2px}
+  .test.ok{color:#86efac;background:rgba(34,197,94,.08)}
+  .test.fail{color:#fca5a5;background:rgba(239,68,68,.1)}
+</style>
+</head>
+<body>
+<div id="app">
+  <canvas id="cv3d"></canvas>
+  <button id="toggle-panel" title="Mostrar/ocultar panel (P)">☰</button>
+  <aside id="panel">
+    <div id="controls"></div>
+    <canvas id="cv2d" width="760" height="360"></canvas>
+    <div id="results"></div>
+    <h3>Tests del dominio</h3>
+    <div id="tests-out">Pulsa "Ejecutar tests"</div>
+  </aside>
+</div>
+<script>
+"use strict";
+
+/* ============================================================================
+ * DOMAIN LAYER  (puro: sin DOM, sin canvas, sin window)
+ * ----------------------------------------------------------------------------
+ * Aquí vive toda la física y geometría. Testeable sin navegador.
+ * Regla: cualquier cosa que se pueda calcular con lápiz y papel, va aquí.
+ * ========================================================================== */
+
+/* ---- Aritmética vectorial 2D y 3D ---------------------------------------- */
+const V2 = {
+  add:(a,b)=>[a[0]+b[0],a[1]+b[1]],
+  sub:(a,b)=>[a[0]-b[0],a[1]-b[1]],
+  mul:(a,s)=>[a[0]*s,a[1]*s],
+  len:a=>Math.hypot(a[0],a[1]),
+};
+const V3 = {
+  add:(a,b)=>[a[0]+b[0],a[1]+b[1],a[2]+b[2]],
+  sub:(a,b)=>[a[0]-b[0],a[1]-b[1],a[2]-b[2]],
+  mul:(a,s)=>[a[0]*s,a[1]*s,a[2]*s],
+  dot:(a,b)=>a[0]*b[0]+a[1]*b[1]+a[2]*b[2],
+  cross:(a,b)=>[a[1]*b[2]-a[2]*b[1],a[2]*b[0]-a[0]*b[2],a[0]*b[1]-a[1]*b[0]],
+  len:a=>Math.hypot(a[0],a[1],a[2]),
+  norm:a=>{const l=V3.len(a)||1;return [a[0]/l,a[1]/l,a[2]/l];},
+};
+const clamp = (x,a,b)=>Math.max(a,Math.min(b,x));
+
+/* ---- Profile: curva y = f(x) en [x0,x1] ---------------------------------- */
+class Profile {
+  constructor(fn, x0, x1){ this.fn = fn; this.x0 = x0; this.x1 = x1; }
+  at(x){ return this.fn(x); }
+  sample(n){
+    const out = [];
+    for (let i=0;i<=n;i++){
+      const x = this.x0 + (this.x1-this.x0)*i/n;
+      out.push([x, this.fn(x)]);
+    }
+    return out;
+  }
+  arcLength(n=400){
+    let L = 0, prev = null;
+    for (let i=0;i<=n;i++){
+      const x = this.x0 + (this.x1-this.x0)*i/n;
+      const p = [x, this.fn(x)];
+      if (prev) L += Math.hypot(p[0]-prev[0], p[1]-prev[1]);
+      prev = p;
+    }
+    return L;
+  }
+  /** Normal unitaria apuntando "hacia arriba" del perfil. */
+  normal(x){
+    const eps = 1e-3 * (this.x1 - this.x0) || 1e-4;
+    const dy = (this.fn(x+eps) - this.fn(x-eps)) / (2*eps);
+    const n = [-dy, 1];
+    const L = Math.hypot(n[0], n[1]) || 1;
+    return [n[0]/L, n[1]/L];
+  }
+}
+
+/* ---- Perfiles concretos -------------------------------------------------- */
+
+/** Arco apuntado de dos centros. Arranque (±a,0), ápice (0,rise).
+ *  Si rise >= a → dos arcos (gótico). Si rise <  a → parábola (cúpula rebajada).
+ *  El segundo caso es porque la fórmula de dos arcos degenera (cúpula invertida). */
+function archProfile(a, rise){
+  if (rise >= a - 1e-6){
+    const r = (a*a + rise*rise) / (2*a);
+    const c = a - r;                 // centro del arco derecho en (c,0)
+    return new Profile(x => {
+      const cx = (x >= 0 ? c : -c);
+      return Math.sqrt(Math.max(0, r*r - (x-cx)*(x-cx)));
+    }, -a, a);
+  }
+  // parábola rebajada — lisa en el ápice, arranque inclinado
+  return new Profile(x => rise * (1 - (x/a)*(x/a)), -a, a);
+}
+
+/** Perfil triangular (cubierta a dos aguas). */
+function gableProfile(a, rise){
+  return new Profile(x => rise * (1 - Math.abs(x)/a), -a, a);
+}
+
+/** Perfil semicircular exacto (caso de referencia). */
+function semicircleProfile(a){ return archProfile(a, a); }
+
+/* ---- Cargas (rebanada 2D: cargas verticales puntuales) -------------------- */
+class LoadCase {
+  constructor(loads){ this.loads = loads; }   // [{x, P}] con P peso vertical
+  /** Reparte un peso total a lo largo del perfil, proporcional a longitud de arco.
+   *  Esto modela la gravedad de un casco de espesor constante (no uniforme en x). */
+  static fromProfile(profile, n, totalWeight){
+    const pts = profile.sample(n);
+    const loads = [];
+    let totL = 0;
+    const segs = [];
+    for (let i=1;i<pts.length;i++){
+      const dl = Math.hypot(pts[i][0]-pts[i-1][0], pts[i][1]-pts[i-1][1]);
+      segs.push({ x: (pts[i][0]+pts[i-1][0])/2, dl });
+      totL += dl;
+    }
+    for (const s of segs){
+      if (s.dl < 1e-12) continue;
+      loads.push({ x: s.x, P: totalWeight * s.dl / totL });
+    }
+    return new LoadCase(loads);
+  }
+}
+
+/* ---- Funicular (línea de empujes) ----------------------------------------
+ *  Para una viga simplemente apoyada en (x0,0)–(x1,0) con cargas P_i,
+ *  el momento flector M(x) se calcula por superposición:
+ *     x < a_i  →  M += P_i * (x1-a_i)/L * (x-x0)
+ *     x > a_i  →  M += P_i * (a_i-x0)/L * (x1-x)
+ *  La línea de empujes a compresión pura es y_f(x) = y_apoyos(x) + M(x)/H,
+ *  donde H es el empuje horizontal (parámetro de la familia de funiculares).
+ *  Elegir H es elegir el funicular: más H = más plano, menos H = más colgante.
+ * ------------------------------------------------------------------------ */
+function momentAt(x, loads, x0, x1){
+  const L = x1 - x0;
+  let m = 0;
+  for (const {x:a, P} of loads){
+    if (x < a) m += P * (x1-a)/L * (x-x0);
+    else       m += P * (a-x0)/L * (x1-x);
+  }
+  return m;
+}
+function funicularY(x, loads, H, x0, x1, y0, y1){
+  const L = x1 - x0;
+  const base = y0 + (y1-y0)*(x-x0)/L;
+  return base + momentAt(x, loads, x0, x1)/H;
+}
+
+/* ---- Chequeo de seguridad (teorema de Heyman) ----------------------------
+ *  Hipótesis: material sin tracción (mampostería). Si existe un estado de
+ *  compresión pura compatible con el equilibrio, la estructura es segura.
+ *  Buscamos H tal que la línea de empujes quepa dentro del casco.
+ *
+ *  Simplificación (documentada): aproximamos intradós/extradós por un
+ *  desplazamiento VERTICAL de ±t/2 desde la superficie media. Es correcto
+ *  para pendientes moderadas; falla cerca de arranques verticales. La
+ *  alternativa exacta (curva offset) es 50× más costosa y no cambia la
+ *  conclusión segura/insegura para los perfiles típicos.
+ * ------------------------------------------------------------------------ */
+function safetyCheck(profile, thickness, loadCase, opts={}){
+  const x0 = profile.x0, x1 = profile.x1;
+  const y0 = profile.at(x0), y1 = profile.at(x1);
+  const N = opts.samples || 160;
+  const xs = [];
+  for (let i=0;i<=N;i++) xs.push(x0 + (x1-x0)*i/N);
+  const half = thickness / 2;
+  const loads = loadCase.loads;
+
+  let best = { margin: -Infinity, H: null, yAt: null, margins: null };
+  const Hmin = 0.05, Hmax = 1e6, steps = 180;
+  for (let i=0;i<steps;i++){
+    const H = Hmin * Math.pow(Hmax/Hmin, i/(steps-1));
+    let worst = Infinity;
+    const yAt = new Array(xs.length);
+    const margins = new Array(xs.length);
+    for (let k=0;k<xs.length;k++){
+      const yF = funicularY(xs[k], loads, H, x0, x1, y0, y1);
+      yAt[k] = yF;
+      const yMid = profile.at(xs[k]);
+      const m = Math.min(yF - (yMid - half), (yMid + half) - yF);
+      margins[k] = m;
+      if (m < worst) worst = m;
+    }
+    if (worst > best.margin){
+      best = { margin: worst, H, yAt, margins };
+    }
+  }
+  return { ...best, xs, half, safe: best.margin >= 0 };
+}
+
+/* ---- Optimizador: espesor mínimo seguro (bisagra) ------------------------
+ *  Ojo: al aumentar t aumenta el casco PERO también el peso propio.
+ *  Por eso la carga se recalcula en cada iteración (acoplada a t).
+ * ------------------------------------------------------------------------ */
+function minSafeThickness(profile, density, liveLoad, opts={}){
+  const arcLen = profile.arcLength(300);
+  const evalAt = (t) => {
+    const totalW = (density * t + liveLoad) * arcLen;
+    const lc = LoadCase.fromProfile(profile, 50, totalW);
+    return safetyCheck(profile, t, lc, { samples: 100 });
+  };
+  // Si con t grande no es seguro, no hay solución (caso patológico)
+  if (!evalAt(12).safe) return null;
+  let lo = 0.001, hi = 12;
+  for (let i=0;i<40;i++){
+    const t = 0.5*(lo+hi);
+    if (evalAt(t).safe) hi = t; else lo = t;
+  }
+  return hi;
+}
+
+/* ---- Generación de malla 3D --------------------------------------------- */
+/** Revoluciona el PERFIL DERECHO (x>=0) alrededor del eje y. */
+function revolveProfile(profile, thickness, nProfile=36, nU=48){
+  const pts = [];
+  for (let i=0;i<=nProfile;i++){
+    const x = profile.x1 * i/nProfile;      // 0 → x1
+    pts.push([x, profile.at(x)]);
+  }
+  const inner = pts.map(([x,y]) => {
+    const n = profile.normal(Math.max(1e-6, x));
+    return [x - n[0]*thickness/2, y - n[1]*thickness/2];
+  });
+  const outer = pts.map(([x,y]) => {
+    const n = profile.normal(Math.max(1e-6, x));
+    return [x + n[0]*thickness/2, y + n[1]*thickness/2];
+  });
+  const build = (arr, flip) => {
+    const quads = [];
+    for (let i=0;i<arr.length-1;i++){
+      for (let j=0;j<nU;j++){
+        const t0 = 2*Math.PI*j/nU, t1 = 2*Math.PI*(j+1)/nU;
+        const [r0,y0] = arr[i], [r1,y1] = arr[i+1];
+        const v = [
+          [r0*Math.cos(t0), y0, r0*Math.sin(t0)],
+          [r1*Math.cos(t0), y1, r1*Math.sin(t0)],
+          [r1*Math.cos(t1), y1, r1*Math.sin(t1)],
+          [r0*Math.cos(t1), y0, r0*Math.sin(t1)],
+        ];
+        quads.push(flip ? v.reverse() : v);
+      }
+    }
+    return quads;
+  };
+  return { outer: build(outer,false), inner: build(inner,true) };
+}
+
+/** Extruye el perfil COMPLETO a lo largo de z. */
+function extrudeProfile(profile, thickness, length, nProfile=36, nZ=16){
+  const pts = profile.sample(nProfile);
+  const inner = pts.map(([x,y]) => {
+    const n = profile.normal(x);
+    return [x - n[0]*thickness/2, y - n[1]*thickness/2];
+  });
+  const outer = pts.map(([x,y]) => {
+    const n = profile.normal(x);
+    return [x + n[0]*thickness/2, y + n[1]*thickness/2];
+  });
+  const build = (arr, flip) => {
+    const quads = [];
+    for (let i=0;i<arr.length-1;i++){
+      for (let k=0;k<nZ;k++){
+        const z0 = -length/2 + length*k/nZ;
+        const z1 = -length/2 + length*(k+1)/nZ;
+        const [x0,y0] = arr[i], [x1,y1] = arr[i+1];
+        const v = [
+          [x0,y0,z0],[x1,y1,z0],[x1,y1,z1],[x0,y0,z1],
+        ];
+        quads.push(flip ? v.reverse() : v);
+      }
+    }
+    return quads;
+  };
+  return { outer: build(outer,false), inner: build(inner,true) };
+}
+
+/* ============================================================================
+ * PORTS  (interfaces — JS duck-typing; documentadas)
+ * ----------------------------------------------------------------------------
+ *  IRenderer   { draw(scene), resize() }
+ *  IControls   { mount() }
+ *  ISolver     { solve(profile, loadCase) → {safe, H, yAt} }
+ *  IScene      { shape, profile, thickness, loadCase, safety, mesh }
+ * ========================================================================== */
+
+
+/* ============================================================================
+ * ADAPTERS  (infraestructura: DOM, canvas, cámara)
+ * ========================================================================== */
+
+/* ---- Cámara orbital con proyección en perspectiva ----------------------- */
+class OrbitCamera {
+  constructor(w, h){
+    this.w=w; this.h=h;
+    this.yaw = -Math.PI/6;
+    this.pitch = 0.45;
+    this.dist = 60;
+    this.target = [0, 15, 0];
+    this.fov = Math.PI/3;
+  }
+  resize(w,h){ this.w=w; this.h=h; }
+  project(p){
+    const t = this.target;
+    const x = p[0]-t[0], y = p[1]-t[1], z = p[2]-t[2];
+    const cx = this.dist * Math.cos(this.pitch) * Math.sin(this.yaw);
+    const cy = this.dist * Math.sin(this.pitch);
+    const cz = this.dist * Math.cos(this.pitch) * Math.cos(this.yaw);
+    const fwd = V3.norm([-cx,-cy,-cz]);
+    const up0 = [0,1,0];
+    const right = V3.norm(V3.cross(fwd, up0));
+    const up = V3.cross(right, fwd);
+    const dx = x - cx, dy = y - cy, dz = z - cz;
+    const lx = dx*right[0] + dy*right[1] + dz*right[2];
+    const ly = dx*up[0]    + dy*up[1]    + dz*up[2];
+    const lz = dx*fwd[0]   + dy*fwd[1]   + dz*fwd[2];
+    const f = (this.h/2) / Math.tan(this.fov/2);
+    const sx = this.w/2 + lx * f / (-lz);
+    const sy = this.h/2 - ly * f / (-lz);
+    return [sx, sy, lz];
+  }
+}
+
+/* ---- Renderer 3D (pintor: ordena por profundidad) ---------------------- */
+class Canvas3DRenderer {
+  constructor(canvas){
+    this.cv = canvas;
+    this.ctx = canvas.getContext("2d");
+    this.cam = new OrbitCamera(canvas.clientWidth, canvas.clientHeight);
+    this._bindOrbit();
+    this.resize();
+    window.addEventListener("resize", () => this.resize());
+  }
+  resize(){
+    const dpr = window.devicePixelRatio || 1;
+    const r = this.cv.getBoundingClientRect();
+    this.cv.width  = Math.floor(r.width  * dpr);
+    this.cv.height = Math.floor(r.height * dpr);
+    this.ctx.setTransform(dpr,0,0,dpr,0,0);
+    this.cam.resize(r.width, r.height);
+    if (this._last) this.draw(this._last);
+  }
+  _bindOrbit(){
+    const cv = this.cv;
+    let drag = null;
+    cv.addEventListener("mousedown", e => {
+      drag = { x:e.clientX, y:e.clientY, yaw:this.cam.yaw, pitch:this.cam.pitch };
+    });
+    window.addEventListener("mousemove", e => {
+      if (!drag) return;
+      this.cam.yaw   = drag.yaw   + (e.clientX - drag.x) * 0.008;
+      this.cam.pitch = clamp(drag.pitch + (e.clientY - drag.y) * 0.008, -0.3, 1.45);
+      if (this._last) this.draw(this._last);
+    });
+    window.addEventListener("mouseup", () => { drag = null; });
+    cv.addEventListener("wheel", e => {
+      e.preventDefault();
+      this.cam.dist = clamp(this.cam.dist * (e.deltaY < 0 ? 0.9 : 1.1), 5, 300);
+      if (this._last) this.draw(this._last);
+    }, { passive:false });
+  }
+  draw(scene){
+    this._last = scene;
+    // Ajustar la cámara al primer render de la escena
+    if (this._fitOnce !== scene){
+      this.cam.target = [0, scene.profile.at(0) * 0.45, 0];
+      if (!this._fitted){
+        this.cam.dist = Math.max(scene.span * 2.6, scene.profile.at(0) * 2.6);
+        this._fitted = true;
+      }
+      this._fitOnce = scene;
+    }
+    const ctx = this.ctx;
+    const W = this.cv.clientWidth, H = this.cv.clientHeight;
+    ctx.clearRect(0,0,W,H);
+    this._grid(W,H);
+
+    // --- Recoger caras y ordenar por profundidad (pintor) ---
+    const faces = [];
+    for (const [key, baseColor] of [["outer","#22d3ee"],["inner","#0e7490"]]){
+      for (const q of scene.mesh[key]){
+        const proj = q.map(v => this.cam.project(v));
+        const depth = proj.reduce((s,p)=>s+p[2],0)/4;
+        const e1 = V3.sub(q[1], q[0]);
+        const e2 = V3.sub(q[3], q[0]);
+        const nrm = V3.norm(V3.cross(e1,e2));
+        const light = V3.norm([0.4,1,0.6]);
+        const shade = 0.35 + 0.65 * Math.abs(V3.dot(nrm, light));
+        faces.push({ proj, depth, baseColor, shade });
+      }
+    }
+    faces.sort((a,b) => a.depth - b.depth);
+    for (const f of faces){
+      ctx.beginPath();
+      ctx.moveTo(f.proj[0][0], f.proj[0][1]);
+      for (let i=1;i<4;i++) ctx.lineTo(f.proj[i][0], f.proj[i][1]);
+      ctx.closePath();
+      ctx.fillStyle = shadeHex(f.baseColor, f.shade);
+      ctx.fill();
+      ctx.strokeStyle = "rgba(0,0,0,0.25)";
+      ctx.lineWidth = 0.4;
+      ctx.stroke();
+    }
+
+    // --- Línea de empujes (en el plano z=0, la "rebanada") ---
+    this._thrustOverlay(scene);
+
+    // --- HUD ---
+    ctx.fillStyle = "#9ca3af";
+    ctx.font = "11px ui-sans-serif, system-ui, sans-serif";
+    ctx.fillText("Arrastra: orbitar · Rueda: zoom · P: panel", 12, H - 12);
+  }
+  _grid(W,H){
+    const ctx = this.ctx;
+    ctx.strokeStyle = "rgba(255,255,255,0.04)";
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    const R = 60;
+    for (let i=-R;i<=R;i+=6){
+      const a = this.cam.project([i,0,-R]);
+      const b = this.cam.project([i,0, R]);
+      if (a[2] < 0 && b[2] < 0){ ctx.moveTo(a[0],a[1]); ctx.lineTo(b[0],b[1]); }
+      const c = this.cam.project([-R,0,i]);
+      const d = this.cam.project([ R,0,i]);
+      if (c[2] < 0 && d[2] < 0){ ctx.moveTo(c[0],c[1]); ctx.lineTo(d[0],d[1]); }
+    }
+    ctx.stroke();
+  }
+  _thrustOverlay(scene){
+    const s = scene.safety;
+    if (!s || !s.yAt) return;
+    const ctx = this.ctx;
+    // Segmentos coloreados: verde dentro del casco, rojo fuera.
+    for (let i=1;i<s.xs.length;i++){
+      const m0 = s.margins[i-1], m1 = s.margins[i];
+      const inside = (m0 >= 0 && m1 >= 0);
+      const a = this.cam.project([s.xs[i-1], s.yAt[i-1], 0]);
+      const b = this.cam.project([s.xs[i],   s.yAt[i],   0]);
+      if (a[2] > 0 || b[2] > 0) continue;
+      ctx.beginPath();
+      ctx.moveTo(a[0],a[1]); ctx.lineTo(b[0],b[1]);
+      ctx.strokeStyle = inside ? "#22c55e" : "#ef4444";
+      ctx.lineWidth = 2.5;
+      ctx.stroke();
+    }
+    // Marcar puntos críticos (|margen| < ε): la "tangencia KKT".
+    const eps = Math.max(0.02, scene.thickness * 0.15);
+    ctx.fillStyle = "#22d3ee";
+    for (let i=0;i<s.xs.length;i++){
+      if (Math.abs(s.margins[i]) < eps){
+        const p = this.cam.project([s.xs[i], s.yAt[i], 0]);
+        if (p[2] > 0) continue;
+        ctx.beginPath();
+        ctx.arc(p[0], p[1], 3.5, 0, Math.PI*2);
+        ctx.fill();
+      }
+    }
+    // Leyenda
+    ctx.font = "12px ui-sans-serif, system-ui, sans-serif";
+    ctx.fillStyle = s.safe ? "#22c55e" : "#ef4444";
+    ctx.fillText(
+      s.safe
+        ? "✓ Línea de empujes DENTRO del casco (Heyman: seguro)"
+        : "✗ Línea de empujes FUERA del casco (inestable)",
+      12, 24
+    );
+  }
+}
+
+function shadeHex(hex, k){
+  const n = parseInt(hex.slice(1), 16);
+  const r = Math.round(clamp(((n>>16)&255)*k + 30, 0, 255));
+  const g = Math.round(clamp(((n>>8)&255)*k + 30, 0, 255));
+  const b = Math.round(clamp((n&255)*k + 30, 0, 255));
+  return `rgb(${r},${g},${b})`;
+}
+
+/* ---- Renderer 2D (sección, para el panel) ------------------------------ */
+class Section2DRenderer {
+  constructor(canvas){ this.cv = canvas; this.ctx = canvas.getContext("2d"); }
+  draw(scene){
+    const ctx = this.ctx;
+    const W = this.cv.width, H = this.cv.height;
+    ctx.clearRect(0,0,W,H);
+    ctx.fillStyle = "#0a0c10"; ctx.fillRect(0,0,W,H);
+    const p = scene.profile;
+    const a = p.x1, rise = p.at(0);
+    const pad = 24;
+    const scale = Math.min((W-2*pad)/(2*a), (H-2*pad)/(rise||1));
+    const ox = W/2, oy = H - pad;
+    const toS = ([x,y]) => [ox + x*scale, oy - y*scale];
+
+    // Casco (relleno)
+    const sec = scene.safety;
+    ctx.beginPath();
+    sec.xs.forEach((x, i) => {
+      const y = p.at(x) + sec.half;
+      const [sx,sy] = toS([x, y]);
+      if (i===0) ctx.moveTo(sx,sy); else ctx.lineTo(sx,sy);
+    });
+    for (let i=sec.xs.length-1;i>=0;i--){
+      const x = sec.xs[i];
+      const y = p.at(x) - sec.half;
+      const [sx,sy] = toS([x, y]);
+      ctx.lineTo(sx,sy);
+    }
+    ctx.closePath();
+    ctx.fillStyle = "rgba(34,211,238,0.18)";
+    ctx.fill();
+
+    // Superficie media
+    ctx.beginPath();
+    sec.xs.forEach((x, i) => {
+      const [sx,sy] = toS([x, p.at(x)]);
+      if (i===0) ctx.moveTo(sx,sy); else ctx.lineTo(sx,sy);
+    });
+    ctx.strokeStyle = "#22d3ee";
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+
+    // Línea de empujes (a trazos, coloreada por margen)
+    for (let i=1;i<sec.xs.length;i++){
+      const m0 = sec.margins[i-1], m1 = sec.margins[i];
+      const inside = (m0 >= 0 && m1 >= 0);
+      const p0 = toS([sec.xs[i-1], sec.yAt[i-1]]);
+      const p1 = toS([sec.xs[i],   sec.yAt[i]]);
+      ctx.beginPath();
+      ctx.moveTo(p0[0],p0[1]); ctx.lineTo(p1[0],p1[1]);
+      ctx.strokeStyle = inside ? "#22c55e" : "#ef4444";
+      ctx.lineWidth = 2;
+      ctx.setLineDash([5,3]);
+      ctx.stroke();
+    }
+    ctx.setLineDash([]);
+
+    // Cargas (flechas)
+    const maxP = Math.max(...scene.loadCase.loads.map(l=>l.P), 1e-9);
+    ctx.strokeStyle = "rgba(234,179,8,0.7)";
+    ctx.lineWidth = 1;
+    for (const {x, P} of scene.loadCase.loads){
+      const [px,py] = toS([x, p.at(x)]);
+      const len = 4 + 16 * P/maxP;
+      ctx.beginPath();
+      ctx.moveTo(px,py); ctx.lineTo(px,py+len);
+      ctx.stroke();
+    }
+
+    // Apoyos
+    ctx.fillStyle = "#94a3b8";
+    for (const x of [p.x0, p.x1]){
+      const [sx,sy] = toS([x,0]);
+      ctx.beginPath();
+      ctx.moveTo(sx,sy);
+      ctx.lineTo(sx-5, sy+7);
+      ctx.lineTo(sx+5, sy+7);
+      ctx.closePath();
+      ctx.fill();
+    }
+
+    // Etiquetas
+    ctx.fillStyle = "#9ca3af";
+    ctx.font = "11px ui-sans-serif, system-ui, sans-serif";
+    ctx.fillText("sección · rebanada z=0", 8, 16);
+  }
+}
+
+/* ============================================================================
+ * APPLICATION  (composition root: estado + cableado)
+ * ========================================================================== */
+class App {
+  constructor(){
+    this.state = {
+      shape: "dome",       // dome | barrel | gable
+      span: 22,            // semivano a
+      rise: 30,            // flecha h
+      thickness: 1.2,
+      density: 2.0,        // masa por unidad de área (kg/m², simplificado)
+      liveLoad: 0.5,       // carga viva sobre la superficie
+    };
+    this.renderer = new Canvas3DRenderer(document.getElementById("cv3d"));
+    this.section  = new Section2DRenderer(document.getElementById("cv2d"));
+    this.buildControls();
+    this.recompute();
+  }
+
+  /** Perfil del estado actual (dominio puro). */
+  currentProfile(){
+    const {shape, span, rise} = this.state;
+    if (shape === "gable") return gableProfile(span, rise);
+    return archProfile(span, rise);   // dome y barrel comparten perfil
+  }
+
+  /** Recalcula toda la escena y la pasa a los adaptadores. */
+  recompute(){
+    const {thickness, density, liveLoad, shape, span} = this.state;
+    const profile = this.currentProfile();
+    const arcLen  = profile.arcLength(400);
+    const totalW  = (density * thickness + liveLoad) * arcLen;
+    const loadCase = LoadCase.fromProfile(profile, 56, totalW);
+    const safety   = safetyCheck(profile, thickness, loadCase, { samples: 140 });
+    const mesh = (shape === "dome")
+      ? revolveProfile(profile, thickness, 36, 48)
+      : extrudeProfile(profile, thickness, span*2, 36, 20);
+    const scene = { shape, span, profile, thickness, loadCase, safety, mesh, arcLen };
+    this._scene = scene;
+    this.renderer.draw(scene);
+    this.section.draw(scene);
+    this._renderResults(scene);
+    return scene;
+  }
+
+  /** Optimiza el espesor por bisagra (dominio puro, sin tocar UI). */
+  optimizeThickness(){
+    const {density, liveLoad} = this.state;
+    const profile = this.currentProfile();
+    const t = minSafeThickness(profile, density, liveLoad, {});
+    if (t === null){
+      alert("No existe un espesor seguro para este perfil y carga. " +
+            "Prueba un arco más apuntado o una cúpula más gruesa.");
+      return;
+    }
+    this.state.thickness = t;
+    this.recompute();
+    this._syncThicknessUI();
+  }
+
+  /* ---- Controles ------------------------------------------------------- */
+  buildControls(){
+    const root = document.getElementById("controls");
+    root.innerHTML = "";
+    root.appendChild(hdr("Parámetros"));
+
+    // Selector de forma
+    const sel = document.createElement("select");
+    for (const [k,v] of [["dome","Cúpula (revolución)"],
+                         ["barrel","Bóveda de cañón"],
+                         ["gable","Cubierta a dos aguas"]]){
+      const o = document.createElement("option"); o.value=k; o.textContent=v; sel.appendChild(o);
+    }
+    sel.value = this.state.shape;
+    sel.onchange = () => { this.state.shape = sel.value; this.recompute(); };
+    root.appendChild(row("Forma", sel));
+
+    // Sliders
+    const slider = (label, key, min, max, step, fmt) => {
+      const inp = document.createElement("input");
+      inp.type="range"; inp.min=min; inp.max=max; inp.step=step; inp.value=this.state[key];
+      const val = document.createElement("span"); val.className="val"; val.textContent=fmt(this.state[key]);
+      inp.oninput = () => {
+        this.state[key] = parseFloat(inp.value);
+        val.textContent = fmt(this.state[key]);
+        this.recompute();
+      };
+      const r = document.createElement("div"); r.className="row";
+      const l = document.createElement("label"); l.textContent=label;
+      r.append(l, inp, val); root.appendChild(r);
+      return { inp, val };
+    };
+    slider("semivano a","span", 4, 40, 0.5, v=>v.toFixed(1));
+    slider("flecha h","rise", 2, 60, 0.5, v=>v.toFixed(1));
+    this._tUI = slider("espesor t","thickness", 0.05, 6, 0.05, v=>v.toFixed(2));
+    slider("densidad ρ","density", 0.5, 5, 0.1, v=>v.toFixed(2));
+    slider("carga viva q","liveLoad", 0, 3, 0.1, v=>v.toFixed(2));
+
+    const b1 = document.createElement("button");
+    b1.className = "primary"; b1.textContent = "Optimizar espesor (t mín seguro)";
+    b1.onclick = () => this.optimizeThickness();
+    root.appendChild(b1);
+
+    const b2 = document.createElement("button");
+    b2.textContent = "Ejecutar tests del dominio";
+    b2.onclick = () => runTests();
+    root.appendChild(b2);
+
+    root.appendChild(hint(
+      "La línea de empujes (funicular) debe quedar dentro del espesor del casco. " +
+      "Es el teorema de seguridad de Heyman: material sin tracción (mampostería). " +
+      "Puntos cian = tangencia (estado límite, condición KKT)."
+    ));
+  }
+  _syncThicknessUI(){
+    if (this._tUI){
+      this._tUI.inp.value = this.state.thickness;
+      this._tUI.val.textContent = this.state.thickness.toFixed(2);
+    }
+  }
+
+  /* ---- Panel de resultados -------------------------------------------- */
+  _renderResults(scene){
+    const root = document.getElementById("results");
+    const s = scene.safety;
+    const color = s.safe ? "#22c55e" : "#ef4444";
+    const marg = s.margin.toFixed(3);
+    const H = s.H ? s.H.toFixed(1) : "—";
+    root.innerHTML = `
+      ${hdrHTML("Estado estructural")}
+      <div style="font-size:15px;font-weight:600;color:${color};margin:4px 0 6px">
+        ${s.safe ? "✓ SEGURO" : "✗ INESTABLE"}
+      </div>
+      ${kv("Margen mín. holgura", marg + " m")}
+      ${kv("Empuje horizontal H", H)}
+      ${kv("Longitud de arco", scene.arcLen.toFixed(1) + " m")}
+      ${kv("Espesor t", scene.thickness.toFixed(2) + " m")}
+      ${kv("Semivano a", scene.span.toFixed(1) + " m")}
+      ${kv("Flecha h", scene.profile.at(0).toFixed(1) + " m")}
+      ${hintHTML(
+        "<b>Qué estás viendo.</b> El casco (cian) tiene espesor <i>t</i>. " +
+        "La línea de empujes (trazos verdes/rojos) es la resultante de compresiones. " +
+        "Si cabe dentro del casco, existe un estado de compresión pura. " +
+        "El óptimo de espesor ocurre cuando la línea <b>toca</b> el intradós o el extradós: " +
+        "esa tangencia es la condición KKT del problema de optimización de forma."
+      )}
+    `;
+  }
+}
+
+/* Helpers DOM */
+function hdr(t){ const h=document.createElement("h3"); h.textContent=t; return h; }
+function hdrHTML(t){ return `<h3>${t}</h3>`; }
+function kv(k,v){ return `<div class="kv"><span>${k}</span><b>${v}</b></div>`; }
+function hintHTML(t){ return `<div class="hint">${t}</div>`; }
+function hint(t){ const d=document.createElement("div"); d.className="hint"; d.textContent=t; return d; }
+function row(label, el){
+  const r = document.createElement("div"); r.className="row";
+  const l = document.createElement("label"); l.textContent=label;
+  r.append(l, el); return r;
+}
+
+/* ============================================================================
+ * TESTS  (contra el dominio puro)
+ * ========================================================================== */
+function runTests(){
+  const out = document.getElementById("tests-out");
+  out.innerHTML = "";
+  let pass = 0, fail = 0;
+  const log = (name, ok, extra="") => {
+    if (ok) pass++; else fail++;
+    const d = document.createElement("div");
+    d.className = "test " + (ok ? "ok" : "fail");
+    d.textContent = `${ok ? "✅" : "❌"} ${name}${extra ? "  —  " + extra : ""}`;
+    out.appendChild(d);
+    (ok ? console.log : console.error)(`${ok ? "✅" : "❌"} ${name}`, extra);
+  };
+  const approx = (a,b,tol=1e-6) => Math.abs(a-b) < tol;
+
+  /* --- Perfiles --- */
+  {
+    const p = archProfile(22, 32);
+    log("arco apuntado: arranque en (±a, 0)",
+        approx(p.at(-22), 0, 1e-6) && approx(p.at(22), 0, 1e-6));
+    log("arco apuntado: ápice en (0, h)", approx(p.at(0), 32, 1e-6));
+    const semi = archProfile(10, 10);
+    log("semicírculo: y(5) = √75", approx(semi.at(5), Math.sqrt(75), 1e-6));
+    const para = archProfile(10, 4);   // rise < a → parábola
+    log("parábola rebajada: y(0) = h", approx(para.at(0), 4));
+    log("parábola rebajada: y(±a) = 0", approx(para.at(10), 0));
+  }
+  {
+    const g = gableProfile(5, 3);
+    log("gable: y(0) = h", approx(g.at(0), 3));
+    log("gable: y(±5) = 0", approx(g.at(5), 0) && approx(g.at(-5), 0));
+    log("gable: lineal en x=2.5", approx(g.at(2.5), 1.5));
+  }
+
+  /* --- Momento flector (base del funicular) --- */
+  {
+    const loads = [{x:0, P:10}];              // carga central
+    log("momento: carga central P·L/4", approx(momentAt(0, loads, -1, 1), 5));
+    log("momento: en apoyos M=0",
+        approx(momentAt(-1, loads, -1, 1), 0, 1e-9) &&
+        approx(momentAt( 1, loads, -1, 1), 0, 1e-9));
+  }
+
+  /* --- Funicular pasa por apoyos --- */
+  {
+    const loads = [{x:-5,P:1},{x:0,P:2},{x:5,P:1}];
+    const H = 10;
+    log("funicular: pasa por apoyos",
+        approx(funicularY(-10, loads, H, -10, 10, 0, 0), 0, 1e-9) &&
+        approx(funicularY( 10, loads, H, -10, 10, 0, 0), 0, 1e-9));
+  }
+
+  /* --- Seguridad: Heyman --- */
+  {
+    const p = semicircleProfile(10);
+    const lc = LoadCase.fromProfile(p, 40, 1);
+    const thick = safetyCheck(p, 2.0, lc, { samples: 100 });
+    log("semicírculo grueso (t=2) es seguro",
+        thick.safe, `margen=${thick.margin.toFixed(3)}`);
+    const thin = safetyCheck(p, 0.001, lc, { samples: 100 });
+    log("semicírculo papel (t=0.001) es inseguro",
+        !thin.safe, `margen=${thin.margin.toFixed(3)}`);
+  }
+
+  /* --- Optimizador acoplado (carga ∝ espesor) --- */
+  {
+    const p = archProfile(10, 14);       // apuntado
+    const tMin = minSafeThickness(p, 2.0, 0.5, {});
+    log("optimizador: t mín encontrado",
+        tMin !== null && tMin > 0 && tMin < 12,
+        tMin ? `t_min=${tMin.toFixed(3)}` : "null");
+  }
+
+  /* --- Malla: cúpula --- */
+  {
+    const p = archProfile(5, 8);
+    const mesh = revolveProfile(p, 0.5, 20, 24);
+    let maxY = -Infinity;
+    for (const q of mesh.outer) for (const v of q) if (v[1] > maxY) maxY = v[1];
+    log("malla cúpula: vértice ≈ h + t/2", approx(maxY, 8 + 0.25, 0.05));
+  }
+
+  /* --- Malla: bóveda --- */
+  {
+    const p = archProfile(5, 6);
+    const mesh = extrudeProfile(p, 0.5, 20, 20, 10);
+    let zmin = Infinity, zmax = -Infinity;
+    for (const q of mesh.outer) for (const v of q){
+      if (v[2] < zmin) zmin = v[2];
+      if (v[2] > zmax) zmax = v[2];
+    }
+    log("malla bóveda: z ∈ [-L/2, L/2]",
+        approx(zmin, -10, 1e-6) && approx(zmax, 10, 1e-6));
+  }
+
+  const summary = document.createElement("div");
+  summary.style.marginTop = "6px";
+  summary.style.color = fail === 0 ? "#86efac" : "#fca5a5";
+  summary.textContent = `${pass} ✓ · ${fail} ✗`;
+  out.appendChild(summary);
+  console.group(`%cTests dominio · ${pass} ✓ / ${fail} ✗`, `color:${fail?'#ef4444':'#22c55e'};font-weight:bold`);
+  console.groupEnd();
+}
+
+/* ============================================================================
+ * BOOT  (composition root: arranca adaptadores y cablea)
+ * ========================================================================== */
+window.addEventListener("DOMContentLoaded", () => {
+  const app = new App();
+  window.__app = app;
+  const panel = document.getElementById("panel");
+  document.getElementById("toggle-panel").addEventListener("click",
+    () => panel.classList.toggle("hidden"));
+  window.addEventListener("keydown", e => {
+    if (e.key === "p" || e.key === "P") panel.classList.toggle("hidden");
+  });
+});
+</script>
+</body>
+</html>
