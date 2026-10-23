@@ -1,0 +1,386 @@
+JUGUETE B v1.3 — ANALIZADOR DE VIGAS Y PÓRTICOS 2D CON CAMPO DE FUERZAS
+════════════════════════════════════════════════════════════════════════════════
+Documento de referencia. Sin código. Para leer antes de abrir el HTML.
+────────────────────────────────────────────────────────────────────────────────
+
+
+1. QUÉ ES
+────────────────────────────────────────────────────────────────────────────────
+
+Un analizador estático lineal de estructuras de barras en 2D. Le das una
+geometría (nodos y elementos), un material, una sección, unos apoyos y unas
+cargas; te devuelve un veredicto: si la estructura cumple o no los límites que
+tú le pones. Además, dibuja la deformada y un campo de flechas que muestra la
+dirección y magnitud de las fuerzas internas en cada punto.
+
+Es un juguete. Herramienta didáctica, no profesional. Sirve para razonar, no
+para certificar. No autoriza a construir. No firma nada.
+
+Está pensado para probar disposiciones de vigas, columnas y contrapesos, y ver
+"si aguanta" a orden de magnitud. Es lo que uno hace con regla, papel y estática
+gráfica, pero con un solver numérico detrás y una visualización clara.
+
+
+2. QUÉ NO ES (explícito, para que no se cuele)
+────────────────────────────────────────────────────────────────────────────────
+
+   - No es 3D. Todo ocurre en un plano (x, z). La profundidad no existe.
+   - No es dinámico. No hay sismo, viento, impacto ni vibración.
+   - No es no-lineal. Material elástico lineal, pequeños desplazamientos.
+   - No comprueba pandeo. Una columna esbelta puede fallar por pandeo antes
+     que por tensión; el juguete no lo detecta. Aviso en la UI.
+   - No comprueba conexiones, fatiga, fuego, cimentación, secuencia
+     constructiva, ni normativa (Eurocódigo, CTE, etc.).
+   - No comprueba mampostería ni compresión pura. Eso es el módulo A
+     (Brunelleschi), que es OTRO proyecto, previsto para v1.2.
+   - No certifica nada. Ni probando se sabe si está bien. Los tests prueban
+     que las matemáticas son coherentes, no que el modelo sea correcto. Las
+     cargas, los apoyos, las secciones y el material los pones tú; si los
+     pones mal, el resultado es perfectamente incorrecto.
+
+
+3. QUÉ HACE (features)
+────────────────────────────────────────────────────────────────────────────────
+
+   ● Carga una estructura desde JSON (nodos, elementos, materiales, secciones,
+     apoyos, cargas, constraints).
+   ● Resuelve el sistema de rigidez y devuelve:
+       - Desplazamientos nodales.
+       - Reacciones en los apoyos.
+       - Diagramas N(x), V(x), M(x) por elemento (en el resumen).
+       - Flecha máxima, momento máximo, axil máximo, aprovechamiento máximo.
+   ● Comprueba los constraints que tú definas:
+       - Aprovechamiento máximo σ/σ_adm.
+       - Flecha absoluta máxima.
+       - Flecha relativa (L/N).
+   ● Veredicto "CUMPLE" / "NO CUMPLE" + lista de violaciones.
+   ● Optimizador de sección por catálogo: elige, para cada elemento, la sección
+     más pequeña que satisface los constraints. Minimiza masa con topología y
+     geometría fijas.
+   ● Campo de fuerzas internas: flechas coloreadas por magnitud, superpuestas
+     al esquema. Toggle para activarlo o desactivarlo.
+   ● Deformada amplificable (slider) para ver cómo se mueve la estructura.
+   ● 6 presets: viga biapoyada con carga central, carga uniforme, voladizo con
+     carga en punta, pórtico, triángulo articulado, y voladizo con contrapeso.
+   ● 16 tests del dominio, ejecutables desde la UI, que verifican que el solver
+     y el campo no mienten.
+   ● Editor JSON en pantalla, cargar y copiar. El JSON es la entrada; los
+     resultados se calculan y no se guardan en el archivo.
+
+
+4. CÓMO LO HACE — FÍSICA
+────────────────────────────────────────────────────────────────────────────────
+
+4.1. Modelo estructural
+   Elemento frame 2D de Euler-Bernoulli. 3 grados de libertad por nodo:
+   desplazamiento horizontal (u), desplazamiento vertical (v) y giro (θ). La
+   matriz de rigidez local 6×6 clásica de viga-columna.
+
+   Las barras articuladas (truss) son un caso particular del frame: se liberan
+   los grados de libertad de giro y la matriz se reduce a solo rigidez axial.
+   Mismo solver, distinto "type" en el JSON.
+
+   Las barras pueden estar inclinadas; se rota la matriz local a global con una
+   transformación de coordenadas.
+
+4.2. Resolución
+   Método de rigidez directa:
+     - Se ensambla la matriz de rigidez global K y el vector de fuerzas F.
+     - Se aplican las condiciones de contorno por ELIMINACIÓN: los grados de
+       libertad fijos se eliminan del sistema, se resuelve el subsistema libre,
+       y las reacciones se recuperan como R = K·d − F en los DOFs eliminados.
+     - Se resuelve con eliminación gaussiana con pivoteo parcial.
+     - Si el sistema es singular (mecanismo, apoyo mal puesto), error explícito,
+       no NaN silencioso.
+
+4.3. Cargas
+   Tipos admitidos:
+     - Fuerza puntual en nodo (Fx, Fz) y momento M.
+     - Carga uniforme sobre un elemento (wx, wz).
+     - Carga puntual en punto interior de un elemento (a, Px, Pz).
+     - Peso propio (ρ·A·g) como carga uniforme, opcional.
+   Las cargas uniformes y puntuales en elementos se convierten en fuerzas
+   nodales equivalentes mediante funciones de forma (fuerzas de empotramiento
+   perfecto). Es el procedimiento estándar.
+
+4.4. Post-proceso por elemento
+   Fórmulas exactas a partir de las fuerzas de extremo locales:
+     N(x) = −Fx1 − wx·x        (axil, tracción positiva)
+     V(x) = Fz1 + wz·x         (cortante)
+     M(x) = −M1 + Fz1·x + wz·x²/2   (flector, sagging positivo)
+   Verificadas a mano contra casos de manual antes de escribir el código.
+
+4.5. Constraint de aprovechamiento
+   Tensión normal máxima en la sección:
+     σ = |N|/A + |M|·c/I
+   Aprovechamiento = σ / σ_adm. Si supera 1, no cumple. Si tú pones un
+   coeficiente de seguridad (por ejemplo 0.85), el juguete lo respeta.
+
+4.6. Campo de fuerzas internas
+   Combina N(x) y V(x) en un vector global (Fx, Fz):
+     Fx = N·c − V·s
+     Fz = N·s + V·c
+   donde c, s son el coseno y seno del ángulo del elemento.
+   La dirección de la flecha es la del vector; la longitud, proporcional a la
+   magnitud; el color, de azul (magnitud baja) a rojo (magnitud alta).
+   Es una reducción: no calcula la distribución de tensión en la sección, solo
+   la resultante en el eje. Suficiente para "ver por dónde va la fuerza".
+
+4.7. Optimizador de sección
+   Estrategia: minimización de masa con topología y geometría FIJAS. Bucle
+   greedy sobre un catálogo de secciones ordenado de menor a mayor masa. Para
+   cada elemento, prueba de la más pequeña a la más grande hasta que los
+   constraints pasen. Es óptimo local, no global; puede quedarse atascado.
+   Lo que NO hace: no cambia posiciones de nodos (eso es optimización de forma,
+   v1.2), no añade ni quita elementos (eso es topología, v2).
+   La interfaz `optimizeByCatalog(scene, catalog, constraints)` es el único
+   contrato: cualquier otra estrategia (forma, topología) implementa esa firma
+   sin tocar el solver.
+
+
+5. CÓMO LO HACE — ARQUITECTURA
+────────────────────────────────────────────────────────────────────────────────
+
+Arquitectura hexagonal. Un solo archivo HTML, módulos explícitos, fronteras
+verificables por test.
+
+   ┌───────────────────────────────────────────────────────────────────────┐
+   │  DOMAIN  (puro, sin DOM, sin canvas, sin window)                     │
+   │    Primitives, BeamSolver, ForceFieldBuilder, ConstraintChecker,    │
+   │    SectionOptimizer, SchemaLoader                                    │
+   ├───────────────────────────────────────────────────────────────────────┤
+   │  PORTS  (interfaces documentadas)                                    │
+   │    IAnalysis, IRenderer, IControls, IOptimizer                       │
+   ├───────────────────────────────────────────────────────────────────────┤
+   │  ADAPTERS  (infraestructura)                                         │
+   │    CanvasRenderer, DOMControls                                       │
+   ├───────────────────────────────────────────────────────────────────────┤
+   │  APPLICATION                                                         │
+   │    App: estado + servicios activos + cableado                        │
+   └───────────────────────────────────────────────────────────────────────┘
+
+Reglas de frontera:
+   1. El dominio no toca el DOM. Se puede correr en Node, en un test, o en un
+      worker sin cambios.
+   2. Los adapters pueden importar del dominio, pero el dominio no importa de
+      los adapters.
+   3. El App cablea, no calcula. Si hay una fórmula en App, está en el sitio
+      equivocado.
+   4. El renderer recibe resultados ya calculados. No computa física.
+   5. Cuando entre el módulo A (Brunelleschi) en v1.2, será otro IAnalysis más.
+      El App no cambia de forma; solo añade un servicio a la lista de activos.
+
+Test de frontera: el solver debe correr y pasar sus tests sin que exista un
+canvas. Si un test del dominio necesita DOM, el código está mal ubicado.
+
+
+6. JSON DE ENTRADA
+────────────────────────────────────────────────────────────────────────────────
+
+El JSON es la entrada. Los resultados se calculan y no se guardan en el archivo.
+Esquema mínimo:
+
+   {
+     "units": "SI",
+     "selfWeight": false,
+     "materials": {
+       "acero": { "E": 2.1e11, "rho": 7850, "sigmaAdm": 1.6e8 }
+     },
+     "sections": {
+       "IPE200": { "A": 2.85e-3, "I": 1.94e-5, "c": 0.10 }
+     },
+     "nodes": [
+       { "id": "n1", "x": 0, "z": 0 },
+       { "id": "n2", "x": 5, "z": 0 },
+       { "id": "n3", "x": 10, "z": 0 }
+     ],
+     "elements": [
+       { "id": "e1", "node1": "n1", "node2": "n2",
+         "material": "acero", "section": "IPE200", "type": "frame" },
+       { "id": "e2", "node1": "n2", "node2": "n3",
+         "material": "acero", "section": "IPE200", "type": "frame" }
+     ],
+     "supports": [
+       { "node": "n1", "type": "pinned" },
+       { "node": "n3", "type": "roller_z" }
+     ],
+     "loads": [
+       { "type": "point_node", "node": "n2", "Fx": 0, "Fz": -10000, "M": 0 }
+     ],
+     "constraints": {
+       "maxUtilization": 1.0,
+       "maxDeflectionRelative": 300
+     }
+   }
+
+Unidades SI: metros, newtons, pascales, kg/m³. Eje z vertical, gravedad = −z.
+Rotación CCW positiva. Todos los ángulos en radianes dentro del dominio; en
+JSON no hay ángulos (todo son coordenadas y vectores).
+
+Tipos de apoyo:
+   - "fixed"     : restringe u, v, θ.
+   - "pinned"    : restringe u, v.
+   - "roller_x"  : restringe u.
+   - "roller_z"  : restringe v.
+
+Tipos de carga:
+   - "point_node": Fx, Fz, M en un nodo.
+   - "uniform"   : wx, wz por unidad de longitud sobre un elemento.
+   - "point_elem": a (distancia desde node1), Px, Pz.
+
+Constraints opcionales:
+   - "maxUtilization"        : σ/σ_adm máximo permitido.
+   - "maxDeflection"         : flecha absoluta máxima (m).
+   - "maxDeflectionRelative" : L/N (por ejemplo 300 para L/300).
+
+Validación al cargar:
+   - "units" debe ser "SI".
+   - Materiales, secciones, nodos y elementos referenciados deben existir.
+   - Nodos duplicados, elementos con nodos inexistentes, apoyos en nodos
+     inexistentes: error explícito.
+   - Matriz singular: error explícito, no NaN.
+
+
+7. PRESETS
+────────────────────────────────────────────────────────────────────────────────
+
+   ● Viga biapoyada con carga central. Caso canónico, útil para verificar.
+   ● Viga biapoyada con carga uniforme. El más visual para el campo de fuerzas.
+   ● Voladizo con carga en punta.
+   ● Pórtico simple con carga central (simetría).
+   ● Triángulo articulado (truss) con carga en el ápice.
+   ● Voladizo con contrapeso: demuestra que el contrapeso anula la reacción
+     en el apoyo, pero NO elimina el momento flector. Es el test #9 en
+     formato preset.
+
+
+8. TESTS — QUÉ VERIFICAN
+────────────────────────────────────────────────────────────────────────────────
+
+Los tests corren contra el dominio puro, sin DOM. Todos deben pasar. Cada uno
+compara contra una solución de manual exacta, no contra otra fórmula.
+
+   T1   Viga biapoyada, carga central: M = PL/4, δ = PL³/(48EI).
+   T2   Viga biapoyada, carga uniforme: M = qL²/8, δ = 5qL⁴/(384EI).
+   T3   Voladizo, carga en punta: M = PL, δ = PL³/(3EI).
+   T4   Voladizo, carga uniforme: M = qL²/2, δ = qL⁴/(8EI).
+   T5   Viga con momento en un extremo: M(x) = M₀·(1 − x/L).
+   T6   Viga continua de dos vanos: reacciones 3/8, 10/8, 3/8 de q·L.
+   T7   Triángulo articulado: reacciones 500/500, axil inclinado 577 N.
+   T8   Pórtico simétrico: Rz iguales, ∑Rx = 0.
+   T9   Voladizo con contrapeso: R_roller ≈ 0, R_pin ≈ W + P.
+   T10  Conservación: ∑Rz = ∑cargas.
+   T11  Simetría: R₁ = R₂ en biapoyada con carga central.
+   T12  Dimensional: E×2, P×2 → δ igual, M doble.
+   T13  Campo: voladizo → |F| = P en todo punto (cortante constante).
+   T14  Campo: biapoyada uniforme → simétrico.
+   T15  Campo: conservación |V(0)| = |R|.
+   T16  Campo: tracción pura → Fx > 0, |Fz| ≈ 0.
+
+Si los 16 pasan, el solver y el campo son coherentes. No certifican nada;
+verifican que las matemáticas son correctas. El modelo (cargas, apoyos,
+secciones) lo decides tú.
+
+
+9. LIMITACIONES Y AVISOS
+────────────────────────────────────────────────────────────────────────────────
+
+   - 2D. La profundidad no existe. Una viga de 6 m en el plano es una viga de
+     6 m en la realidad, pero la estructura real es tridimensional.
+   - Lineal. No hay no-linealidad geométrica (grandes desplazamientos) ni de
+     material (plasticidad, rotura).
+   - Sin pandeo. Una columna esbelta puede fallar antes de lo que el cálculo
+     predice. Aviso en la UI.
+   - Sin conexiones. Los nudos son rígidos o articulados según se declaren; la
+     realidad de una conexión es más compleja.
+   - Sin cimentación. Los apoyos son rígidos o rodillos; no hay asientos.
+   - Sin normativa. Los factores de seguridad los pones tú, no el código.
+   - Sin combinaciones de hipótesis. Cada análisis es un estado de cargas.
+     (Previsto para v1.1.)
+   - El optimizador es óptimo local. Puede quedar atascado. "Menos masa" no
+     es "más seguro": el resultado óptimo puede ser frágil frente a
+     imperfecciones o cargas no modeladas.
+   - El campo de fuerzas es una reducción. No calcula la distribución de
+     tensión en la sección. Es una resultante en el eje.
+
+Aviso honesto: los tests prueban que las matemáticas están bien, no que el
+modelo esté bien. Un solver perfecto con cargas mal estimadas da una respuesta
+perfectamente incorrecta. Si el juguete dice "no pasa", casi seguro que hay un
+problema real. Si dice "pasa", no casi seguro que esté bien. La asimetría es
+informativa: el juguete es más fiable como detector de problemas que como
+certificador de bondades.
+
+No autoriza a construir. Para tocar una estructura real, ingeniero.
+
+
+10. ROADMAP
+────────────────────────────────────────────────────────────────────────────────
+
+   v1       (actual)  Solver 2D, JSON, UI mínima, 12 tests, campo de fuerzas.
+   v1.1               Combinaciones de hipótesis (muerta + viva, etc.) y
+                      pandeo de Euler para elementos comprimidos.
+   v1.2               Módulo A (Brunelleschi): funicular, Heyman, hoop toggle,
+                      como segundo IAnalysis superponible en el mismo canvas.
+   v1.3               Optimización de forma (mover nodos). Level-set.
+   v2                 Topología (SIMP o level-set continuo). 3D frames.
+   Nunca              Certificación. Eso no es un fallo, es un límite.
+
+
+11. CÓMO USARLO
+────────────────────────────────────────────────────────────────────────────────
+
+   1. Abre el HTML en un navegador. No necesita servidor ni instalación.
+   2. Elige un preset en el desplegable. Verás el esquema, la deformada y el
+      campo de fuerzas.
+   3. Pulsa "Ejecutar tests". Los 16 deben salir en verde. Si alguno falla, el
+      juguete no es fiable; no lo uses.
+   4. Para tu estructura: pulsa "Ver / editar JSON", pega tu geometría, cargas,
+      secciones y constraints. Pulsa "Aplicar JSON".
+   5. Ajusta la deformada y el campo con los sliders. Si el campo está apagado,
+      no se computa (no se paga el coste).
+   6. Pulsa "Optimizar sección" si quieres ver qué sección del catálogo basta.
+      Ojo: es óptimo local, no global.
+   7. Interpreta el veredicto: CUMPLE o NO CUMPLE, con la lista de violaciones.
+      Si CUMPLE, tienes una conversación con un ingeniero. Si NO CUMPLE, tienes
+      un problema real que investigar.
+
+Para tu techo:
+   - Mide luces, separación entre viguetas, sección de las viguetas, material.
+   - Estima cargas: peso propio (ρ·A·g), sobrecarga de uso, nieve si aplica.
+   - Mete el JSON. Usa maxDeflectionRelative: 300 (L/300) y maxUtilization: 0.85
+     (margen de seguridad).
+   - Mira reacciones, flecha, aprovechamiento. Si el apoyo tira hacia arriba,
+     necesitas anclaje, no apoyo.
+   - Si el juguete dice "pasa" con holgura, habla con un ingeniero. Si dice
+     "no pasa", investiga. Ninguno de los dos casos es una firma.
+
+
+12. FILOSOFÍA DEL JUGUETE
+────────────────────────────────────────────────────────────────────────────────
+
+Tres reglas que no se negocian:
+
+   1. Primero se calcula, después se dibuja. Si el render pinta algo que el
+      dominio no ha computado, es decoración. La diferencia entre "se ve mejor"
+      y "se ve mejor y es verdad" es exactamente esa.
+
+   2. Cada campo del JSON debe habilitar un check o un test que sin él no
+      podrías hacer. Si un campo no cambia un veredicto ni un test, no entra.
+      Esto protege contra la inflación de esquema, que es lo que mata estos
+      juguetes.
+
+   3. El juguete puede ser cutre; lo que no puede ser es decorativo. Un juguete
+      cutre que se ve mejor porque muestra su cálculo es mejor juguete que uno
+      bonito que esconde lo que hace.
+
+En un videojuego, si se ve bien, funciona. En una estructura, si funciona, se
+ve bien. No es lo mismo en ningún sentido, y confundirlos es el error que
+produce techos que caen y juegos aburridos. Este juguete está del lado de la
+estructura: no pretende ser bonito, pretende ser claro.
+
+
+════════════════════════════════════════════════════════════════════════════════
+Fin del documento. Versión v1.3. Cualquier cambio en la física, el esquema o la
+arquitectura debe actualizar este documento. Si el documento y el código
+discrepan, el documento es la intención; el código es la realidad. Cuando
+difieran, gana el código, pero conviene saber por qué
