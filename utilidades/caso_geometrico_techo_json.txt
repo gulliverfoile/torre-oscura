@@ -1,0 +1,711 @@
+════════════════════════════════════════════════════════════════════════════════
+GUÍA DEL JSON · JUGUETE B (vigas y pórticos 2D)
+Cómo describir tu techo para que el analizador lo entienda
+════════════════════════════════════════════════════════════════════════════════
+Documento práctico. Sin código. Léelo antes de escribir tu primer JSON.
+────────────────────────────────────────────────────────────────────────────────
+
+
+0. QUÉ ES ESTE DOCUMENTO
+────────────────────────────────────────────────────────────────────────────────
+
+El juguete B (el de vigas) se alimenta con un archivo JSON. Ese JSON es la
+descripción completa de tu estructura: qué nodos hay, qué elementos los unen,
+de qué material son, qué sección tienen, dónde se apoyan, qué cargas reciben
+y qué límites quieres exigir.
+
+Este documento explica:
+
+   ● Qué significa cada campo del JSON.
+   ● En qué unidades va cada cosa.
+   ● Cómo medir tu techo real para rellenarlo.
+   ● Cómo estimar las cargas.
+   ● Los errores típicos y cómo evitarlos.
+   ● Un ejemplo completo, comentado, para copiar y adaptar.
+
+El JSON es la ENTRADA. Los resultados se calculan y no se guardan en el
+archivo. Eso significa que el archivo es versionable, compartible y
+reproducible: si dos personas tienen el mismo JSON, obtienen el mismo
+resultado.
+
+El JSON es un CONTRATO. Si un campo no aporta un check o un test, no debe
+estar. Esta guía solo documenta los campos que el solver usa.
+
+
+1. REGLAS GENERALES (las que se incumplen más)
+────────────────────────────────────────────────────────────────────────────────
+
+R1. UNIDADES SI, SIEMPRE.
+    Metros (m), newtons (N), pascales (Pa), kilogramos (kg), kg/m³.
+    Nada de centímetros, kN, MPa, kg/cm² ni mezclas. Si mides en cm, divide
+    por 100 antes de meter el dato. Si mides en kN, multiplica por 1000. Si
+    mides en MPa, multiplica por 1e6. El cargador rechaza si units != "SI".
+
+R2. z ES VERTICAL.
+    El eje z apunta hacia arriba. La gravedad es −z. El suelo es z = 0.
+    Una viga horizontal en el plano del techo tiene todos sus nodos con la
+    MISMA z. Una columna vertical tiene dos nodos con la MISMA x y distinta z.
+    El eje y no existe. Es un análisis 2D en el plano (x, z).
+
+R3. ROTACIONES CCW POSITIVAS.
+    Un giro en sentido antihorario es positivo. Los momentos y las cargas
+    angulares siguen esta convención. La mayoría de los casos no lo notarás,
+    pero si un momento sale con signo inesperado, revisa esto.
+
+R4. FUERZAS HACIA ABAJO SON NEGATIVAS EN z.
+    Una carga que empuja hacia abajo (gravedad, peso, nieve) tiene Fz < 0.
+    Una carga que empuja hacia arriba tiene Fz > 0. Es la convención de la
+    gravedad: −z. No la cambies a mitad del archivo.
+
+R5. IDs ÚNICOS Y REFERENCIADOS.
+    Cada nodo, elemento, material y sección tiene un id (string). Todos los
+    ids son únicos dentro de su categoría. Todas las referencias (un elemento
+    que apunta a un material, un apoyo que apunta a un nodo) deben existir.
+    Si una referencia no existe, el cargador falla con un error explícito.
+
+R6. NO HAY COMENTARIOS EN JSON.
+    JSON no admite comentarios. Si quieres dejar notas, usa el campo "meta"
+    (abajo) o un campo "note" en cualquier objeto. El solver ignora lo que no
+    reconoce, pero es mejor no abusar: cada campo debe tener un propósito.
+
+
+2. ESQUEMA COMPLETO
+────────────────────────────────────────────────────────────────────────────────
+
+Estructura de primer nivel:
+
+{
+  "units": "SI",                     // obligatorio, siempre "SI"
+  "meta": { ... },                   // opcional, informativo
+  "selfWeight": false,               // opcional, default false
+  "materials": { ... },              // obligatorio, al menos uno
+  "sections": { ... },               // obligatorio, al menos una
+  "nodes": [ ... ],                  // obligatorio, al menos dos
+  "elements": [ ... ],               // obligatorio, al menos uno
+  "supports": [ ... ],               // obligatorio (sin apoyos no hay equilibrio)
+  "loads": [ ... ],                  // puede estar vacío (solo peso propio)
+  "constraints": { ... }             // opcional, pero muy recomendable
+}
+
+Cada sección se detalla abajo.
+
+
+3. "meta" — INFORMACIÓN DEL ARCHIVO (opcional)
+────────────────────────────────────────────────────────────────────────────────
+
+{
+  "meta": {
+    "name": "Techo casa - viguetas de madera",
+    "author": "tu nombre",
+    "date": "2026-10-23",
+    "note": "Modelo simplificado de la estructura del techo. No incluye
+             conexiones ni cimentación. Uso didáctico."
+  }
+}
+
+El solver ignora "meta" por completo. Sirve para que tú, dentro de seis meses,
+sepas qué estás mirando. Recomendado: siempre poner "name" y "note".
+
+
+4. "materials" — MATERIALES
+────────────────────────────────────────────────────────────────────────────────
+
+Cada material tiene tres propiedades:
+
+{
+  "materials": {
+    "madera_pino": {
+      "E": 1.0e10,          // módulo de Young, Pa
+      "rho": 500,           // densidad, kg/m³
+      "sigmaAdm": 8.0e6     // tensión admisible, Pa
+    },
+    "acero_S275": {
+      "E": 2.1e11,
+      "rho": 7850,
+      "sigmaAdm": 2.75e8
+    }
+  }
+}
+
+Significado:
+
+   E         Módulo de Young (rigidez). Cuanto más alto, menos flecha.
+             Madera: 8e9–12e9. Acero: 2.1e11. Hormigón: 3e10.
+             Si no lo sabes, usa 1e10 (madera blanda) o 2.1e11 (acero).
+
+   rho       Densidad. Solo se usa si "selfWeight": true. Para el peso
+             propio: w = rho · A · g (N/m), donde A es el área de la sección.
+             Madera: 400–700. Acero: 7850. Hormigón: 2400.
+
+   sigmaAdm  Tensión admisible. Es el límite que separa "cumple" de "no
+             cumple" en el aprovechamiento. Es TU decisión, no del material:
+             normalmente es sigma_yield / factor_seguridad.
+             Madera: 5e6–10e6. Acero S275: 2.75e8 / 1.05 ≈ 2.6e8.
+
+   No metas sigma_yield si no sabes qué es. Mete sigmaAdm directamente con
+   un margen que te convenza (por ejemplo, la mitad del límite elástico).
+
+
+5. "sections" — SECCIONES
+────────────────────────────────────────────────────────────────────────────────
+
+Cada sección tiene tres propiedades geométricas:
+
+{
+  "sections": {
+    "viga_madera_10x20": {
+      "A": 0.02,            // área, m²
+      "I": 6.667e-5,        // momento de inercia, m⁴
+      "c": 0.10             // distancia a fibra extrema, m
+    },
+    "IPE200": {
+      "A": 2.85e-3,
+      "I": 1.94e-5,
+      "c": 0.10
+    }
+  }
+}
+
+Significado:
+
+   A     Área de la sección transversal. Para una rectangular b×h:
+         A = b·h. Una viga de 10×20 cm = 0.1×0.2 m → A = 0.02 m².
+
+   I     Momento de inercia respecto al eje de flexión. Para rectangular
+         b×h flexionando en la dirección de h (la más alta): I = b·h³/12.
+         Para 10×20 cm: I = 0.1·0.2³/12 = 6.667e-5 m⁴.
+         Para acero laminado, I viene en las tablas del fabricante (IPE,
+         HEB, etc.). El IPE200 tiene I ≈ 1.94e-5 m⁴.
+
+   c     Distancia desde el eje neutro a la fibra más alejada. Para una
+         sección simétrica rectangular de altura h: c = h/2.
+         Para 10×20 cm: c = 0.1 m.
+
+   Las tres propiedades son necesarias. Si te falta una, no puedes calcular
+   ni flecha ni tensión. No hay valores por defecto.
+
+   Nomenclatura de la sección: el id es libre ("viga_madera_10x20", "IPE200",
+   "sec_principal", etc.). Lo importante es que el elemento apunte al id
+   correcto.
+
+
+6. "nodes" — NODOS
+────────────────────────────────────────────────────────────────────────────────
+
+Cada nodo es un punto del plano con coordenadas (x, z):
+
+{
+  "nodes": [
+    { "id": "n1", "x": 0.0, "z": 0.0 },
+    { "id": "n2", "x": 1.5, "z": 0.0 },
+    { "id": "n3", "x": 3.0, "z": 0.0 }
+  ]
+}
+
+Significado:
+
+   id        Identificador único. Cualquier string. Por convención, "n1",
+             "n2", etc., o nombres descriptivos ("apoyo_izq", "cumbrera").
+             Todos los ids son únicos en el array.
+
+   x, z      Coordenadas en metros. x es horizontal, z es vertical (arriba
+             positivo). La elección del origen es tuya; el sistema no tiene
+             un origen privilegiado. Una buena práctica es poner un apoyo
+             en (0, 0) para que las coordenadas sean legibles.
+
+   Los nodos son los puntos donde se unen elementos o donde hay apoyos o
+   cargas. No hace falta poner un nodo en cada punto de la viga: solo donde
+   cambia algo (apoyo, carga puntual, unión con otro elemento).
+
+   Si tu viga es una viga recta de 6 m con una carga en el centro y dos
+   apoyos en los extremos, necesitas TRES nodos: (0,0), (3,0), (6,0). Los
+   dos elementos van de extremo a extremo pasando por el centro.
+
+   Si tu viga es una viga de 6 m con carga uniforme y dos apoyos, puedes
+   usar dos elementos y tres nodos, o más elementos para mejor resolución
+   en los diagramas. El solver reparte bien con 2; con 4 es más fino pero
+   no más exacto en los extremos.
+
+
+7. "elements" — ELEMENTOS (barras)
+────────────────────────────────────────────────────────────────────────────────
+
+Cada elemento une dos nodos, con un material y una sección:
+
+{
+  "elements": [
+    { "id": "e1", "node1": "n1", "node2": "n2",
+      "material": "madera_pino", "section": "viga_madera_10x20",
+      "type": "frame" },
+    { "id": "e2", "node1": "n2", "node2": "n3",
+      "material": "madera_pino", "section": "viga_madera_10x20",
+      "type": "frame" }
+  ]
+}
+
+Significado:
+
+   id        Identificador único del elemento.
+
+   node1     id del nodo de inicio. Define la orientación local del
+   node2     id del nodo de fin.    elemento: el eje x_local va de node1 a
+                                    node2. Esto afecta al signo de N y V en
+                                    los diagramas, no al resultado global.
+
+   material  id de un material definido en "materials".
+
+   section   id de una sección definida en "sections".
+
+   type      "frame" (por defecto) o "truss".
+             - "frame": viga-columna, transmite axil, cortante y momento.
+               Es lo que quieres para vigas y pórticos.
+             - "truss": barra articulada, solo transmite axil. Es lo que
+               quieres para cerchas y triangulaciones. Se comporta como un
+               frame con rigidez a flexión nula.
+
+   Cada elemento es independiente. Dos elementos que comparten nodo están
+   conectados rígidamente en ese nodo (nudo rígido), salvo que uses "truss"
+   en ambos, en cuyo caso el nudo es articulado para esos elementos.
+
+   No hay "release" parcial (un extremo rígido y otro articulado). Si lo
+   necesitas, modela el nudo con un elemento muy corto de sección muy
+   pequeña, o espera a v1.1.
+
+
+8. "supports" — APOYOS
+────────────────────────────────────────────────────────────────────────────────
+
+Cada apoyo fija ciertos grados de libertad de un nodo:
+
+{
+  "supports": [
+    { "node": "n1", "type": "pinned" },
+    { "node": "n3", "type": "roller_z" }
+  ]
+}
+
+Significado:
+
+   node      id del nodo donde va el apoyo.
+
+   type      Tipo de restricción:
+             - "fixed"     : fija u, v y giro θ. Nudo empotrado.
+                             Una viga en voladizo tiene un solo apoyo "fixed".
+             - "pinned"    : fija u y v, deja libre el giro. Nudo articulado.
+                             Un apoyo que no permite desplazamiento pero sí
+                             rotación.
+             - "roller_x"  : fija solo u (horizontal). Deja libre v y θ.
+                             Un apoyo que permite deslizamiento vertical.
+             - "roller_z"  : fija solo v (vertical). Deja libre u y θ.
+                             Un apoyo que permite deslizamiento horizontal.
+                             Es el típico "apoyo móvil" de una viga biapoyada.
+
+   Combinaciones típicas:
+   - Viga biapoyada: "pinned" en un extremo, "roller_z" en el otro. La
+     estructura es isostática.
+   - Viga en voladizo: "fixed" en el extremo empotrado.
+   - Pórtico biarticulado: "pinned" en ambos pies.
+   - Pórtico biempotrado: "fixed" en ambos pies.
+
+   La estructura debe tener restricciones suficientes para no ser un
+   mecanismo. Si el sistema es singular (la matriz de rigidez no se puede
+   invertir), el solver te avisa con un error explícito. Eso suele significar
+   que falta un apoyo, o que los apoyos están mal puestos.
+
+   Regla rápida: en 2D, para que una estructura sea estable, necesitas al
+   menos 3 restricciones bien colocadas. "pinned" + "roller_z" da 2+1=3.
+   "fixed" da 3. "pinned" + "pinned" da 4 (hiperestática, pero válida).
+
+
+9. "loads" — CARGAS
+────────────────────────────────────────────────────────────────────────────────
+
+Hay tres tipos de carga:
+
+9.1. Carga puntual en nodo
+
+{
+  "type": "point_node",
+  "node": "n2",
+  "Fx": 0,
+  "Fz": -10000,       // 10 kN hacia abajo
+  "M": 0              // momento puntual, N·m
+}
+
+   Se aplica en un nodo. Fx horizontal, Fz vertical (negativo = abajo),
+   M momento (CCW positivo).
+
+9.2. Carga uniforme sobre un elemento
+
+{
+  "type": "uniform",
+  "element": "e1",
+  "wx": 0,            // N/m horizontal
+  "wz": -2000         // N/m vertical (negativo = abajo)
+}
+
+   Se reparte uniformemente a lo largo del elemento. wz = −2000 N/m sobre
+   una viga de 5 m equivale a una carga total de 10 kN repartida. Para una
+   viga con peso propio, wz = −ρ·A·g (que es lo que hace "selfWeight": true
+   automáticamente; no lo pongas a mano si ya tienes selfWeight).
+
+   Si la carga es solo vertical (lo normal), wx = 0.
+
+9.3. Carga puntual en un punto interior de un elemento
+
+{
+  "type": "point_elem",
+  "element": "e1",
+  "a": 2.5,           // distancia desde node1, m
+  "Px": 0,
+  "Pz": -5000         // N vertical
+}
+
+   Se aplica a una distancia "a" del node1 del elemento. Útil para cargas
+   que no coinciden con un nodo. Si puedes, pon un nodo en el punto de
+   carga y usa "point_node"; es más legible.
+
+   Varias cargas sobre el mismo elemento se suman (el solver las trata por
+   superposición de fuerzas de empotramiento perfecto, que para carga
+   uniforme y puntual es exacto).
+
+
+10. "constraints" — LÍMITES DEL VEREDICTO
+────────────────────────────────────────────────────────────────────────────────
+
+Los constraints son lo que convierte el cálculo en veredicto. Sin ellos,
+el solver te da números; con ellos, te dice si cumple o no.
+
+{
+  "constraints": {
+    "maxUtilization": 0.85,           // σ/σ_adm ≤ 0.85
+    "maxDeflectionRelative": 300      // flecha ≤ L/300
+  }
+}
+
+Significado:
+
+   maxUtilization         Aprovechamiento máximo permitido. Es la relación
+                          σ_max / σ_adm. Si lo pones en 1.0, el veredicto
+                          es "cumple si σ ≤ σ_adm". Si lo pones en 0.85,
+                          exiges un 15% de margen. Recomendado: 0.85.
+                          En estructuras reales, la normativa suele pedir
+                          0.8–1.0 según el caso.
+
+   maxDeflection          Flecha absoluta máxima permitida, en metros.
+                          Útil para casos concretos ("no quiero que baje
+                          más de 2 cm"). En estructuras de edificación
+                          suele usarse el criterio relativo.
+
+   maxDeflectionRelative  Flecha relativa: flecha ≤ L / N, donde L es la
+                          longitud del elemento más largo. En edificación,
+                          L/300 es habitual para techos (no fisura el
+                          acabado). L/250 es más permisivo. L/400 es más
+                          exigente.
+
+   Puedes usar uno, dos o los tres. Se evalúan todos los presentes.
+
+   Lo que NO hay (todavía):
+   - Combinaciones de hipótesis (muerta + viva + nieve con factores).
+   - Pandeo.
+   - Coeficientes de seguridad automáticos.
+   Esas son v1.1. Mientras tanto, pon un factor de seguridad en
+   maxUtilization (0.85 en vez de 1.0) y no cuentes con el solver para
+   pandeo.
+
+   Sin constraints: el solver calcula, pero no hay veredicto "CUMPLE/NO
+   CUMPLE". Solo tendrás números. Si tu objetivo es decidir "aguanta o
+   no", pon constraints.
+
+
+11. UN EJEMPLO COMPLETO, COMENTADO
+────────────────────────────────────────────────────────────────────────────────
+
+Viga biapoyada de madera, 6 m de luz, sección 10×20 cm, carga repartida de
+2 kN/m (sobrecarga) más peso propio. Constraint: L/300, aprovechamiento 0.85.
+
+Traducción a JSON (los comentarios van fuera del JSON; aquí solo para leer):
+
+   ┌─────────────────────────────────────────────────────────────────────┐
+   │ {                                                                    │
+   │   "units": "SI",                                                     │
+   │   "meta": { "name": "viga techo 6m", "note": "didáctico" },          │
+   │   "selfWeight": true,                                                │
+   │                                                                      │
+   │   "materials": {                                                     │
+   │     "madera": { "E": 1.0e10, "rho": 500, "sigmaAdm": 8.0e6 }         │
+   │   },                                                                 │
+   │                                                                      │
+   │   "sections": {                                                      │
+   │     "10x20": { "A": 0.02, "I": 6.667e-5, "c": 0.10 }                 │
+   │   },                                                                 │
+   │                                                                      │
+   │   "nodes": [                                                         │
+   │     { "id": "n1", "x": 0, "z": 0 },                                   │
+   │     { "id": "n2", "x": 3, "z": 0 },                                   │
+   │     { "id": "n3", "x": 6, "z": 0 }                                    │
+   │   ],                                                                 │
+   │                                                                      │
+   │   "elements": [                                                      │
+   │     { "id": "e1", "node1": "n1", "node2": "n2",                      │
+   │       "material": "madera", "section": "10x20", "type": "frame" },   │
+   │     { "id": "e2", "node1": "n2", "node2": "n3",                      │
+   │       "material": "madera", "section": "10x20", "type": "frame" }    │
+   │   ],                                                                 │
+   │                                                                      │
+   │   "supports": [                                                      │
+   │     { "node": "n1", "type": "pinned" },                              │
+   │     { "node": "n3", "type": "roller_z" }                             │
+   │   ],                                                                 │
+   │                                                                      │
+   │   "loads": [                                                         │
+   │     { "type": "uniform", "element": "e1", "wx": 0, "wz": -2000 },    │
+   │     { "type": "uniform", "element": "e2", "wx": 0, "wz": -2000 }     │
+   │   ],                                                                 │
+   │                                                                      │
+   │   "constraints": {                                                   │
+   │     "maxUtilization": 0.85,                                          │
+   │     "maxDeflectionRelative": 300                                     │
+   │   }                                                                  │
+   │ }                                                                    │
+   └─────────────────────────────────────────────────────────────────────┘
+
+Qué esperar al ejecutarlo:
+   - Reacciones verticales: ~10 kN en cada apoyo. (Peso propio: 0.02 m² ×
+     500 kg/m³ × 9.81 = 98 N/m. Sobrecarga: 2000 N/m. Total: ~2098 N/m ×
+     6 m = 12.6 kN, repartidos en 6.3 kN por apoyo. Los 10 kN son un
+     ejemplo redondeado; mira los números exactos en el panel.)
+   - Momento máximo en el centro: qL²/8 ≈ 2098 × 36 / 8 ≈ 9.4 kN·m.
+   - Flecha máxima: 5qL⁴/(384EI). Con E=1e10, I=6.667e-5: δ ≈ 0.024 m =
+     24 mm. L/300 = 20 mm. → NO CUMPLE por flecha relativa.
+   - Aprovechamiento: σ = M·c/I = 9400 × 0.1 / 6.667e-5 ≈ 14 MPa. σ_adm
+     = 8 MPa. → NO CUMPLE por tensión.
+
+   Conclusión realista: una viga de 10×20 cm en madera no aguanta 6 m con
+   2 kN/m más peso propio. Necesitas más canto (25–30 cm) o más sección.
+   Esa es la clase de respuesta que el juguete te da.
+
+
+12. CÓMO MEDIR TU TECHO REAL
+────────────────────────────────────────────────────────────────────────────────
+
+Para modelar tu techo, mide:
+
+   1. Luz entre apoyos (distancia entre muros o vigas principales).
+   2. Separación entre viguetas o correas.
+   3. Sección de las viguetas o correas (ancho × alto).
+   4. Material (madera, acero, hormigón).
+   5. Si hay tirantes, cerchas, riostras, o es una viga exenta.
+   6. Altura del techo (si es inclinado, cada faldón es una viga inclinada
+      con su propia luz y su propia carga).
+
+Traducción a números del JSON:
+
+   - Luz L (m) → distancia entre nodos.
+   - Separación s (m) → la carga por metro de viga es la carga por m²
+     multiplicada por s.
+   - Sección b×h (m) → A = b·h, I = b·h³/12, c = h/2.
+   - Material → E, rho, sigmaAdm.
+   - Para una viga inclinada, la coordenada x recorre la proyección
+     horizontal y la z la altura. La longitud real es √(Δx² + Δz²), que
+     es la que el solver usa para L del elemento.
+
+Cargas típicas (orientativas, en N/m² sobre la superficie del techo):
+
+   - Peso propio: ρ · t · g. Para teja cerámica sobre tablero, ~0.5 kN/m².
+     Para chapa metálica, ~0.1 kN/m². Para losa de hormigón de 20 cm,
+     ~5 kN/m². Multiplica por la separación de viguetas para tener N/m.
+   - Sobrecarga de uso (nieve, mantenimiento): 0.4–1.5 kN/m² según zona.
+     En zonas de nieve, consulta el mapa de carga de nieve de tu país.
+   - Nieve: 0.5–2 kN/m² según altitud y zona. Es una carga importante en
+     climas fríos; no la omitas.
+
+   No metas las cargas "a ojo" sin justificar. Si no sabes, pon un valor
+   conservador (más alto) y sé consciente de que el juguete te dará un
+   resultado conservador. Eso es mejor que un resultado optimista.
+
+
+13. ERRORES TÍPICOS Y CÓMO EVITARLOS
+────────────────────────────────────────────────────────────────────────────────
+
+E1. Mezclar unidades.
+    "wz": -2000 puede ser 2000 N/m o 2000 kN/m o 2000 kg/m. Solo una es
+    correcta. La convención es N/m. Si en tu cabeza son kg/m, multiplica
+    por 9.81. Si son kN/m, multiplica por 1000.
+
+E2. Poner Fz positiva cuando quieres carga hacia abajo.
+    Fz positivo es hacia arriba. La gravedad es −z. Una carga hacia abajo
+    lleva Fz negativo. Revisa los signos si el resultado te sale "al revés".
+
+E3. Poner el eje y en vez del z.
+    El plano es (x, z). Si pones "y": 0.0 en un nodo, el cargador lo
+    ignorará o fallará. Usa siempre "z".
+
+E4. Olvidar un apoyo y obtener "sistema singular".
+    Si el error dice "sistema singular en fila N", casi siempre es que
+    falta un apoyo o que los apoyos no restringen bien. En 2D, tres
+    restricciones bien colocadas son el mínimo. Una viga biapoyada típica
+    es "pinned" + "roller_z".
+
+E5. Cargar un elemento con "uniform" pero olvidar que "selfWeight": true
+    ya añade el peso propio.
+    Si pones "selfWeight": true y además una carga uniforme igual al peso
+    propio, estás contando doble. Usa una cosa o la otra. Para peso propio,
+    "selfWeight": true. Para sobrecargas, "uniform" con wz negativo.
+
+E6. Usar una sección con I mal calculado.
+    La flexión es lo que más influye en la flecha. Si I está mal, la flecha
+    está mal. Para rectangular b×h con h vertical, I = b·h³/12. No b³·h/12.
+    No confundas los ejes.
+
+E7. Poner "truss" donde querías "frame".
+    Un truss no tiene rigidez a flexión. Si lo usas para una viga que debe
+    resistir momento, la viga colapsa (o el sistema es singular). Para vigas
+    y pórticos, "frame". Para cerchas trianguladas, "truss".
+
+E8. Poner un nodo en cada punto y olvidar los elementos que los unen.
+    Los nodos aislados no hacen nada. Cada nodo debe estar conectado a
+    algún elemento (o ser un apoyo explícito). Si un nodo está aislado, el
+    sistema puede ser singular.
+
+E9. Ignorar el pandeo.
+    El juguete no comprueba pandeo. Si tienes una columna esbelta (relación
+    altura/ancho > 10), el resultado "cumple" puede ser falso: la columna
+    puede pandear antes de que la tensión llegue a sigmaAdm. Para columnas,
+    usa secciones robustas o espera a v1.1. Aviso en la UI.
+
+E10. Confundir "CUMPLE" con "seguro".
+    El veredicto "CUMPLE" significa "el modelo que has escrito, con los
+    constraints que has puesto, no viola los límites". No significa "la
+    estructura real es segura". Depende de que tu modelo, tus cargas, tus
+    secciones y tu factor de seguridad sean correctos. No lo son por
+    defecto. Son tu responsabilidad.
+
+
+14. CÓMO VALIDAR TU JSON ANTES DE CONFIAR
+────────────────────────────────────────────────────────────────────────────────
+
+V1. Ejecuta los 16 tests del dominio (botón "Ejecutar tests").
+    Todos deben pasar. Si alguno falla, el solver no es fiable. No sigas.
+
+V2. Comprueba la conservación.
+    La suma de reacciones verticales debe ser igual a la suma de cargas
+    verticales más el peso propio. Si no cuadra, hay un error en las cargas
+    o en los apoyos.
+
+V3. Comprueba la simetría (si tu estructura es simétrica).
+    Una viga biapoyada con carga central debe tener reacciones iguales. Si
+    no, algo está mal.
+
+V4. Comprueba los órdenes de magnitud.
+    Una viga de 6 m de madera no puede tener 5 mm de flecha con 5 kN/m. Si
+    el resultado es absurdamente pequeño o grande, revisa unidades.
+
+V5. Compara con un cálculo a mano.
+    Para una viga biapoyada con carga uniforme: M = qL²/8, δ = 5qL⁴/(384EI).
+    Si el solver no da eso, hay un error. Los tests T1–T4 ya lo comprueban,
+    pero hazlo con tus números.
+
+V6. Prueba casos límite.
+    Si quitas todas las cargas, las reacciones deben ser cero. Si duplicas
+    las cargas, las reacciones deben duplicarse. Si cambias un apoyo de
+    "pinned" a "fixed", la flecha debe bajar (más restricción).
+
+
+15. QUÉ HACER CON EL RESULTADO
+────────────────────────────────────────────────────────────────────────────────
+
+Si el juguete dice "CUMPLE":
+   - Has pasado un filtro de orden de magnitud.
+   - No has demostrado que aguante. Has demostrado que, con tu modelo, no
+     viola tus límites.
+   - Para tocar el techo, habla con un ingeniero. Llévale el JSON: es una
+     descripción clara de lo que has asumido. Eso acelera la conversación.
+
+Si el juguete dice "NO CUMPLE":
+   - Casi seguro hay un problema real. O en el modelo, o en la estructura.
+   - Antes de tocar nada, comprueba que el modelo es correcto (unidades,
+     cargas, secciones, apoyos). Muchos "no cumple" son errores de entrada.
+   - Si el modelo es correcto y sigue sin cumplir, la estructura necesita
+     más sección, menos luz, más apoyos, o material mejor.
+   - No ignores un "no cumple" porque "seguro que es conservador". Puede
+     serlo, pero no lo sabes.
+
+Si el juguete dice "sistema singular":
+   - Falta un apoyo, o los apoyos no restringen lo suficiente, o hay un
+     mecanismo. Revisa la sección 8 de esta guía.
+   - Una estructura inestable no tiene solución estática. El error es
+     informativo: tu modelo no puede sostenerse.
+
+
+16. FILOSOFÍA DEL JSON (para que no se llene de basura)
+────────────────────────────────────────────────────────────────────────────────
+
+Un JSON bueno es pequeño, legible y verificable. Las reglas:
+
+   - Cada campo habilita un check o un test que sin él no podrías hacer.
+     Si un campo no cambia un veredicto, no está. (Por eso no hay normativa,
+     ni combinaciones, ni pandeo: no están implementados, y ponerlos en el
+     JSON sin el check detrás sería decoración.)
+
+   - El JSON es la entrada. Los resultados no van en el archivo. Si quieres
+     guardar los resultados, expórtalos aparte. Así el JSON se versiona y
+     se comparte sin basura.
+
+   - El JSON es un contrato. Si dos personas tienen el mismo JSON, obtienen
+     el mismo resultado. Eso es lo que hace que el juguete sea auditable.
+
+   - El JSON no certifica. Ni el JSON ni el resultado. Es una descripción
+     de un modelo, no una garantía de seguridad.
+
+   - Cuando el juguete crezca (v1.1 combinaciones, v1.1 pandeo, v1.2
+     Brunelleschi), el JSON crecerá con él. Pero no antes. Primero el check,
+     después el campo.
+
+
+17. PLANTILLA MÍNIMA PARA COPIAR
+────────────────────────────────────────────────────────────────────────────────
+
+Copia esto y rellena los huecos. Es el mínimo viable.
+
+{
+  "units": "SI",
+  "meta": { "name": "", "note": "" },
+  "selfWeight": false,
+  "materials": {
+    "mat1": { "E": 0, "rho": 0, "sigmaAdm": 0 }
+  },
+  "sections": {
+    "sec1": { "A": 0, "I": 0, "c": 0 }
+  },
+  "nodes": [
+    { "id": "n1", "x": 0, "z": 0 },
+    { "id": "n2", "x": 0, "z": 0 }
+  ],
+  "elements": [
+    { "id": "e1", "node1": "n1", "node2": "n2",
+      "material": "mat1", "section": "sec1", "type": "frame" }
+  ],
+  "supports": [
+    { "node": "n1", "type": "pinned" },
+    { "node": "n2", "type": "roller_z" }
+  ],
+  "loads": [],
+  "constraints": {
+    "maxUtilization": 0.85,
+    "maxDeflectionRelative": 300
+  }
+}
+
+Rellena E, rho, sigmaAdm, A, I, c, las coordenadas y las cargas. Verifica
+que n1 y n2 no coinciden (elemento de longitud cero → error). Ejecuta.
+Mira el panel. Si "CUMPLE" con holgura y los tests pasan, tienes una
+conversación con un ingeniero. Si "NO CUMPLE", tienes un problema real.
+
+
+════════════════════════════════════════════════════════════════════════════════
+Fin de la guía. Si el JSON y este documento discrepan, gana el código, pero
+conviene saber por qué. Si añades un campo que no está aquí, o lo quitas del
+código, actualiza el documento: el JSON es un contrato, y los contratos se
+escriben.
+════════════════════════════════════════════════════════════════════════════════
