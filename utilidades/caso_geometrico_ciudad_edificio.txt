@@ -1,0 +1,556 @@
+════════════════════════════════════════════════════════════════════════════════
+CIUDAD PROCEDURAL · ZONAS, EDIFICIOS Y VISTA 3D
+v0.4 · 23 de octubre de 2026
+Documento de referencia. Sin código. Para leer antes de usar.
+════════════════════════════════════════════════════════════════════════════════
+
+
+0. QUÉ ES ESTE DOCUMENTO
+────────────────────────────────────────────────────────────────────────────────
+
+Describe la herramienta "Ciudad + Edificios + 3D": qué es, qué hace, cómo lo
+hace, qué garantiza, qué no. Es la evolución de los tres archivos anteriores
+(zoneService + topología, generador de edificios, cúpula 3D) fundidos en un
+solo HTML con arquitectura hexagonal.
+
+Este documento es la intención. El código es la realidad. Si discrepan, gana
+el código, pero conviene saber por qué.
+
+Sustituye a las notas parciales anteriores. Cualquier cambio en el dominio
+(zonas, tags, reglas, edificios) o en los adapters (renderer, cámara) debe
+actualizar este documento.
+
+
+1. QUÉ ES
+────────────────────────────────────────────────────────────────────────────────
+
+Una herramienta de generación procedural de ciudades. Recibe una semilla y
+tres decisiones (columnas, filas, entorno climático), y produce:
+
+  ● Una ciudad de zonas etiquetadas, organizadas en anillos concéntricos
+    (medieval → colonial → industrial → moderno) con reglas de compatibilidad
+    y adyacencia que la validan.
+  ● Dentro de cada zona, un conjunto de plots (parcelas) cuya cantidad
+    depende de la densidad de la zona.
+  ● Dentro de cada plot, un edificio con estilo, tipo y dimensiones derivados
+    de los tags de la zona.
+  ● Una malla 3D de la ciudad completa, visible con cámara orbital, que se
+    puede orbitar y ampliar como el juguete de la cúpula.
+
+La ciudad es **determinista**: la misma semilla con los mismos parámetros
+produce exactamente la misma ciudad, los mismos plots, los mismos edificios,
+la misma malla. No es aleatoria cada vez.
+
+Es un juguete. Herramienta didáctica de exploración. Genera formas
+plausibles, no ciudades reales. No hay física de tráfico, no hay interiores,
+no hay colisiones, no hay exportadores. Es la capa de "forma" de un sistema
+que podría tener capas de "función" y "agentes" encima.
+
+
+2. QUÉ NO ES (explícito, para que no se cuele)
+────────────────────────────────────────────────────────────────────────────────
+
+  ● No es un analizador estructural. Los edificios son cajas con techo y
+    chimenea. No comprueba si aguantan, ni si son seguros, ni si cumplen
+    normativa. Cero física.
+  ● No es un CAD. No se edita geometría a mano. Todo sale de la semilla.
+  ● No es un planificador urbano real. Las reglas son heurísticas, no
+    normativa. No sustituye a un arquitecto ni a un plan urbanístico.
+  ● No genera interiores, mobiliario, ni detalle por debajo del edificio.
+    La vista 3D muestra volúmenes, no arquitectura.
+  ● No simula tráfico. La capa `traffic5.html` del proyecto anterior
+    existe, pero no está cableada aquí. Sería el siguiente paso.
+  ● No exporta a OBJ, glTF ni FBX. La malla vive en memoria; exportarla es
+    v0.5.
+  ● No es 3D interactivo con hit-test preciso. El hover en 3D es aproximado
+    (distancia al centro de la zona proyectado). Para hit-test exacto hay
+    que cambiar a la pestaña Planta.
+  ● No hay LOD. Todos los edificios de la malla son el mismo modelo, con
+    más o menos triángulos según su complejidad. Una ciudad 10×10 con
+    densidad 0.9 tiene ~22.000 triángulos, aceptable en escritorio, pesado
+    en móvil.
+
+
+3. QUÉ HACE
+────────────────────────────────────────────────────────────────────────────────
+
+GENERACIÓN DE ZONAS
+  ● 5 estilos de ciudad por anillos: núcleo medieval, anillo colonial,
+    anillo industrial, periferia moderna.
+  ● Cada zona tiene 4 tags obligatorios (tiempo, función, morfología, rol)
+    más dos campos (environment, density 0-1).
+  ● El tiempo define el anillo: dist < 0.2 → medieval, < 0.45 → colonial,
+    < 0.7 → industrial, resto → moderno.
+  ● El rol es binario: núcleo (centro) o periferia (todo lo demás).
+  ● La morfología depende del tiempo: orgánica con medieval, retícula con
+    el resto, lineal posible con industrial/moderno.
+  ● Las funciones se asignan por rol y tiempo: núcleo siempre residencial +
+    comercial + (cívico 80%), periferia residencial + variantes.
+
+RUIDO CONTROLADO
+  ● 10% de probabilidad de que una zona periférica cambie de tiempo.
+  ● El ruido NUNCA crea una adyacencia medieval↔moderno (violaría A2),
+    NUNCA crea un medieval en periferia, y respeta la morfología coherente
+    con el tiempo.
+
+VALIDACIÓN
+  ● 8 reglas de zona (R1 a R8) que comprueban coherencia interna.
+  ● 3 reglas de adyacencia (A1, A2, A3) que comprueban que zonas vecinas se
+    llevan bien.
+  ● El resultado se pinta en el canvas: borde verde (ok), amarillo (warning),
+    rojo (error). El panel derecho agrupa los errores y warnings.
+
+GENERACIÓN DE PLOTS
+  ● Cada zona se subdivide en plots según su densidad:
+    - density > 0.7 → 3×3 = 9 plots
+    - density 0.4-0.7 → 2×2 = 4 plots
+    - density < 0.4 → 1 plot
+  ● Los plots se distribuyen uniformemente dentro de la celda de la zona.
+  ● Cada plot tiene un centro y un tamaño (para el edificio que va dentro).
+
+GENERACIÓN DE EDIFICIOS
+  ● Cada plot recibe un edificio con:
+    - estilo = zona.time (medieval/colonial/industrial/moderno)
+    - tipo = derivado de la función y el orden del plot
+    - dimensiones = 60-90% del plot, capadas por el estilo
+  ● El tipo se decide así:
+    - plot 0 + función cívico → iglesia (más alta, más alargada)
+    - plot 1 + industrial + productivo → nave (muy alargada)
+    - resto → casa (base)
+  ● Cada edificio tiene: muro (caja), techo (según estilo), chimenea
+    (opcional, según estilo).
+
+VISUALIZACIÓN 3D
+  ● Cámara orbital con yaw, pitch, dist. Arrastrar orbita, rueda hace zoom.
+  ● Algoritmo del pintor: los triángulos se ordenan por profundidad y se
+    pintan de lejos a cerca. Sombreado direccional con luz fija.
+  ● Suelo con grid de referencia a y=0.
+  ● Hover: se aproxima al centro de la zona proyectado; resalta el contorno
+    de la zona bajo el cursor.
+
+PESTAÑAS
+  ● Zonas: grid de colores por tiempo, con etiqueta de tiempo y densidad.
+  ● Planta: el mismo grid atenuado, con los edificios top-down (rectángulos
+    coloreados).
+  ● 3D: la ciudad en perspectiva, con cámara orbital. Modo por defecto.
+
+INSPECCIÓN
+  ● Hover sobre cualquier zona (2D o 3D) muestra sus tags, funciones,
+    número de edificios y tipos, y los errores/warnings si los tiene.
+  ● HUD arriba a la izquierda: número de zonas, de edificios, estado global.
+  ● Panel de validación: resumen (OK / N warnings / N errores) con detalles
+    desplegables.
+
+17 TESTS DE DOMINIO
+  ● 8 tests de reglas de zona (R1-R8).
+  ● 4 tests de adyacencia (A1, A2, A3, adyacencia válida).
+  ● 1 test de integración (ciudad 5×5 sin errores).
+  ● 3 tests de edificio (wall+roof, cabe en plot, iglesia más alta que casa).
+  ● 3 tests de subdivisión (density alta/media/baja).
+  ● 2 tests de malla (tiene triángulos, normales unitarias).
+
+
+4. CÓMO LO HACE — ARQUITECTURA
+────────────────────────────────────────────────────────────────────────────────
+
+Un solo archivo HTML. Arquitectura hexagonal. Dominio puro separado de
+adapters.
+
+  ┌─────────────────────────────────────────────────────────────────────────┐
+  │ DOMAIN (puro, sin DOM, sin canvas)                                     │
+  │   TAGS               Catálogo de tiempos, funciones, morfologías,     │
+  │                      roles, entornos                                   │
+  │   SeededRandom       RNG determinista (linear congruential)           │
+  │   Zone               Entidad: id, tags, density, environment,         │
+  │                      geometry, seed, neighbors                         │
+  │   ZoneValidator      11 reglas: 8 de zona + 3 de adyacencia           │
+  │   TopologyGenerator  Grid de zonas en 3 pases (crear, adyacencia,     │
+  │                      ruido controlado)                                 │
+  │   BUILDING_STYLES    Catálogo de estilos de edificio                  │
+  │   BUILDING_TYPES     Catálogo de tipos (casa/iglesia/nave)            │
+  │   generateBuilding   Composición de un edificio desde seed            │
+  │   subdivideZone      De zona a plots según densidad                   │
+  │   OrbitCamera        Cámara orbital (proyección en perspectiva)       │
+  │   addTri/addBox/     Helpers puros para construir malla               │
+  │   addGabled/addHipped                                                  │
+  │   buildBuildingMesh  De edificio a triángulos                         │
+  ├─────────────────────────────────────────────────────────────────────────┤
+  │ ADAPTERS (infraestructura)                                             │
+  │   CanvasRenderer     Dos modos: 2D (zonas/planta) y 3D (cámara)        │
+  ├─────────────────────────────────────────────────────────────────────────┤
+  │ APPLICATION                                                            │
+  │   App                Estado, generación, cableado, tests, hover        │
+  └─────────────────────────────────────────────────────────────────────────┘
+
+Reglas de frontera:
+  1. El dominio no toca el DOM. Corre y se testea sin navegador.
+  2. Los adapters pueden importar del dominio. Al revés, no.
+  3. El App cablea, no calcula. Si hay gramática en App, está mal ubicada.
+  4. El renderer recibe triángulos ya calculados. No compone edificios.
+  5. La cámara es del dominio porque es matemática pura, no de rendering.
+
+Test de frontera: `TopologyGenerator.grid()`, `ZoneValidator.validateCity()`,
+`generateBuilding()` y `buildBuildingMesh()` corren sin canvas. Si un test
+de dominio necesita DOM, el código está mal ubicado.
+
+
+5. LOS 13 TAGS
+────────────────────────────────────────────────────────────────────────────────
+
+Tiempo (exactamente 1 por zona):
+  ● medieval    pre-1500, trazado orgánico, densidad alta
+  ● colonial    1500-1800, trazado en retícula, densidad alta
+  ● industrial  1800-1930, trazado lineal, densidad media
+  ● moderno     1930-presente, retícula abierta, densidad baja
+
+Función (≥ 1, combinable):
+  ● residencial  casas, viviendas, apartamentos
+  ● comercial    mercados, tiendas, oficinas
+  ● cívico       iglesia, ayuntamiento, escuela, hospital
+  ● productivo   talleres, naves, almacenes, mataderos
+
+Morfología (exactamente 1 por zona):
+  ● orgánica     calles curvas, manzanas irregulares
+  ● retícula     calles ortogonales, manzanas regulares
+  ● lineal       crecimiento a lo largo de un eje
+
+Rol (exactamente 1 por zona):
+  ● núcleo       centro original, con o sin muralla
+  ● periferia    ensanche, anexo, suburbio, buffer (derivado del grafo)
+
+Campos numéricos (no tags):
+  ● density      0-1, densidad de plots
+  ● environment  árido / templado / frío / costero (ortogonal al tiempo)
+
+Total: 4 + 4 + 3 + 2 = 13 tags. Los subtipos (ensanche, anexo, buffer,
+suburbio) NO son tags: son consultas sobre el grafo (adyacencia + time +
+role + density). Eso evita la inflación de vocabulario.
+
+
+6. LAS 11 REGLAS
+────────────────────────────────────────────────────────────────────────────────
+
+8 reglas de zona (validación interna):
+
+  R1  orgánica solo medieval, o colonial + periferia.
+      (el urbanismo orgánico no existe en moderno/industrial)
+
+  R2  lineal solo industrial o moderno.
+      (requiere un eje: río, ferrocarril, carretera)
+
+  R3  retícula + medieval → warning (no error).
+      (bastides planificadas del s. XIII existen pero son raras)
+
+  R4  density > 0.7 fuera de núcleo/colonial/industrial → warning.
+      (un moderno muy denso es raro)
+
+  R5  núcleo con density < 0.2 → warning.
+      (un núcleo vacío no es un núcleo)
+
+  R6  núcleo sin función cívica → warning.
+      (todo núcleo histórico tiene iglesia/plaza/ayuntamiento)
+
+  R7  moderno con productivo + residencial → warning.
+      (la zonificación moderna separa usos)
+
+  R8  núcleo con density < 0.3 → error (no warning).
+      (un núcleo con densidad muy baja no cumple su función)
+
+3 reglas de adyacencia (validación entre vecinos):
+
+  A1  dos zonas adyacentes comparten al menos una función, o hay buffer.
+      (residencial junto a productivo sin transición no ocurre)
+
+  A2  medieval nunca adyacente a moderno sin buffer.
+      (el castillo medieval pegado al rascacielos de cristal es el error
+       más común en generadores de ciudades)
+
+  A3  dos núcleos adyacentes → error.
+      (solo hay un núcleo por ciudad; si hay dos, están fusionados o son
+       anexos, no núcleos)
+
+
+7. EL GENERADOR DE TOPOLOGÍA (3 pases)
+────────────────────────────────────────────────────────────────────────────────
+
+PASO 1 — Crear zonas
+  Para cada celda del grid, calcular la distancia normalizada al centro
+  (0 = centro, 1 = esquina). Asignar tiempo por la distancia:
+    < 0.2  → medieval + núcleo + orgánica
+    < 0.45 → colonial + periferia + retícula
+    < 0.7  → industrial + periferia + retícula
+    resto  → moderno + periferia + retícula
+  Asignar funciones según rol y tiempo. Calcular densidad base:
+    0.85 - dist * 0.65, con ruido de ±0.075.
+
+PASO 2 — Construir adyacencia
+  Antes de aplicar ruido, para poder consultar la vecindad.
+
+PASO 3 — Aplicar ruido controlado
+  ● 10% de probabilidad por celda periférica (el núcleo no se toca).
+  ● El nuevo tiempo se elige de un subconjunto SEGURO:
+    - `medieval` está siempre excluido (violaría A2 en periferia).
+    - `moderno` se excluye si algún vecino es medieval.
+  ● Si el nuevo tiempo es industrial o moderno, hay 30% de prob. de pasar
+    la morfología a lineal.
+  ● La morfología se reajusta para respetar R1 y R2.
+
+Por qué 3 pases y no uno: el ruido del paso 3 necesita conocer los vecinos
+del paso 2. Si se aplicara ruido en el paso 1, podría crear adyacencias
+prohibidas (este fue el bug de v0.1: un test de integración lo cazó).
+
+
+8. GENERACIÓN DE EDIFICIOS
+────────────────────────────────────────────────────────────────────────────────
+
+Estilos de edificio (coherentes con los time-tags):
+
+  medieval    wall #c4b5a0, roof #6a4a3a, chimney sí, gabled, wMax 8, dMax 12
+  colonial    wall #f0e8d8, roof #b85030, chimney no, hipped,  wMax 10, dMax 14
+  industrial  wall #a84030, roof #404048, chimney sí, gabled, wMax 14, dMax 22
+  moderno     wall #e8e8e8, roof #606870, chimney no, flat,    wMax 10, dMax 12
+
+Tipos de edificio:
+
+  casa        aspect 0.85, baseH 3.5
+  iglesia     aspect 1.6,  baseH 8.0
+  nave        aspect 2.0,  baseH 6.0
+
+Composición (función pura, seed → edificio):
+
+  1. Ancho w = min(style.wMax, maxW × U(0.6, 0.9))
+  2. Profundidad d = w × type.aspect, capada por style.dMax y maxD × 0.9
+  3. Si d > cap: d = cap, w = d / aspect (mantiene aspect ratio)
+  4. Altura de muro = type.baseH × styleHeightMul × U(0.9, 1.1)
+     (styleHeightMul: medieval 1.0, colonial 1.1, industrial 1.0, moderno 1.3)
+  5. Altura de techo = 0.3 si flat, si no w × style.roofPitch × 0.5
+  6. Partes: muro (caja), techo (gabled/hipped/flat), chimenea (opcional)
+
+La chimenea solo se coloca si el estilo la pide Y el ancho es > 0.6m.
+Si no, se omite (para plots pequeños).
+
+La seed se combina con el índice del plot dentro de la zona: bSeed =
+zone.seed + i × 7919. Esto garantiza que cada plot de la zona tenga un
+edificio distinto, pero que el conjunto sea reproducible.
+
+
+9. SUBDIVISIÓN EN PLOTS
+────────────────────────────────────────────────────────────────────────────────
+
+Dada la densidad de la zona:
+
+  density > 0.7  → 3×3 = 9 plots
+  density > 0.4  → 2×2 = 4 plots
+  resto          → 1×1 = 1 plot
+
+Los plots se distribuyen uniformemente dentro de la geometría de la zona.
+Cada plot tiene centro (cx, cy) y tamaño (w/n, h/n).
+
+Por qué 3×3 y no 10×10: para que los edificios sean legibles en 3D. Con 9
+edificios por zona densa, la ciudad es reconocible. Con 100, es ruido.
+
+
+10. CÁMARA Y RENDER 3D
+────────────────────────────────────────────────────────────────────────────────
+
+Cámara orbital (OrbitCamera):
+  ● Parámetros: yaw, pitch, dist, target, fov.
+  ● Target inicial: centro de la ciudad, a 30% de la altura máxima.
+  ● Dist inicial: 1.6 × span (el span es la dimensión mayor del grid).
+  ● Arrastrar: ajusta yaw y pitch (limitado a [-0.1, 1.4] rad).
+  ● Rueda: ajusta dist entre 10 y 500.
+  ● "Ajustar cámara": resetea a valores por defecto.
+
+Proyección: estándar de perspectiva. Un punto del mundo se transforma al
+espacio de vista (right, up, fwd), y luego se proyecta dividiendo por la
+profundidad `lz` (positiva = delante de la cámara). Bug corregido en v0.2:
+el signo estaba invertido y descartaba el 100% de los triángulos.
+
+Render 3D:
+  1. Para cada triángulo, proyectar los 3 vértices.
+  2. Descartar si algún vértice está detrás (lz ≤ 0.1).
+  3. Calcular profundidad media = (lz_a + lz_b + lz_c) / 3.
+  4. Calcular sombreado = 0.4 + 0.6 × |n · luz|, luz = (0.5, 1.0, 0.3).
+  5. Ordenar por profundidad descendente (más lejano primero).
+  6. Pintar en ese orden (painter's algorithm).
+  7. Contorno sutil 0.3px negro para separar caras.
+
+Ground grid: líneas en y=0 cada 10m, de -100 a +100, con proyección y
+descarte de segmentos detrás de la cámara.
+
+Hover 3D: proyecta el centro (cx, 3, cz) de cada zona y busca la más
+cercana al cursor en pantalla (radio 60px). Aproximado; para hit-test
+exacto, cambiar a Planta.
+
+
+11. VALIDACIÓN Y FEEDBACK VISUAL
+────────────────────────────────────────────────────────────────────────────────
+
+En el canvas:
+  ● Borde verde 1.5px: la zona pasa las 11 reglas sin warnings.
+  ● Borde amarillo 2.5px: la zona tiene warnings pero no errores.
+  ● Borde rojo 2.5px: la zona tiene errores.
+  ● Borde blanco 3.5px: la zona bajo el cursor (hover).
+
+En el panel derecho:
+  ● Resumen: "✅ Todo OK" / "⚠️ N advertencias" / "❌ N errores · M warnings".
+  ● Detalles desplegables con las primeras 25 violaciones.
+  ● Hover: tags, funciones, número de edificios, tipos, errores y warnings
+    de la zona bajo el cursor.
+
+
+12. TESTS
+────────────────────────────────────────────────────────────────────────────────
+
+17 tests agrupados en 4 categorías. Todos contra el dominio puro, sin DOM.
+
+Reglas de zona (8):
+  R1  orgánica + moderno → error
+  R2  lineal + medieval → error
+  R3  retícula + medieval → warning
+  R4  moderno + periferia + density 0.9 → warning
+  R5  núcleo + density 0.1 → warning
+  R6  núcleo sin cívico → warning
+  R7  moderno + productivo + residencial → warning
+  R8  núcleo + density 0.2 → error
+
+Adyacencia (4):
+  A1  sin función común → error
+  A2  medieval + moderno → error
+  A3  dos núcleos adyacentes → error
+  Adj válida: colonial + industrial + residencial → ok
+
+Integración (1):
+  Ciudad 5×5 con seed 42 y entorno templado → 0 errores
+
+Edificios (3):
+  Building tiene wall+roof
+  Building cabe en el plot
+  Iglesia más alta que casa
+
+Subdivisión (3):
+  Density 0.9 → 9 plots
+  Density 0.5 → 4 plots
+  Density 0.2 → 1 plot
+
+Malla (2):
+  Malla tiene triángulos
+  Malla con normales unitarias
+
+Si los 17 pasan, el dominio es coherente. No certifican nada: verifican
+que las matemáticas son correctas, no que la ciudad sea plausible. El
+criterio de "plausible" es visual y subjetivo.
+
+
+13. LIMITACIONES Y AVISOS
+────────────────────────────────────────────────────────────────────────────────
+
+  ● Solo grid. No hay topologías radial, orgánica, lineal. El generador
+    está cableado a `TopologyGenerator.grid()`. Añadir `radial()` o
+    `organic()` es trabajo futuro (~30 líneas cada uno).
+  ● Sin buffers explícitos. A2 detecta la violación pero no crea la zona
+    buffer automáticamente. El usuario tiene que "arreglarlo" cambiando
+    el seed o el tamaño del grid.
+  ● Sin LOD. Todos los edificios tienen el mismo detalle. Una ciudad 10×10
+    con densidad 0.9 tiene ~22.000 triángulos. Para un juego real, haría
+    falta LOD 0-3 (silueta, caja, cuerpo, completo).
+  ● Sin interiores. La vista 3D muestra volúmenes. No hay puertas, ventanas
+    ni mobiliario visible desde la cámara de ciudad.
+  ● Sin hit-test 3D. El hover en 3D es aproximado (60px al centro
+    proyectado). Para seleccionar un edificio concreto, cambiar a Planta.
+  ● Sin tráfico. La capa `traffic5.html` existe pero no está cableada.
+    Sería v0.5: usar las zonas como nodos del grafo, las calles entre zonas
+    como tubos, los plots como puntos de generación de vehículos.
+  ● Sin exportación. La malla 3D vive en memoria. Exportar a OBJ/glTF es
+    v0.6.
+  ● Algoritmo del pintor. Funciona para geometría convexa (cajas y
+    prismas). Fallaría con geometría intersectada o transparencias. Para
+    estos edificios, suficiente.
+  ● Determinismo por zona, no por plot. Cada zona tiene un seed único; los
+    plots derivan del seed de su zona. Cambiar la semilla global cambia
+    todas las zonas y todos los edificios, pero cambiar la densidad de una
+    zona no cambia los edificios de las demás.
+
+Aviso honesto: este generador produce ciudades plausibles, no ciudades
+reales. La forma que ves es la que la gramática produce. No hay validación
+de seguridad, ni de normativa, ni de habitabilidad. Es una herramienta de
+exploración y aprendizaje, no de planificación. Para una ciudad real,
+arquitecto, ingeniero o urbanista. No es un sustituto; es un punto de
+partida para la conversación.
+
+
+14. FILOSOFÍA
+────────────────────────────────────────────────────────────────────────────────
+
+Tres reglas que no se negocian:
+
+  1. LA FORMA QUE VES ES LA QUE PRODUCE LA GRAMÁTICA.
+     No hay modelado a mano escondido. No hay assets. La malla 3D sale de
+     los mismos datos que el grid 2D. Si el edificio se ve raro, es que la
+     gramática es rara. Si se ve plausible, es que la gramática funciona.
+
+  2. FAMILIA = VOCABULARIO. PARÁMETRO = ESCALA. TAG = CATEGORÍA.
+     Los estilos (medieval/colonial/etc.) son familias porque cambian qué
+     partes existen. Los tipos (casa/iglesia/nave) son familias porque
+     cambian el programa. La densidad y el entorno son parámetros porque
+     modulan sin cambiar el vocabulario. Los tags son categorías que se
+     combinan con reglas.
+
+  3. EL TIEMPO ORDENA LA CIUDAD.
+     Centro medieval → periferia moderna. La regla A2 (medieval-moderno
+     adyacentes sin buffer) es la que fuerza coherencia histórica. Sin
+     ella, el generador produce un castillo medieval pegado a un
+     rascacielos, que es el error clásico de los generadores de ciudades.
+
+Distinciones importantes:
+
+  En una estructura, si funciona, se ve bien.
+  En un juego, si se ve bien, funciona.
+  En una ciudad procedural, si funciona Y se ve bien, sirve.
+
+  Este generador está en el tercer registro. No verifica seguridad
+  estructural (no es juguete B); no busca "game feel" (no es un juego);
+  busca una ciudad plausible. La plausibilidad es el criterio, y es
+  subjetivo. Los tests no certifican plausibilidad; certifican coherencia
+  interna.
+
+  Lo que la cúpula enseñó fue que la forma tiene que caber en el funicular.
+  Lo que este generador hereda es la lección contraria: la forma tiene que
+  caber en el jugador. No hay funicular, pero hay gramática. La gramática
+  (reglas de zona + reglas de adyacencia + generación de edificios) es el
+  "funicular" de la forma urbana: si la ciudad no la respeta, no parece una
+  ciudad. Si la respeta, parece una.
+
+
+15. ROADMAP
+────────────────────────────────────────────────────────────────────────────────
+
+  v0.4       (actual)  Grid de zonas, 13 tags, 11 reglas, 17 tests,
+                       vista 3D con cámara orbital, edificios en 2D y 3D.
+  v0.5      Topologías no-grid (radial, orgánica, lineal). Añadir
+            `TopologyGenerator.radial()` y `.organic()`.
+  v0.6      Buffers explícitos. Cuando A1/A2 detecten una violación, insertar
+            una zona buffer automáticamente.
+  v0.7      LOD 0-3 en la malla 3D. Silueta, caja, cuerpo, completo.
+  v0.8      Exportación a OBJ y glTF.
+  v0.9      Cableado del tráfico (traffic5.html). Las zonas como nodos, las
+            calles entre ellas como tubos, los plots como generadores de
+            agentes.
+  v1.0      Catálogo ampliado: 8 estilos, 5 tipos, 6 entornos, topologías
+            múltiples.
+  Nunca     Certificación. No es un fallo, es un límite.
+
+
+════════════════════════════════════════════════════════════════════════════════
+Fin del documento. Versión v0.4. Cualquier cambio en el dominio (zonas, tags,
+reglas, edificios) o en los adapters (renderer, cámara) debe actualizar este
+documento.
+
+Este generador no certifica nada, no valida nada estructuralmente, no simula
+tráfico. Genera ciudades plausibles. Para probar y aprender. Para un juego,
+para un prototipo, para una demo. Para lo que no es: para decidir si una
+ciudad real funciona. Eso es otro proyecto, con otros profesionales, con
+otras reglas.
+
+La herramienta genera. El arquitecto decide. No los confundas.
+════════════════════════════════════════════════════════════════════════════════
