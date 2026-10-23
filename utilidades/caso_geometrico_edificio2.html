@@ -1,0 +1,954 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<title>Generador procedural de arquitectura · v0.2</title>
+<style>
+  :root{
+    --bg:#0f1115;--fg:#e5e7eb;--muted:#9ca3af;--panel:#161922;--border:#2a2f3a;
+    --accent:#f59e0b;--accent2:#22d3ee;--ok:#22c55e;--bad:#ef4444;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%;font-family:ui-sans-serif,system-ui,sans-serif;
+    background:var(--bg);color:var(--fg);overflow:hidden}
+  #app{display:grid;grid-template-columns:1fr 380px;height:100vh;width:100vw}
+  #stage{position:relative;background:#0a0c10;overflow:hidden}
+  #cv{position:absolute;inset:0;width:100%;height:100%;display:block;cursor:grab}
+  #cv:active{cursor:grabbing}
+  #hud{position:absolute;top:12px;left:12px;color:var(--muted);font-size:11px;
+    font-family:ui-monospace,monospace;line-height:1.6;pointer-events:none;
+    text-shadow:0 1px 3px rgba(0,0,0,.8)}
+  #hud b{color:var(--accent)}
+  #panel{overflow-y:auto;padding:14px;background:rgba(22,25,34,.96);
+    border-left:1px solid var(--border);font-size:13px}
+  #panel::-webkit-scrollbar{width:8px}
+  #panel::-webkit-scrollbar-thumb{background:#2a2f3a;border-radius:4px}
+  h3{margin:14px 0 6px;font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted)}
+  h3:first-child{margin-top:0}
+  .row{display:flex;gap:8px;align-items:center;margin-bottom:8px}
+  .row label{flex:0 0 100px;color:var(--muted);font-size:12px}
+  .row select,.row input[type=number]{flex:1;background:#2a2f3a;color:var(--fg);
+    border:1px solid var(--border);padding:4px 8px;border-radius:4px;font-family:inherit;font-size:12px}
+  .row input[type=range]{flex:1}
+  .row .val{min-width:50px;text-align:right;color:var(--muted);font-size:11px;
+    font-variant-numeric:tabular-nums}
+  .row.check label{flex:1;display:flex;align-items:center;gap:6px;cursor:pointer;color:var(--fg)}
+  .btns{display:flex;gap:6px;margin-top:8px;flex-wrap:wrap}
+  .btns button{flex:1;min-width:80px;padding:6px 10px;border:1px solid var(--border);
+    background:#2a2f3a;color:var(--fg);border-radius:4px;cursor:pointer;font-family:inherit;font-size:12px}
+  .btns button:hover{background:#353b4a}
+  .btns button.primary{background:#1e3a5f;border-color:#2a4a7f}
+  .btns button.primary:hover{background:#2a4a7f}
+  .kv{display:flex;justify-content:space-between;padding:3px 0;
+    border-bottom:1px solid rgba(255,255,255,.04);font-size:12px}
+  .kv span{color:var(--muted)}
+  .kv b{font-variant-numeric:tabular-nums}
+  .test{padding:2px 4px;border-radius:3px;margin-bottom:2px;font-family:ui-monospace,monospace;font-size:11px}
+  .test.ok{color:#86efac;background:rgba(34,197,94,.08)}
+  .test.fail{color:#fca5a5;background:rgba(239,68,68,.12)}
+  .hint{font-size:11px;color:var(--muted);line-height:1.5;margin-top:6px}
+  .legend{display:flex;flex-wrap:wrap;gap:8px;font-size:11px;margin-top:6px}
+  .legend span::before{content:"";display:inline-block;width:10px;height:10px;
+    border-radius:2px;margin-right:4px;vertical-align:middle;background:var(--c)}
+</style>
+</head>
+<body>
+<div id="app">
+  <div id="stage">
+    <canvas id="cv"></canvas>
+    <div id="hud">
+      <div>Estilo · <b id="hud-style">—</b></div>
+      <div>Tipo · <b id="hud-type">—</b></div>
+      <div>Entorno · <b id="hud-env">—</b></div>
+      <div>LOD · <b id="hud-lod">2</b> · tris <b id="hud-tris">0</b> · partes <b id="hud-parts">0</b></div>
+      <div>Semilla · <b id="hud-seed">0</b></div>
+    </div>
+  </div>
+  <aside id="panel">
+    <h3>Semilla</h3>
+    <div class="row">
+      <label>seed</label>
+      <input type="number" id="seedInput" value="42" min="0" max="999999">
+    </div>
+    <div class="btns">
+      <button id="btnRand">🎲 Nueva semilla</button>
+      <button class="primary" id="btnNext">→ Siguiente</button>
+    </div>
+
+    <h3>Composición</h3>
+    <div class="row"><label>Estilo</label><select id="styleSel"></select></div>
+    <div class="row"><label>Tipo</label><select id="typeSel"></select></div>
+    <div class="row"><label>Entorno</label><select id="envSel"></select></div>
+
+    <h3>Parámetros</h3>
+    <div class="row">
+      <label>Tamaño</label>
+      <select id="sizeSel">
+        <option value="small">Pequeño</option>
+        <option value="medium" selected>Medio</option>
+        <option value="large">Grande</option>
+      </select>
+    </div>
+    <div class="row">
+      <label>Densidad</label>
+      <input type="range" id="density" min="0.4" max="1.6" step="0.1" value="1">
+      <span class="val" id="densityVal">1.0</span>
+    </div>
+    <div class="row">
+      <label>Decay</label>
+      <input type="range" id="decay" min="0" max="1" step="0.05" value="0">
+      <span class="val" id="decayVal">0.00</span>
+    </div>
+
+    <h3>Vista</h3>
+    <div class="row">
+      <label>LOD</label>
+      <input type="range" id="lod" min="0" max="3" step="1" value="2">
+      <span class="val" id="lodVal">2</span>
+    </div>
+    <div class="row check"><label><input type="checkbox" id="colorMode" checked> Color por parte</label></div>
+    <div class="row check"><label><input type="checkbox" id="wireMode"> Wireframe</label></div>
+    <div class="row check"><label><input type="checkbox" id="gridToggle" checked> Suelo</label></div>
+    <div class="btns">
+      <button id="btnFit">Ajustar vista</button>
+    </div>
+
+    <h3>Info</h3>
+    <div id="info"></div>
+
+    <h3>JSON</h3>
+    <div class="btns"><button id="btnJson">Ver / copiar JSON</button></div>
+    <div id="jsonWrap" style="display:none;margin-top:8px">
+      <textarea id="jsonOut" spellcheck="false"
+        style="width:100%;height:180px;background:#0a0c10;color:#e5e7eb;border:1px solid var(--border);
+        border-radius:4px;padding:6px;font-family:ui-monospace,monospace;font-size:10px;resize:vertical"></textarea>
+    </div>
+
+    <h3>Tests de dominio</h3>
+    <div id="testsOut" class="hint">Pulsa "Ejecutar tests".</div>
+    <div class="btns"><button id="btnTests">Ejecutar tests</button></div>
+
+    <div class="legend">
+      <span style="--c:#c4b5a0">Muro</span>
+      <span style="--c:#6a4a3a">Cubierta</span>
+      <span style="--c:#4a2a1a">Puerta</span>
+      <span style="--c:#88a8b8">Ventana</span>
+      <span style="--c:#7a5a4a">Chimenea</span>
+    </div>
+  </aside>
+</div>
+<script>
+"use strict";
+
+/* ============================================================================
+ * DOMAIN · VECTORES Y RNG
+ * ========================================================================== */
+const V3 = {
+  add:(a,b)=>[a[0]+b[0],a[1]+b[1],a[2]+b[2]],
+  sub:(a,b)=>[a[0]-b[0],a[1]-b[1],a[2]-b[2]],
+  mul:(a,s)=>[a[0]*s,a[1]*s,a[2]*s],
+  dot:(a,b)=>a[0]*b[0]+a[1]*b[1]+a[2]*b[2],
+  cross:(a,b)=>[a[1]*b[2]-a[2]*b[1],a[2]*b[0]-a[0]*b[2],a[0]*b[1]-a[1]*b[0]],
+  len:a=>Math.hypot(a[0],a[1],a[2]),
+  norm:a=>{const l=V3.len(a)||1;return [a[0]/l,a[1]/l,a[2]/l];},
+};
+
+class SeededRandom {
+  constructor(seed){
+    this.state = (seed | 0) % 2147483647;
+    if (this.state <= 0) this.state += 2147483646;
+  }
+  next(){ this.state = (this.state * 16807) % 2147483647; return (this.state - 1) / 2147483646; }
+  range(a, b){ return a + (b - a) * this.next(); }
+  int(a, b){ return Math.floor(this.range(a, b + 1)); }
+  pick(arr){ return arr[Math.floor(this.next() * arr.length)]; }
+}
+
+/* ============================================================================
+ * DOMAIN · CATÁLOGO
+ * ========================================================================== */
+const CATALOG = {
+  styles: {
+    medieval: { name:"Medieval", wallColor:"#c4b5a0", roofColor:"#6a4a3a", doorColor:"#4a2a1a",
+      windowColor:"#88a8b8", chimneyColor:"#7a5a4a", roofType:"gabled", roofPitch:0.55,
+      wallThickness:0.4, windowRatio:0.15, hasChimney:true, hasCornice:false },
+    colonial: { name:"Colonial", wallColor:"#f0e8d8", roofColor:"#b85030", doorColor:"#5a3a2a",
+      windowColor:"#4a80a0", chimneyColor:"#8a6a5a", roofType:"hipped", roofPitch:0.45,
+      wallThickness:0.35, windowRatio:0.20, hasChimney:false, hasCornice:true },
+    rustico: { name:"Rústico", wallColor:"#b8a080", roofColor:"#8a6a4a", doorColor:"#5a3a2a",
+      windowColor:"#8a9080", chimneyColor:"#7a6a5a", roofType:"gabled", roofPitch:0.7,
+      wallThickness:0.5, windowRatio:0.12, hasChimney:true, hasCornice:false },
+    moderno: { name:"Moderno", wallColor:"#e8e8e8", roofColor:"#606870", doorColor:"#303840",
+      windowColor:"#a0c0d8", chimneyColor:"#707880", roofType:"flat", roofPitch:0,
+      wallThickness:0.25, windowRatio:0.35, hasChimney:false, hasCornice:false },
+    industrial: { name:"Industrial", wallColor:"#a84030", roofColor:"#404048", doorColor:"#202028",
+      windowColor:"#6080a0", chimneyColor:"#505058", roofType:"gabled", roofPitch:0.25,
+      wallThickness:0.3, windowRatio:0.25, hasChimney:true, hasCornice:false },
+  },
+  types: {
+    casa: { name:"Casa", widthRange:[6, 10], depthRatio:[0.6, 0.9], floorRange:[1, 3], floorHeight:3.0 },
+    iglesia: { name:"Iglesia", widthRange:[10, 16], depthRatio:[1.5, 2.2], floorRange:[1, 2], floorHeight:4.5 },
+    torre: { name:"Torre", widthRange:[4, 7], depthRatio:[0.9, 1.1], floorRange:[2, 5], floorHeight:3.5 },
+  },
+  environments: {
+    arido: { name:"Árido", wallTint:"#d0b090", roofTint:"#a08060",
+      pitchMul:0.4, thicknessMul:1.5, windowMul:0.6 },
+    templado: { name:"Templado", wallTint:"#c0c0b0", roofTint:"#808080",
+      pitchMul:1.0, thicknessMul:1.0, windowMul:1.0 },
+    frio: { name:"Frío", wallTint:"#a8a8b0", roofTint:"#505860",
+      pitchMul:1.4, thicknessMul:1.4, windowMul:0.7 },
+    costero: { name:"Costero", wallTint:"#d0d8e0", roofTint:"#a08870",
+      pitchMul:0.9, thicknessMul:0.9, windowMul:1.2 },
+  },
+  sizes: { small: 0.75, medium: 1.0, large: 1.4 },
+};
+
+/* ============================================================================
+ * DOMAIN · BUILDING
+ * ========================================================================== */
+class Building {
+  constructor(seed, styleId, typeId, envId, params, parts, meta){
+    this.seed = seed; this.styleId = styleId; this.typeId = typeId;
+    this.envId = envId; this.params = params; this.parts = parts; this.meta = meta;
+  }
+  toJSON(){
+    return {
+      seed: this.seed, style: this.styleId, type: this.typeId,
+      environment: this.envId, params: this.params,
+      dimensions: this.meta.dimensions, floors: this.meta.floors,
+      parts: this.parts.map(p => ({
+        kind: p.kind, pos: p.pos.map(v => +v.toFixed(3)),
+        size: p.size.map(v => +v.toFixed(3)), color: p.color,
+        minLOD: p.minLOD, face: p.face || undefined,
+      })),
+    };
+  }
+}
+
+/* ============================================================================
+ * DOMAIN · GRAMMAR
+ * ========================================================================== */
+class Grammar {
+  static compose(seed, styleId, typeId, envId, params){
+    const style = CATALOG.styles[styleId];
+    const type = CATALOG.types[typeId];
+    const env = CATALOG.environments[envId];
+    if (!style || !type || !env) throw new Error("Combinación inválida");
+
+    const rng = new SeededRandom(seed * 7919 + hashString(styleId) + hashString(typeId) + hashString(envId));
+    const realized = this._modulate(style, env);
+
+    const sizeMul = CATALOG.sizes[params.size] || 1.0;
+    const w = rng.range(type.widthRange[0], type.widthRange[1]) * sizeMul;
+    const dRatio = rng.range(type.depthRatio[0], type.depthRatio[1]);
+    const d = w * dRatio;
+    const floors = rng.int(type.floorRange[0], type.floorRange[1]);
+    const floorH = type.floorHeight * (0.9 + (sizeMul - 1) * 0.3);
+    const h = floors * floorH;
+    const roofH = realized.roofPitch * w * 0.4;
+
+    const parts = [];
+
+    // Muro
+    parts.push({
+      kind: "wall", pos: [0, h / 2, 0], size: [w, h, d],
+      color: realized.wallColor, minLOD: 0,
+    });
+
+    // Cubierta
+    if (realized.roofType === "flat"){
+      const t = 0.3;
+      parts.push({
+        kind: "roof_flat", pos: [0, h + t / 2, 0],
+        size: [w * 1.04, t, d * 1.04], color: realized.roofColor, minLOD: 0,
+      });
+    } else {
+      parts.push({
+        kind: realized.roofType === "hipped" ? "roof_hipped" : "roof_gabled",
+        pos: [0, h, 0], size: [w * 1.04, roofH, d * 1.04],
+        color: realized.roofColor, minLOD: 0,
+      });
+    }
+
+    // Puerta
+    const doorW = Math.min(1.4, w * 0.15);
+    const doorH = Math.min(2.4, floorH * 0.75);
+    parts.push({
+      kind: "door", pos: [0, doorH / 2, -d / 2 - 0.02],
+      size: [doorW, doorH, 0.05], color: realized.doorColor,
+      minLOD: 1, face: "front",
+    });
+
+    // Ventanas
+    const winCols = Math.max(1, Math.floor(w / 3));
+    const winW = Math.min(1.2, w / (winCols + 1.5));
+    const winH = realized.windowShape === "tall" ? floorH * 0.55
+               : realized.windowShape === "wide" ? floorH * 0.35
+               : floorH * 0.45;
+    const doorHalfW = doorW / 2;
+    for (let f = 0; f < floors; f++){
+      for (let c = 0; c < winCols; c++){
+        if (rng.next() < 0.1) continue;
+        const colStep = w / (winCols + 1);
+        const x = -w / 2 + colStep * (c + 1);
+        // Saltar ventanas de planta baja que chocan con la puerta
+        if (f === 0 && Math.abs(x) < doorHalfW + winW * 0.4) continue;
+        const y = floorH * f + floorH * 0.55;
+        for (const face of ["front", "back"]){
+          parts.push({
+            kind: "window", pos: [x, y, (face === "front" ? -d / 2 - 0.02 : d / 2 + 0.02)],
+            size: [winW, winH, 0.05], color: realized.windowColor,
+            minLOD: 1, face,
+          });
+        }
+      }
+    }
+
+    // Chimenea
+    if (realized.hasChimney){
+      const chW = 0.5 + rng.next() * 0.3;
+      const chH = roofH * (0.8 + rng.next() * 0.6);
+      const chX = w * 0.25 + rng.next() * w * 0.15;
+      parts.push({
+        kind: "chimney", pos: [chX, h + roofH * 0.5 + chH / 2, 0],
+        size: [chW, chH, chW], color: realized.chimneyColor, minLOD: 2,
+      });
+    }
+
+    // Cornisa
+    if (realized.hasCornice){
+      const cH = 0.25;
+      parts.push({
+        kind: "cornice", pos: [0, h - cH / 2, 0],
+        size: [w * 1.06, cH, d * 1.06], color: realized.wallColor, minLOD: 3,
+      });
+    }
+
+    // Almenas (torre)
+    if (typeId === "torre"){
+      const n = 8;
+      for (let i = 0; i < n; i++){
+        const t = i / (n - 1);
+        const x = -w / 2 + t * w;
+        for (const z of [-d / 2 + 0.2, d / 2 - 0.2]){
+          parts.push({
+            kind: "battlement", pos: [x, h + 0.4, z],
+            size: [0.4, 0.8, 0.4], color: realized.wallColor, minLOD: 2,
+          });
+        }
+      }
+    }
+
+    // Saeteras (torre)
+    if (typeId === "torre"){
+      for (let f = 1; f < floors; f++){
+        parts.push({
+          kind: "arrow_slit", pos: [0, floorH * f + floorH * 0.6, -d / 2 - 0.02],
+          size: [0.2, 0.8, 0.05], color: "#202020",
+          minLOD: 2, face: "front",
+        });
+      }
+    }
+
+    // Rosetón (iglesia)
+    if (typeId === "iglesia"){
+      const roseR = Math.min(w, h) * 0.08;
+      parts.push({
+        kind: "rose_window", pos: [0, h * 0.75, -d / 2 - 0.02],
+        size: [roseR * 2, roseR * 2, 0.05], color: realized.windowColor,
+        minLOD: 2, face: "front",
+      });
+    }
+
+    const finalParts = this._applyDecay(parts, params.decay, rng);
+
+    const meta = {
+      dimensions: {
+        width: +w.toFixed(2), depth: +d.toFixed(2),
+        height: +h.toFixed(2), roofHeight: +roofH.toFixed(2),
+      },
+      floors,
+      realized: { wallColor: realized.wallColor, roofColor: realized.roofColor, roofType: realized.roofType },
+    };
+    return new Building(seed, styleId, typeId, envId, params, finalParts, meta);
+  }
+
+  static _modulate(style, env){
+    return {
+      ...style,
+      wallColor: blendHex(style.wallColor, env.wallTint, 0.25),
+      roofColor: blendHex(style.roofColor, env.roofTint, 0.25),
+      roofPitch: style.roofPitch * env.pitchMul,
+      wallThickness: style.wallThickness * env.thicknessMul,
+      windowRatio: style.windowRatio * env.windowMul,
+      windowShape: style.windowRatio * env.windowMul > 0.3 ? "wide"
+                 : style.windowRatio * env.windowMul < 0.13 ? "small"
+                 : "regular",
+    };
+  }
+
+  static _applyDecay(parts, decay, rng){
+    if (decay <= 0) return parts;
+    return parts.map(p => {
+      if (p.kind === "window" && rng.next() < decay * 1.1) return null;
+      if (p.kind === "chimney" && rng.next() < decay) return null;
+      if (p.kind === "roof_gabled" || p.kind === "roof_hipped"){
+        p.size[1] *= (1 - decay * 0.4);
+        return p;
+      }
+      if (p.kind === "wall" && decay > 0.7){
+        const shrink = (decay - 0.7) * 1.5;
+        p.size[1] *= (1 - shrink * 0.5);
+        p.pos[1] = p.size[1] / 2;
+        return p;
+      }
+      return p;
+    }).filter(Boolean);
+  }
+}
+
+/* ============================================================================
+ * DOMAIN · MESH BUILDER
+ * ========================================================================== */
+class MeshBuilder {
+  static build(building, lod){
+    const tris = [];
+    for (const part of building.parts){
+      if (part.minLOD > lod) continue;
+      this._emitPart(part, tris);
+    }
+    return tris;
+  }
+
+  static _emitPart(part, out){
+    const [x, y, z] = part.pos;
+    const [w, h, d] = part.size;
+    switch (part.kind){
+      case "wall": case "chimney": case "battlement":
+      case "cornice": case "roof_flat":
+        this._box(x, y, z, w, h, d, part.color, out); break;
+      case "roof_gabled":
+        this._gabled(x, y, z, w, h, d, part.color, out); break;
+      case "roof_hipped":
+        this._hipped(x, y, z, w, h, d, part.color, out); break;
+      case "door": case "window": case "arrow_slit":
+        this._panel(x, y, z, w, h, d, part.color, part.face, out); break;
+      case "rose_window":
+        this._disc(x, y, z, w, h, d, part.color, part.face, out); break;
+    }
+  }
+
+  static _tri(a, b, c, color, out){
+    const n = V3.norm(V3.cross(V3.sub(b, a), V3.sub(c, a)));
+    out.push({ v: [a, b, c], color, n });
+  }
+  static _quad(a, b, c, d, color, out){
+    this._tri(a, b, c, color, out);
+    this._tri(a, c, d, color, out);
+  }
+
+  static _box(cx, cy, cz, w, h, d, color, out){
+    const x0 = cx - w / 2, x1 = cx + w / 2;
+    const y0 = cy - h / 2, y1 = cy + h / 2;
+    const z0 = cz - d / 2, z1 = cz + d / 2;
+    this._quad([x0,y0,z0],[x1,y0,z0],[x1,y1,z0],[x0,y1,z0], color, out);
+    this._quad([x1,y0,z1],[x0,y0,z1],[x0,y1,z1],[x1,y1,z1], color, out);
+    this._quad([x0,y0,z1],[x0,y1,z1],[x0,y1,z0],[x0,y0,z0], color, out);
+    this._quad([x1,y0,z0],[x1,y1,z0],[x1,y1,z1],[x1,y0,z1], color, out);
+    this._quad([x0,y1,z1],[x1,y1,z1],[x1,y1,z0],[x0,y1,z0], color, out);
+    this._quad([x0,y0,z0],[x1,y0,z0],[x1,y0,z1],[x0,y0,z1], color, out);
+  }
+
+  static _gabled(cx, baseY, cz, w, rh, d, color, out){
+    const x0 = cx - w / 2, x1 = cx + w / 2;
+    const z0 = cz - d / 2, z1 = cz + d / 2;
+    const peakY = baseY + rh;
+    const a = [x0, baseY, z0], b = [x1, baseY, z0], c = [x1, baseY, z1], e = [x0, baseY, z1];
+    const rl = [x0, peakY, cz], rr = [x1, peakY, cz];
+    this._quad(a, b, rr, rl, color, out);
+    this._quad(c, e, rl, rr, color, out);
+    this._tri(e, a, rl, color, out);
+    this._tri(b, c, rr, color, out);
+    // Base (para cerrar el volumen)
+    this._quad(a, b, c, e, color, out);
+  }
+
+  static _hipped(cx, baseY, cz, w, rh, d, color, out){
+    const x0 = cx - w / 2, x1 = cx + w / 2;
+    const z0 = cz - d / 2, z1 = cz + d / 2;
+    const ridgeHalf = w * 0.3;
+    const peakY = baseY + rh;
+    const rl = [cx - ridgeHalf, peakY, cz];
+    const rr = [cx + ridgeHalf, peakY, cz];
+    const a = [x0, baseY, z0], b = [x1, baseY, z0], c = [x1, baseY, z1], e = [x0, baseY, z1];
+    this._quad(a, b, rr, rl, color, out);
+    this._quad(c, e, rl, rr, color, out);
+    this._tri(e, a, rl, color, out);
+    this._tri(b, c, rr, color, out);
+    this._quad(a, b, c, e, color, out);
+  }
+
+  static _panel(cx, cy, cz, w, h, d, color, face, out){
+    const x0 = cx - w/2, x1 = cx + w/2;
+    const y0 = cy - h/2, y1 = cy + h/2;
+    if (face === "back"){
+      this._quad([x1,y0,cz],[x0,y0,cz],[x0,y1,cz],[x1,y1,cz], color, out);
+    } else {
+      this._quad([x0,y0,cz],[x1,y0,cz],[x1,y1,cz],[x0,y1,cz], color, out);
+    }
+  }
+
+  static _disc(cx, cy, cz, w, h, d, color, face, out){
+    const N = 12;
+    const r = Math.min(w, h) / 2;
+    const sign = face === "back" ? 1 : -1;
+    const pts = [];
+    for (let i = 0; i < N; i++){
+      const a = (i / N) * Math.PI * 2;
+      pts.push([cx + Math.cos(a) * r, cy + Math.sin(a) * r, cz]);
+    }
+    for (let i = 0; i < N; i++){
+      const a = pts[i], b = pts[(i + 1) % N];
+      if (sign < 0) this._tri([cx,cy,cz], a, b, color, out);
+      else this._tri([cx,cy,cz], b, a, color, out);
+    }
+  }
+}
+
+/* ============================================================================
+ * HELPERS
+ * ========================================================================== */
+function hashString(s){
+  let h = 0;
+  for (let i = 0; i < s.length; i++) h = ((h << 5) - h + s.charCodeAt(i)) | 0;
+  return Math.abs(h) % 10000;
+}
+function blendHex(a, b, t){
+  const pa = parseInt(a.slice(1), 16), pb = parseInt(b.slice(1), 16);
+  const ar = (pa >> 16) & 255, ag = (pa >> 8) & 255, ab = pa & 255;
+  const br = (pb >> 16) & 255, bg = (pb >> 8) & 255, bb = pb & 255;
+  const r = Math.round(ar * (1 - t) + br * t);
+  const g = Math.round(ag * (1 - t) + bg * t);
+  const bl = Math.round(ab * (1 - t) + bb * t);
+  return "#" + ((1 << 24) | (r << 16) | (g << 8) | bl).toString(16).slice(1);
+}
+
+/* ============================================================================
+ * ADAPTERS · CÁMARA ORBITAL
+ * ----------------------------------------------------------------------------
+ * FIX: lz positivo = delante de la cámara. sx/sy usan lz directo, no -lz.
+ * ========================================================================== */
+class OrbitCamera {
+  constructor(w, h){
+    this.w = w; this.h = h;
+    this.yaw = -Math.PI / 4;
+    this.pitch = 0.5;
+    this.dist = 20;
+    this.target = [0, 3, 0];
+    this.fov = Math.PI / 3;
+  }
+  resize(w, h){ this.w = w; this.h = h; }
+  project(p){
+    const t = this.target;
+    const cx = this.dist * Math.cos(this.pitch) * Math.sin(this.yaw);
+    const cy = this.dist * Math.sin(this.pitch);
+    const cz = this.dist * Math.cos(this.pitch) * Math.cos(this.yaw);
+    const fwd = V3.norm([-cx, -cy, -cz]);
+    const right = V3.norm(V3.cross(fwd, [0, 1, 0]));
+    const up = V3.cross(right, fwd);
+    const dx = p[0] - t[0] - cx;
+    const dy = p[1] - t[1] - cy;
+    const dz = p[2] - t[2] - cz;
+    const lx = dx * right[0] + dy * right[1] + dz * right[2];
+    const ly = dx * up[0] + dy * up[1] + dz * up[2];
+    const lz = dx * fwd[0] + dy * fwd[1] + dz * fwd[2];  // positivo si delante
+    const f = (this.h / 2) / Math.tan(this.fov / 2);
+    // FIX: sin el negativo delante de lz
+    return [this.w / 2 + lx * f / lz, this.h / 2 - ly * f / lz, lz];
+  }
+}
+
+/* ============================================================================
+ * ADAPTERS · CANVAS 3D
+ * ========================================================================== */
+class Canvas3DRenderer {
+  constructor(canvas, cam){
+    this.cv = canvas;
+    this.ctx = canvas.getContext("2d");
+    this.cam = cam;
+    this.colorMode = true;
+    this.wire = false;
+    this.showGrid = true;
+    window.addEventListener("resize", () => this.resize());
+    this.resize();
+  }
+  resize(){
+    const dpr = window.devicePixelRatio || 1;
+    const r = this.cv.getBoundingClientRect();
+    this.cv.width = Math.max(1, Math.floor(r.width * dpr));
+    this.cv.height = Math.max(1, Math.floor(r.height * dpr));
+    this.ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    this.W = r.width; this.H = r.height;
+    this.cam.resize(r.width, r.height);
+    if (this._lastBuilding) this.draw(this._lastBuilding, this._lastTris, this._lastLod);
+  }
+  draw(building, tris, lod){
+    this._lastBuilding = building;
+    this._lastTris = tris;
+    this._lastLod = lod;
+    const ctx = this.ctx;
+    ctx.clearRect(0, 0, this.W, this.H);
+    const grad = ctx.createLinearGradient(0, 0, 0, this.H);
+    grad.addColorStop(0, "#0a0c10");
+    grad.addColorStop(1, "#141821");
+    ctx.fillStyle = grad;
+    ctx.fillRect(0, 0, this.W, this.H);
+    if (this.showGrid) this._grid();
+    if (!tris || tris.length === 0) return;
+
+    // Proyectar y filtrar
+    const projected = [];
+    for (const t of tris){
+      const proj = t.v.map(v => this.cam.project(v));
+      // FIX: descartar si cualquier vértice está detrás o en la cámara
+      if (proj.some(p => p[2] <= 0.1)) continue;
+      const depth = (proj[0][2] + proj[1][2] + proj[2][2]) / 3;
+      const light = V3.norm([0.5, 1.0, 0.3]);
+      const shade = 0.4 + 0.6 * Math.abs(V3.dot(t.n, light));
+      const baseColor = this.colorMode ? t.color : building.meta.realized.wallColor;
+      const fill = shadeHex(baseColor, shade);
+      projected.push({ proj, depth, fill });
+    }
+    // FIX: painter's algorithm → más lejos primero (depth descendente)
+    projected.sort((a, b) => b.depth - a.depth);
+    for (const p of projected){
+      const a = p.proj[0], b = p.proj[1], c = p.proj[2];
+      ctx.beginPath();
+      ctx.moveTo(a[0], a[1]);
+      ctx.lineTo(b[0], b[1]);
+      ctx.lineTo(c[0], c[1]);
+      ctx.closePath();
+      if (this.wire){
+        ctx.strokeStyle = p.fill;
+        ctx.lineWidth = 1;
+        ctx.stroke();
+      } else {
+        ctx.fillStyle = p.fill;
+        ctx.fill();
+        ctx.strokeStyle = "rgba(0,0,0,0.35)";
+        ctx.lineWidth = 0.5;
+        ctx.stroke();
+      }
+    }
+  }
+  _grid(){
+    const ctx = this.ctx;
+    const step = 2, R = 20;
+    const lines = [];
+    for (let i = -R; i <= R; i += step){
+      const a = this.cam.project([-R, 0, i]);
+      const b = this.cam.project([R, 0, i]);
+      if (a[2] > 0.1 && b[2] > 0.1) lines.push([a, b, i === 0]);
+      const c = this.cam.project([i, 0, -R]);
+      const d = this.cam.project([i, 0, R]);
+      if (c[2] > 0.1 && d[2] > 0.1) lines.push([c, d, i === 0]);
+    }
+    for (const [a, b, major] of lines){
+      ctx.strokeStyle = major ? "rgba(245,158,11,0.22)" : "rgba(255,255,255,0.05)";
+      ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.moveTo(a[0], a[1]); ctx.lineTo(b[0], b[1]); ctx.stroke();
+    }
+  }
+}
+
+function shadeHex(hex, k){
+  const n = parseInt(hex.slice(1), 16);
+  const r = Math.round(Math.min(255, Math.max(0, ((n >> 16) & 255) * k)));
+  const g = Math.round(Math.min(255, Math.max(0, ((n >> 8) & 255) * k)));
+  const b = Math.round(Math.min(255, Math.max(0, (n & 255) * k)));
+  return `rgb(${r},${g},${b})`;
+}
+
+/* ============================================================================
+ * APPLICATION
+ * ========================================================================== */
+class App {
+  constructor(){
+    this.cam = new OrbitCamera(0, 0);
+    this.renderer = new Canvas3DRenderer(document.getElementById("cv"), this.cam);
+    this.building = null;
+    this.tris = [];
+    this.lod = 2;
+    this._bindOrbit();
+    this._populateSelects();
+    this._bindUI();
+    this.generate();
+  }
+  _bindOrbit(){
+    const cv = document.getElementById("cv");
+    let drag = null;
+    cv.addEventListener("mousedown", e => {
+      drag = { x: e.clientX, y: e.clientY, yaw: this.cam.yaw, pitch: this.cam.pitch };
+    });
+    window.addEventListener("mousemove", e => {
+      if (!drag) return;
+      this.cam.yaw = drag.yaw + (e.clientX - drag.x) * 0.008;
+      this.cam.pitch = Math.max(-0.2, Math.min(1.4, drag.pitch + (e.clientY - drag.y) * 0.008));
+      this.redraw();
+    });
+    window.addEventListener("mouseup", () => { drag = null; });
+    cv.addEventListener("wheel", e => {
+      e.preventDefault();
+      this.cam.dist = Math.max(4, Math.min(150, this.cam.dist * (e.deltaY < 0 ? 0.9 : 1.1)));
+      this.redraw();
+    }, { passive: false });
+  }
+  _populateSelects(){
+    const ss = document.getElementById("styleSel");
+    for (const id in CATALOG.styles){
+      const o = document.createElement("option");
+      o.value = id; o.textContent = CATALOG.styles[id].name;
+      ss.appendChild(o);
+    }
+    ss.value = "medieval";
+    const ts = document.getElementById("typeSel");
+    for (const id in CATALOG.types){
+      const o = document.createElement("option");
+      o.value = id; o.textContent = CATALOG.types[id].name;
+      ts.appendChild(o);
+    }
+    ts.value = "casa";
+    const es = document.getElementById("envSel");
+    for (const id in CATALOG.environments){
+      const o = document.createElement("option");
+      o.value = id; o.textContent = CATALOG.environments[id].name;
+      es.appendChild(o);
+    }
+    es.value = "templado";
+  }
+  _bindUI(){
+    const g = id => document.getElementById(id);
+    g("btnRand").onclick = () => { g("seedInput").value = Math.floor(Math.random() * 999999); this.generate(); };
+    g("btnNext").onclick = () => { g("seedInput").value = (parseInt(g("seedInput").value) + 1) % 1000000; this.generate(); };
+    g("btnFit").onclick = () => { this._fit(); this.redraw(); };
+    for (const id of ["seedInput","styleSel","typeSel","envSel","sizeSel"]){
+      g(id).addEventListener("change", () => this.generate());
+    }
+    g("density").addEventListener("input", e => {
+      g("densityVal").textContent = parseFloat(e.target.value).toFixed(1);
+      this.generate();
+    });
+    g("decay").addEventListener("input", e => {
+      g("decayVal").textContent = parseFloat(e.target.value).toFixed(2);
+      this.generate();
+    });
+    g("lod").addEventListener("input", e => {
+      this.lod = parseInt(e.target.value);
+      g("lodVal").textContent = this.lod;
+      this.redraw();
+    });
+    g("colorMode").addEventListener("change", e => { this.renderer.colorMode = e.target.checked; this.redraw(); });
+    g("wireMode").addEventListener("change", e => { this.renderer.wire = e.target.checked; this.redraw(); });
+    g("gridToggle").addEventListener("change", e => { this.renderer.showGrid = e.target.checked; this.redraw(); });
+    g("btnJson").onclick = () => {
+      const wrap = g("jsonWrap");
+      if (wrap.style.display === "none"){
+        g("jsonOut").value = JSON.stringify(this.building.toJSON(), null, 2);
+        wrap.style.display = "block";
+      } else wrap.style.display = "none";
+    };
+    g("btnTests").onclick = () => this.runTests();
+  }
+  generate(){
+    const g = id => document.getElementById(id);
+    const seed = parseInt(g("seedInput").value) || 0;
+    const styleId = g("styleSel").value;
+    const typeId = g("typeSel").value;
+    const envId = g("envSel").value;
+    const sizeKey = g("sizeSel").value;
+    const density = parseFloat(g("density").value);
+    const decay = parseFloat(g("decay").value);
+    try {
+      this.building = Grammar.compose(seed, styleId, typeId, envId, { size: sizeKey, density, decay });
+      this._updateInfo();
+      this._fit();
+      this.redraw();
+    } catch (e) { console.error(e); }
+  }
+  _fit(){
+    if (!this.building) return;
+    const d = this.building.meta.dimensions;
+    const maxDim = Math.max(d.width, d.depth, d.height + d.roofHeight);
+    this.cam.dist = Math.max(8, maxDim * 2.2);
+    this.cam.target = [0, d.height * 0.45, 0];
+  }
+  redraw(){
+    if (!this.building) return;
+    this.tris = MeshBuilder.build(this.building, this.lod);
+    this.renderer.draw(this.building, this.tris, this.lod);
+    document.getElementById("hud-style").textContent = CATALOG.styles[this.building.styleId].name;
+    document.getElementById("hud-type").textContent = CATALOG.types[this.building.typeId].name;
+    document.getElementById("hud-env").textContent = CATALOG.environments[this.building.envId].name;
+    document.getElementById("hud-lod").textContent = this.lod;
+    document.getElementById("hud-tris").textContent = this.tris.length;
+    document.getElementById("hud-parts").textContent = this.building.parts.filter(p => p.minLOD <= this.lod).length;
+    document.getElementById("hud-seed").textContent = this.building.seed;
+  }
+  _updateInfo(){
+    const b = this.building, d = b.meta.dimensions;
+    document.getElementById("info").innerHTML = `
+      <div class="kv"><span>Semilla</span><b>${b.seed}</b></div>
+      <div class="kv"><span>Dimensiones</span><b>${d.width}×${d.depth}×${d.height} m</b></div>
+      <div class="kv"><span>Plantas</span><b>${b.meta.floors}</b></div>
+      <div class="kv"><span>Cubierta</span><b>${b.meta.realized.roofType} (${d.roofHeight} m)</b></div>
+      <div class="kv"><span>Partes totales</span><b>${b.parts.length}</b></div>
+    `;
+  }
+  runTests(){
+    const out = document.getElementById("testsOut");
+    out.innerHTML = "";
+    let pass = 0, fail = 0;
+    const log = (name, ok, extra) => {
+      ok ? pass++ : fail++;
+      const d = document.createElement("div");
+      d.className = "test " + (ok ? "ok" : "fail");
+      d.textContent = (ok ? "✅ " : "❌ ") + name + (extra ? " — " + extra : "");
+      out.appendChild(d);
+    };
+
+    // 1. RNG determinista
+    try {
+      const r1 = new SeededRandom(123), r2 = new SeededRandom(123);
+      const s1 = [r1.next(), r1.next(), r1.next()].join(",");
+      const s2 = [r2.next(), r2.next(), r2.next()].join(",");
+      log("RNG determinista", s1 === s2);
+    } catch (e) { log("RNG determinista", false, e.message); }
+
+    // 2. Building determinista
+    try {
+      const p = { size: "medium", density: 1.0, decay: 0 };
+      const b1 = Grammar.compose(42, "medieval", "casa", "templado", p);
+      const b2 = Grammar.compose(42, "medieval", "casa", "templado", p);
+      log("Building determinista", JSON.stringify(b1.toJSON()) === JSON.stringify(b2.toJSON()));
+    } catch (e) { log("Building determinista", false, e.message); }
+
+    // 3. Estilo cambia color
+    try {
+      const p = { size: "medium", density: 1.0, decay: 0 };
+      const b1 = Grammar.compose(42, "medieval", "casa", "templado", p);
+      const b2 = Grammar.compose(42, "moderno", "casa", "templado", p);
+      log("Estilo cambia color", b1.meta.realized.wallColor !== b2.meta.realized.wallColor);
+    } catch (e) { log("Estilo cambia color", false, e.message); }
+
+    // 4. Entorno modula cubierta
+    try {
+      const p = { size: "medium", density: 1.0, decay: 0 };
+      const b1 = Grammar.compose(42, "medieval", "casa", "arido", p);
+      const b2 = Grammar.compose(42, "medieval", "casa", "templado", p);
+      log("Entorno modula cubierta", b1.meta.dimensions.roofHeight < b2.meta.dimensions.roofHeight,
+          `${b1.meta.dimensions.roofHeight} < ${b2.meta.dimensions.roofHeight}`);
+    } catch (e) { log("Entorno modula cubierta", false, e.message); }
+
+    // 5. Iglesia tiene rosetón
+    try {
+      const p = { size: "medium", density: 1.0, decay: 0 };
+      const casa = Grammar.compose(42, "medieval", "casa", "templado", p);
+      const igl = Grammar.compose(42, "medieval", "iglesia", "templado", p);
+      const casaHasRose = casa.parts.some(x => x.kind === "rose_window");
+      const iglHasRose = igl.parts.some(x => x.kind === "rose_window");
+      log("Iglesia rosetón sí, casa no", !casaHasRose && iglHasRose);
+    } catch (e) { log("Rosetón", false, e.message); }
+
+    // 6. Decay reduce partes
+    try {
+      const b0 = Grammar.compose(42, "medieval", "casa", "templado", { size: "medium", density: 1.0, decay: 0 });
+      const b1 = Grammar.compose(42, "medieval", "casa", "templado", { size: "medium", density: 1.0, decay: 0.6 });
+      log("Decay reduce partes", b1.parts.length < b0.parts.length,
+          `${b1.parts.length} < ${b0.parts.length}`);
+    } catch (e) { log("Decay", false, e.message); }
+
+    // 7. LOD reduce triángulos
+    try {
+      const b = Grammar.compose(42, "medieval", "casa", "templado", { size: "medium", density: 1.0, decay: 0 });
+      const t0 = MeshBuilder.build(b, 0).length;
+      const t3 = MeshBuilder.build(b, 3).length;
+      log("LOD0 < LOD3", t0 < t3, `${t0} < ${t3}`);
+    } catch (e) { log("LOD", false, e.message); }
+
+    // 8. Malla finita
+    try {
+      const b = Grammar.compose(42, "medieval", "casa", "templado", { size: "medium", density: 1.0, decay: 0 });
+      const tris = MeshBuilder.build(b, 3);
+      let ok = true;
+      for (const t of tris) for (const v of t.v) for (const c of v) if (!isFinite(c)) ok = false;
+      log("Malla finita", ok);
+    } catch (e) { log("Malla finita", false, e.message); }
+
+    // 9. Muro y cubierta presentes
+    try {
+      const b = Grammar.compose(42, "medieval", "casa", "templado", { size: "medium", density: 1.0, decay: 0 });
+      const hasWall = b.parts.some(x => x.kind === "wall");
+      const hasRoof = b.parts.some(x => x.kind.startsWith("roof"));
+      log("Muro y cubierta presentes", hasWall && hasRoof);
+    } catch (e) { log("Muro y cubierta", false, e.message); }
+
+    // 10. Colores hex
+    try {
+      const b = Grammar.compose(42, "medieval", "casa", "templado", { size: "medium", density: 1.0, decay: 0 });
+      let ok = true;
+      for (const p of b.parts) if (!/^#[0-9a-f]{6}$/i.test(p.color)) ok = false;
+      log("Colores hex válidos", ok);
+    } catch (e) { log("Colores hex", false, e.message); }
+
+    // 11. FIX: cámara proyecta un punto delante dentro de pantalla
+    try {
+      const cam = new OrbitCamera(800, 600);
+      cam.target = [0, 3, 0];
+      cam.dist = 15;
+      const p = cam.project([0, 3, 0]);  // el target mismo
+      const inside = p[2] > 0 && Math.abs(p[0] - 400) < 5 && Math.abs(p[1] - 300) < 5;
+      log("Cámara proyecta target al centro", inside,
+          `proj=[${p[0].toFixed(1)},${p[1].toFixed(1)},${p[2].toFixed(2)}]`);
+    } catch (e) { log("Cámara", false, e.message); }
+
+    // 12. FIX: un punto a la derecha va a la derecha
+    try {
+      const cam = new OrbitCamera(800, 600);
+      cam.target = [0, 0, 0]; cam.dist = 10; cam.yaw = 0; cam.pitch = 0;
+      const p = cam.project([1, 0, 0]);
+      log("Punto +x va a la derecha", p[0] > 400, `sx=${p[0].toFixed(1)}`);
+    } catch (e) { log("Proyección derecha", false, e.message); }
+
+    // 13. Malla proyecta al menos un triángulo a pantalla
+    try {
+      const b = Grammar.compose(42, "medieval", "casa", "templado", { size: "medium", density: 1.0, decay: 0 });
+      const tris = MeshBuilder.build(b, 2);
+      const cam = new OrbitCamera(800, 600);
+      const d = b.meta.dimensions;
+      cam.dist = Math.max(d.width, d.depth, d.height) * 2.2;
+      cam.target = [0, d.height * 0.45, 0];
+      let visible = 0;
+      for (const t of tris){
+        const proj = t.v.map(v => cam.project(v));
+        if (proj.every(p => p[2] > 0.1)){
+          if (proj.some(p => p[0] > 0 && p[0] < 800 && p[1] > 0 && p[1] < 600)) visible++;
+        }
+      }
+      log("Triángulos visibles en pantalla", visible > 0, `${visible} de ${tris.length}`);
+    } catch (e) { log("Triángulos visibles", false, e.message); }
+
+    const summary = document.createElement("div");
+    summary.style.marginTop = "8px";
+    summary.style.fontWeight = "600";
+    summary.style.color = fail === 0 ? "#86efac" : "#fca5a5";
+    summary.textContent = `${pass} ✓ · ${fail} ✗`;
+    out.appendChild(summary);
+  }
+}
+
+window.addEventListener("DOMContentLoaded", () => {
+  window.__app = new App();
+});
+</script>
+</body>
+</html>
