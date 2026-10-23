@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
 <meta charset="utf-8">
-<title>Juguete B v1.3 · análisis 2D + campo de fuerzas</title>
+<title>Juguete B v1.7 · parámetros estructurales + verificación de escena</title>
 <style>
   :root{--bg:#0f1115;--fg:#e5e7eb;--muted:#9ca3af;--panel:#161922;--border:#2a2f3a;
         --ok:#22c55e;--bad:#ef4444;--accent:#22d3ee;--warn:#eab308}
@@ -10,19 +10,26 @@
   html,body{margin:0;height:100%;font-family:ui-sans-serif,system-ui,sans-serif;
     background:var(--bg);color:var(--fg);overflow:hidden}
   #app{display:grid;grid-template-columns:1fr 420px;height:100vh;width:100vw}
-  #stage{position:relative;background:var(--bg)}
-  #cv{position:absolute;inset:0;display:block;width:100%;height:100%}
+  #stage{position:relative;background:var(--bg);display:flex;flex-direction:column}
+  #tabs{display:flex;border-bottom:1px solid var(--border);background:#131621;flex-shrink:0}
+  .tab-btn{flex:1;background:transparent;border:0;border-bottom:2px solid transparent;
+    color:var(--muted);padding:10px 16px;font-family:inherit;font-size:13px;cursor:pointer}
+  .tab-btn:hover{color:var(--fg)}
+  .tab-btn.active{color:var(--accent);border-bottom-color:var(--accent)}
+  #cv-area{position:relative;flex:1;overflow:hidden}
+  .tab-panel{display:none;position:absolute;inset:0;width:100%;height:100%}
+  .tab-panel.active{display:block}
   #panel{overflow-y:auto;padding:12px;background:rgba(22,25,34,.96);
     border-left:1px solid var(--border);font-size:13px}
   #panel::-webkit-scrollbar{width:8px}
   #panel::-webkit-scrollbar-thumb{background:#2a2f3a;border-radius:4px}
   h3{margin:14px 0 6px;font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted)}
   h3:first-child{margin-top:0}
+  h3.highlight{color:var(--accent);border-left:3px solid var(--accent);padding-left:6px}
   .row{display:flex;gap:8px;align-items:center;margin-bottom:6px}
   .row label{flex:0 0 130px;color:var(--muted);font-size:12px}
   .row input[type=range]{flex:1}
-  .row .val{min-width:60px;text-align:right;font-variant-numeric:tabular-nums;
-    color:var(--muted);font-size:11px}
+  .row .val{min-width:60px;text-align:right;font-variant-numeric:tabular-nums;color:var(--muted);font-size:11px}
   .row.check label{flex:1;display:flex;align-items:center;gap:6px;cursor:pointer;color:var(--fg)}
   select,button,textarea{font-family:inherit;font-size:12px;color:var(--fg);
     background:#2a2f3a;border:1px solid var(--border);border-radius:4px;padding:4px 8px}
@@ -38,6 +45,8 @@
     border-bottom:1px solid rgba(255,255,255,.04);font-size:12px}
   .kv span{color:var(--muted)}
   .kv b{font-variant-numeric:tabular-nums}
+  .kv.bad span{color:#fca5a5}
+  .kv.bad b{color:#fca5a5}
   .test{padding:2px 4px;border-radius:3px;margin-bottom:2px;
     font-family:ui-monospace,monospace;font-size:11px}
   .test.ok{color:#86efac;background:rgba(34,197,94,.08)}
@@ -49,11 +58,24 @@
   .badge{display:inline-block;padding:1px 6px;border-radius:3px;font-size:10px;
     text-transform:uppercase;letter-spacing:.05em}
   .badge.warn{background:var(--warn);color:#000}
+  .frame-indicator{background:#1e3a5f;border:1px solid #2a4a7f;padding:6px 10px;
+    border-radius:4px;font-size:12px;text-align:center;color:#93c5fd;margin-bottom:6px}
 </style>
 </head>
 <body>
 <div id="app">
-  <div id="stage"><canvas id="cv"></canvas></div>
+  <div id="stage">
+    <div id="tabs">
+      <button class="tab-btn active" data-tab="beam">Análisis</button>
+      <button class="tab-btn" data-tab="plan">Planta</button>
+      <button class="tab-btn" data-tab="volume">Volumen (contexto)</button>
+    </div>
+    <div id="cv-area">
+      <canvas id="cv-beam" class="tab-panel active"></canvas>
+      <canvas id="cv-plan" class="tab-panel"></canvas>
+      <canvas id="cv-volume" class="tab-panel"></canvas>
+    </div>
+  </div>
   <aside id="panel">
     <h3>Preset</h3>
     <select id="preset" style="width:100%">
@@ -62,7 +84,8 @@
       <option value="cantilever_tip">Voladizo · carga en punta</option>
       <option value="portal_center">Pórtico · carga central</option>
       <option value="truss_triangle">Triángulo articulado</option>
-      <option value="counterweight">Voladizo con contrapeso (test #9)</option>
+      <option value="counterweight">Voladizo con contrapeso</option>
+      <option value="gable_roof">Techo a dos aguas (v1.6 · multi-marco)</option>
     </select>
     <div class="btns" style="margin-top:8px">
       <button class="primary" id="btn-analyze">Analizar</button>
@@ -73,39 +96,76 @@
       <button id="btn-tests">Ejecutar tests</button>
     </div>
 
-    <h3>Vista</h3>
-    <div class="row check">
-      <label><input type="checkbox" id="showField" checked> Campo de fuerzas internas</label>
+    <div id="frame-indicator-wrap"></div>
+
+    <h3 class="highlight">Parámetros estructurales (re-analizan)</h3>
+    <div class="row">
+      <label>Carga ×</label>
+      <input type="range" id="loadFactor" min="0.1" max="3" step="0.1" value="1">
+      <span class="val" id="loadFactorVal">1.0</span>
     </div>
+    <div class="row">
+      <label>Sección</label>
+      <select id="sectionOverride" style="flex:1">
+        <option value="">(usar la del JSON)</option>
+      </select>
+    </div>
+    <div class="hint" style="margin-top:0">
+      Mover estos sliders <b>recalcula</b> la escena entera. Los tests
+      del solver no cambian (verifican la física, no tu modelo).
+    </div>
+
+    <h3>Capas (pestaña Análisis)</h3>
+    <div class="row check"><label><input type="checkbox" id="ly-structure" checked> Estructura</label></div>
+    <div class="row check"><label><input type="checkbox" id="ly-loads" checked> Cargas aplicadas</label></div>
+    <div class="row check"><label><input type="checkbox" id="ly-reactions" checked> Reacciones</label></div>
+    <div class="row check"><label><input type="checkbox" id="ly-deformada" checked> Deformada</label></div>
+    <div class="row check"><label><input type="checkbox" id="ly-diagrams" checked> Diagramas M / V / N</label></div>
+    <div class="row check"><label><input type="checkbox" id="ly-util" checked> Color por utilización</label></div>
+    <div class="row check"><label><input type="checkbox" id="ly-field"> Resultante interna (N,V)</label></div>
+    <div class="row check"><label><input type="checkbox" id="ly-labels"> Etiquetas</label></div>
+
+    <h3>Vista (solo visual)</h3>
     <div class="row">
       <label>Deformada ×</label>
       <input type="range" id="defScale" min="0" max="200" step="1" value="30">
       <span class="val" id="defScaleVal">30</span>
     </div>
     <div class="row">
-      <label>Escala carga</label>
-      <input type="range" id="loadScale" min="0.1" max="3" step="0.1" value="1">
+      <label>Tamaño flechas ×</label>
+      <input type="range" id="loadScale" min="0.2" max="3" step="0.1" value="1">
       <span class="val" id="loadScaleVal">1.0</span>
     </div>
+    <div class="hint" style="margin-top:0">
+      Estos sliders solo cambian el dibujo. NO re-analizan. Para cambiar la
+      física, usa "Parámetros estructurales".
+    </div>
+
+    <h3>Verificación de esta escena</h3>
+    <div id="verification"></div>
 
     <h3>Resultados</h3>
     <div id="results"></div>
 
-    <h3>Tests del dominio</h3>
-    <div id="tests-out" class="hint">Pulsa "Ejecutar tests".</div>
+    <h3>Tests del dominio (verifican el SOLVER)</h3>
+    <div id="tests-out" class="hint">
+      Pulsa "Ejecutar tests". Verifican el solver (fórmulas exactas de manual),
+      NO tu escena. No cambian con los sliders. Para verificar tu escena, mira
+      "Verificación de esta escena" arriba.
+    </div>
 
     <div id="json-wrap" style="display:none;margin-top:12px">
       <h3>JSON de entrada</h3>
       <textarea id="json-in" spellcheck="false"></textarea>
       <div class="btns">
         <button class="primary" id="btn-json-apply">Aplicar JSON</button>
-        <button id="btn-json-copy">Copiar al portapapeles</button>
+        <button id="btn-json-copy">Copiar</button>
       </div>
       <div id="json-error" style="color:#fca5a5;font-size:11px;margin-top:6px"></div>
     </div>
 
     <div class="hint" style="margin-top:14px;padding-top:8px;border-top:1px solid var(--border)">
-      <b>Aviso.</b> Herramienta didáctica. Lineal, estático, 2D, sin pandeo ni conexiones.
+      <b>Aviso.</b> Lineal, estático, 2D por marco, sin pandeo ni conexiones.
       Da órdenes de magnitud. <b>No certifica, no autoriza a construir.</b>
     </div>
   </aside>
@@ -115,28 +175,20 @@
 
 /* ============================================================================
  * DOMAIN · PRIMITIVES
- * SI. z vertical, gravedad = -z. Plano de análisis: (x, z).
  * ========================================================================== */
 const G_ACC = 9.81;
 
-class Material {
-  constructor(id, E, rho, sigmaAdm){ this.id=id; this.E=E; this.rho=rho; this.sigmaAdm=sigmaAdm; }
-}
-class Section {
-  constructor(id, A, I, c){ this.id=id; this.A=A; this.I=I; this.c=c; }
-}
-class Node {
-  constructor(id, x, z){ this.id=id; this.x=x; this.z=z; }
-}
-class Element {
-  constructor(id, node1, node2, materialId, sectionId, type){
-    this.id=id; this.node1=node1; this.node2=node2;
-    this.materialId=materialId; this.sectionId=sectionId;
-    this.type = type || "frame";
+class Material { constructor(id,E,rho,sigmaAdm){this.id=id;this.E=E;this.rho=rho;this.sigmaAdm=sigmaAdm;} }
+class Section  { constructor(id,A,I,c){this.id=id;this.A=A;this.I=I;this.c=c;} }
+class Node     { constructor(id,x,z){this.id=id;this.x=x;this.z=z;} }
+class Element  {
+  constructor(id,n1,n2,mat,sec,type){
+    this.id=id; this.node1=n1; this.node2=n2;
+    this.materialId=mat; this.sectionId=sec; this.type=type||"frame";
   }
 }
 class Support {
-  constructor(nodeId, type){ this.nodeId=nodeId; this.type=type; }
+  constructor(nodeId,type){this.nodeId=nodeId;this.type=type;}
   fixedLocalDOFs(){
     switch(this.type){
       case "fixed":    return [0,1,2];
@@ -147,325 +199,333 @@ class Support {
     }
   }
 }
-class UniformLoad {
-  constructor(elementId, wx, wz){ this.type="uniform"; this.elementId=elementId; this.wx=wx||0; this.wz=wz||0; }
-}
-class PointOnElement {
-  constructor(elementId, a, Px, Pz){ this.type="point_elem"; this.elementId=elementId; this.a=a; this.Px=Px||0; this.Pz=Pz||0; }
-}
-class PointOnNode {
-  constructor(nodeId, Fx, Fz, M){ this.type="point_node"; this.nodeId=nodeId;
-    this.Fx=Fx||0; this.Fz=Fz||0; this.M=M||0; }
-}
+class UniformLoad { constructor(el,wx,wz){this.type="uniform";this.elementId=el;this.wx=wx||0;this.wz=wz||0;} }
+class PointOnElement { constructor(el,a,Px,Pz){this.type="point_elem";this.elementId=el;this.a=a;this.Px=Px||0;this.Pz=Pz||0;} }
+class PointOnNode { constructor(n,Fx,Fz,M){this.type="point_node";this.nodeId=n;this.Fx=Fx||0;this.Fz=Fz||0;this.M=M||0;} }
+
 class Scene {
   constructor(){
-    this.nodes = new Map();
-    this.elements = new Map();
-    this.materials = new Map();
-    this.sections = new Map();
-    this.supports = new Map();
-    this.loads = [];
-    this.selfWeight = false;
-    this.constraints = {};
+    this.nodes=new Map(); this.elements=new Map();
+    this.materials=new Map(); this.sections=new Map();
+    this.supports=new Map(); this.loads=[];
+    this.selfWeight=false; this.constraints={};
+    this.roof=null;
   }
 }
 
 /* ============================================================================
- * DOMAIN · BEAM SOLVER  (sin cambios respecto a v1, incluido aquí íntegro)
+ * DOMAIN · BEAM SOLVER
  * ========================================================================== */
 class BeamSolver {
-  static elementStiffnessLocal(E, A, I, L, type){
-    if (L < 1e-12) throw new Error("Elemento de longitud cero");
-    if (type === "truss"){
-      const k = E*A/L;
-      return [
-        [ k,0,0,-k,0,0],
-        [ 0,0,0, 0,0,0],
-        [ 0,0,0, 0,0,0],
-        [-k,0,0, k,0,0],
-        [ 0,0,0, 0,0,0],
-        [ 0,0,0, 0,0,0],
-      ];
+  static elementStiffnessLocal(E,A,I,L,type){
+    if (L<1e-12) throw new Error("Elemento de longitud cero");
+    if (type==="truss"){
+      const k=E*A/L;
+      return [[k,0,0,-k,0,0],[0,0,0,0,0,0],[0,0,0,0,0,0],
+              [-k,0,0,k,0,0],[0,0,0,0,0,0],[0,0,0,0,0,0]];
     }
-    const k1 = E*A/L;
-    const k2 = 12*E*I/(L*L*L);
-    const k3 =  6*E*I/(L*L);
-    const k4 =  4*E*I/L;
-    const k5 =  2*E*I/L;
-    return [
-      [ k1,  0,  0,-k1,  0,  0],
-      [  0, k2, k3,  0,-k2, k3],
-      [  0, k3, k4,  0,-k3, k5],
-      [-k1,  0,  0, k1,  0,  0],
-      [  0,-k2,-k3,  0, k2,-k3],
-      [  0, k3, k5,  0,-k3, k4],
-    ];
+    const k1=E*A/L, k2=12*E*I/(L*L*L), k3=6*E*I/(L*L), k4=4*E*I/L, k5=2*E*I/L;
+    return [[k1,0,0,-k1,0,0],[0,k2,k3,0,-k2,k3],[0,k3,k4,0,-k3,k5],
+            [-k1,0,0,k1,0,0],[0,-k2,-k3,0,k2,-k3],[0,k3,k5,0,-k3,k4]];
   }
-  static transformLocalToGlobal(c, s){
-    return [
-      [ c, s, 0, 0, 0, 0],
-      [-s, c, 0, 0, 0, 0],
-      [ 0, 0, 1, 0, 0, 0],
-      [ 0, 0, 0, c, s, 0],
-      [ 0, 0, 0,-s, c, 0],
-      [ 0, 0, 0, 0, 0, 1],
-    ];
+  static transformLocalToGlobal(c,s){
+    return [[c,s,0,0,0,0],[-s,c,0,0,0,0],[0,0,1,0,0,0],
+            [0,0,0,c,s,0],[0,0,0,-s,c,0],[0,0,0,0,0,1]];
   }
-  static fixedEndUniform(wx, wz, L){
-    return [ -wx*L/2, -wz*L/2, -wz*L*L/12,
-             -wx*L/2, -wz*L/2, +wz*L*L/12 ];
+  static fixedEndUniform(wx,wz,L){
+    return [-wx*L/2,-wz*L/2,-wz*L*L/12,-wx*L/2,-wz*L/2,+wz*L*L/12];
   }
-  static fixedEndPoint(Px, Pz, a, L){
-    const b = L - a;
-    const L2 = L*L, L3 = L2*L;
-    return [
-      -Px*b/L,
-      -Pz*b*b*(L+2*a)/L3,
-      -Pz*a*b*b/L2,
-      -Px*a/L,
-      -Pz*a*a*(3*L-2*a)/L3,
-       Pz*a*a*b/L2,
-    ];
+  static fixedEndPoint(Px,Pz,a,L){
+    const b=L-a,L2=L*L,L3=L2*L;
+    return [-Px*b/L,-Pz*b*b*(L+2*a)/L3,-Pz*a*b*b/L2,
+            -Px*a/L,-Pz*a*a*(3*L-2*a)/L3, Pz*a*a*b/L2];
   }
-  static matMul(A, B){
-    const n=A.length, m=B[0].length, p=B.length;
-    const C = Array.from({length:n}, ()=>new Array(m).fill(0));
+  static matMul(A,B){
+    const n=A.length,m=B[0].length,p=B.length;
+    const C=Array.from({length:n},()=>new Array(m).fill(0));
     for (let i=0;i<n;i++) for (let k=0;k<p;k++) for (let j=0;j<m;j++)
-      C[i][j] += A[i][k]*B[k][j];
+      C[i][j]+=A[i][k]*B[k][j];
     return C;
   }
-  static matTranspose(A){ return A[0].map((_,j)=>A.map(row=>row[j])); }
-  static matVec(A, v){ return A.map(row => row.reduce((s,x,i)=>s+x*v[i], 0)); }
-
-  static solveLinearSystem(A, b){
-    const n = b.length;
-    const M = A.map((row,i)=>[...row, b[i]]);
+  static matTranspose(A){return A[0].map((_,j)=>A.map(r=>r[j]));}
+  static matVec(A,v){return A.map(r=>r.reduce((s,x,i)=>s+x*v[i],0));}
+  static solveLinearSystem(A,b){
+    const n=b.length;
+    const M=A.map((r,i)=>[...r,b[i]]);
     for (let i=0;i<n;i++){
-      let piv = i;
-      for (let k=i+1;k<n;k++) if (Math.abs(M[k][i]) > Math.abs(M[piv][i])) piv = k;
-      if (piv !== i) [M[i], M[piv]] = [M[piv], M[i]];
-      if (Math.abs(M[i][i]) < 1e-12)
-        throw new Error("Sistema singular en fila " + i + " (mecanismo o apoyo mal puesto)");
+      let piv=i;
+      for (let k=i+1;k<n;k++) if (Math.abs(M[k][i])>Math.abs(M[piv][i])) piv=k;
+      if (piv!==i) [M[i],M[piv]]=[M[piv],M[i]];
+      if (Math.abs(M[i][i])<1e-12)
+        throw new Error("Sistema singular (fila "+i+"). Mecanismo o apoyo mal puesto.");
       for (let k=i+1;k<n;k++){
-        const f = M[k][i]/M[i][i];
-        for (let j=i;j<=n;j++) M[k][j] -= f*M[i][j];
+        const f=M[k][i]/M[i][i];
+        for (let j=i;j<=n;j++) M[k][j]-=f*M[i][j];
       }
     }
-    const x = new Array(n);
+    const x=new Array(n);
     for (let i=n-1;i>=0;i--){
-      let s = M[i][n];
-      for (let j=i+1;j<n;j++) s -= M[i][j]*x[j];
-      x[i] = s/M[i][i];
+      let s=M[i][n];
+      for (let j=i+1;j<n;j++) s-=M[i][j]*x[j];
+      x[i]=s/M[i][i];
     }
     return x;
   }
-
   static analyze(scene){
-    const nodeList = [...scene.nodes.values()];
-    const nNodes = nodeList.length;
-    const ndof = nNodes * 3;
-    const nodeIndex = new Map();
-    nodeList.forEach((n,i)=>nodeIndex.set(n.id, i));
+    const nodeList=[...scene.nodes.values()];
+    const nNodes=nodeList.length;
+    const ndof=nNodes*3;
+    const nodeIndex=new Map();
+    nodeList.forEach((n,i)=>nodeIndex.set(n.id,i));
 
-    const K = Array.from({length:ndof}, ()=>new Array(ndof).fill(0));
-    const F_ext = new Array(ndof).fill(0);
-    const fixedDOFs = new Set();
-    const elementData = [];
+    const K=Array.from({length:ndof},()=>new Array(ndof).fill(0));
+    const F_ext=new Array(ndof).fill(0);
+    const fixedDOFs=new Set();
+    const elementData=[];
 
     for (const sup of scene.supports.values()){
-      const ni = nodeIndex.get(sup.nodeId);
-      if (ni === undefined) throw new Error("Soporte en nodo inexistente: " + sup.nodeId);
-      for (const local of sup.fixedLocalDOFs()) fixedDOFs.add(ni*3 + local);
+      const ni=nodeIndex.get(sup.nodeId);
+      if (ni===undefined) throw new Error("Soporte en nodo inexistente: "+sup.nodeId);
+      for (const l of sup.fixedLocalDOFs()) fixedDOFs.add(ni*3+l);
     }
-    const nodesWithFrame = new Set();
+    const nodesWithFrame=new Set();
     for (const el of scene.elements.values()){
-      if (el.type === "frame"){ nodesWithFrame.add(el.node1); nodesWithFrame.add(el.node2); }
+      if (el.type==="frame"){nodesWithFrame.add(el.node1);nodesWithFrame.add(el.node2);}
     }
     for (const nd of nodeList){
-      if (!nodesWithFrame.has(nd.id)) fixedDOFs.add(nodeIndex.get(nd.id)*3 + 2);
+      if (!nodesWithFrame.has(nd.id)) fixedDOFs.add(nodeIndex.get(nd.id)*3+2);
     }
 
     for (const el of scene.elements.values()){
-      const n1 = scene.nodes.get(el.node1);
-      const n2 = scene.nodes.get(el.node2);
-      if (!n1 || !n2) throw new Error("Elemento " + el.id + " con nodo inexistente");
-      const mat = scene.materials.get(el.materialId);
-      const sec = scene.sections.get(el.sectionId);
-      if (!mat || !sec) throw new Error("Elemento " + el.id + " con material/sección inexistente");
-
-      const dx = n2.x - n1.x, dz = n2.z - n1.z;
-      const L = Math.hypot(dx, dz);
-      const c = dx/L, s = dz/L;
-      const Kl = BeamSolver.elementStiffnessLocal(mat.E, sec.A, sec.I, L, el.type);
-      const T = BeamSolver.transformLocalToGlobal(c, s);
-      const Tt = BeamSolver.matTranspose(T);
-      const Kg = BeamSolver.matMul(BeamSolver.matMul(Tt, Kl), T);
-
-      const i1 = nodeIndex.get(el.node1)*3;
-      const i2 = nodeIndex.get(el.node2)*3;
-      const dofs = [i1, i1+1, i1+2, i2, i2+1, i2+2];
-      for (let a=0;a<6;a++) for (let b=0;b<6;b++)
-        K[dofs[a]][dofs[b]] += Kg[a][b];
-
-      elementData.push({ el, n1, n2, L, c, s, Kl, T, Tt, dofs, mat, sec, F_fixed_local: new Array(6).fill(0) });
+      const n1=scene.nodes.get(el.node1), n2=scene.nodes.get(el.node2);
+      if (!n1||!n2) throw new Error("Elemento "+el.id+" con nodo inexistente");
+      const mat=scene.materials.get(el.materialId);
+      const sec=scene.sections.get(el.sectionId);
+      if (!mat||!sec) throw new Error("Elemento "+el.id+" con material/sección inexistente");
+      const dx=n2.x-n1.x, dz=n2.z-n1.z;
+      const L=Math.hypot(dx,dz);
+      const c=dx/L, s=dz/L;
+      const Kl=BeamSolver.elementStiffnessLocal(mat.E,sec.A,sec.I,L,el.type);
+      const T=BeamSolver.transformLocalToGlobal(c,s);
+      const Tt=BeamSolver.matTranspose(T);
+      const Kg=BeamSolver.matMul(BeamSolver.matMul(Tt,Kl),T);
+      const i1=nodeIndex.get(el.node1)*3, i2=nodeIndex.get(el.node2)*3;
+      const dofs=[i1,i1+1,i1+2,i2,i2+1,i2+2];
+      for (let a=0;a<6;a++) for (let b=0;b<6;b++) K[dofs[a]][dofs[b]]+=Kg[a][b];
+      elementData.push({el,n1,n2,L,c,s,Kl,T,Tt,dofs,mat,sec,F_fixed_local:new Array(6).fill(0)});
     }
 
     for (const load of scene.loads){
-      if (load.type === "point_node"){
-        const ni = nodeIndex.get(load.nodeId);
-        if (ni === undefined) throw new Error("Carga en nodo inexistente: " + load.nodeId);
-        F_ext[ni*3]   += load.Fx;
-        F_ext[ni*3+1] += load.Fz;
-        F_ext[ni*3+2] += load.M;
-      } else if (load.type === "uniform"){
-        const ed = elementData.find(e => e.el.id === load.elementId);
-        if (!ed) throw new Error("Carga uniforme en elemento inexistente: " + load.elementId);
-        const wx_l =  load.wx*ed.c + load.wz*ed.s;
-        const wz_l = -load.wx*ed.s + load.wz*ed.c;
-        const ffe = BeamSolver.fixedEndUniform(wx_l, wz_l, ed.L);
-        for (let i=0;i<6;i++) ed.F_fixed_local[i] += ffe[i];
-        const ffe_g = BeamSolver.matVec(ed.Tt, ffe);
-        for (let i=0;i<6;i++) F_ext[ed.dofs[i]] += ffe_g[i];
-      } else if (load.type === "point_elem"){
-        const ed = elementData.find(e => e.el.id === load.elementId);
-        if (!ed) throw new Error("Carga puntual en elemento inexistente: " + load.elementId);
-        const px_l =  load.Px*ed.c + load.Pz*ed.s;
-        const pz_l = -load.Px*ed.s + load.Pz*ed.c;
-        const ffe = BeamSolver.fixedEndPoint(px_l, pz_l, load.a, ed.L);
-        for (let i=0;i<6;i++) ed.F_fixed_local[i] += ffe[i];
-        const ffe_g = BeamSolver.matVec(ed.Tt, ffe);
-        for (let i=0;i<6;i++) F_ext[ed.dofs[i]] += ffe_g[i];
+      if (load.type==="point_node"){
+        const ni=nodeIndex.get(load.nodeId);
+        if (ni===undefined) throw new Error("Carga en nodo inexistente: "+load.nodeId);
+        F_ext[ni*3]+=load.Fx; F_ext[ni*3+1]+=load.Fz; F_ext[ni*3+2]+=load.M;
+      } else if (load.type==="uniform"){
+        const ed=elementData.find(e=>e.el.id===load.elementId);
+        if (!ed) throw new Error("Carga uniforme en elemento inexistente: "+load.elementId);
+        const wx_l= load.wx*ed.c+load.wz*ed.s;
+        const wz_l=-load.wx*ed.s+load.wz*ed.c;
+        const ffe=BeamSolver.fixedEndUniform(wx_l,wz_l,ed.L);
+        for (let i=0;i<6;i++) ed.F_fixed_local[i]+=ffe[i];
+        const ffe_g=BeamSolver.matVec(ed.Tt,ffe);
+        for (let i=0;i<6;i++) F_ext[ed.dofs[i]]-=ffe_g[i];
+      } else if (load.type==="point_elem"){
+        const ed=elementData.find(e=>e.el.id===load.elementId);
+        if (!ed) throw new Error("Carga puntual en elemento inexistente: "+load.elementId);
+        const px_l= load.Px*ed.c+load.Pz*ed.s;
+        const pz_l=-load.Px*ed.s+load.Pz*ed.c;
+        const ffe=BeamSolver.fixedEndPoint(px_l,pz_l,load.a,ed.L);
+        for (let i=0;i<6;i++) ed.F_fixed_local[i]+=ffe[i];
+        const ffe_g=BeamSolver.matVec(ed.Tt,ffe);
+        for (let i=0;i<6;i++) F_ext[ed.dofs[i]]-=ffe_g[i];
       }
     }
-
     if (scene.selfWeight){
       for (const ed of elementData){
-        const wz_l = -ed.mat.rho * ed.sec.A * G_ACC;
-        const ffe = BeamSolver.fixedEndUniform(0, wz_l, ed.L);
-        for (let i=0;i<6;i++) ed.F_fixed_local[i] += ffe[i];
-        const ffe_g = BeamSolver.matVec(ed.Tt, ffe);
-        for (let i=0;i<6;i++) F_ext[ed.dofs[i]] += ffe_g[i];
+        const wz_l=-ed.mat.rho*ed.sec.A*G_ACC;
+        const ffe=BeamSolver.fixedEndUniform(0,wz_l,ed.L);
+        for (let i=0;i<6;i++) ed.F_fixed_local[i]+=ffe[i];
+        const ffe_g=BeamSolver.matVec(ed.Tt,ffe);
+        for (let i=0;i<6;i++) F_ext[ed.dofs[i]]-=ffe_g[i];
       }
     }
 
-    const free = [], fixed = [];
-    for (let i=0;i<ndof;i++) (fixedDOFs.has(i) ? fixed : free).push(i);
-    const Kff = free.map(i => free.map(j => K[i][j]));
-    const Ff  = free.map(i => F_ext[i]);
-    const df  = BeamSolver.solveLinearSystem(Kff, Ff);
-    const d = new Array(ndof).fill(0);
+    const free=[], fixed=[];
+    for (let i=0;i<ndof;i++) (fixedDOFs.has(i)?fixed:free).push(i);
+    const Kff=free.map(i=>free.map(j=>K[i][j]));
+    const Ff=free.map(i=>F_ext[i]);
+    const df=BeamSolver.solveLinearSystem(Kff,Ff);
+    const d=new Array(ndof).fill(0);
     free.forEach((idx,k)=>d[idx]=df[k]);
 
-    const reactions = [];
+    const reactions=[];
     for (const fi of fixed){
-      let r = 0;
-      for (let j=0;j<ndof;j++) r += K[fi][j]*d[j];
-      r -= F_ext[fi];
-      reactions.push({ dof: fi, value: r });
+      let r=0;
+      for (let j=0;j<ndof;j++) r+=K[fi][j]*d[j];
+      r-=F_ext[fi];
+      reactions.push({dof:fi,value:r});
     }
 
-    const elementResults = [];
+    const elementResults=[];
     for (const ed of elementData){
-      const d_glob = ed.dofs.map(i => d[i]);
-      const d_loc = BeamSolver.matVec(ed.T, d_glob);
-      const f_loc = BeamSolver.matVec(ed.Kl, d_loc).map((v,i)=>v + ed.F_fixed_local[i]);
-
-      const wz_equiv = -ed.F_fixed_local[1]*2/ed.L;
-      const wx_equiv = ed.F_fixed_local[0] !== 0 ? -ed.F_fixed_local[0]*2/ed.L : 0;
-
-      const nPts = 21;
-      const xs = [], N = [], V = [], M = [];
+      const d_glob=ed.dofs.map(i=>d[i]);
+      const d_loc=BeamSolver.matVec(ed.T,d_glob);
+      const f_loc=BeamSolver.matVec(ed.Kl,d_loc).map((v,i)=>v+ed.F_fixed_local[i]);
+      const wz_equiv=-ed.F_fixed_local[1]*2/ed.L;
+      const wx_equiv=ed.F_fixed_local[0]!==0?-ed.F_fixed_local[0]*2/ed.L:0;
+      const nPts=21;
+      const xs=[],N=[],V=[],M=[];
       for (let k=0;k<nPts;k++){
-        const x = ed.L * k/(nPts-1);
+        const x=ed.L*k/(nPts-1);
         xs.push(x);
-        const Fx1 = f_loc[0], Fz1 = f_loc[1], M1 = f_loc[2];
-        N.push(-Fx1 - wx_equiv*x);
-        V.push(Fz1 + wz_equiv*x);
-        M.push(-M1 + Fz1*x + wz_equiv*x*x/2);
+        const Fx1=f_loc[0], Fz1=f_loc[1], M1=f_loc[2];
+        N.push(-Fx1-wx_equiv*x);
+        V.push(Fz1+wz_equiv*x);
+        M.push(-M1+Fz1*x+wz_equiv*x*x/2);
       }
       elementResults.push({
-        elementId: ed.el.id, L: ed.L,
-        x: xs, N, V, M, f_local: f_loc, d_local: d_loc,
-        mat: ed.mat, sec: ed.sec,
-        c: ed.c, s: ed.s, n1: ed.n1, n2: ed.n2,
+        elementId:ed.el.id, L:ed.L,
+        x:xs, N, V, M, f_local:f_loc, d_local:d_loc,
+        mat:ed.mat, sec:ed.sec, c:ed.c, s:ed.s, n1:ed.n1, n2:ed.n2,
       });
     }
 
-    let maxDefl = 0, maxMoment = 0, maxUtil = 0, maxAxial = 0;
-    for (let i=0;i<ndof;i++) {
-      const local = i%3;
-      if (local !== 2) maxDefl = Math.max(maxDefl, Math.abs(d[i]));
-    }
+    let maxDefl=0, maxMoment=0, maxUtil=0, maxAxial=0;
+    for (let i=0;i<ndof;i++) if (i%3!==2) maxDefl=Math.max(maxDefl,Math.abs(d[i]));
     for (const er of elementResults){
-      for (const m of er.M) maxMoment = Math.max(maxMoment, Math.abs(m));
-      for (const n of er.N) maxAxial = Math.max(maxAxial, Math.abs(n));
+      for (const m of er.M) maxMoment=Math.max(maxMoment,Math.abs(m));
+      for (const n of er.N) maxAxial=Math.max(maxAxial,Math.abs(n));
       for (let k=0;k<er.x.length;k++){
-        const sigma = Math.abs(er.N[k])/er.sec.A + Math.abs(er.M[k])*er.sec.c/er.sec.I;
-        const util = sigma / er.mat.sigmaAdm;
-        if (util > maxUtil) maxUtil = util;
+        const sigma=Math.abs(er.N[k])/er.sec.A+Math.abs(er.M[k])*er.sec.c/er.sec.I;
+        const util=sigma/er.mat.sigmaAdm;
+        if (util>maxUtil) maxUtil=util;
       }
     }
     return {
-      displacements: d, reactions, elementResults, nodeIndex,
-      summary: { maxDefl, maxMoment, maxUtil, maxAxial },
+      displacements:d, reactions, elementResults, nodeIndex,
+      summary:{maxDefl,maxMoment,maxUtil,maxAxial},
     };
   }
 }
 
 /* ============================================================================
- * DOMAIN · FORCE FIELD BUILDER  (paso 2: lógica pura, testeable)
- * ----------------------------------------------------------------------------
- * Combina N(x) y V(x) de cada elemento en un vector de fuerza global.
- * Convención local: eje x_local = dirección node1→node2, z_local = +90° CCW.
- * Vector en local: (N, V). En global: (N·c − V·s, N·s + V·c).
- * La dirección de la flecha es la del vector; la longitud, proporcional a |F|.
- *
- * Lo que NO hace: no calcula tensiones de sección (eso requeriría distribuir
- * N/A y M·c/I). Es un campo de resultantes en el eje. Para "ver por dónde va
- * la fuerza", es suficiente y honesto.
+ * DOMAIN · ROOF GENERATOR
+ * ========================================================================== */
+class RoofGenerator {
+  static generateFrames(templateScene){
+    const roof = templateScene.roof;
+    if (!roof) throw new Error("RoofGenerator: templateScene sin campo 'roof'");
+    const {type, span, rise, length, frameSpacing, tributaryWidth,
+           deadLoad=0, liveLoad=0, material, section} = roof;
+    if (!templateScene.materials.has(material))
+      throw new Error("roof.material no existe en la escena: "+material);
+    if (!templateScene.sections.has(section))
+      throw new Error("roof.section no existe en la escena: "+section);
+
+    const wTotal = deadLoad + liveLoad;
+    const nFrames = Math.max(2, Math.round(length/frameSpacing) + 1);
+    const actualSpacing = length / (nFrames - 1);
+    const positions = [];
+    for (let i=0;i<nFrames;i++) positions.push(-length/2 + i*actualSpacing);
+
+    return positions.map((y, index) => {
+      const scene = new Scene();
+      scene.selfWeight = false;
+      scene.constraints = JSON.parse(JSON.stringify(templateScene.constraints || {}));
+      scene.materials = new Map(templateScene.materials);
+      scene.sections = new Map(templateScene.sections);
+      scene.roof = roof;
+
+      const addUniformVertical = (elId, n1, n2) => {
+        const dx = n2.x-n1.x, dz = n2.z-n1.z;
+        const L = Math.hypot(dx,dz);
+        const cosTheta = Math.abs(dx)/L;
+        const wz = -wTotal * tributaryWidth * cosTheta;
+        scene.loads.push(new UniformLoad(elId, 0, wz));
+      };
+
+      if (type === "flat"){
+        scene.nodes.set("nL", new Node("nL", -span/2, 0));
+        scene.nodes.set("nR", new Node("nR",  span/2, 0));
+        scene.elements.set("beam", new Element("beam","nL","nR",material,section,"frame"));
+        scene.supports.set("nL", new Support("nL","pinned"));
+        scene.supports.set("nR", new Support("nR","roller_z"));
+        addUniformVertical("beam", scene.nodes.get("nL"), scene.nodes.get("nR"));
+      } else if (type === "gable"){
+        scene.nodes.set("nL",     new Node("nL",    -span/2, 0));
+        scene.nodes.set("nRidge", new Node("nRidge",0,       rise));
+        scene.nodes.set("nR",     new Node("nR",     span/2, 0));
+        scene.elements.set("faldon_l", new Element("faldon_l","nL","nRidge",material,section,"frame"));
+        scene.elements.set("faldon_r", new Element("faldon_r","nRidge","nR",material,section,"frame"));
+        scene.supports.set("nL", new Support("nL","pinned"));
+        scene.supports.set("nR", new Support("nR","pinned"));
+        addUniformVertical("faldon_l", scene.nodes.get("nL"), scene.nodes.get("nRidge"));
+        addUniformVertical("faldon_r", scene.nodes.get("nRidge"), scene.nodes.get("nR"));
+      } else if (type === "barrel"){
+        const N = 12;
+        for (let i=0;i<=N;i++){
+          const t = i/N;
+          const x = -span/2 + span*t;
+          const z = rise * (1 - (2*x/span)**2);
+          scene.nodes.set("n"+i, new Node("n"+i, x, z));
+        }
+        for (let i=0;i<N;i++){
+          scene.elements.set("e"+i, new Element("e"+i,"n"+i,"n"+(i+1),material,section,"frame"));
+        }
+        scene.supports.set("n0", new Support("n0","pinned"));
+        scene.supports.set("n"+N, new Support("n"+N,"pinned"));
+        for (let i=0;i<N;i++){
+          addUniformVertical("e"+i, scene.nodes.get("n"+i), scene.nodes.get("n"+(i+1)));
+        }
+      } else {
+        throw new Error("roof.type desconocido: "+type);
+      }
+
+      return {index, y, scene};
+    });
+  }
+}
+
+/* ============================================================================
+ * DOMAIN · FORCE FIELD BUILDER
  * ========================================================================== */
 class ForceFieldBuilder {
-  static build(results, scene, opts = {}){
-    const samples = opts.samplesPerElement || 11;
-    const fields = [];
-    let maxMag = 0;
+  static build(results, scene, opts={}){
+    const samples=opts.samplesPerElement||11;
+    const fields=[];
+    let maxMag=0;
     for (const er of results.elementResults){
-      const el = scene.elements.get(er.elementId);
+      const el=scene.elements.get(er.elementId);
       if (!el) continue;
-      const n1 = scene.nodes.get(el.node1);
-      const n2 = scene.nodes.get(el.node2);
-      const dx = n2.x - n1.x, dz = n2.z - n1.z;
-      const L = Math.hypot(dx, dz);
-      if (L < 1e-12) continue;
-      const c = dx/L, s = dz/L;
-      const points = [];
-      for (let k=0; k<samples; k++){
-        const xL = L * k / (samples - 1);
-        const Nv = ForceFieldBuilder._interp(er.x, er.N, xL);
-        const Vv = ForceFieldBuilder._interp(er.x, er.V, xL);
-        const Fx = Nv*c - Vv*s;
-        const Fz = Nv*s + Vv*c;
-        const mag = Math.hypot(Fx, Fz);
-        if (mag > maxMag) maxMag = mag;
-        points.push({
-          xLocal: xL, N: Nv, V: Vv,
-          x: n1.x + c*xL, z: n1.z + s*xL,
-          Fx, Fz, mag,
-        });
+      const n1=scene.nodes.get(el.node1), n2=scene.nodes.get(el.node2);
+      const dx=n2.x-n1.x, dz=n2.z-n1.z;
+      const L=Math.hypot(dx,dz);
+      if (L<1e-12) continue;
+      const c=dx/L, s=dz/L;
+      const points=[];
+      for (let k=0;k<samples;k++){
+        const xL=L*k/(samples-1);
+        const Nv=ForceFieldBuilder._interp(er.x,er.N,xL);
+        const Vv=ForceFieldBuilder._interp(er.x,er.V,xL);
+        const Fx=Nv*c-Vv*s;
+        const Fz=Nv*s+Vv*c;
+        const mag=Math.hypot(Fx,Fz);
+        if (mag>maxMag) maxMag=mag;
+        points.push({xLocal:xL,N:Nv,V:Vv,x:n1.x+c*xL,z:n1.z+s*xL,Fx,Fz,mag});
       }
-      fields.push({ elementId: er.elementId, points });
+      fields.push({elementId:er.elementId,points});
     }
-    return { elements: fields, maxMag };
+    return {elements:fields,maxMag};
   }
-  static _interp(xs, ys, xq){
-    const n = xs.length;
-    if (n === 0) return 0;
-    if (xq <= xs[0]) return ys[0];
-    if (xq >= xs[n-1]) return ys[n-1];
-    for (let i=1; i<n; i++){
-      if (xs[i] >= xq){
-        const t = (xq - xs[i-1]) / (xs[i] - xs[i-1] || 1);
-        return ys[i-1] + t*(ys[i] - ys[i-1]);
+  static _interp(xs,ys,xq){
+    const n=xs.length;
+    if (n===0) return 0;
+    if (xq<=xs[0]) return ys[0];
+    if (xq>=xs[n-1]) return ys[n-1];
+    for (let i=1;i<n;i++){
+      if (xs[i]>=xq){
+        const t=(xq-xs[i-1])/(xs[i]-xs[i-1]||1);
+        return ys[i-1]+t*(ys[i]-ys[i-1]);
       }
     }
     return ys[n-1];
@@ -473,387 +533,861 @@ class ForceFieldBuilder {
 }
 
 /* ============================================================================
- * DOMAIN · CONSTRAINTS  (sin cambios)
+ * DOMAIN · CONSTRAINTS
  * ========================================================================== */
 function checkConstraints(scene, results){
-  const violations = [];
-  const c = scene.constraints || {};
-  if (c.maxUtilization != null){
-    if (results.summary.maxUtil > c.maxUtilization){
-      violations.push({ type:"utilization",
-        msg:`Aprovechamiento ${(results.summary.maxUtil*100).toFixed(0)}% > ${(c.maxUtilization*100).toFixed(0)}%` });
-    }
-  }
-  if (c.maxDeflection != null){
-    if (results.summary.maxDefl > c.maxDeflection){
-      violations.push({ type:"deflection",
-        msg:`Flecha ${(results.summary.maxDefl*1000).toFixed(1)} mm > ${(c.maxDeflection*1000).toFixed(1)} mm` });
-    }
-  }
-  if (c.maxDeflectionRelative != null){
-    let Lmax = 0;
+  const violations=[];
+  const c=scene.constraints||{};
+  if (c.maxUtilization!=null && results.summary.maxUtil>c.maxUtilization)
+    violations.push({type:"utilization",
+      msg:`Aprovechamiento ${(results.summary.maxUtil*100).toFixed(0)}% > ${(c.maxUtilization*100).toFixed(0)}%`});
+  if (c.maxDeflection!=null && results.summary.maxDefl>c.maxDeflection)
+    violations.push({type:"deflection",
+      msg:`Flecha ${(results.summary.maxDefl*1000).toFixed(1)} mm > ${(c.maxDeflection*1000).toFixed(1)} mm`});
+  if (c.maxDeflectionRelative!=null){
+    let Lmax=0;
     for (const el of scene.elements.values()){
-      const n1 = scene.nodes.get(el.node1), n2 = scene.nodes.get(el.node2);
-      Lmax = Math.max(Lmax, Math.hypot(n2.x-n1.x, n2.z-n1.z));
+      const n1=scene.nodes.get(el.node1), n2=scene.nodes.get(el.node2);
+      Lmax=Math.max(Lmax,Math.hypot(n2.x-n1.x,n2.z-n1.z));
     }
-    const limit = Lmax / c.maxDeflectionRelative;
-    if (results.summary.maxDefl > limit){
-      violations.push({ type:"deflection_rel",
-        msg:`Flecha ${(results.summary.maxDefl*1000).toFixed(1)} mm > L/${c.maxDeflectionRelative} = ${(limit*1000).toFixed(1)} mm` });
-    }
+    const limit=Lmax/c.maxDeflectionRelative;
+    if (results.summary.maxDefl>limit)
+      violations.push({type:"deflection_rel",
+        msg:`Flecha ${(results.summary.maxDefl*1000).toFixed(1)} mm > L/${c.maxDeflectionRelative}=${(limit*1000).toFixed(1)} mm`});
   }
-  return { ok: violations.length === 0, violations };
+  return {ok:violations.length===0, violations};
 }
 
 /* ============================================================================
- * DOMAIN · OPTIMIZER  (sin cambios: greedy por catálogo, óptimo local)
+ * DOMAIN · OPTIMIZER
  * ========================================================================== */
 class SectionOptimizer {
   static optimizeByCatalog(scene, catalog, constraints){
-    const clone = SectionOptimizer._cloneScene(scene);
-    const elementIds = [...clone.elements.keys()];
-    const history = [];
-    for (let iter = 0; iter < 50; iter++){
-      let anyChange = false;
+    if (!constraints || Object.keys(constraints).length === 0){
+      return {
+        scene, iterations: 0, feasible: false,
+        message: "Sin constraints definidos. Añade al menos maxUtilization en el JSON.",
+      };
+    }
+    const clone=SectionOptimizer._cloneScene(scene);
+    const elementIds=[...clone.elements.keys()];
+    const history=[];
+    for (let iter=0; iter<50; iter++){
+      let anyChange=false;
       for (const elId of elementIds){
-        const el = clone.elements.get(elId);
-        const currentSecId = el.sectionId;
-        let chosen = null, feasible = false;
+        const el=clone.elements.get(elId);
+        const currentSecId=el.sectionId;
+        let chosen=null, feasible=false;
         for (let k=0;k<catalog.length;k++){
-          el.sectionId = catalog[k].id;
-          SectionOptimizer._ensureSection(clone, catalog[k]);
+          el.sectionId=catalog[k].id;
+          SectionOptimizer._ensureSection(clone,catalog[k]);
           try {
-            const res = BeamSolver.analyze(clone);
-            const cc = checkConstraints(clone, res);
-            if (cc.ok){ chosen = catalog[k]; feasible = true; break; }
+            const res=BeamSolver.analyze(clone);
+            if (checkConstraints(clone,res).ok){ chosen=catalog[k]; feasible=true; break; }
           } catch(e){}
         }
         if (!feasible){
-          el.sectionId = catalog[catalog.length-1].id;
-          SectionOptimizer._ensureSection(clone, catalog[catalog.length-1]);
-          return { scene: clone, iterations: iter, feasible: false,
-            message: "Ninguna sección del catálogo cumple los constraints." };
+          el.sectionId=catalog[catalog.length-1].id;
+          SectionOptimizer._ensureSection(clone,catalog[catalog.length-1]);
+          return {scene:clone,iterations:iter,feasible:false,
+            message:"Ninguna sección del catálogo cumple."};
         }
-        if (chosen.id !== currentSecId){
-          el.sectionId = chosen.id;
-          anyChange = true;
-          history.push({ iteration: iter, element: elId, from: currentSecId, to: chosen.id });
+        if (chosen.id!==currentSecId){
+          el.sectionId=chosen.id;
+          anyChange=true;
+          history.push({iteration:iter,element:elId,from:currentSecId,to:chosen.id});
         }
       }
       if (!anyChange) break;
     }
     try {
-      const res = BeamSolver.analyze(clone);
-      const cc = checkConstraints(clone, res);
-      return { scene: clone, iterations: history.length, feasible: cc.ok,
-        message: cc.ok ? "Óptimo local (greedy, catálogo)." : "Sección final no cumple.", history };
+      const res=BeamSolver.analyze(clone);
+      const cc=checkConstraints(clone,res);
+      return {scene:clone,iterations:history.length,feasible:cc.ok,
+        message:cc.ok?"Óptimo local (greedy, catálogo).":"No cumple.",history};
     } catch(e){
-      return { scene: clone, iterations: history.length, feasible: false, message: "Error: " + e.message };
+      return {scene:clone,iterations:history.length,feasible:false,message:"Error: "+e.message};
     }
   }
-  static _ensureSection(scene, spec){
+  static _ensureSection(scene,spec){
     if (!scene.sections.has(spec.id))
-      scene.sections.set(spec.id, new Section(spec.id, spec.A, spec.I, spec.c));
+      scene.sections.set(spec.id,new Section(spec.id,spec.A,spec.I,spec.c));
   }
   static _cloneScene(scene){
-    const s = new Scene();
-    s.selfWeight = scene.selfWeight;
-    s.constraints = JSON.parse(JSON.stringify(scene.constraints || {}));
-    s.materials = new Map(scene.materials);
-    s.sections = new Map(scene.sections);
-    s.nodes = new Map(scene.nodes);
-    s.elements = new Map();
-    for (const [id, el] of scene.elements)
-      s.elements.set(id, new Element(el.id, el.node1, el.node2, el.materialId, el.sectionId, el.type));
-    s.supports = new Map(scene.supports);
-    s.loads = scene.loads.slice();
+    const s=new Scene();
+    s.selfWeight=scene.selfWeight;
+    s.constraints=JSON.parse(JSON.stringify(scene.constraints||{}));
+    s.roof=scene.roof?{...scene.roof}:null;
+    s.materials=new Map(scene.materials);
+    s.sections=new Map(scene.sections);
+    s.nodes=new Map(scene.nodes);
+    s.elements=new Map();
+    for (const [id,el] of scene.elements)
+      s.elements.set(id,new Element(el.id,el.node1,el.node2,el.materialId,el.sectionId,el.type));
+    s.supports=new Map(scene.supports);
+    s.loads=scene.loads.slice();
     return s;
   }
 }
 
 /* ============================================================================
- * DOMAIN · SCHEMA / LOADER  (sin cambios)
+ * DOMAIN · SCHEMA / LOADER
  * ========================================================================== */
 function loadSceneFromJSON(str){
   let data;
-  try { data = JSON.parse(str); }
-  catch(e){ throw new Error("JSON inválido: " + e.message); }
-  if (data.units !== "SI") throw new Error('Campo "units" debe ser "SI"');
-  if (!data.materials || Object.keys(data.materials).length === 0) throw new Error("Falta material");
-  if (!data.sections || Object.keys(data.sections).length === 0) throw new Error("Falta sección");
-  if (!Array.isArray(data.nodes) || data.nodes.length < 2) throw new Error("Mínimo 2 nodos");
-  if (!Array.isArray(data.elements) || data.elements.length < 1) throw new Error("Mínimo 1 elemento");
+  try { data=JSON.parse(str); }
+  catch(e){ throw new Error("JSON inválido: "+e.message); }
+  if (data.units!=="SI") throw new Error('Campo "units" debe ser "SI"');
+  if (!data.materials||Object.keys(data.materials).length===0) throw new Error("Falta material");
+  if (!data.sections||Object.keys(data.sections).length===0) throw new Error("Falta sección");
 
-  const scene = new Scene();
-  for (const [id, m] of Object.entries(data.materials)){
-    if (![m.E, m.rho, m.sigmaAdm].every(v => typeof v === "number" && isFinite(v)))
-      throw new Error("Material " + id + " con valores no numéricos");
-    scene.materials.set(id, new Material(id, m.E, m.rho, m.sigmaAdm));
+  const scene=new Scene();
+  for (const [id,m] of Object.entries(data.materials)){
+    if (![m.E,m.rho,m.sigmaAdm].every(v=>typeof v==="number"&&isFinite(v)))
+      throw new Error("Material "+id+" con valores no numéricos");
+    scene.materials.set(id,new Material(id,m.E,m.rho,m.sigmaAdm));
   }
-  for (const [id, s] of Object.entries(data.sections)){
-    if (![s.A, s.I, s.c].every(v => typeof v === "number" && v > 0))
-      throw new Error("Sección " + id + " no válida");
-    scene.sections.set(id, new Section(id, s.A, s.I, s.c));
+  for (const [id,s] of Object.entries(data.sections)){
+    if (![s.A,s.I,s.c].every(v=>typeof v==="number"&&v>0))
+      throw new Error("Sección "+id+" no válida");
+    scene.sections.set(id,new Section(id,s.A,s.I,s.c));
   }
+  scene.selfWeight=!!data.selfWeight;
+  scene.constraints=data.constraints||{};
+
+  if (data.roof){
+    const r=data.roof;
+    const types=["flat","gable","barrel"];
+    if (!types.includes(r.type))
+      throw new Error('roof.type debe ser "flat", "gable" o "barrel"');
+    if (!scene.materials.has(r.material))
+      throw new Error("roof.material debe referenciar un material existente: "+r.material);
+    if (!scene.sections.has(r.section))
+      throw new Error("roof.section debe referenciar una sección existente: "+r.section);
+    if (!(r.span>0)) throw new Error("roof.span debe ser > 0");
+    if (!(r.length>0)) throw new Error("roof.length debe ser > 0");
+    if (!(r.frameSpacing>0)) throw new Error("roof.frameSpacing debe ser > 0");
+    scene.roof = {
+      type: r.type,
+      span: Number(r.span),
+      rise: Number(r.rise)||0,
+      length: Number(r.length),
+      frameSpacing: Number(r.frameSpacing),
+      tributaryWidth: Number(r.tributaryWidth)||Number(r.frameSpacing),
+      deadLoad: Number(r.deadLoad)||0,
+      liveLoad: Number(r.liveLoad)||0,
+      material: r.material,
+      section: r.section,
+    };
+    return scene;
+  }
+
+  if (!Array.isArray(data.nodes)||data.nodes.length<2) throw new Error("Mínimo 2 nodos");
+  if (!Array.isArray(data.elements)||data.elements.length<1) throw new Error("Mínimo 1 elemento");
   for (const n of data.nodes){
-    if (!n.id || ![n.x, n.z].every(v => typeof v === "number" && isFinite(v)))
-      throw new Error("Nodo inválido: " + JSON.stringify(n));
-    if (scene.nodes.has(n.id)) throw new Error("Nodo duplicado: " + n.id);
-    scene.nodes.set(n.id, new Node(n.id, n.x, n.z));
+    if (!n.id||![n.x,n.z].every(v=>typeof v==="number"&&isFinite(v)))
+      throw new Error("Nodo inválido: "+JSON.stringify(n));
+    if (scene.nodes.has(n.id)) throw new Error("Nodo duplicado: "+n.id);
+    scene.nodes.set(n.id,new Node(n.id,n.x,n.z));
   }
   for (const el of data.elements){
-    if (!el.id || !el.node1 || !el.node2) throw new Error("Elemento inválido");
-    if (!scene.nodes.has(el.node1)) throw new Error("Elemento " + el.id + " refiere nodo inexistente: " + el.node1);
-    if (!scene.nodes.has(el.node2)) throw new Error("Elemento " + el.id + " refiere nodo inexistente: " + el.node2);
-    if (!scene.materials.has(el.material)) throw new Error("Material inexistente en " + el.id);
-    if (!scene.sections.has(el.section)) throw new Error("Sección inexistente en " + el.id);
-    scene.elements.set(el.id, new Element(el.id, el.node1, el.node2, el.material, el.section, el.type));
+    if (!el.id||!el.node1||!el.node2) throw new Error("Elemento inválido");
+    if (!scene.nodes.has(el.node1)) throw new Error("Elemento "+el.id+" refiere nodo inexistente: "+el.node1);
+    if (!scene.nodes.has(el.node2)) throw new Error("Elemento "+el.id+" refiere nodo inexistente: "+el.node2);
+    if (!scene.materials.has(el.material)) throw new Error("Material inexistente en "+el.id);
+    if (!scene.sections.has(el.section)) throw new Error("Sección inexistente en "+el.id);
+    scene.elements.set(el.id,new Element(el.id,el.node1,el.node2,el.material,el.section,el.type));
   }
-  for (const sup of data.supports || []){
-    if (!scene.nodes.has(sup.node)) throw new Error("Soporte en nodo inexistente: " + sup.node);
-    scene.supports.set(sup.node, new Support(sup.node, sup.type));
+  for (const sup of data.supports||[]){
+    if (!scene.nodes.has(sup.node)) throw new Error("Soporte en nodo inexistente: "+sup.node);
+    scene.supports.set(sup.node,new Support(sup.node,sup.type));
   }
-  for (const load of data.loads || []){
-    if (load.type === "point_node"){
+  for (const load of data.loads||[]){
+    if (load.type==="point_node"){
       if (!scene.nodes.has(load.node)) throw new Error("Carga en nodo inexistente");
-      scene.loads.push(new PointOnNode(load.node, load.Fx, load.Fz, load.M));
-    } else if (load.type === "uniform"){
+      scene.loads.push(new PointOnNode(load.node,load.Fx,load.Fz,load.M));
+    } else if (load.type==="uniform"){
       if (!scene.elements.has(load.element)) throw new Error("Carga uniforme en elemento inexistente");
-      scene.loads.push(new UniformLoad(load.element, load.wx, load.wz));
-    } else if (load.type === "point_elem"){
+      scene.loads.push(new UniformLoad(load.element,load.wx,load.wz));
+    } else if (load.type==="point_elem"){
       if (!scene.elements.has(load.element)) throw new Error("Carga puntual en elemento inexistente");
-      scene.loads.push(new PointOnElement(load.element, load.a, load.Px, load.Pz));
+      scene.loads.push(new PointOnElement(load.element,load.a,load.Px,load.Pz));
     }
   }
-  scene.selfWeight = !!data.selfWeight;
-  scene.constraints = data.constraints || {};
   return scene;
 }
 
 /* ============================================================================
- * ADAPTERS · RENDERER 2D
+ * ADAPTERS · BEAM RENDERER
  * ========================================================================== */
-class CanvasRenderer {
+class BeamRenderer {
   constructor(canvas){
-    this.cv = canvas;
-    this.ctx = canvas.getContext("2d");
-    this.defScale = 30;
-    this.loadScale = 1;
-    window.addEventListener("resize", () => this.resize());
+    this.cv=canvas; this.ctx=canvas.getContext("2d");
+    this.defScale=30; this.loadScale=1;
+    this.layers={
+      structure:true, loads:true, reactions:true, deformada:true,
+      diagrams:true, utilization:true, field:false, labels:false,
+    };
+    window.addEventListener("resize",()=>this.resize());
     this.resize();
   }
   resize(){
-    const dpr = window.devicePixelRatio || 1;
-    const r = this.cv.getBoundingClientRect();
-    this.cv.width = Math.max(1, Math.floor(r.width * dpr));
-    this.cv.height = Math.max(1, Math.floor(r.height * dpr));
-    this.ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    this.W = r.width; this.H = r.height;
+    const dpr=window.devicePixelRatio||1;
+    const r=this.cv.getBoundingClientRect();
+    this.cv.width=Math.max(1,Math.floor(r.width*dpr));
+    this.cv.height=Math.max(1,Math.floor(r.height*dpr));
+    this.ctx.setTransform(dpr,0,0,dpr,0,0);
+    this.W=r.width; this.H=r.height;
   }
-  fitView(scene){
+  fitView(){}
+  _viewportForBeam(){
+    const diagFrac=this.layers.diagrams?0.55:1.0;
+    return {x0:0,y0:0,w:this.W,h:this.H*diagFrac};
+  }
+  _sceneBBox(scene,viewport){
     let minX=Infinity,minZ=Infinity,maxX=-Infinity,maxZ=-Infinity;
     for (const n of scene.nodes.values()){
       if (n.x<minX)minX=n.x; if (n.x>maxX)maxX=n.x;
       if (n.z<minZ)minZ=n.z; if (n.z>maxZ)maxZ=n.z;
     }
-    const w = Math.max(maxX-minX, 1), h = Math.max(maxZ-minZ, 1);
-    const pad = 80;
-    this.view = {
-      cx: (minX+maxX)/2, cz: (minZ+maxZ)/2,
-      scale: Math.min((this.W-2*pad)/w, (this.H-2*pad)/h),
+    return {minX,minZ,maxX,maxZ,...viewport};
+  }
+  _viewFor(bbox){
+    const pad=50;
+    const w=Math.max(bbox.maxX-bbox.minX,1), h=Math.max(bbox.maxZ-bbox.minZ,1);
+    return {
+      cx:(bbox.minX+bbox.maxX)/2, cz:(bbox.minZ+bbox.maxZ)/2,
+      scale:Math.min((bbox.w-2*pad)/w,(bbox.h-2*pad)/h),
+      x0:bbox.x0, y0:bbox.y0, w:bbox.w, h:bbox.h,
     };
   }
-  worldToScreen(x, z){
+  _worldToScreen(x,z,view){
     return [
-      (x - this.view.cx) * this.view.scale + this.W/2,
-      -(z - this.view.cz) * this.view.scale + this.H/2,
+      (x-view.cx)*view.scale+view.w/2+view.x0,
+      -(z-view.cz)*view.scale+view.h/2+view.y0,
     ];
   }
   draw(scene, results){
-    const ctx = this.ctx;
-    ctx.clearRect(0, 0, this.W, this.H);
-    this._grid();
-    if (!results) return;
-    const disp = results.displacements;
-    const idx = results.nodeIndex;
-
-    ctx.strokeStyle = "rgba(34,211,238,0.35)";
-    ctx.lineWidth = 1.2;
-    ctx.setLineDash([4,4]);
-    for (const er of results.elementResults){
-      const el = scene.elements.get(er.elementId);
-      const n1 = scene.nodes.get(el.node1), n2 = scene.nodes.get(el.node2);
-      const i1 = idx.get(el.node1), i2 = idx.get(el.node2);
-      const u1 = disp[i1*3]*this.defScale, v1 = disp[i1*3+1]*this.defScale;
-      const u2 = disp[i2*3]*this.defScale, v2 = disp[i2*3+1]*this.defScale;
-      const [sx1,sy1] = this.worldToScreen(n1.x + u1, n1.z + v1);
-      const [sx2,sy2] = this.worldToScreen(n2.x + u2, n2.z + v2);
+    this.ctx.clearRect(0,0,this.W,this.H);
+    if (!results){
+      if (scene && scene.nodes.size > 0) this._drawBareStructure(scene);
+      return;
+    }
+    const beamVP=this._viewportForBeam();
+    const bbox=this._sceneBBox(scene,beamVP);
+    const view=this._viewFor(bbox);
+    this._drawGrid(view);
+    if (this.layers.deformada) this._drawDeformada(scene,results,view);
+    if (this.layers.structure) this._drawStructure(scene,results,view);
+    if (this.layers.loads) this._drawLoads(scene,view);
+    if (this.layers.reactions) this._drawReactions(scene,results,view);
+    if (this.layers.field) this._drawField(scene,results,view);
+    if (this.layers.labels) this._drawLabels(scene,view);
+    if (this.layers.diagrams) this._drawDiagrams(scene,results,beamVP.y0+beamVP.h,this.W,this.H-beamVP.y0-beamVP.h);
+  }
+  _drawBareStructure(scene){
+    const beamVP=this._viewportForBeam();
+    const bbox=this._sceneBBox(scene,beamVP);
+    const view=this._viewFor(bbox);
+    this._drawGrid(view);
+    const ctx=this.ctx;
+    for (const el of scene.elements.values()){
+      const n1=scene.nodes.get(el.node1), n2=scene.nodes.get(el.node2);
+      if (!n1||!n2) continue;
+      const [sx1,sy1]=this._worldToScreen(n1.x,n1.z,view);
+      const [sx2,sy2]=this._worldToScreen(n2.x,n2.z,view);
+      ctx.strokeStyle="rgba(34,211,238,0.4)";
+      ctx.lineWidth=2;
       ctx.beginPath(); ctx.moveTo(sx1,sy1); ctx.lineTo(sx2,sy2); ctx.stroke();
     }
-    ctx.setLineDash([]);
-
-    for (const el of scene.elements.values()){
-      const n1 = scene.nodes.get(el.node1), n2 = scene.nodes.get(el.node2);
-      const [sx1,sy1] = this.worldToScreen(n1.x, n1.z);
-      const [sx2,sy2] = this.worldToScreen(n2.x, n2.z);
-      ctx.beginPath(); ctx.moveTo(sx1,sy1); ctx.lineTo(sx2,sy2);
-      ctx.strokeStyle = el.type === "truss" ? "#a78bfa" : "#22d3ee";
-      ctx.lineWidth = el.type === "truss" ? 1.5 : 2.5;
-      ctx.stroke();
-    }
-
-    for (const n of scene.nodes.values()){
-      const [sx,sy] = this.worldToScreen(n.x, n.z);
-      ctx.beginPath(); ctx.arc(sx, sy, 3.5, 0, Math.PI*2);
-      ctx.fillStyle = "#e5e7eb"; ctx.fill();
-    }
-
-    for (const sup of scene.supports.values()){
-      const n = scene.nodes.get(sup.nodeId);
-      const [sx,sy] = this.worldToScreen(n.x, n.z);
-      this._drawSupport(sx, sy, sup.type);
-    }
-
-    const maxLoad = Math.max(1, ...scene.loads.map(l => Math.hypot(l.Fx||l.wx||0, l.Fz||l.wz||0)*this.loadScale));
-    for (const load of scene.loads){
-      if (load.type === "point_node"){
-        const n = scene.nodes.get(load.nodeId);
-        const [sx,sy] = this.worldToScreen(n.x, n.z);
-        this._arrow(sx, sy, load.Fx*this.loadScale, load.Fz*this.loadScale, maxLoad, 40, "#eab308");
-      } else if (load.type === "uniform"){
-        const el = scene.elements.get(load.elementId);
-        const n1 = scene.nodes.get(el.node1), n2 = scene.nodes.get(el.node2);
-        const [sx1,sy1] = this.worldToScreen(n1.x, n1.z);
-        const [sx2,sy2] = this.worldToScreen(n2.x, n2.z);
-        for (let k=1;k<=4;k++){
-          const t = k/5;
-          const sx = sx1 + (sx2-sx1)*t, sy = sy1 + (sy2-sy1)*t;
-          this._arrow(sx, sy, load.wx*this.loadScale, load.wz*this.loadScale, maxLoad, 25, "#eab308");
-        }
-      } else if (load.type === "point_elem"){
-        const el = scene.elements.get(load.elementId);
-        const n1 = scene.nodes.get(el.node1), n2 = scene.nodes.get(el.node2);
-        const t = load.a / Math.hypot(n2.x-n1.x, n2.z-n1.z);
-        const wx = n1.x + (n2.x-n1.x)*t, wz = n1.z + (n2.z-n1.z)*t;
-        const [sx,sy] = this.worldToScreen(wx, wz);
-        this._arrow(sx, sy, load.Px*this.loadScale, load.Pz*this.loadScale, maxLoad, 35, "#eab308");
-      }
-    }
+    ctx.fillStyle="#fca5a5"; ctx.font="13px ui-sans-serif";
+    ctx.fillText("Análisis no aplicado. Revisa el panel derecho.",16,24);
   }
-
-  /* --- Paso 3: render del campo. Adapter puro: pinta lo que el dominio
-   *     le entregó. No calcula física. --- */
-  drawForceField(scene, field, opts = {}){
-    if (!field || !field.elements || field.maxMag <= 0) return;
-    const ctx = this.ctx;
-    const maxArrowLen = opts.maxArrowLen || 28;
-    const maxMag = field.maxMag;
-
-    for (const el of field.elements){
-      for (const p of el.points){
-        if (p.mag < 1e-9) continue;
-        const [sx, sy] = this.worldToScreen(p.x, p.z);
-        const ratio = p.mag / maxMag;
-        const len = maxArrowLen * ratio;
-        const ux = p.Fx / p.mag;
-        const uz = p.Fz / p.mag;
-        const ex = sx + ux * len;
-        const ey = sy - uz * len;   // z world+ va hacia arriba en pantalla
-        const color = this._magColor(ratio);
-        ctx.strokeStyle = color;
-        ctx.fillStyle = color;
-        ctx.lineWidth = 1.5;
-        ctx.beginPath(); ctx.moveTo(sx, sy); ctx.lineTo(ex, ey); ctx.stroke();
-        const ang = Math.atan2(ey - sy, ex - sx);
-        ctx.beginPath();
-        ctx.moveTo(ex, ey);
-        ctx.lineTo(ex - 5*Math.cos(ang - 0.45), ey - 5*Math.sin(ang - 0.45));
-        ctx.lineTo(ex - 5*Math.cos(ang + 0.45), ey - 5*Math.sin(ang + 0.45));
-        ctx.closePath(); ctx.fill();
-      }
-    }
-    this._drawLegend(maxMag);
-  }
-  _magColor(ratio){
-    // azul (0) → cian → verde → amarillo → rojo (1)
-    const hue = 240 * (1 - Math.max(0, Math.min(1, ratio)));
-    return `hsl(${hue}, 85%, 55%)`;
-  }
-  _drawLegend(maxMag){
-    const ctx = this.ctx;
-    const x = 20, y = this.H - 80, w = 220, h = 12;
-    const grad = ctx.createLinearGradient(x, 0, x+w, 0);
-    for (let i=0; i<=10; i++) grad.addColorStop(i/10, this._magColor(i/10));
-    ctx.fillStyle = grad; ctx.fillRect(x, y, w, h);
-    ctx.strokeStyle = "#9ca3af"; ctx.lineWidth = 1; ctx.strokeRect(x, y, w, h);
-    ctx.fillStyle = "#9ca3af";
-    ctx.font = "11px ui-sans-serif, system-ui, sans-serif";
-    ctx.textAlign = "left";
-    ctx.fillText("0", x, y + h + 14);
-    ctx.textAlign = "right";
-    ctx.fillText(maxMag.toFixed(0) + " N", x + w, y + h + 14);
-    ctx.textAlign = "left";
-    ctx.fillText("campo de fuerzas internas |F|", x, y - 5);
-  }
-
-  _arrow(x, y, fx, fz, maxMag, maxLen, color){
-    const mag = Math.hypot(fx, fz);
-    if (mag < 1e-9) return;
-    const len = Math.min(maxLen, maxLen * mag/maxMag);
-    const ux = -fx/mag, uy = -fz/mag;
-    const ax = x + ux*len, ay = y + uy*len;
-    const ctx = this.ctx;
-    ctx.strokeStyle = color; ctx.fillStyle = color; ctx.lineWidth = 1.5;
-    ctx.beginPath(); ctx.moveTo(ax, ay); ctx.lineTo(x, y); ctx.stroke();
-    const ang = Math.atan2(y-ay, x-ax);
+  _drawGrid(view){
+    const step=this._niceStep(60/view.scale);
+    const ctx=this.ctx;
+    ctx.strokeStyle="rgba(255,255,255,0.04)"; ctx.lineWidth=1;
+    const [x0,z0]=[view.cx-view.w/(2*view.scale),view.cz-view.h/(2*view.scale)];
+    const [x1,z1]=[view.cx+view.w/(2*view.scale),view.cz+view.h/(2*view.scale)];
     ctx.beginPath();
-    ctx.moveTo(x, y);
-    ctx.lineTo(x - 7*Math.cos(ang-0.4), y - 7*Math.sin(ang-0.4));
-    ctx.lineTo(x - 7*Math.cos(ang+0.4), y - 7*Math.sin(ang+0.4));
-    ctx.closePath(); ctx.fill();
-  }
-  _drawSupport(x, y, type){
-    const ctx = this.ctx;
-    ctx.strokeStyle = "#94a3b8"; ctx.fillStyle = "#94a3b8"; ctx.lineWidth = 1.5;
-    if (type === "pinned" || type === "fixed"){
-      ctx.beginPath();
-      ctx.moveTo(x, y); ctx.lineTo(x-8, y+14); ctx.lineTo(x+8, y+14);
-      ctx.closePath(); ctx.fill();
+    for (let x=Math.ceil(x0/step)*step;x<=x1;x+=step){
+      const [sx]=this._worldToScreen(x,0,view);
+      ctx.moveTo(sx,view.y0); ctx.lineTo(sx,view.y0+view.h);
     }
-    if (type === "roller_z" || type === "roller_x"){
-      ctx.beginPath();
-      ctx.moveTo(x, y); ctx.lineTo(x-7, y+11); ctx.lineTo(x+7, y+11);
-      ctx.closePath(); ctx.fill();
-      ctx.beginPath(); ctx.arc(x-4, y+15, 2.5, 0, Math.PI*2); ctx.fill();
-      ctx.beginPath(); ctx.arc(x+4, y+15, 2.5, 0, Math.PI*2); ctx.fill();
-    }
-    if (type === "fixed"){
-      for (let k=-10;k<=10;k+=4){
-        ctx.beginPath(); ctx.moveTo(x+k, y+14); ctx.lineTo(x+k-4, y+20); ctx.stroke();
-      }
-    }
-  }
-  _grid(){
-    const ctx = this.ctx;
-    if (!this.view) return;
-    const step = niceStep(60 / this.view.scale);
-    ctx.strokeStyle = "rgba(255,255,255,0.04)"; ctx.lineWidth = 1;
-    const [x0,z0] = [this.view.cx - this.W/(2*this.view.scale), this.view.cz - this.H/(2*this.view.scale)];
-    const [x1,z1] = [this.view.cx + this.W/(2*this.view.scale), this.view.cz + this.H/(2*this.view.scale)];
-    ctx.beginPath();
-    for (let x = Math.ceil(x0/step)*step; x <= x1; x += step){
-      const [sx] = this.worldToScreen(x, 0); ctx.moveTo(sx, 0); ctx.lineTo(sx, this.H);
-    }
-    for (let z = Math.ceil(z0/step)*step; z <= z1; z += step){
-      const [,sy] = this.worldToScreen(0, z); ctx.moveTo(0, sy); ctx.lineTo(this.W, sy);
+    for (let z=Math.ceil(z0/step)*step;z<=z1;z+=step){
+      const [,sy]=this._worldToScreen(0,z,view);
+      ctx.moveTo(view.x0,sy); ctx.lineTo(view.x0+view.w,sy);
     }
     ctx.stroke();
   }
+  _niceStep(raw){
+    const p=Math.pow(10,Math.floor(Math.log10(raw)));
+    const n=raw/p;
+    return p*(n<1.5?1:n<3.5?2:n<7.5?5:10);
+  }
+  _utilizationAt(er,k){
+    const N=er.N[k], M=er.M[k];
+    const sigma=Math.abs(N)/er.sec.A+Math.abs(M)*er.sec.c/er.sec.I;
+    return sigma/er.mat.sigmaAdm;
+  }
+  _colorForUtil(u){
+    if (u<0.5) return "#22c55e";
+    if (u<0.8) return "#eab308";
+    if (u<1.0) return "#f97316";
+    return "#ef4444";
+  }
+  _drawDeformada(scene,results,view){
+    const ctx=this.ctx;
+    const disp=results.displacements;
+    const idx=results.nodeIndex;
+    ctx.strokeStyle="rgba(34,211,238,0.35)";
+    ctx.lineWidth=1.2; ctx.setLineDash([4,4]);
+    for (const er of results.elementResults){
+      const el=scene.elements.get(er.elementId);
+      const n1=scene.nodes.get(el.node1), n2=scene.nodes.get(el.node2);
+      const i1=idx.get(el.node1), i2=idx.get(el.node2);
+      const u1=disp[i1*3]*this.defScale, v1=disp[i1*3+1]*this.defScale;
+      const u2=disp[i2*3]*this.defScale, v2=disp[i2*3+1]*this.defScale;
+      const [sx1,sy1]=this._worldToScreen(n1.x+u1,n1.z+v1,view);
+      const [sx2,sy2]=this._worldToScreen(n2.x+u2,n2.z+v2,view);
+      ctx.beginPath(); ctx.moveTo(sx1,sy1); ctx.lineTo(sx2,sy2); ctx.stroke();
+    }
+    ctx.setLineDash([]);
+  }
+  _drawStructure(scene,results,view){
+    const ctx=this.ctx;
+    for (const er of results.elementResults){
+      const el=scene.elements.get(er.elementId);
+      const n1=scene.nodes.get(el.node1), n2=scene.nodes.get(el.node2);
+      if (this.layers.utilization){
+        const NSEG=32;
+        for (let s=0;s<NSEG;s++){
+          const t0=s/NSEG, t1=(s+1)/NSEG;
+          const k0=Math.min(er.x.length-1,Math.round(t0*(er.x.length-1)));
+          const k1=Math.min(er.x.length-1,Math.round(t1*(er.x.length-1)));
+          const u=(this._utilizationAt(er,k0)+this._utilizationAt(er,k1))/2;
+          const xa=n1.x+(n2.x-n1.x)*t0, za=n1.z+(n2.z-n1.z)*t0;
+          const xb=n1.x+(n2.x-n1.x)*t1, zb=n1.z+(n2.z-n1.z)*t1;
+          const [sxa,sya]=this._worldToScreen(xa,za,view);
+          const [sxb,syb]=this._worldToScreen(xb,zb,view);
+          ctx.strokeStyle=this._colorForUtil(u);
+          ctx.lineWidth=4;
+          ctx.beginPath(); ctx.moveTo(sxa,sya); ctx.lineTo(sxb,syb); ctx.stroke();
+        }
+      } else {
+        const [sx1,sy1]=this._worldToScreen(n1.x,n1.z,view);
+        const [sx2,sy2]=this._worldToScreen(n2.x,n2.z,view);
+        ctx.strokeStyle=el.type==="truss"?"#a78bfa":"#22d3ee";
+        ctx.lineWidth=el.type==="truss"?1.5:2.5;
+        ctx.beginPath(); ctx.moveTo(sx1,sy1); ctx.lineTo(sx2,sy2); ctx.stroke();
+      }
+    }
+    for (const n of scene.nodes.values()){
+      const [sx,sy]=this._worldToScreen(n.x,n.z,view);
+      ctx.beginPath(); ctx.arc(sx,sy,3.5,0,Math.PI*2);
+      ctx.fillStyle="#e5e7eb"; ctx.fill();
+    }
+    for (const sup of scene.supports.values()){
+      const n=scene.nodes.get(sup.nodeId);
+      const [sx,sy]=this._worldToScreen(n.x,n.z,view);
+      this._drawSupport(sx,sy,sup.type);
+    }
+  }
+  _drawSupport(x,y,type){
+    const ctx=this.ctx;
+    ctx.strokeStyle="#94a3b8"; ctx.fillStyle="#94a3b8"; ctx.lineWidth=1.5;
+    if (type==="pinned"||type==="fixed"){
+      ctx.beginPath();
+      ctx.moveTo(x,y); ctx.lineTo(x-8,y+14); ctx.lineTo(x+8,y+14);
+      ctx.closePath(); ctx.fill();
+    }
+    if (type==="roller_z"||type==="roller_x"){
+      ctx.beginPath();
+      ctx.moveTo(x,y); ctx.lineTo(x-7,y+11); ctx.lineTo(x+7,y+11);
+      ctx.closePath(); ctx.fill();
+      ctx.beginPath(); ctx.arc(x-4,y+15,2.5,0,Math.PI*2); ctx.fill();
+      ctx.beginPath(); ctx.arc(x+4,y+15,2.5,0,Math.PI*2); ctx.fill();
+    }
+    if (type==="fixed"){
+      for (let k=-10;k<=10;k+=4){
+        ctx.beginPath(); ctx.moveTo(x+k,y+14); ctx.lineTo(x+k-4,y+20); ctx.stroke();
+      }
+    }
+  }
+  _drawLoads(scene,view){
+    const ctx=this.ctx;
+    // BUG FIX: sin *loadScale aquí. Si maxMag crecía con loadScale, el ratio
+    // mag/maxMag se mantenía y las flechas no cambiaban de tamaño.
+    const maxLoad=Math.max(1,...scene.loads.map(l=>Math.hypot(l.Fx||l.wx||0,l.Fz||l.wz||0)));
+    for (const load of scene.loads){
+      if (load.type==="point_node"){
+        const n=scene.nodes.get(load.nodeId);
+        const [sx,sy]=this._worldToScreen(n.x,n.z,view);
+        this._arrowLoad(sx,sy,load.Fx*this.loadScale,load.Fz*this.loadScale,maxLoad,50,"#eab308");
+      } else if (load.type==="uniform"){
+        const el=scene.elements.get(load.elementId);
+        const n1=scene.nodes.get(el.node1), n2=scene.nodes.get(el.node2);
+        const [sx1,sy1]=this._worldToScreen(n1.x,n1.z,view);
+        const [sx2,sy2]=this._worldToScreen(n2.x,n2.z,view);
+        for (let k=1;k<=4;k++){
+          const t=k/5;
+          const sx=sx1+(sx2-sx1)*t, sy=sy1+(sy2-sy1)*t;
+          this._arrowLoad(sx,sy,load.wx*this.loadScale,load.wz*this.loadScale,maxLoad,30,"#eab308");
+        }
+      } else if (load.type==="point_elem"){
+        const el=scene.elements.get(load.elementId);
+        const n1=scene.nodes.get(el.node1), n2=scene.nodes.get(el.node2);
+        const L=Math.hypot(n2.x-n1.x,n2.z-n1.z);
+        const t=load.a/L;
+        const wx=n1.x+(n2.x-n1.x)*t, wz=n1.z+(n2.z-n1.z)*t;
+        const [sx,sy]=this._worldToScreen(wx,wz,view);
+        this._arrowLoad(sx,sy,load.Px*this.loadScale,load.Pz*this.loadScale,maxLoad,40,"#eab308");
+      }
+    }
+  }
+  _arrowLoad(x,y,fx,fz,maxMag,maxLen,color){
+    const mag=Math.hypot(fx,fz);
+    if (mag<1e-9) return;
+    const len=Math.min(maxLen,maxLen*mag/maxMag);
+    const ux=-fx/mag, uy=-fz/mag;
+    const ax=x+ux*len, ay=y+uy*len;
+    const ctx=this.ctx;
+    ctx.strokeStyle=color; ctx.fillStyle=color; ctx.lineWidth=1.5;
+    ctx.beginPath(); ctx.moveTo(ax,ay); ctx.lineTo(x,y); ctx.stroke();
+    const ang=Math.atan2(y-ay,x-ax);
+    ctx.beginPath();
+    ctx.moveTo(x,y);
+    ctx.lineTo(x-7*Math.cos(ang-0.4),y-7*Math.sin(ang-0.4));
+    ctx.lineTo(x-7*Math.cos(ang+0.4),y-7*Math.sin(ang+0.4));
+    ctx.closePath(); ctx.fill();
+  }
+  _drawReactions(scene,results,view){
+    const ctx=this.ctx;
+    const groups=new Map();
+    const nodeArr=[...scene.nodes.values()];
+    for (const r of results.reactions){
+      const ni=Math.floor(r.dof/3), local=r.dof%3;
+      const node=nodeArr[ni];
+      if (!groups.has(node.id)) groups.set(node.id,{});
+      groups.get(node.id)[local]=r.value;
+    }
+    let maxMag=1;
+    for (const r of groups.values()) for (const v of Object.values(r)) maxMag=Math.max(maxMag,Math.abs(v));
+    for (const [nodeId,r] of groups){
+      const node=scene.nodes.get(nodeId);
+      const [sx,sy]=this._worldToScreen(node.x,node.z,view);
+      if (r[0]!=null && Math.abs(r[0])>1){
+        const len=15+25*Math.abs(r[0])/maxMag;
+        this._arrowReaction(sx,sy,Math.sign(r[0])*len,0,"#f97316");
+        ctx.fillStyle="#f97316"; ctx.font="10px ui-sans-serif";
+        ctx.fillText(r[0].toFixed(0)+"N",sx+Math.sign(r[0])*len+4,sy-4);
+      }
+      if (r[1]!=null && Math.abs(r[1])>1){
+        const len=15+25*Math.abs(r[1])/maxMag;
+        this._arrowReaction(sx,sy,0,-Math.sign(r[1])*len,"#f97316");
+        ctx.fillStyle="#f97316"; ctx.font="10px ui-sans-serif";
+        ctx.fillText(r[1].toFixed(0)+"N",sx+4,sy+Math.sign(r[1])*(-len)-6);
+      }
+    }
+  }
+  _arrowReaction(x,y,dx,dy,color){
+    const ctx=this.ctx;
+    const ex=x+dx, ey=y+dy;
+    ctx.strokeStyle=color; ctx.fillStyle=color; ctx.lineWidth=2.5;
+    ctx.beginPath(); ctx.moveTo(x,y); ctx.lineTo(ex,ey); ctx.stroke();
+    const ang=Math.atan2(ey-y,ex-x);
+    ctx.beginPath();
+    ctx.moveTo(ex,ey);
+    ctx.lineTo(ex-9*Math.cos(ang-0.4),ey-9*Math.sin(ang-0.4));
+    ctx.lineTo(ex-9*Math.cos(ang+0.4),ey-9*Math.sin(ang+0.4));
+    ctx.closePath(); ctx.fill();
+  }
+  _drawField(scene,results,view){
+    const field=ForceFieldBuilder.build(results,scene,{samplesPerElement:11});
+    if (!field||field.maxMag<=0) return;
+    const ctx=this.ctx;
+    const maxArrowLen=22;
+    for (const el of field.elements){
+      for (const p of el.points){
+        if (p.mag<1e-9) continue;
+        const [sx,sy]=this._worldToScreen(p.x,p.z,view);
+        const ratio=p.mag/field.maxMag;
+        const len=maxArrowLen*ratio;
+        const ux=p.Fx/p.mag, uz=p.Fz/p.mag;
+        const ex=sx+ux*len, ey=sy-uz*len;
+        const hue=240*(1-Math.max(0,Math.min(1,ratio)));
+        ctx.strokeStyle=`hsl(${hue},85%,55%)`;
+        ctx.fillStyle=`hsl(${hue},85%,55%)`;
+        ctx.lineWidth=1.2;
+        ctx.beginPath(); ctx.moveTo(sx,sy); ctx.lineTo(ex,ey); ctx.stroke();
+        const ang=Math.atan2(ey-sy,ex-sx);
+        ctx.beginPath();
+        ctx.moveTo(ex,ey);
+        ctx.lineTo(ex-4*Math.cos(ang-0.45),ey-4*Math.sin(ang-0.45));
+        ctx.lineTo(ex-4*Math.cos(ang+0.45),ey-4*Math.sin(ang+0.45));
+        ctx.closePath(); ctx.fill();
+      }
+    }
+  }
+  _drawLabels(scene,view){
+    const ctx=this.ctx;
+    ctx.font="11px ui-sans-serif"; ctx.fillStyle="#cbd5e1";
+    for (const n of scene.nodes.values()){
+      const [sx,sy]=this._worldToScreen(n.x,n.z,view);
+      ctx.fillText(n.id,sx+6,sy-6);
+    }
+    ctx.fillStyle="#94a3b8";
+    for (const el of scene.elements.values()){
+      const n1=scene.nodes.get(el.node1), n2=scene.nodes.get(el.node2);
+      const mx=(n1.x+n2.x)/2, mz=(n1.z+n2.z)/2;
+      const [sx,sy]=this._worldToScreen(mx,mz,view);
+      ctx.fillText(el.id,sx-8,sy-8);
+    }
+  }
+  _drawDiagrams(scene, results, y0, w, h){
+    const ctx=this.ctx;
+    const rowH=h/3;
+    ctx.fillStyle="rgba(15,17,21,0.5)";
+    ctx.fillRect(0,y0,w,h);
+    ctx.strokeStyle="rgba(255,255,255,0.06)"; ctx.lineWidth=1;
+    for (let i=1;i<3;i++){
+      ctx.beginPath();
+      ctx.moveTo(0,y0+rowH*i); ctx.lineTo(w,y0+rowH*i); ctx.stroke();
+    }
+    this._drawOneDiagram(scene,results,y0,w,rowH,"M (N·m)","#22d3ee",(er,k)=>er.M[k]);
+    this._drawOneDiagram(scene,results,y0+rowH,w,rowH,"V (N)","#a78bfa",(er,k)=>er.V[k]);
+    this._drawOneDiagram(scene,results,y0+2*rowH,w,rowH,"N (N)","#f472b6",(er,k)=>er.N[k]);
+  }
+  _drawOneDiagram(scene, results, y0, w, h, label, color, getValue){
+    const ctx=this.ctx;
+    let xMin=Infinity, xMax=-Infinity, vMax=0;
+    let allHorizontal=true;
+    for (const er of results.elementResults){
+      const el=scene.elements.get(er.elementId);
+      const n1=scene.nodes.get(el.node1), n2=scene.nodes.get(el.node2);
+      if (Math.abs(n2.z-n1.z)>1e-6){ allHorizontal=false; continue; }
+      for (let k=0;k<er.x.length;k++){
+        const x=n1.x+(n2.x-n1.x)*(er.x[k]/er.L);
+        xMin=Math.min(xMin,x); xMax=Math.max(xMax,x);
+        vMax=Math.max(vMax,Math.abs(getValue(er,k)));
+      }
+    }
+    if (!isFinite(xMin)||xMax<=xMin){
+      ctx.fillStyle="#94a3b8"; ctx.font="11px ui-sans-serif";
+      ctx.fillText(label+" — sin elementos horizontales",12,y0+h/2);
+      return;
+    }
+    if (vMax===0) vMax=1;
+    const padX=60, padY=8;
+    const scaleX=(w-2*padX)/(xMax-xMin||1);
+    const scaleY=(h-2*padY)/(2*vMax);
+    const yMid=y0+h/2;
+    const toS=(x,v)=>[padX+(x-xMin)*scaleX,yMid-v*scaleY];
+    ctx.strokeStyle="rgba(255,255,255,0.2)"; ctx.lineWidth=1;
+    ctx.beginPath(); ctx.moveTo(padX,yMid); ctx.lineTo(w-padX,yMid); ctx.stroke();
+    for (const er of results.elementResults){
+      const el=scene.elements.get(er.elementId);
+      const n1=scene.nodes.get(el.node1), n2=scene.nodes.get(el.node2);
+      if (Math.abs(n2.z-n1.z)>1e-6) continue;
+      const pts=[];
+      for (let k=0;k<er.x.length;k++){
+        const x=n1.x+(n2.x-n1.x)*(er.x[k]/er.L);
+        pts.push(toS(x,getValue(er,k)));
+      }
+      ctx.beginPath();
+      ctx.moveTo(pts[0][0],yMid);
+      for (const p of pts) ctx.lineTo(p[0],p[1]);
+      ctx.lineTo(pts[pts.length-1][0],yMid);
+      ctx.closePath();
+      ctx.fillStyle=color+"40"; ctx.fill();
+      ctx.beginPath();
+      ctx.moveTo(pts[0][0],pts[0][1]);
+      for (let i=1;i<pts.length;i++) ctx.lineTo(pts[i][0],pts[i][1]);
+      ctx.strokeStyle=color; ctx.lineWidth=1.5; ctx.stroke();
+    }
+    ctx.fillStyle="#9ca3af"; ctx.font="11px ui-sans-serif";
+    ctx.fillText(label+"  max "+vMax.toFixed(0),8,y0+14);
+    if (!allHorizontal){
+      ctx.fillStyle="#fbbf24";
+      ctx.fillText("(elementos inclinados no dibujados)",8,y0+h-4);
+    }
+  }
 }
-function niceStep(raw){
-  const p = Math.pow(10, Math.floor(Math.log10(raw)));
-  const n = raw/p;
-  return p * (n<1.5?1 : n<3.5?2 : n<7.5?5 : 10);
+
+/* ============================================================================
+ * ADAPTERS · PLAN RENDERER
+ * ========================================================================== */
+class PlanRenderer {
+  constructor(canvas){
+    this.cv=canvas; this.ctx=canvas.getContext("2d");
+    this._frameScreenY=[];
+    window.addEventListener("resize",()=>this.resize());
+    this.resize();
+  }
+  resize(){
+    const dpr=window.devicePixelRatio||1;
+    const r=this.cv.getBoundingClientRect();
+    this.cv.width=Math.max(1,Math.floor(r.width*dpr));
+    this.cv.height=Math.max(1,Math.floor(r.height*dpr));
+    this.ctx.setTransform(dpr,0,0,dpr,0,0);
+    this.W=r.width; this.H=r.height;
+  }
+  draw(templateScene, roofFrames, selectedIndex, frameResults){
+    const ctx=this.ctx;
+    ctx.clearRect(0,0,this.W,this.H);
+    this._frameScreenY = [];
+    if (!templateScene || !templateScene.roof){
+      this._msg("Esta escena no tiene campo \"roof\".",
+        "Configura \"roof\": { type, span, rise, length, frameSpacing, tributaryWidth, material, section } en el JSON.");
+      return;
+    }
+    if (!roofFrames || roofFrames.length === 0){
+      this._msg("No se han generado marcos.","Pulsa Analizar.");
+      return;
+    }
+    const r = templateScene.roof;
+    const pad = 70;
+    const scale = Math.min((this.W-2*pad)/r.span, (this.H-2*pad)/r.length);
+    const cx = this.W/2, cy = this.H/2;
+    const toS = (x,y) => [cx + x*scale, cy + y*scale];
+
+    ctx.fillStyle="rgba(34,211,238,0.05)";
+    ctx.strokeStyle="#22d3ee"; ctx.lineWidth=1.5;
+    const outline=[[-r.span/2,-r.length/2],[r.span/2,-r.length/2],
+                   [r.span/2,r.length/2],[-r.span/2,r.length/2]];
+    ctx.beginPath();
+    const p0=toS(...outline[0]);
+    ctx.moveTo(...p0);
+    for (let i=1;i<4;i++){ const p=toS(...outline[i]); ctx.lineTo(...p); }
+    ctx.closePath(); ctx.fill(); ctx.stroke();
+
+    const selFrame = roofFrames[selectedIndex];
+    if (selFrame){
+      const tw = r.tributaryWidth;
+      ctx.fillStyle="rgba(234,179,8,0.13)";
+      ctx.strokeStyle="rgba(234,179,8,0.5)"; ctx.setLineDash([5,3]); ctx.lineWidth=1;
+      const t0=toS(-r.span/2, selFrame.y - tw/2);
+      const t1=toS( r.span/2, selFrame.y - tw/2);
+      const t2=toS( r.span/2, selFrame.y + tw/2);
+      const t3=toS(-r.span/2, selFrame.y + tw/2);
+      ctx.beginPath();
+      ctx.moveTo(...t0); ctx.lineTo(...t1); ctx.lineTo(...t2); ctx.lineTo(...t3);
+      ctx.closePath(); ctx.fill(); ctx.stroke();
+      ctx.setLineDash([]);
+    }
+
+    for (let i=0;i<roofFrames.length;i++){
+      const f = roofFrames[i];
+      const [sx0, sy] = toS(-r.span/2, f.y);
+      const [sx1]    = toS( r.span/2, f.y);
+      this._frameScreenY.push(sy);
+      const isSel = i === selectedIndex;
+      const res = frameResults ? frameResults[i] : null;
+      let color = "#64748b";
+      if (res){
+        const u = res.summary.maxUtil;
+        if (u < 0.5) color = "#22c55e";
+        else if (u < 0.8) color = "#eab308";
+        else if (u < 1.0) color = "#f97316";
+        else color = "#ef4444";
+      }
+      ctx.strokeStyle = color;
+      ctx.lineWidth = isSel ? 4 : 2;
+      ctx.beginPath(); ctx.moveTo(sx0,sy); ctx.lineTo(sx1,sy); ctx.stroke();
+      if (isSel){
+        ctx.fillStyle = color;
+        ctx.beginPath(); ctx.arc(sx0-10, sy, 5, 0, Math.PI*2); ctx.fill();
+        ctx.beginPath(); ctx.arc(sx1+10, sy, 5, 0, Math.PI*2); ctx.fill();
+      }
+    }
+
+    ctx.strokeStyle="#9ca3af"; ctx.fillStyle="#9ca3af"; ctx.lineWidth=1;
+    ctx.font="11px ui-sans-serif";
+    const dimY=-r.length/2-20;
+    const d0=toS(-r.span/2,dimY), d1=toS(r.span/2,dimY);
+    ctx.beginPath(); ctx.moveTo(...d0); ctx.lineTo(...d1); ctx.stroke();
+    ctx.fillText(`span ${r.span.toFixed(1)} m`,(d0[0]+d1[0])/2-30,dimY+cy-10);
+    const dimX=r.span/2+20;
+    const e0=toS(dimX,-r.length/2), e1=toS(dimX,r.length/2);
+    ctx.beginPath(); ctx.moveTo(...e0); ctx.lineTo(...e1); ctx.stroke();
+    ctx.save(); ctx.translate(e0[0]+15,(e0[1]+e1[1])/2); ctx.rotate(-Math.PI/2);
+    ctx.fillText(`length ${r.length.toFixed(1)} m`,0,0); ctx.restore();
+
+    ctx.fillStyle="#e5e7eb"; ctx.font="12px ui-sans-serif";
+    ctx.fillText(`${roofFrames.length} marcos · marco actual: ${selectedIndex+1} · y = ${selFrame.y.toFixed(2)} m`,12,20);
+    ctx.fillStyle="#94a3b8"; ctx.font="11px ui-sans-serif";
+    ctx.fillText("Click en un marco para analizarlo · franja amarilla = área tributaria",12,36);
+    ctx.fillStyle="#6b7280";
+    ctx.fillText("Verde <50% · Amarillo 50-80% · Naranja 80-100% · Rojo ≥100%",12,54);
+  }
+  hitTest(sx, sy){
+    if (this._frameScreenY.length === 0) return null;
+    let best = -1, bestD = 20;
+    for (let i=0;i<this._frameScreenY.length;i++){
+      const d = Math.abs(sy - this._frameScreenY[i]);
+      if (d < bestD){ bestD = d; best = i; }
+    }
+    return best >= 0 ? best : null;
+  }
+  _msg(msg,hint){
+    const ctx=this.ctx;
+    ctx.fillStyle="#94a3b8"; ctx.font="13px ui-sans-serif";
+    ctx.fillText(msg,40,this.H/2);
+    if (hint){
+      ctx.fillStyle="#6b7280"; ctx.font="11px ui-monospace, monospace";
+      ctx.fillText(hint,40,this.H/2+22);
+    }
+  }
+}
+
+/* ============================================================================
+ * ADAPTERS · VOLUME RENDERER
+ * ========================================================================== */
+class OrbitCamera {
+  constructor(w,h){
+    this.w=w; this.h=h;
+    this.yaw=-Math.PI/4; this.pitch=0.4; this.dist=20;
+    this.target=[0,0,0]; this.fov=Math.PI/3;
+  }
+  resize(w,h){ this.w=w; this.h=h; }
+  project(p){
+    const t=this.target;
+    const x=p[0]-t[0], y=p[1]-t[1], z=p[2]-t[2];
+    const cx=this.dist*Math.cos(this.pitch)*Math.sin(this.yaw);
+    const cy=this.dist*Math.sin(this.pitch);
+    const cz=this.dist*Math.cos(this.pitch)*Math.cos(this.yaw);
+    const fwd=this._norm([-cx,-cy,-cz]);
+    const right=this._norm(this._cross(fwd,[0,1,0]));
+    const up=this._cross(right,fwd);
+    const dx=x-cx, dy=y-cy, dz=z-cz;
+    const lx=dx*right[0]+dy*right[1]+dz*right[2];
+    const ly=dx*up[0]+dy*up[1]+dz*up[2];
+    const lz=dx*fwd[0]+dy*fwd[1]+dz*fwd[2];
+    const f=(this.h/2)/Math.tan(this.fov/2);
+    return [this.w/2+lx*f/(-lz), this.h/2-ly*f/(-lz), lz];
+  }
+  _norm(v){const l=Math.hypot(...v)||1; return [v[0]/l,v[1]/l,v[2]/l];}
+  _cross(a,b){return [a[1]*b[2]-a[2]*b[1],a[2]*b[0]-a[0]*b[2],a[0]*b[1]-a[1]*b[0]];}
+  _dot(a,b){return a[0]*b[0]+a[1]*b[1]+a[2]*b[2];}
+  _sub(a,b){return [a[0]-b[0],a[1]-b[1],a[2]-b[2]];}
+}
+class VolumeRenderer {
+  constructor(canvas){
+    this.cv=canvas; this.ctx=canvas.getContext("2d");
+    this.cam=new OrbitCamera(canvas.clientWidth,canvas.clientHeight);
+    this._bindOrbit();
+    window.addEventListener("resize",()=>this.resize());
+    this.resize();
+  }
+  resize(){
+    const dpr=window.devicePixelRatio||1;
+    const r=this.cv.getBoundingClientRect();
+    this.cv.width=Math.max(1,Math.floor(r.width*dpr));
+    this.cv.height=Math.max(1,Math.floor(r.height*dpr));
+    this.ctx.setTransform(dpr,0,0,dpr,0,0);
+    this.W=r.width; this.H=r.height;
+    this.cam.resize(r.width,r.height);
+    if (this._lastRoof) this.draw(this._lastRoof);
+  }
+  _bindOrbit(){
+    const cv=this.cv;
+    let drag=null;
+    cv.addEventListener("mousedown",e=>{drag={x:e.clientX,y:e.clientY,yaw:this.cam.yaw,pitch:this.cam.pitch};});
+    window.addEventListener("mousemove",e=>{
+      if (!drag) return;
+      this.cam.yaw=drag.yaw+(e.clientX-drag.x)*0.008;
+      this.cam.pitch=Math.max(-0.3,Math.min(1.4,drag.pitch+(e.clientY-drag.y)*0.008));
+      if (this._lastRoof) this.draw(this._lastRoof);
+    });
+    window.addEventListener("mouseup",()=>{drag=null;});
+    cv.addEventListener("wheel",e=>{
+      e.preventDefault();
+      this.cam.dist=Math.max(5,Math.min(200,this.cam.dist*(e.deltaY<0?0.9:1.1)));
+      if (this._lastRoof) this.draw(this._lastRoof);
+    },{passive:false});
+  }
+  draw(roof){
+    this._lastRoof=roof;
+    const ctx=this.ctx;
+    ctx.clearRect(0,0,this.W,this.H);
+    if (!roof){
+      this._msg("Configura \"roof\" en el JSON para ver el volumen.","Ejemplo: \"roof\": { \"type\": \"gable\", \"span\": 6, \"rise\": 2, \"length\": 12 }");
+      return;
+    }
+    const faces=this._buildMesh(roof);
+    const s=Math.min(15/Math.max(roof.span, roof.rise), 25/Math.max(roof.length, 1));
+    const transformed=faces.map(f=>f.map(([x,y,z])=>[x*s,z*s,y*s]));
+    const sorted=transformed.map(f=>{
+      const proj=f.map(v=>this.cam.project(v));
+      const depth=proj.reduce((acc,p)=>acc+p[2],0)/proj.length;
+      const e1=this.cam._sub(f[1],f[0]);
+      const e2=this.cam._sub(f[2],f[0]);
+      const nrm=this.cam._norm(this.cam._cross(e1,e2));
+      const light=this.cam._norm([0.4,1,0.6]);
+      const shade=0.4+0.6*Math.abs(this.cam._dot(nrm,light));
+      return {proj,depth,shade};
+    }).sort((a,b)=>a.depth-b.depth);
+    for (const f of sorted){
+      if (f.proj.some(p=>p[2]>0)) continue;
+      ctx.beginPath();
+      ctx.moveTo(f.proj[0][0],f.proj[0][1]);
+      for (let i=1;i<f.proj.length;i++) ctx.lineTo(f.proj[i][0],f.proj[i][1]);
+      ctx.closePath();
+      const r=Math.round(34*f.shade+30), g=Math.round(211*f.shade+20), b=Math.round(238*f.shade+10);
+      ctx.fillStyle=`rgb(${r},${g},${b})`;
+      ctx.fill();
+      ctx.strokeStyle="rgba(0,0,0,0.3)"; ctx.lineWidth=0.6; ctx.stroke();
+    }
+    ctx.fillStyle="#e5e7eb"; ctx.font="12px ui-sans-serif";
+    ctx.fillText(`Volumen · ${roof.type} · span ${roof.span} × length ${roof.length} · rise ${roof.rise}`,12,20);
+    ctx.fillStyle="#94a3b8"; ctx.font="11px ui-sans-serif";
+    ctx.fillText("Vista de CONTEXTO. No analiza. Análisis en pestaña Anterior (2D por marco).",12,36);
+    ctx.fillStyle="#6b7280"; ctx.font="11px ui-sans-serif";
+    ctx.fillText("Arrastra para orbitar · rueda para zoom",12,this.H-12);
+  }
+  _buildMesh(roof){
+    const {type,span,rise,length}=roof;
+    const faces=[];
+    if (type==="flat"){
+      faces.push([[-span,-length/2,0],[span,-length/2,0],[span,length/2,0],[-span,length/2,0]]);
+      return faces;
+    }
+    if (type==="gable"){
+      faces.push([[-span,-length/2,0],[0,-length/2,rise],[0,length/2,rise],[-span,length/2,0]]);
+      faces.push([[0,-length/2,rise],[span,-length/2,0],[span,length/2,0],[0,length/2,rise]]);
+      faces.push([[-span,-length/2,0],[0,-length/2,rise],[span,-length/2,0]]);
+      faces.push([[-span,length/2,0],[span,length/2,0],[0,length/2,rise]]);
+      return faces;
+    }
+    if (type==="barrel"){
+      const N=20;
+      const prof=[];
+      for (let i=0;i<=N;i++){
+        const x=-span+2*span*i/N;
+        const z=rise*(1-(x/span)**2);
+        prof.push([x,z]);
+      }
+      for (let i=0;i<N;i++){
+        const [x0,z0]=prof[i], [x1,z1]=prof[i+1];
+        faces.push([[x0,-length/2,z0],[x1,-length/2,z1],[x1,length/2,z1],[x0,length/2,z0]]);
+      }
+      for (let i=1;i<N;i++){
+        faces.push([[prof[0][0],-length/2,prof[0][1]],[prof[i][0],-length/2,prof[i][1]],[prof[i+1][0],-length/2,prof[i+1][1]]]);
+        faces.push([[prof[0][0],length/2,prof[0][1]],[prof[i+1][0],length/2,prof[i+1][1]],[prof[i][0],length/2,prof[i][1]]]);
+      }
+      return faces;
+    }
+    return faces;
+  }
+  _msg(msg,hint){
+    const ctx=this.ctx;
+    ctx.fillStyle="#94a3b8"; ctx.font="13px ui-sans-serif";
+    ctx.fillText(msg,40,this.H/2);
+    if (hint){
+      ctx.fillStyle="#6b7280"; ctx.font="11px ui-monospace, monospace";
+      ctx.fillText(hint,40,this.H/2+22);
+    }
+  }
 }
 
 /* ============================================================================
@@ -861,626 +1395,694 @@ function niceStep(raw){
  * ========================================================================== */
 class App {
   constructor(){
-    this.renderer = new CanvasRenderer(document.getElementById("cv"));
+    this.beamR=new BeamRenderer(document.getElementById("cv-beam"));
+    this.planR=new PlanRenderer(document.getElementById("cv-plan"));
+    this.volR =new VolumeRenderer(document.getElementById("cv-volume"));
+    this.baseScene = null;       // pristine (lo que cargó el usuario)
+    this.roofTemplate = null;
+    this.roofFrames = null;
+    this.frameResults = null;
+    this.selectedFrameIndex = 0;
     this.currentScene = null;
     this.currentResults = null;
-    this.currentField = null;
-    this.showField = true;
-    this.sectionCatalog = [
-      { id: "sec_S1", A: 0.0010, I: 1.0e-5, c: 0.05 },
-      { id: "sec_S2", A: 0.0015, I: 2.0e-5, c: 0.06 },
-      { id: "sec_S3", A: 0.0020, I: 4.0e-5, c: 0.08 },
-      { id: "sec_S4", A: 0.0030, I: 8.0e-5, c: 0.10 },
-      { id: "sec_S5", A: 0.0040, I: 1.5e-4, c: 0.12 },
-      { id: "sec_S6", A: 0.0060, I: 3.0e-4, c: 0.15 },
+    this.loadMultiplier = 1;
+    this.sectionOverride = "";
+    this.sectionCatalog=[
+      {id:"sec_S1",A:0.0010,I:1.0e-5,c:0.05},
+      {id:"sec_S2",A:0.0015,I:2.0e-5,c:0.06},
+      {id:"sec_S3",A:0.0020,I:4.0e-5,c:0.08},
+      {id:"sec_S4",A:0.0030,I:8.0e-5,c:0.10},
+      {id:"sec_S5",A:0.0040,I:1.5e-4,c:0.12},
+      {id:"sec_S6",A:0.0060,I:3.0e-4,c:0.15},
     ];
+    this._populateSectionDropdown();
     this.bindUI();
+    this.bindTabs();
     this.loadPreset("beam_center");
   }
-
-  bindUI(){
-    document.getElementById("preset").addEventListener("change", e => this.loadPreset(e.target.value));
-    document.getElementById("btn-analyze").addEventListener("click", () => this.analyze());
-    document.getElementById("btn-optimize").addEventListener("click", () => this.optimize());
-    document.getElementById("btn-json").addEventListener("click", () => this.toggleJSON());
-    document.getElementById("btn-json-apply").addEventListener("click", () => this.applyJSON());
-    document.getElementById("btn-json-copy").addEventListener("click", () => this.copyJSON());
-    document.getElementById("btn-tests").addEventListener("click", () => this.runTests());
-    const ds = document.getElementById("defScale");
-    ds.addEventListener("input", () => {
-      this.renderer.defScale = parseFloat(ds.value);
-      document.getElementById("defScaleVal").textContent = ds.value;
-      this._redraw();
-    });
-    const ls = document.getElementById("loadScale");
-    ls.addEventListener("input", () => {
-      this.renderer.loadScale = parseFloat(ls.value);
-      document.getElementById("loadScaleVal").textContent = parseFloat(ls.value).toFixed(1);
-      this._redraw();
-    });
-    document.getElementById("showField").addEventListener("change", e => {
-      this.showField = e.target.checked;
-      this._redraw();
-    });
-  }
-
-  _redraw(){
-    if (!this.currentScene || !this.currentResults) return;
-    this.renderer.draw(this.currentScene, this.currentResults);
-    if (this.showField){
-      this.currentField = ForceFieldBuilder.build(
-        this.currentResults, this.currentScene, { samplesPerElement: 11 });
-      this.renderer.drawForceField(this.currentScene, this.currentField, { maxArrowLen: 28 });
-    } else {
-      this.currentField = null;
+  _populateSectionDropdown(){
+    const sel = document.getElementById("sectionOverride");
+    if (!sel) return;
+    for (const s of this.sectionCatalog){
+      const opt = document.createElement("option");
+      opt.value = s.id;
+      opt.textContent = `${s.id}  (A=${s.A.toFixed(4)}, I=${s.I.toExponential(1)})`;
+      sel.appendChild(opt);
     }
   }
-
+  bindUI(){
+    document.getElementById("preset").addEventListener("change",e=>this.loadPreset(e.target.value));
+    document.getElementById("btn-analyze").addEventListener("click",()=>this.analyze());
+    document.getElementById("btn-optimize").addEventListener("click",()=>this.optimize());
+    document.getElementById("btn-json").addEventListener("click",()=>this.toggleJSON());
+    document.getElementById("btn-json-apply").addEventListener("click",()=>this.applyJSON());
+    document.getElementById("btn-json-copy").addEventListener("click",()=>this.copyJSON());
+    document.getElementById("btn-tests").addEventListener("click",()=>this.runTests());
+    // Parámetros ESTRUCTURALES (re-analizan)
+    document.getElementById("loadFactor").addEventListener("input",e=>{
+      this.loadMultiplier = parseFloat(e.target.value);
+      document.getElementById("loadFactorVal").textContent = this.loadMultiplier.toFixed(1);
+      this._applyStructuralParams();
+    });
+    document.getElementById("sectionOverride").addEventListener("change",e=>{
+      this.sectionOverride = e.target.value;
+      this._applyStructuralParams();
+    });
+    // Sliders VISUALES
+    document.getElementById("defScale").addEventListener("input",e=>{
+      this.beamR.defScale=parseFloat(e.target.value);
+      document.getElementById("defScaleVal").textContent=e.target.value;
+      this._redrawAll();
+    });
+    document.getElementById("loadScale").addEventListener("input",e=>{
+      this.beamR.loadScale=parseFloat(e.target.value);
+      document.getElementById("loadScaleVal").textContent=parseFloat(e.target.value).toFixed(1);
+      this._redrawAll();
+    });
+    for (const key of ["structure","loads","reactions","deformada","diagrams","utilization","field","labels"]){
+      const id = key==="utilization"?"ly-util":`ly-${key}`;
+      const el=document.getElementById(id);
+      if (!el) continue;
+      el.checked=!!this.beamR.layers[key];
+      el.addEventListener("change",ev=>{
+        this.beamR.layers[key]=ev.target.checked;
+        this._redrawAll();
+      });
+    }
+    document.getElementById("cv-plan").addEventListener("click",e=>{
+      const rect=e.target.getBoundingClientRect();
+      const sx=e.clientX-rect.left, sy=e.clientY-rect.top;
+      const idx=this.planR.hitTest(sx,sy);
+      if (idx!=null) this.selectFrame(idx);
+    });
+  }
+  bindTabs(){
+    document.querySelectorAll(".tab-btn").forEach(btn=>{
+      btn.addEventListener("click",()=>{
+        document.querySelectorAll(".tab-btn").forEach(b=>b.classList.remove("active"));
+        document.querySelectorAll(".tab-panel").forEach(c=>c.classList.remove("active"));
+        btn.classList.add("active");
+        const tab=btn.dataset.tab;
+        document.getElementById("cv-"+tab).classList.add("active");
+        if (tab==="beam") this.beamR.resize();
+        if (tab==="plan") this.planR.resize();
+        if (tab==="volume") this.volR.resize();
+        this._redrawAll();
+      });
+    });
+  }
+  _cloneScene(src){
+    const s = new Scene();
+    s.selfWeight = src.selfWeight;
+    s.constraints = JSON.parse(JSON.stringify(src.constraints || {}));
+    s.roof = src.roof ? {...src.roof} : null;
+    for (const [k,m] of src.materials) s.materials.set(k, new Material(m.id, m.E, m.rho, m.sigmaAdm));
+    for (const [k,sec] of src.sections) s.sections.set(k, new Section(sec.id, sec.A, sec.I, sec.c));
+    for (const [k,n] of src.nodes) s.nodes.set(k, new Node(n.id, n.x, n.z));
+    for (const [k,el] of src.elements) s.elements.set(k, new Element(el.id, el.node1, el.node2, el.materialId, el.sectionId, el.type));
+    for (const [k,sup] of src.supports) s.supports.set(k, new Support(sup.nodeId, sup.type));
+    s.loads = src.loads.map(l => {
+      if (l.type === "point_node") return new PointOnNode(l.nodeId, l.Fx, l.Fz, l.M);
+      if (l.type === "uniform") return new UniformLoad(l.elementId, l.wx, l.wz);
+      if (l.type === "point_elem") return new PointOnElement(l.elementId, l.a, l.Px, l.Pz);
+      return l;
+    });
+    return s;
+  }
+  _applyStructuralParams(){
+    if (!this.baseScene) return;
+    try {
+      const scene = this._cloneScene(this.baseScene);
+      const factor = this.loadMultiplier;
+      // Multiplicar cargas explícitas (beam scenes)
+      for (const load of scene.loads){
+        if (load.type === "point_node"){ load.Fx*=factor; load.Fz*=factor; load.M*=factor; }
+        else if (load.type === "uniform"){ load.wx*=factor; load.wz*=factor; }
+        else if (load.type === "point_elem"){ load.Px*=factor; load.Pz*=factor; }
+      }
+      // Multiplicar cargas del roof (roof scenes)
+      if (scene.roof){
+        scene.roof.deadLoad = this.baseScene.roof.deadLoad * factor;
+        scene.roof.liveLoad = this.baseScene.roof.liveLoad * factor;
+      }
+      // Aplicar override de sección
+      if (this.sectionOverride){
+        const spec = this.sectionCatalog.find(s=>s.id===this.sectionOverride);
+        if (spec){
+          scene.sections.set(spec.id, new Section(spec.id, spec.A, spec.I, spec.c));
+          for (const el of scene.elements.values()) el.sectionId = spec.id;
+          if (scene.roof) scene.roof.section = spec.id;
+        }
+      }
+      // Aplicar al estado
+      if (scene.roof){
+        this.roofTemplate = scene;
+        this._regenerateFrames();
+      } else {
+        this.roofTemplate = null;
+        this.roofFrames = null;
+        this.frameResults = null;
+        this.currentScene = scene;
+      }
+      this.analyze();
+    } catch(e){
+      console.error("_applyStructuralParams:", e);
+      this.showResults({error: e.message});
+    }
+  }
+  _syncStructuralUI(){
+    const lf = document.getElementById("loadFactor");
+    if (lf){
+      lf.value = this.loadMultiplier;
+      document.getElementById("loadFactorVal").textContent = this.loadMultiplier.toFixed(1);
+    }
+    const so = document.getElementById("sectionOverride");
+    if (so) so.value = this.sectionOverride || "";
+  }
+  selectFrame(index){
+    if (!this.roofFrames || index < 0 || index >= this.roofFrames.length) return;
+    this.selectedFrameIndex = index;
+    this.currentScene = this.roofFrames[index].scene;
+    this.analyze();
+  }
+  _regenerateFrames(){
+    try {
+      this.roofFrames = RoofGenerator.generateFrames(this.roofTemplate);
+      this.frameResults = this.roofFrames.map(f => {
+        try { return BeamSolver.analyze(f.scene); } catch(e){ return null; }
+      });
+      if (this.selectedFrameIndex >= this.roofFrames.length) this.selectedFrameIndex = 0;
+      this.currentScene = this.roofFrames[this.selectedFrameIndex].scene;
+    } catch(e){
+      console.error("RoofGenerator falló:", e);
+      this.roofFrames = null;
+      this.frameResults = null;
+      if (!this.currentScene) this.currentScene = this.roofTemplate;
+      throw e;
+    }
+  }
   loadPreset(name){
-    const presets = {
-      beam_center: {
-        units: "SI", selfWeight: false,
-        materials: { steel: { E: 2.1e11, rho: 7850, sigmaAdm: 1.6e8 } },
-        sections: { IPE200: { A: 2.85e-3, I: 1.94e-5, c: 0.10 } },
-        nodes: [
-          { id: "n1", x: 0, z: 0 },
-          { id: "n2", x: 5, z: 0 },
-          { id: "n3", x: 10, z: 0 },
-        ],
-        elements: [
-          { id: "e1", node1: "n1", node2: "n2", material: "steel", section: "IPE200", type: "frame" },
-          { id: "e2", node1: "n2", node2: "n3", material: "steel", section: "IPE200", type: "frame" },
-        ],
-        supports: [
-          { node: "n1", type: "pinned" },
-          { node: "n3", type: "roller_z" },
-        ],
-        loads: [{ type: "point_node", node: "n2", Fx: 0, Fz: -10000, M: 0 }],
-        constraints: { maxUtilization: 1.0, maxDeflectionRelative: 300 },
-      },
-      beam_uniform: {
-        units: "SI", selfWeight: false,
-        materials: { steel: { E: 2.1e11, rho: 7850, sigmaAdm: 1.6e8 } },
-        sections: { IPE200: { A: 2.85e-3, I: 1.94e-5, c: 0.10 } },
-        nodes: [
-          { id: "n1", x: 0, z: 0 }, { id: "n2", x: 5, z: 0 }, { id: "n3", x: 10, z: 0 },
-        ],
-        elements: [
-          { id: "e1", node1: "n1", node2: "n2", material: "steel", section: "IPE200", type: "frame" },
-          { id: "e2", node1: "n2", node2: "n3", material: "steel", section: "IPE200", type: "frame" },
-        ],
-        supports: [{ node: "n1", type: "pinned" }, { node: "n3", type: "roller_z" }],
-        loads: [
-          { type: "uniform", element: "e1", wx: 0, wz: -2000 },
-          { type: "uniform", element: "e2", wx: 0, wz: -2000 },
-        ],
-        constraints: { maxUtilization: 1.0, maxDeflectionRelative: 300 },
-      },
-      cantilever_tip: {
-        units: "SI", selfWeight: false,
-        materials: { steel: { E: 2.1e11, rho: 7850, sigmaAdm: 1.6e8 } },
-        sections: { IPE200: { A: 2.85e-3, I: 1.94e-5, c: 0.10 } },
-        nodes: [
-          { id: "n1", x: 0, z: 0 }, { id: "n2", x: 2.5, z: 0 }, { id: "n3", x: 5, z: 0 },
-        ],
-        elements: [
-          { id: "e1", node1: "n1", node2: "n2", material: "steel", section: "IPE200", type: "frame" },
-          { id: "e2", node1: "n2", node2: "n3", material: "steel", section: "IPE200", type: "frame" },
-        ],
-        supports: [{ node: "n1", type: "fixed" }],
-        loads: [{ type: "point_node", node: "n3", Fx: 0, Fz: -1000, M: 0 }],
-        constraints: { maxUtilization: 1.0 },
-      },
-      portal_center: {
-        units: "SI", selfWeight: false,
-        materials: { steel: { E: 2.1e11, rho: 7850, sigmaAdm: 1.6e8 } },
-        sections: { IPE200: { A: 2.85e-3, I: 1.94e-5, c: 0.10 } },
-        nodes: [
-          { id: "n1", x: 0, z: 0 }, { id: "n2", x: 0, z: 3 },
-          { id: "n3", x: 5, z: 3 }, { id: "n4", x: 10, z: 3 },
-          { id: "n5", x: 10, z: 0 },
-        ],
-        elements: [
-          { id: "e1", node1: "n1", node2: "n2", material: "steel", section: "IPE200", type: "frame" },
-          { id: "e2", node1: "n2", node2: "n3", material: "steel", section: "IPE200", type: "frame" },
-          { id: "e3", node1: "n3", node2: "n4", material: "steel", section: "IPE200", type: "frame" },
-          { id: "e4", node1: "n4", node2: "n5", material: "steel", section: "IPE200", type: "frame" },
-        ],
-        supports: [{ node: "n1", type: "pinned" }, { node: "n5", type: "pinned" }],
-        loads: [{ type: "point_node", node: "n3", Fx: 0, Fz: -5000, M: 0 }],
-        constraints: { maxUtilization: 1.0 },
-      },
-      truss_triangle: {
-        units: "SI", selfWeight: false,
-        materials: { steel: { E: 2.1e11, rho: 7850, sigmaAdm: 1.6e8 } },
-        sections: { TUBE: { A: 1.0e-3, I: 1.0e-6, c: 0.05 } },
-        nodes: [
-          { id: "nA", x: -5, z: 0 }, { id: "nB", x: 5, z: 0 }, { id: "nC", x: 0, z: 8.66 },
-        ],
-        elements: [
-          { id: "eAB", node1: "nA", node2: "nB", material: "steel", section: "TUBE", type: "truss" },
-          { id: "eAC", node1: "nA", node2: "nC", material: "steel", section: "TUBE", type: "truss" },
-          { id: "eBC", node1: "nB", node2: "nC", material: "steel", section: "TUBE", type: "truss" },
-        ],
-        supports: [{ node: "nA", type: "pinned" }, { node: "nB", type: "roller_z" }],
-        loads: [{ type: "point_node", node: "nC", Fx: 0, Fz: -1000, M: 0 }],
-        constraints: { maxUtilization: 1.0 },
-      },
-      counterweight: {
-        units: "SI", selfWeight: false,
-        materials: { steel: { E: 2.1e11, rho: 7850, sigmaAdm: 1.6e8 } },
-        sections: { IPE200: { A: 2.85e-3, I: 1.94e-5, c: 0.10 } },
-        nodes: [
-          { id: "n1", x: -2, z: 0 }, { id: "n2", x: 0, z: 0 },
-          { id: "n3", x: 10, z: 0 }, { id: "n4", x: 12, z: 0 },
-        ],
-        elements: [
-          { id: "e1", node1: "n1", node2: "n2", material: "steel", section: "IPE200", type: "frame" },
-          { id: "e2", node1: "n2", node2: "n3", material: "steel", section: "IPE200", type: "frame" },
-          { id: "e3", node1: "n3", node2: "n4", material: "steel", section: "IPE200", type: "frame" },
-        ],
-        supports: [{ node: "n2", type: "pinned" }, { node: "n3", type: "roller_z" }],
-        loads: [
-          { type: "point_node", node: "n1", Fx: 0, Fz: -6000, M: 0 },
-          { type: "point_node", node: "n4", Fx: 0, Fz: -1000, M: 0 },
-        ],
-        constraints: { maxUtilization: 1.0 },
-      },
-    };
-    const data = presets[name];
+    const data=this._presets()[name];
     if (!data) return;
     try {
-      this.currentScene = loadSceneFromJSON(JSON.stringify(data));
-      this.renderer.fitView(this.currentScene);
+      const scene = loadSceneFromJSON(JSON.stringify(data));
+      this.baseScene = this._cloneScene(scene);
+      this.loadMultiplier = 1;
+      this.sectionOverride = "";
+      this._syncStructuralUI();
+      if (scene.roof){
+        this.roofTemplate = scene;
+        this.selectedFrameIndex = 0;
+        this._regenerateFrames();
+      } else {
+        this.roofTemplate = null;
+        this.roofFrames = null;
+        this.frameResults = null;
+        this.currentScene = scene;
+      }
       this.analyze();
     } catch(e){
-      this.showResults({ error: e.message });
+      console.error("loadPreset error:", e);
+      this.showResults({error:e.message});
     }
   }
-
-  analyze(){
-    if (!this.currentScene) return;
-    try {
-      this.currentResults = BeamSolver.analyze(this.currentScene);
-      this._redraw();
-      this.showResults(this.currentResults);
-    } catch(e){
-      this.currentResults = null;
-      this.showResults({ error: e.message });
-    }
-  }
-
-  optimize(){
-    if (!this.currentScene) return;
-    try {
-      const constraints = this.currentScene.constraints || { maxUtilization: 1.0 };
-      const res = SectionOptimizer.optimizeByCatalog(this.currentScene, this.sectionCatalog, constraints);
-      this.currentScene = res.scene;
-      this.currentResults = BeamSolver.analyze(this.currentScene);
-      this._redraw();
-      this.showResults(this.currentResults, res);
-    } catch(e){
-      this.showResults({ error: e.message });
-    }
-  }
-
-  toggleJSON(){
-    const wrap = document.getElementById("json-wrap");
-    const ta = document.getElementById("json-in");
-    if (wrap.style.display === "none"){
-      ta.value = JSON.stringify(this._sceneToJSON(this.currentScene), null, 2);
-      wrap.style.display = "block";
-    } else {
-      wrap.style.display = "none";
-    }
-  }
-  applyJSON(){
-    const ta = document.getElementById("json-in");
-    const err = document.getElementById("json-error");
-    try {
-      const scene = loadSceneFromJSON(ta.value);
-      this.currentScene = scene;
-      this.renderer.fitView(scene);
-      this.analyze();
-      err.textContent = "";
-    } catch(e){
-      err.textContent = "Error: " + e.message;
-    }
-  }
-  copyJSON(){
-    const ta = document.getElementById("json-in");
-    ta.select();
-    navigator.clipboard?.writeText(ta.value);
-  }
-
-  _sceneToJSON(scene){
-    const materials = {};
-    for (const m of scene.materials.values())
-      materials[m.id] = { E: m.E, rho: m.rho, sigmaAdm: m.sigmaAdm };
-    const sections = {};
-    for (const s of scene.sections.values())
-      sections[s.id] = { A: s.A, I: s.I, c: s.c };
-    const nodes = [...scene.nodes.values()].map(n => ({ id: n.id, x: n.x, z: n.z }));
-    const elements = [...scene.elements.values()].map(el => ({
-      id: el.id, node1: el.node1, node2: el.node2,
-      material: el.materialId, section: el.sectionId, type: el.type,
-    }));
-    const supports = [...scene.supports.values()].map(s => ({ node: s.nodeId, type: s.type }));
-    const loads = scene.loads.map(l => {
-      if (l.type === "point_node") return { type: "point_node", node: l.nodeId, Fx: l.Fx, Fz: l.Fz, M: l.M };
-      if (l.type === "uniform") return { type: "uniform", element: l.elementId, wx: l.wx, wz: l.wz };
-      if (l.type === "point_elem") return { type: "point_elem", element: l.elementId, a: l.a, Px: l.Px, Pz: l.Pz };
-    });
+  _presets(){
+    const steel={E:2.1e11,rho:7850,sigmaAdm:1.6e8};
+    const sec={A:2.85e-3,I:1.94e-5,c:0.10};
+    const beamBase={
+      units:"SI",selfWeight:false,
+      materials:{steel},sections:{IPE200:sec},
+      nodes:[{id:"n1",x:0,z:0},{id:"n2",x:5,z:0},{id:"n3",x:10,z:0}],
+      elements:[
+        {id:"e1",node1:"n1",node2:"n2",material:"steel",section:"IPE200",type:"frame"},
+        {id:"e2",node1:"n2",node2:"n3",material:"steel",section:"IPE200",type:"frame"},
+      ],
+      supports:[{node:"n1",type:"pinned"},{node:"n3",type:"roller_z"}],
+      constraints:{maxUtilization:1.0,maxDeflectionRelative:300},
+    };
     return {
-      units: "SI", selfWeight: !!scene.selfWeight,
-      materials, sections, nodes, elements, supports, loads,
-      constraints: scene.constraints || {},
+      beam_center:{...beamBase,loads:[{type:"point_node",node:"n2",Fx:0,Fz:-10000,M:0}]},
+      beam_uniform:{...beamBase,loads:[
+        {type:"uniform",element:"e1",wx:0,wz:-2000},
+        {type:"uniform",element:"e2",wx:0,wz:-2000},
+      ]},
+      cantilever_tip:{
+        units:"SI",selfWeight:false,materials:{steel},sections:{IPE200:sec},
+        nodes:[{id:"n1",x:0,z:0},{id:"n2",x:2.5,z:0},{id:"n3",x:5,z:0}],
+        elements:[
+          {id:"e1",node1:"n1",node2:"n2",material:"steel",section:"IPE200",type:"frame"},
+          {id:"e2",node1:"n2",node2:"n3",material:"steel",section:"IPE200",type:"frame"},
+        ],
+        supports:[{node:"n1",type:"fixed"}],
+        loads:[{type:"point_node",node:"n3",Fx:0,Fz:-1000,M:0}],
+        constraints:{maxUtilization:1.0},
+      },
+      portal_center:{
+        units:"SI",selfWeight:false,materials:{steel},sections:{IPE200:sec},
+        nodes:[{id:"n1",x:0,z:0},{id:"n2",x:0,z:3},{id:"n3",x:5,z:3},{id:"n4",x:10,z:3},{id:"n5",x:10,z:0}],
+        elements:[
+          {id:"e1",node1:"n1",node2:"n2",material:"steel",section:"IPE200",type:"frame"},
+          {id:"e2",node1:"n2",node2:"n3",material:"steel",section:"IPE200",type:"frame"},
+          {id:"e3",node1:"n3",node2:"n4",material:"steel",section:"IPE200",type:"frame"},
+          {id:"e4",node1:"n4",node2:"n5",material:"steel",section:"IPE200",type:"frame"},
+        ],
+        supports:[{node:"n1",type:"pinned"},{node:"n5",type:"pinned"}],
+        loads:[{type:"point_node",node:"n3",Fx:0,Fz:-5000,M:0}],
+        constraints:{maxUtilization:1.0},
+      },
+      truss_triangle:{
+        units:"SI",selfWeight:false,
+        materials:{steel},sections:{TUBE:{A:1.0e-3,I:1.0e-6,c:0.05}},
+        nodes:[{id:"nA",x:-5,z:0},{id:"nB",x:5,z:0},{id:"nC",x:0,z:8.66}],
+        elements:[
+          {id:"eAB",node1:"nA",node2:"nB",material:"steel",section:"TUBE",type:"truss"},
+          {id:"eAC",node1:"nA",node2:"nC",material:"steel",section:"TUBE",type:"truss"},
+          {id:"eBC",node1:"nB",node2:"nC",material:"steel",section:"TUBE",type:"truss"},
+        ],
+        supports:[{node:"nA",type:"pinned"},{node:"nB",type:"roller_z"}],
+        loads:[{type:"point_node",node:"nC",Fx:0,Fz:-1000,M:0}],
+        constraints:{maxUtilization:1.0},
+      },
+      counterweight:{
+        units:"SI",selfWeight:false,materials:{steel},sections:{IPE200:sec},
+        nodes:[{id:"n1",x:-2,z:0},{id:"n2",x:0,z:0},{id:"n3",x:10,z:0},{id:"n4",x:12,z:0}],
+        elements:[
+          {id:"e1",node1:"n1",node2:"n2",material:"steel",section:"IPE200",type:"frame"},
+          {id:"e2",node1:"n2",node2:"n3",material:"steel",section:"IPE200",type:"frame"},
+          {id:"e3",node1:"n3",node2:"n4",material:"steel",section:"IPE200",type:"frame"},
+        ],
+        supports:[{node:"n2",type:"pinned"},{node:"n3",type:"roller_z"}],
+        loads:[
+          {type:"point_node",node:"n1",Fx:0,Fz:-6000,M:0},
+          {type:"point_node",node:"n4",Fx:0,Fz:-1000,M:0},
+        ],
+        constraints:{maxUtilization:1.0},
+      },
+      gable_roof:{
+        units:"SI",selfWeight:false,
+        materials:{madera:{E:1.0e10,rho:500,sigmaAdm:8.0e6}},
+        sections:{viga_10x20:{A:0.02,I:6.667e-5,c:0.10}},
+        roof:{
+          type:"gable", span:6, rise:2, length:12,
+          frameSpacing:3, tributaryWidth:3,
+          deadLoad:800, liveLoad:1000,
+          material:"madera", section:"viga_10x20",
+        },
+        constraints:{maxUtilization:0.85,maxDeflectionRelative:300},
+      },
     };
   }
-
-  showResults(results, optInfo){
-    const root = document.getElementById("results");
-    if (results.error){
-      root.innerHTML = `<div class="verdict fail">ERROR</div><div class="hint">${results.error}</div>`;
+  _redrawAll(){
+    if (this.currentScene && this.currentResults)
+      this.beamR.draw(this.currentScene, this.currentResults);
+    else if (this.currentScene)
+      this.beamR.draw(this.currentScene, null);
+    if (this.roofTemplate && this.roofFrames){
+      this.planR.draw(this.roofTemplate, this.roofFrames, this.selectedFrameIndex, this.frameResults);
+      this.volR.draw(this.roofTemplate.roof);
+    } else {
+      this.planR.draw(null, null, 0, null);
+      this.volR.draw(null);
+    }
+    this._updateFrameIndicator();
+  }
+  _updateFrameIndicator(){
+    const wrap = document.getElementById("frame-indicator-wrap");
+    if (!this.roofTemplate || !this.roofFrames || this.roofFrames.length === 0){
+      wrap.innerHTML = "";
       return;
     }
-    if (!this.currentScene) { root.innerHTML = ""; return; }
-
-    const s = results.summary;
-    const cc = checkConstraints(this.currentScene, results);
-    let html = "";
-    html += `<div class="verdict ${cc.ok ? 'ok' : 'fail'}">${cc.ok ? '✓ CUMPLE' : '✗ NO CUMPLE'}</div>`;
-
-    html += `<h3>Reacciones</h3>`;
-    const reactionsByNode = new Map();
-    const nodeArr = [...this.currentScene.nodes.values()];
-    for (const r of results.reactions){
-      const ni = Math.floor(r.dof/3);
-      const local = r.dof % 3;
-      const node = nodeArr[ni];
-      if (!reactionsByNode.has(node.id)) reactionsByNode.set(node.id, {});
-      reactionsByNode.get(node.id)[local] = r.value;
-    }
-    for (const [nodeId, r] of reactionsByNode){
-      const parts = [];
-      if (r[0] != null) parts.push(`Rx=${r[0].toFixed(0)}`);
-      if (r[1] != null) parts.push(`Rz=${r[1].toFixed(0)}`);
-      if (r[2] != null) parts.push(`M=${r[2].toFixed(0)}`);
-      html += `<div class="kv"><span>Nodo ${nodeId}</span><b>${parts.join(' · ')}</b></div>`;
-    }
-
-    html += `<h3>Resumen</h3>`;
-    html += `<div class="kv"><span>Flecha máx</span><b>${(s.maxDefl*1000).toFixed(2)} mm</b></div>`;
-    html += `<div class="kv"><span>M máx</span><b>${s.maxMoment.toFixed(0)} N·m</b></div>`;
-    html += `<div class="kv"><span>N máx</span><b>${s.maxAxial.toFixed(0)} N</b></div>`;
-    html += `<div class="kv"><span>Aprovechamiento máx</span><b>${(s.maxUtil*100).toFixed(1)} %</b></div>`;
-
-    if (!cc.ok){
-      html += `<h3>Violaciones</h3>`;
-      for (const v of cc.violations){
-        html += `<div class="kv"><span class="badge warn">${v.type}</span><b style="font-weight:400">${v.msg}</b></div>`;
+    const sel = this.roofFrames[this.selectedFrameIndex];
+    const res = this.frameResults ? this.frameResults[this.selectedFrameIndex] : null;
+    const util = res ? (res.summary.maxUtil * 100).toFixed(0) : "—";
+    wrap.innerHTML = `
+      <div class="frame-indicator">
+        Marco ${this.selectedFrameIndex+1} de ${this.roofFrames.length} ·
+        y = ${sel.y.toFixed(2)} m ·
+        util. ${util}%
+      </div>
+      <div class="hint" style="margin-top:0;margin-bottom:8px">
+        Click en Planta sobre otro marco para analizarlo.
+      </div>
+    `;
+  }
+  _verifyScene(scene, results){
+    const checks = [];
+    if (!scene || !results) return checks;
+    // Sumar cargas aplicadas (peso propio incluido si está activo)
+    let totalFx = 0, totalFz = 0;
+    for (const load of scene.loads){
+      if (load.type === "point_node"){
+        totalFx += load.Fx; totalFz += load.Fz;
+      } else if (load.type === "uniform"){
+        const el = scene.elements.get(load.elementId);
+        if (el){
+          const n1 = scene.nodes.get(el.node1), n2 = scene.nodes.get(el.node2);
+          const L = Math.hypot(n2.x-n1.x, n2.z-n1.z);
+          totalFx += load.wx * L;
+          totalFz += load.wz * L;
+        }
+      } else if (load.type === "point_elem"){
+        totalFx += load.Px; totalFz += load.Pz;
       }
     }
-    if (optInfo){
-      html += `<h3>Optimizador</h3>`;
-      html += `<div class="kv"><span>Factible</span><b>${optInfo.feasible ? "sí" : "no"}</b></div>`;
-      html += `<div class="kv"><span>Iteraciones</span><b>${optInfo.iterations}</b></div>`;
-      html += `<div class="hint">${optInfo.message}</div>`;
+    if (scene.selfWeight){
+      for (const el of scene.elements.values()){
+        const n1 = scene.nodes.get(el.node1), n2 = scene.nodes.get(el.node2);
+        const L = Math.hypot(n2.x-n1.x, n2.z-n1.z);
+        const mat = scene.materials.get(el.materialId);
+        const sec = scene.sections.get(el.sectionId);
+        if (mat && sec) totalFz += -mat.rho * sec.A * G_ACC * L;
+      }
+    }
+    // Sumar reacciones
+    let sumRx = 0, sumRz = 0, minRz = 0;
+    for (const r of results.reactions){
+      const local = r.dof % 3;
+      if (local === 0) sumRx += r.value;
+      if (local === 1){ sumRz += r.value; if (r.value < minRz) minRz = r.value; }
+    }
+    // Check 1: equilibrio vertical
+    const residZ = sumRz + totalFz;
+    const tolZ = Math.max(1, Math.abs(totalFz) * 0.001);
+    checks.push({
+      ok: Math.abs(residZ) < tolZ,
+      name: "Equilibrio vertical",
+      detail: `∑Rz + ∑Fz = ${residZ.toFixed(2)} N`,
+    });
+    // Check 2: equilibrio horizontal
+    const residX = sumRx + totalFx;
+    const tolX = Math.max(1, Math.abs(totalFx) * 0.001);
+    checks.push({
+      ok: Math.abs(residX) < tolX,
+      name: "Equilibrio horizontal",
+      detail: `∑Rx + ∑Fx = ${residX.toFixed(2)} N`,
+    });
+    // Check 3: no hay apoyos que "tiren hacia arriba"
+    checks.push({
+      ok: minRz > -1,
+      name: "Apoyos no tiran hacia arriba",
+      detail: minRz > -1 ? "OK" : `Rz mín = ${minRz.toFixed(0)} N (necesita anclaje)`,
+    });
+    return checks;
+  }
+  analyze(){
+    if (!this.currentScene){
+      this.showResults({error: "No hay escena cargada. Elige un preset o aplica un JSON."});
+      return;
+    }
+    try {
+      this.currentResults=BeamSolver.analyze(this.currentScene);
+      if (this.roofTemplate && this.roofFrames){
+        this.frameResults = this.roofFrames.map(f => {
+          try { return BeamSolver.analyze(f.scene); } catch(e){ return null; }
+        });
+      }
+      this._redrawAll();
+      this.showVerification(this.currentScene, this.currentResults);
+      this.showResults(this.currentResults);
+    } catch(e){
+      console.error("analyze error:", e);
+      this.currentResults = null;
+      try { this._redrawAll(); } catch(e2){ console.error("_redrawAll en catch:", e2); }
+      this.showVerification(this.currentScene, null);
+      this.showResults({error: e.message});
+    }
+  }
+  showVerification(scene, results){
+    const root = document.getElementById("verification");
+    if (!scene || !results){
+      root.innerHTML = `<div class="hint">Sin análisis válido. Pulsa Analizar.</div>`;
+      return;
+    }
+    const checks = this._verifyScene(scene, results);
+    let html = "";
+    for (const c of checks){
+      const cls = c.ok ? "kv" : "kv bad";
+      const icon = c.ok ? "✓" : "✗";
+      html += `<div class="${cls}"><span>${icon} ${c.name}</span><b>${c.detail}</b></div>`;
+    }
+    if (checks.every(c => c.ok)){
+      html += `<div class="hint" style="color:#86efac">Todos los checks de equilibrio pasan. El análisis es coherente consigo mismo.</div>`;
+    } else {
+      html += `<div class="hint" style="color:#fca5a5">Algún check ha fallado. El análisis puede no ser fiable, o el modelo tiene un problema real.</div>`;
     }
     root.innerHTML = html;
   }
-
-  /* --- Tests 1–16 --- */
+  optimize(){
+    if (!this.currentScene) return;
+    const constraints = this.currentScene.constraints || {};
+    if (!constraints || Object.keys(constraints).length === 0){
+      this.showResults({error: "Sin constraints. Añade al menos maxUtilization en el JSON."});
+      return;
+    }
+    if (this.roofTemplate){
+      try {
+        const res = SectionOptimizer.optimizeByCatalog(this.currentScene, this.sectionCatalog, constraints);
+        this.roofFrames[this.selectedFrameIndex].scene = res.scene;
+        this.currentScene = res.scene;
+        this.currentResults = BeamSolver.analyze(this.currentScene);
+        this._redrawAll();
+        this.showVerification(this.currentScene, this.currentResults);
+        this.showResults(this.currentResults, {...res, note:"Solo se ha optimizado el marco actual. Mover los sliders estructurales resetea la optimización."});
+      } catch(e){
+        this.showResults({error: e.message});
+      }
+      return;
+    }
+    try {
+      const res=SectionOptimizer.optimizeByCatalog(this.currentScene,this.sectionCatalog,constraints);
+      this.currentScene=res.scene;
+      this.currentResults=BeamSolver.analyze(this.currentScene);
+      this._redrawAll();
+      this.showVerification(this.currentScene, this.currentResults);
+      this.showResults(this.currentResults, {...res, note:"La optimización es un snapshot. Mover los sliders estructurales resetea."});
+    } catch(e){
+      this.showResults({error: e.message});
+    }
+  }
+  toggleJSON(){
+    const wrap=document.getElementById("json-wrap");
+    const ta=document.getElementById("json-in");
+    if (wrap.style.display==="none"){
+      const src = this.baseScene || this.currentScene;
+      ta.value = JSON.stringify(this._sceneToJSON(src), null, 2);
+      wrap.style.display="block";
+    } else wrap.style.display="none";
+  }
+  applyJSON(){
+    const ta=document.getElementById("json-in");
+    const err=document.getElementById("json-error");
+    try {
+      const scene = loadSceneFromJSON(ta.value);
+      this.baseScene = this._cloneScene(scene);
+      this.loadMultiplier = 1;
+      this.sectionOverride = "";
+      this._syncStructuralUI();
+      if (scene.roof){
+        this.roofTemplate = scene;
+        this.selectedFrameIndex = 0;
+        this._regenerateFrames();
+      } else {
+        this.roofTemplate = null;
+        this.roofFrames = null;
+        this.frameResults = null;
+        this.currentScene = scene;
+      }
+      this.analyze();
+      err.textContent = "";
+    } catch(e){
+      console.error("applyJSON error:", e);
+      err.textContent="Error: "+e.message;
+    }
+  }
+  copyJSON(){
+    const ta=document.getElementById("json-in");
+    ta.select();
+    navigator.clipboard?.writeText(ta.value);
+  }
+  _sceneToJSON(scene){
+    if (!scene) return {};
+    const materials={};
+    for (const m of scene.materials.values())
+      materials[m.id]={E:m.E,rho:m.rho,sigmaAdm:m.sigmaAdm};
+    const sections={};
+    for (const s of scene.sections.values())
+      sections[s.id]={A:s.A,I:s.I,c:s.c};
+    const out={units:"SI",selfWeight:!!scene.selfWeight,materials,sections,
+      constraints:scene.constraints||{}};
+    if (scene.roof){
+      out.roof = scene.roof;
+      return out;
+    }
+    out.nodes=[...scene.nodes.values()].map(n=>({id:n.id,x:n.x,z:n.z}));
+    out.elements=[...scene.elements.values()].map(el=>({
+      id:el.id,node1:el.node1,node2:el.node2,material:el.materialId,section:el.sectionId,type:el.type,
+    }));
+    out.supports=[...scene.supports.values()].map(s=>({node:s.nodeId,type:s.type}));
+    out.loads=scene.loads.map(l=>{
+      if (l.type==="point_node") return {type:"point_node",node:l.nodeId,Fx:l.Fx,Fz:l.Fz,M:l.M};
+      if (l.type==="uniform") return {type:"uniform",element:l.elementId,wx:l.wx,wz:l.wz};
+      if (l.type==="point_elem") return {type:"point_elem",element:l.elementId,a:l.a,Px:l.Px,Pz:l.Pz};
+    });
+    return out;
+  }
+  showResults(results,optInfo){
+    const root=document.getElementById("results");
+    if (results.error){
+      root.innerHTML=`<div class="verdict fail">ERROR</div><div class="hint">${results.error}</div>`;
+      return;
+    }
+    if (!this.currentScene) return;
+    const s=results.summary;
+    const cc=checkConstraints(this.currentScene,results);
+    let html=`<div class="verdict ${cc.ok?'ok':'fail'}">${cc.ok?'✓ CUMPLE':'✗ NO CUMPLE'}</div>`;
+    if (this.roofTemplate && this.roofFrames){
+      const sel = this.roofFrames[this.selectedFrameIndex];
+      html += `<div class="hint" style="margin-top:0;margin-bottom:6px">
+        Analizando <b>marco ${this.selectedFrameIndex+1} de ${this.roofFrames.length}</b>
+        (y = ${sel.y.toFixed(2)} m).
+      </div>`;
+    }
+    html+=`<h3>Reacciones</h3>`;
+    const groups=new Map();
+    const nodeArr=[...this.currentScene.nodes.values()];
+    for (const r of results.reactions){
+      const ni=Math.floor(r.dof/3), local=r.dof%3;
+      const node=nodeArr[ni];
+      if (!groups.has(node.id)) groups.set(node.id,{});
+      groups.get(node.id)[local]=r.value;
+    }
+    for (const [nodeId,r] of groups){
+      const parts=[];
+      if (r[0]!=null) parts.push(`Rx=${r[0].toFixed(0)}`);
+      if (r[1]!=null) parts.push(`Rz=${r[1].toFixed(0)}`);
+      if (r[2]!=null) parts.push(`M=${r[2].toFixed(0)}`);
+      html+=`<div class="kv"><span>Nodo ${nodeId}</span><b>${parts.join(" · ")}</b></div>`;
+    }
+    html+=`<h3>Resumen</h3>`;
+    html+=`<div class="kv"><span>Flecha máx</span><b>${(s.maxDefl*1000).toFixed(2)} mm</b></div>`;
+    html+=`<div class="kv"><span>M máx</span><b>${s.maxMoment.toFixed(0)} N·m</b></div>`;
+    html+=`<div class="kv"><span>N máx</span><b>${s.maxAxial.toFixed(0)} N</b></div>`;
+    html+=`<div class="kv"><span>Aprovechamiento máx</span><b>${(s.maxUtil*100).toFixed(1)} %</b></div>`;
+    if (!cc.ok){
+      html+=`<h3>Violaciones</h3>`;
+      for (const v of cc.violations)
+        html+=`<div class="kv bad"><span class="badge warn">${v.type}</span><b style="font-weight:400">${v.msg}</b></div>`;
+    }
+    if (optInfo){
+      html+=`<h3>Optimizador</h3>`;
+      html+=`<div class="kv"><span>Factible</span><b>${optInfo.feasible?"sí":"no"}</b></div>`;
+      html+=`<div class="kv"><span>Iteraciones</span><b>${optInfo.iterations}</b></div>`;
+      html+=`<div class="hint">${optInfo.message}</div>`;
+      if (optInfo.note) html+=`<div class="hint" style="color:#fbbf24">${optInfo.note}</div>`;
+    }
+    root.innerHTML=html;
+  }
   runTests(){
-    const out = document.getElementById("tests-out");
-    out.innerHTML = "";
-    let pass = 0, fail = 0;
-    const log = (name, ok, extra="") => {
-      ok ? pass++ : fail++;
-      const d = document.createElement("div");
-      d.className = "test " + (ok ? "ok" : "fail");
-      d.textContent = (ok ? "✅" : "❌") + " " + name + (extra ? "  — " + extra : "");
+    const out=document.getElementById("tests-out");
+    out.innerHTML="";
+    let pass=0,fail=0;
+    const log=(name,ok,extra="")=>{
+      ok?pass++:fail++;
+      const d=document.createElement("div");
+      d.className="test "+(ok?"ok":"fail");
+      d.textContent=(ok?"✅":"❌")+" "+name+(extra?"  — "+extra:"");
       out.appendChild(d);
-      (ok ? console.log : console.error)((ok ? "✅" : "❌") + " " + name, extra);
     };
-    const approx = (a,b,tol) => Math.abs(a-b) < (tol==null?1e-6:tol);
-
-    function makeBeamScene({ L=10, E=2.1e11, A=0.01, I=1e-4, loads=[], supports=[], elements=null, nodes=null, selfWeight=false }){
-      const data = {
-        units: "SI", selfWeight,
-        materials: { mat: { E, rho: 7850, sigmaAdm: 1.6e8 } },
-        sections: { sec: { A, I, c: 0.1 } },
-        nodes: nodes || [
-          { id: "n1", x: 0, z: 0 }, { id: "n2", x: L/2, z: 0 }, { id: "n3", x: L, z: 0 },
+    const approx=(a,b,tol)=>Math.abs(a-b)<(tol==null?1e-6:tol);
+    const mk=(opts={})=>{
+      const data={
+        units:"SI",selfWeight:opts.selfWeight||false,
+        materials:{mat:{E:opts.E||2e11,rho:7850,sigmaAdm:1.6e8}},
+        sections:{sec:{A:opts.A||0.01,I:opts.I||1e-4,c:0.1}},
+        nodes:opts.nodes||[{id:"n1",x:0,z:0},{id:"n2",x:(opts.L||10)/2,z:0},{id:"n3",x:opts.L||10,z:0}],
+        elements:opts.elements||[
+          {id:"e1",node1:"n1",node2:"n2",material:"mat",section:"sec",type:"frame"},
+          {id:"e2",node1:"n2",node2:"n3",material:"mat",section:"sec",type:"frame"},
         ],
-        elements: elements || [
-          { id: "e1", node1: "n1", node2: "n2", material: "mat", section: "sec", type: "frame" },
-          { id: "e2", node1: "n2", node2: "n3", material: "mat", section: "sec", type: "frame" },
-        ],
-        supports: supports.length ? supports : [
-          { node: "n1", type: "pinned" }, { node: "n3", type: "roller_z" },
-        ],
-        loads, constraints: {},
+        supports:opts.supports||[{node:"n1",type:"pinned"},{node:"n3",type:"roller_z"}],
+        loads:opts.loads||[],constraints:{},
       };
       return loadSceneFromJSON(JSON.stringify(data));
-    }
-
-    // T1
+    };
     try {
-      const sc = makeBeamScene({ L: 10, E: 2e11, A: 0.01, I: 1e-4,
-        loads: [{ type: "point_node", node: "n2", Fx: 0, Fz: -1000, M: 0 }] });
-      const r = BeamSolver.analyze(sc);
-      log("T1 M_max = PL/4", approx(r.summary.maxMoment, 2500, 1), `got ${r.summary.maxMoment.toFixed(2)}`);
-      log("T1 δ_max = PL³/(48EI)", approx(r.summary.maxDefl, 1000*1000/(48*2e11*1e-4), 1e-4), `got ${r.summary.maxDefl.toExponential(3)}`);
-    } catch(e){ log("T1", false, e.message); }
-
-    // T2
+      const sc=mk({L:10,loads:[{type:"point_node",node:"n2",Fx:0,Fz:-1000,M:0}]});
+      const r=BeamSolver.analyze(sc);
+      log("T1 M=PL/4",approx(r.summary.maxMoment,2500,1),`got ${r.summary.maxMoment.toFixed(1)}`);
+      log("T1 δ=PL³/(48EI)",approx(r.summary.maxDefl,1000*1000/(48*2e11*1e-4),1e-4));
+    } catch(e){ log("T1",false,e.message); }
     try {
-      const sc = makeBeamScene({ L: 10, E: 2e11, A: 0.01, I: 1e-4,
-        loads: [
-          { type: "uniform", element: "e1", wx: 0, wz: -1000 },
-          { type: "uniform", element: "e2", wx: 0, wz: -1000 },
-        ] });
-      const r = BeamSolver.analyze(sc);
-      log("T2 M_max = qL²/8", approx(r.summary.maxMoment, 12500, 10), `got ${r.summary.maxMoment.toFixed(2)}`);
-      log("T2 δ_max = 5qL⁴/(384EI)", approx(r.summary.maxDefl, 5*1000*10000/(384*2e11*1e-4), 1e-4), `got ${r.summary.maxDefl.toExponential(3)}`);
-    } catch(e){ log("T2", false, e.message); }
-
-    // T3
+      const sc=mk({L:10,loads:[
+        {type:"uniform",element:"e1",wx:0,wz:-1000},
+        {type:"uniform",element:"e2",wx:0,wz:-1000},
+      ]});
+      const r=BeamSolver.analyze(sc);
+      log("T2 M=qL²/8",approx(r.summary.maxMoment,12500,10));
+      log("T2 δ=5qL⁴/(384EI)",approx(r.summary.maxDefl,5*1000*10000/(384*2e11*1e-4),1e-4));
+    } catch(e){ log("T2",false,e.message); }
     try {
-      const sc = makeBeamScene({ L: 5, E: 2e11, A: 0.01, I: 1e-4,
-        nodes: [ { id: "n1", x: 0, z: 0 }, { id: "n2", x: 2.5, z: 0 }, { id: "n3", x: 5, z: 0 } ],
-        elements: [
-          { id: "e1", node1: "n1", node2: "n2", material: "mat", section: "sec", type: "frame" },
-          { id: "e2", node1: "n2", node2: "n3", material: "mat", section: "sec", type: "frame" },
+      const sc=mk({L:10,loads:[
+        {type:"uniform",element:"e1",wx:0,wz:-1000},
+        {type:"uniform",element:"e2",wx:0,wz:-1000},
+      ]});
+      const r=BeamSolver.analyze(sc);
+      const Rz=r.reactions.filter(rx=>rx.dof%3===1).map(rx=>rx.value);
+      const sum=Rz.reduce((a,b)=>a+b,0);
+      log("T3 conservación",approx(sum,10000,1),`got ${sum.toFixed(1)}`);
+    } catch(e){ log("T3",false,e.message); }
+    try {
+      const sc=mk({L:10,loads:[{type:"point_node",node:"n2",Fx:0,Fz:-1000,M:0}]});
+      const r=BeamSolver.analyze(sc);
+      const Rz=r.reactions.filter(rx=>rx.dof%3===1).map(rx=>rx.value);
+      log("T4 simetría",approx(Rz[0],Rz[1],1));
+    } catch(e){ log("T4",false,e.message); }
+    try {
+      const sc=mk({L:5,
+        nodes:[{id:"n1",x:0,z:0},{id:"n2",x:2.5,z:0},{id:"n3",x:5,z:0}],
+        elements:[
+          {id:"e1",node1:"n1",node2:"n2",material:"mat",section:"sec",type:"frame"},
+          {id:"e2",node1:"n2",node2:"n3",material:"mat",section:"sec",type:"frame"},
         ],
-        supports: [{ node: "n1", type: "fixed" }],
-        loads: [{ type: "point_node", node: "n3", Fx: 0, Fz: -1000, M: 0 }] });
-      const r = BeamSolver.analyze(sc);
-      log("T3 voladizo M = PL", approx(r.summary.maxMoment, 5000, 10), `got ${r.summary.maxMoment.toFixed(2)}`);
-      log("T3 voladizo δ = PL³/(3EI)", approx(r.summary.maxDefl, 1000*125/(3*2e11*1e-4), 1e-4), `got ${r.summary.maxDefl.toExponential(3)}`);
-    } catch(e){ log("T3", false, e.message); }
-
-    // T4
+        supports:[{node:"n1",type:"fixed"}],
+        loads:[{type:"point_node",node:"n3",Fx:0,Fz:-1000,M:0}]});
+      const r=BeamSolver.analyze(sc);
+      const f=ForceFieldBuilder.build(r,sc,{samplesPerElement:11});
+      let maxDev=0;
+      for (const el of f.elements) for (const p of el.points)
+        maxDev=Math.max(maxDev,Math.abs(p.mag-1000));
+      log("T5 campo |F|=P",maxDev<5,`dev ${maxDev.toFixed(2)}`);
+    } catch(e){ log("T5",false,e.message); }
     try {
-      const sc = makeBeamScene({ L: 5, E: 2e11, A: 0.01, I: 1e-4,
-        nodes: [ { id: "n1", x: 0, z: 0 }, { id: "n2", x: 2.5, z: 0 }, { id: "n3", x: 5, z: 0 } ],
-        elements: [
-          { id: "e1", node1: "n1", node2: "n2", material: "mat", section: "sec", type: "frame" },
-          { id: "e2", node1: "n2", node2: "n3", material: "mat", section: "sec", type: "frame" },
-        ],
-        supports: [{ node: "n1", type: "fixed" }],
-        loads: [
-          { type: "uniform", element: "e1", wx: 0, wz: -1000 },
-          { type: "uniform", element: "e2", wx: 0, wz: -1000 },
-        ] });
-      const r = BeamSolver.analyze(sc);
-      log("T4 voladizo M = qL²/2", approx(r.summary.maxMoment, 12500, 10), `got ${r.summary.maxMoment.toFixed(2)}`);
-      log("T4 voladizo δ = qL⁴/(8EI)", approx(r.summary.maxDefl, 1000*625/(8*2e11*1e-4), 1e-4), `got ${r.summary.maxDefl.toExponential(3)}`);
-    } catch(e){ log("T4", false, e.message); }
-
-    // T5
-    try {
-      const sc = makeBeamScene({ L: 10, E: 2e11, A: 0.01, I: 1e-4,
-        loads: [{ type: "point_node", node: "n1", Fx: 0, Fz: 0, M: 1000 }] });
-      const r = BeamSolver.analyze(sc);
-      log("T5 M(x)=M₀(1−x/L)", approx(r.summary.maxMoment, 1000, 5), `got ${r.summary.maxMoment.toFixed(2)}`);
-    } catch(e){ log("T5", false, e.message); }
-
-    // T6
-    try {
-      const sc = makeBeamScene({ L: 10, E: 2e11, A: 0.01, I: 1e-4,
-        nodes: [ { id: "n1", x: 0, z: 0 }, { id: "n2", x: 5, z: 0 }, { id: "n3", x: 10, z: 0 } ],
-        elements: [
-          { id: "e1", node1: "n1", node2: "n2", material: "mat", section: "sec", type: "frame" },
-          { id: "e2", node1: "n2", node2: "n3", material: "mat", section: "sec", type: "frame" },
-        ],
-        supports: [
-          { node: "n1", type: "pinned" },
-          { node: "n2", type: "roller_z" },
-          { node: "n3", type: "roller_z" },
-        ],
-        loads: [
-          { type: "uniform", element: "e1", wx: 0, wz: -1000 },
-          { type: "uniform", element: "e2", wx: 0, wz: -1000 },
-        ] });
-      const r = BeamSolver.analyze(sc);
-      const Rs = r.reactions.filter(rx => rx.dof % 3 === 1).map(rx => rx.value);
-      const sorted = [...Rs].sort((a,b)=>a-b);
-      log("T6 ∑R = q·2L", approx(Rs.reduce((a,b)=>a+b,0), 10000, 1), `got ${Rs.reduce((a,b)=>a+b,0).toFixed(1)}`);
-      log("T6 R_extremos ≈ 1875", approx(sorted[0], 1875, 5) && approx(sorted[2], 1875, 5), `got ${sorted[0].toFixed(0)}, ${sorted[2].toFixed(0)}`);
-      log("T6 R_intermedia ≈ 6250", approx(sorted[1], 6250, 10), `got ${sorted[1].toFixed(0)}`);
-    } catch(e){ log("T6", false, e.message); }
-
-    // T7
-    try {
-      const sc = makeBeamScene({
-        nodes: [ { id: "nA", x: -5, z: 0 }, { id: "nB", x: 5, z: 0 }, { id: "nC", x: 0, z: 8.66 } ],
-        elements: [
-          { id: "eAB", node1: "nA", node2: "nB", material: "mat", section: "sec", type: "truss" },
-          { id: "eAC", node1: "nA", node2: "nC", material: "mat", section: "sec", type: "truss" },
-          { id: "eBC", node1: "nB", node2: "nC", material: "mat", section: "sec", type: "truss" },
-        ],
-        supports: [{ node: "nA", type: "pinned" }, { node: "nB", type: "roller_z" }],
-        loads: [{ type: "point_node", node: "nC", Fx: 0, Fz: -1000, M: 0 }] });
-      const r = BeamSolver.analyze(sc);
-      const Rz = r.reactions.filter(rx => rx.dof % 3 === 1).map(rx => rx.value);
-      log("T7 truss ∑Rz = 1000", approx(Rz.reduce((a,b)=>a+b,0), 1000, 1), `got ${Rz.reduce((a,b)=>a+b,0).toFixed(1)}`);
-      const erAC = r.elementResults.find(e => e.elementId === "eAC");
-      const N_ac = erAC.N[Math.floor(erAC.N.length/2)];
-      log("T7 N_inclinado ≈ -577", approx(Math.abs(N_ac), 577, 10), `got ${N_ac.toFixed(0)}`);
-    } catch(e){ log("T7", false, e.message); }
-
-    // T8
-    try {
-      const sc = makeBeamScene({
-        nodes: [
-          { id: "n1", x: 0, z: 0 }, { id: "n2", x: 0, z: 3 },
-          { id: "n3", x: 5, z: 3 }, { id: "n4", x: 10, z: 3 },
-          { id: "n5", x: 10, z: 0 },
-        ],
-        elements: [
-          { id: "e1", node1: "n1", node2: "n2", material: "mat", section: "sec", type: "frame" },
-          { id: "e2", node1: "n2", node2: "n3", material: "mat", section: "sec", type: "frame" },
-          { id: "e3", node1: "n3", node2: "n4", material: "mat", section: "sec", type: "frame" },
-          { id: "e4", node1: "n4", node2: "n5", material: "mat", section: "sec", type: "frame" },
-        ],
-        supports: [{ node: "n1", type: "pinned" }, { node: "n5", type: "pinned" }],
-        loads: [{ type: "point_node", node: "n3", Fx: 0, Fz: -5000, M: 0 }] });
-      const r = BeamSolver.analyze(sc);
-      const Rz = r.reactions.filter(rx => rx.dof % 3 === 1).map(rx => rx.value);
-      const Rx = r.reactions.filter(rx => rx.dof % 3 === 0).map(rx => rx.value);
-      log("T8 pórtico ∑Rz = 5000", approx(Rz.reduce((a,b)=>a+b,0), 5000, 1), `got ${Rz.reduce((a,b)=>a+b,0).toFixed(1)}`);
-      log("T8 pórtico simetría", approx(Rz[0], Rz[1], 1), `got ${Rz[0]?.toFixed(0)}, ${Rz[1]?.toFixed(0)}`);
-      log("T8 pórtico ∑Rx = 0", approx(Rx.reduce((a,b)=>a+b,0), 0, 1), `got ${Rx.reduce((a,b)=>a+b,0).toFixed(2)}`);
-    } catch(e){ log("T8", false, e.message); }
-
-    // T9
-    try {
-      const sc = makeBeamScene({
-        nodes: [
-          { id: "n1", x: -2, z: 0 }, { id: "n2", x: 0, z: 0 },
-          { id: "n3", x: 10, z: 0 }, { id: "n4", x: 12, z: 0 },
-        ],
-        elements: [
-          { id: "e1", node1: "n1", node2: "n2", material: "mat", section: "sec", type: "frame" },
-          { id: "e2", node1: "n2", node2: "n3", material: "mat", section: "sec", type: "frame" },
-          { id: "e3", node1: "n3", node2: "n4", material: "mat", section: "sec", type: "frame" },
-        ],
-        supports: [{ node: "n2", type: "pinned" }, { node: "n3", type: "roller_z" }],
-        loads: [
-          { type: "point_node", node: "n1", Fx: 0, Fz: -6000, M: 0 },
-          { type: "point_node", node: "n4", Fx: 0, Fz: -1000, M: 0 },
-        ] });
-      const r = BeamSolver.analyze(sc);
-      const R_n2 = r.reactions.find(rx => rx.dof === 4)?.value;
-      const R_n3 = r.reactions.find(rx => rx.dof === 7)?.value;
-      log("T9 contrapeso R_roller ≈ 0", R_n3 != null && approx(R_n3, 0, 5), `got ${R_n3?.toFixed(1)}`);
-      log("T9 contrapeso R_pin ≈ 7000", R_n2 != null && approx(R_n2, 7000, 10), `got ${R_n2?.toFixed(0)}`);
-    } catch(e){ log("T9", false, e.message); }
-
-    // T10
-    try {
-      const sc = makeBeamScene({ L: 10, E: 2e11, A: 0.01, I: 1e-4,
-        loads: [
-          { type: "uniform", element: "e1", wx: 0, wz: -1000 },
-          { type: "uniform", element: "e2", wx: 0, wz: -1000 },
-        ] });
-      const r = BeamSolver.analyze(sc);
-      const Rz = r.reactions.filter(rx => rx.dof % 3 === 1).map(rx => rx.value);
-      log("T10 conservación ∑Rz = q·L", approx(Rz.reduce((a,b)=>a+b,0), 10000, 1), `got ${Rz.reduce((a,b)=>a+b,0).toFixed(1)}`);
-    } catch(e){ log("T10", false, e.message); }
-
-    // T11
-    try {
-      const sc = makeBeamScene({ L: 10, E: 2e11, A: 0.01, I: 1e-4,
-        loads: [{ type: "point_node", node: "n2", Fx: 0, Fz: -1000, M: 0 }] });
-      const r = BeamSolver.analyze(sc);
-      const Rz = r.reactions.filter(rx => rx.dof % 3 === 1).map(rx => rx.value);
-      log("T11 simetría R₁ = R₂", Rz.length >= 2 && approx(Rz[0], Rz[1], 1), `got ${Rz[0]?.toFixed(1)}, ${Rz[1]?.toFixed(1)}`);
-    } catch(e){ log("T11", false, e.message); }
-
-    // T12
-    try {
-      const sc1 = makeBeamScene({ L: 10, E: 2e11, A: 0.01, I: 1e-4,
-        loads: [{ type: "point_node", node: "n2", Fx: 0, Fz: -1000, M: 0 }] });
-      const r1 = BeamSolver.analyze(sc1);
-      const sc2 = makeBeamScene({ L: 10, E: 4e11, A: 0.01, I: 1e-4,
-        loads: [{ type: "point_node", node: "n2", Fx: 0, Fz: -2000, M: 0 }] });
-      const r2 = BeamSolver.analyze(sc2);
-      log("T12 δ invariante con E×2, P×2",
-        approx(r1.summary.maxDefl, r2.summary.maxDefl, 1e-5),
-        `δ1=${r1.summary.maxDefl.toExponential(3)}, δ2=${r2.summary.maxDefl.toExponential(3)}`);
-      log("T12 M duplica con E×2, P×2",
-        approx(r2.summary.maxMoment / r1.summary.maxMoment, 2, 0.01),
-        `M1=${r1.summary.maxMoment.toFixed(0)}, M2=${r2.summary.maxMoment.toFixed(0)}`);
-    } catch(e){ log("T12", false, e.message); }
-
-    /* ---------- Tests 13–16: campo de fuerzas (paso 2) ---------- */
-
-    // T13: voladizo, |F| constante = P
-    try {
-      const sc = makeBeamScene({
-        nodes: [ { id: "n1", x: 0, z: 0 }, { id: "n2", x: 2.5, z: 0 }, { id: "n3", x: 5, z: 0 } ],
-        elements: [
-          { id: "e1", node1: "n1", node2: "n2", material: "mat", section: "sec", type: "frame" },
-          { id: "e2", node1: "n2", node2: "n3", material: "mat", section: "sec", type: "frame" },
-        ],
-        supports: [{ node: "n1", type: "fixed" }],
-        loads: [{ type: "point_node", node: "n3", Fx: 0, Fz: -1000, M: 0 }] });
-      const r = BeamSolver.analyze(sc);
-      const field = ForceFieldBuilder.build(r, sc, { samplesPerElement: 11 });
-      let maxDev = 0;
-      for (const el of field.elements) for (const p of el.points)
-        maxDev = Math.max(maxDev, Math.abs(p.mag - 1000));
-      log("T13 campo voladizo |F|=P", maxDev < 5, `desv=${maxDev.toFixed(2)} N`);
-    } catch(e){ log("T13", false, e.message); }
-
-    // T14: simetría biapoyada uniforme
-    try {
-      const sc = makeBeamScene({ L: 10, E: 2e11, A: 0.01, I: 1e-4,
-        loads: [
-          { type: "uniform", element: "e1", wx: 0, wz: -1000 },
-          { type: "uniform", element: "e2", wx: 0, wz: -1000 },
-        ] });
-      const r = BeamSolver.analyze(sc);
-      const f = ForceFieldBuilder.build(r, sc, { samplesPerElement: 11 });
-      const m1 = f.elements[0].points.map(p=>p.mag);
-      const m2 = f.elements[1].points.map(p=>p.mag);
-      let maxDiff = 0;
-      for (let i=0; i<m1.length; i++)
-        maxDiff = Math.max(maxDiff, Math.abs(m1[i] - m2[m2.length-1-i]));
-      log("T14 campo simétrico biapoyada", maxDiff < 10, `diff=${maxDiff.toFixed(2)} N`);
-    } catch(e){ log("T14", false, e.message); }
-
-    // T15: conservación |V(0)| = |R|
-    try {
-      const sc = makeBeamScene({ L: 10, E: 2e11, A: 0.01, I: 1e-4,
-        loads: [
-          { type: "uniform", element: "e1", wx: 0, wz: -1000 },
-          { type: "uniform", element: "e2", wx: 0, wz: -1000 },
-        ] });
-      const r = BeamSolver.analyze(sc);
-      const f = ForceFieldBuilder.build(r, sc, { samplesPerElement: 11 });
-      const V0 = f.elements[0].points[0].V;
-      const R = r.reactions.find(rx => rx.dof === 1)?.value;
-      log("T15 campo |V(0)|=|R|",
-        Math.abs(Math.abs(V0) - Math.abs(R)) < 10,
-        `V0=${V0.toFixed(1)} R=${R.toFixed(1)}`);
-    } catch(e){ log("T15", false, e.message); }
-
-    // T16: tracción pura, Fx > 0
-    try {
-      const sc = makeBeamScene({
-        nodes: [ { id: "n1", x: 0, z: 0 }, { id: "n2", x: 5, z: 0 } ],
-        elements: [{ id: "e1", node1: "n1", node2: "n2", material: "mat", section: "sec", type: "truss" }],
-        supports: [{ node: "n1", type: "fixed" }],
-        loads: [{ type: "point_node", node: "n2", Fx: 1000, Fz: 0, M: 0 }] });
-      const r = BeamSolver.analyze(sc);
-      const f = ForceFieldBuilder.build(r, sc, { samplesPerElement: 11 });
-      const mid = f.elements[0].points[5];
-      log("T16 campo tracción pura Fx>0",
-        mid.Fx > 900 && Math.abs(mid.Fz) < 1,
-        `Fx=${mid.Fx.toFixed(1)} Fz=${mid.Fz.toFixed(1)}`);
-    } catch(e){ log("T16", false, e.message); }
-
-    const summary = document.createElement("div");
-    summary.style.marginTop = "8px";
-    summary.style.fontWeight = "600";
-    summary.style.color = fail === 0 ? "#86efac" : "#fca5a5";
-    summary.textContent = `${pass} ✓ · ${fail} ✗`;
+      const template = loadSceneFromJSON(JSON.stringify({
+        units:"SI",selfWeight:false,
+        materials:{madera:{E:1e10,rho:500,sigmaAdm:8e6}},
+        sections:{viga:{A:0.02,I:6.667e-5,c:0.10}},
+        roof:{type:"gable",span:6,rise:2,length:12,frameSpacing:3,tributaryWidth:3,
+              deadLoad:800,liveLoad:1000,material:"madera",section:"viga"},
+        constraints:{maxUtilization:0.85},
+      }));
+      const frames = RoofGenerator.generateFrames(template);
+      log("T6 roof: 5 marcos", frames.length===5, `got ${frames.length}`);
+      log("T6 roof: y simétrico", approx(frames[0].y,-6,0.01) && approx(frames[4].y,6,0.01));
+      const r0 = BeamSolver.analyze(frames[2].scene);
+      const totalLoad = (800+1000)*3*6;
+      const Rz = r0.reactions.filter(rx=>rx.dof%3===1).map(rx=>rx.value);
+      const sum = Rz.reduce((a,b)=>a+b,0);
+      log("T6 roof: ∑Rz = carga total", approx(sum,totalLoad,totalLoad*0.01),
+        `got ${sum.toFixed(0)} vs ${totalLoad}`);
+    } catch(e){ log("T6 roof",false,e.message); }
+    const summary=document.createElement("div");
+    summary.style.marginTop="8px"; summary.style.fontWeight="600";
+    summary.style.color=fail===0?"#86efac":"#fca5a5";
+    summary.textContent=`${pass} ✓ · ${fail} ✗`;
     out.appendChild(summary);
-    console.group(`%cTests dominio · ${pass} ✓ / ${fail} ✗`,
-      `color:${fail?'#ef4444':'#22c55e'};font-weight:bold`);
-    console.groupEnd();
+    console.log(`Tests: ${pass} ✓ / ${fail} ✗`);
   }
 }
 
-/* ============================================================================
- * BOOT
- * ========================================================================== */
-window.addEventListener("DOMContentLoaded", () => {
-  window.__app = new App();
+window.addEventListener("DOMContentLoaded",()=>{
+  window.__app=new App();
 });
 </script>
 </body>
