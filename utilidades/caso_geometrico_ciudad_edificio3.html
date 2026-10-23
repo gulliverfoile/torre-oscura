@@ -1,0 +1,1146 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<title>Ciudad 3D · v0.4</title>
+<style>
+  :root{--bg:#0f1115;--fg:#e5e7eb;--muted:#9ca3af;--panel:#161922;--border:#2a2f3a;
+        --accent:#22d3ee;--ok:#22c55e;--warn:#eab308;--bad:#ef4444}
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%;font-family:ui-sans-serif,system-ui,sans-serif;
+    background:var(--bg);color:var(--fg);overflow:hidden}
+  #app{display:grid;grid-template-columns:1fr 380px;height:100vh;width:100vw}
+  #stage{position:relative;background:#0a0c10}
+  #cv{position:absolute;inset:0;width:100%;height:100%;display:block}
+  #cv.mode-3d{cursor:grab}
+  #cv.mode-3d:active{cursor:grabbing}
+  #cv.mode-2d{cursor:crosshair}
+  #hud{position:absolute;top:12px;left:12px;color:var(--muted);font-size:11px;
+    font-family:ui-monospace,monospace;line-height:1.6;pointer-events:none;
+    text-shadow:0 1px 3px rgba(0,0,0,.8)}
+  #hud b{color:var(--accent)}
+  #legend{position:absolute;bottom:12px;left:12px;display:flex;gap:10px;flex-wrap:wrap;
+    background:rgba(22,25,34,.85);padding:8px 12px;border-radius:6px;
+    border:1px solid var(--border);font-size:11px}
+  #legend span::before{content:"";display:inline-block;width:12px;height:12px;
+    border-radius:2px;margin-right:4px;vertical-align:middle;background:var(--c)}
+  #hint-3d{position:absolute;bottom:12px;right:12px;
+    background:rgba(22,25,34,.85);padding:6px 10px;border-radius:6px;
+    border:1px solid var(--border);font-size:11px;color:var(--muted);display:none}
+  #hint-3d.active{display:block}
+  #panel{overflow-y:auto;padding:14px;background:rgba(22,25,34,.96);
+    border-left:1px solid var(--border);font-size:13px}
+  #panel::-webkit-scrollbar{width:8px}
+  #panel::-webkit-scrollbar-thumb{background:#2a2f3a;border-radius:4px}
+  h3{margin:14px 0 6px;font-size:11px;text-transform:uppercase;
+    letter-spacing:.06em;color:var(--muted)}
+  h3:first-child{margin-top:0}
+  .row{display:flex;gap:8px;align-items:center;margin-bottom:8px}
+  .row label{flex:0 0 90px;color:var(--muted);font-size:12px}
+  .row input,.row select{flex:1;background:#2a2f3a;color:var(--fg);
+    border:1px solid var(--border);padding:5px 8px;border-radius:4px;
+    font-family:inherit;font-size:12px}
+  .tabs{display:flex;gap:4px;margin-bottom:8px}
+  .tabs button{flex:1;background:#2a2f3a;color:var(--fg);border:1px solid var(--border);
+    padding:6px 4px;border-radius:4px;cursor:pointer;font-family:inherit;font-size:11px}
+  .tabs button.active{background:#1e3a5f;border-color:#2a4a7f;color:#93c5fd}
+  .btns{display:flex;gap:6px;margin-top:8px;flex-wrap:wrap}
+  .btns button{flex:1;min-width:80px;padding:6px 10px;border:1px solid var(--border);
+    background:#2a2f3a;color:var(--fg);border-radius:4px;cursor:pointer;
+    font-family:inherit;font-size:12px}
+  .btns button:hover{background:#353b4a}
+  .btns button.primary{background:#1e3a5f;border-color:#2a4a7f}
+  .kv{display:flex;justify-content:space-between;padding:3px 0;
+    border-bottom:1px solid rgba(255,255,255,.04);font-size:12px}
+  .kv span{color:var(--muted)}
+  .kv b{font-variant-numeric:tabular-nums}
+  .summary{padding:8px 10px;border-radius:4px;text-align:center;
+    font-weight:600;margin-bottom:8px}
+  .summary.ok{background:rgba(34,197,94,.15);color:var(--ok)}
+  .summary.warn{background:rgba(234,179,8,.15);color:var(--warn)}
+  .summary.fail{background:rgba(239,68,68,.15);color:var(--bad)}
+  .err{color:var(--bad);font-size:11px;margin-top:4px;line-height:1.5}
+  .warn{color:var(--warn);font-size:11px;margin-top:4px;line-height:1.5}
+  .test{padding:2px 4px;border-radius:3px;margin-bottom:2px;
+    font-family:ui-monospace,monospace;font-size:11px}
+  .test.ok{color:#86efac;background:rgba(34,197,94,.08)}
+  .test.fail{color:#fca5a5;background:rgba(239,68,68,.12)}
+  details{margin-top:6px}
+  details summary{cursor:pointer;color:var(--muted);font-size:11px;padding:4px 0}
+  details ul{padding-left:16px;font-size:11px;line-height:1.6;color:var(--muted)}
+  .hint{font-size:11px;color:var(--muted);line-height:1.5;margin-top:6px}
+  .hint b{color:var(--fg)}
+</style>
+</head>
+<body>
+<div id="app">
+  <div id="stage">
+    <canvas id="cv"></canvas>
+    <div id="hud">
+      <div>Zonas · <b id="hud-count">0</b></div>
+      <div>Edificios · <b id="hud-buildings">0</b></div>
+      <div>Validación · <b id="hud-status">—</b></div>
+    </div>
+    <div id="legend">
+      <span style="--c:#b85c38">medieval</span>
+      <span style="--c:#c9a96a">colonial</span>
+      <span style="--c:#7a7a7a">industrial</span>
+      <span style="--c:#4a9eff">moderno</span>
+    </div>
+    <div id="hint-3d">Arrastra para orbitar · Rueda para zoom</div>
+  </div>
+  <aside id="panel">
+    <h3>Vista</h3>
+    <div class="tabs">
+      <button data-mode="zones" id="tabZones">Zonas</button>
+      <button data-mode="planta" id="tabPlanta">Planta</button>
+      <button data-mode="3d" id="tab3D" class="active">3D</button>
+    </div>
+
+    <h3>Parámetros</h3>
+    <div class="row"><label>Semilla</label>
+      <input type="number" id="seed" value="42" min="0" max="999999"></div>
+    <div class="row"><label>Columnas</label>
+      <input type="number" id="cols" value="5" min="3" max="10"></div>
+    <div class="row"><label>Filas</label>
+      <input type="number" id="rows" value="5" min="3" max="10"></div>
+    <div class="row"><label>Entorno</label>
+      <select id="env">
+        <option value="templado">Templado</option>
+        <option value="árido">Árido</option>
+        <option value="frío">Frío</option>
+        <option value="costero">Costero</option>
+      </select>
+    </div>
+    <div class="btns">
+      <button class="primary" id="btnGen">🎲 Generar</button>
+      <button id="btnFit">Ajustar cámara</button>
+      <button id="btnTests">Tests</button>
+    </div>
+
+    <h3>Validación</h3>
+    <div id="validation"></div>
+
+    <h3>Zona (hover)</h3>
+    <div id="info" class="hint">Hover sobre una zona del canvas</div>
+
+    <h3>Tests del dominio</h3>
+    <div id="tests" class="hint">Pulsa "Tests"</div>
+
+    <h3>Reglas</h3>
+    <div class="hint">
+      <b>R1</b> orgánica solo medieval o (colonial+periferia)<br>
+      <b>R2</b> lineal solo industrial o moderno<br>
+      <b>R3</b> retícula+medieval → warning<br>
+      <b>R4</b> density alta fuera de núcleo/colonial/industrial → warning<br>
+      <b>R5</b> núcleo con density baja → warning<br>
+      <b>R6</b> núcleo sin cívico → warning<br>
+      <b>R7</b> moderno+productivo+residencial → warning<br>
+      <b>R8</b> núcleo con density &lt; 0.3 → error<br>
+      <b>A1</b> adyacentes sin función común → error<br>
+      <b>A2</b> medieval-moderno adyacentes → error<br>
+      <b>A3</b> dos núcleos adyacentes → error
+    </div>
+  </aside>
+</div>
+<script>
+"use strict";
+
+/* ============================================================
+ * DOMAIN · CATÁLOGO, ENTIDADES, VALIDADOR
+ * ============================================================ */
+
+const TAGS = {
+  time: ['medieval', 'colonial', 'industrial', 'moderno'],
+  functions: ['residencial', 'comercial', 'cívico', 'productivo'],
+  morphology: ['orgánica', 'retícula', 'lineal'],
+  role: ['núcleo', 'periferia'],
+  environment: ['árido', 'templado', 'frío', 'costero']
+};
+
+const TIME_COLORS = {
+  medieval: '#b85c38',
+  colonial: '#c9a96a',
+  industrial: '#7a7a7a',
+  moderno: '#4a9eff'
+};
+
+class SeededRandom {
+  constructor(seed) {
+    this.state = ((seed | 0) % 2147483647) || 1;
+    if (this.state <= 0) this.state += 2147483646;
+  }
+  next() {
+    this.state = (this.state * 16807) % 2147483647;
+    return (this.state - 1) / 2147483646;
+  }
+  range(a, b) { return a + (b - a) * this.next(); }
+  int(a, b) { return Math.floor(this.range(a, b + 1)); }
+  pick(arr) { return arr[this.int(0, arr.length - 1)]; }
+}
+
+class Zone {
+  constructor({ id, time, functions, morphology, role, density, environment, geometry, seed }) {
+    this.id = id;
+    this.time = time;
+    this.functions = new Set(functions);
+    this.morphology = morphology;
+    this.role = role;
+    this.density = density;
+    this.environment = environment;
+    this.geometry = geometry;
+    this.seed = seed;
+    this.neighbors = [];
+    this.plots = null;
+  }
+}
+
+class ZoneValidator {
+  validateZone(zone) {
+    const errors = [];
+    const warnings = [];
+    if (!TAGS.time.includes(zone.time)) errors.push('time inválido');
+    if (zone.functions.size === 0) errors.push('sin funciones');
+    if (!TAGS.morphology.includes(zone.morphology)) errors.push('morphology inválido');
+    if (!TAGS.role.includes(zone.role)) errors.push('role inválido');
+    if (zone.density < 0 || zone.density > 1) errors.push('density fuera de [0,1]');
+    if (!TAGS.environment.includes(zone.environment)) errors.push('environment inválido');
+
+    if (zone.morphology === 'orgánica') {
+      const ok = zone.time === 'medieval' ||
+                 (zone.time === 'colonial' && zone.role === 'periferia');
+      if (!ok) errors.push(`R1: orgánica con ${zone.time}/${zone.role}`);
+    }
+    if (zone.morphology === 'lineal') {
+      if (zone.time !== 'industrial' && zone.time !== 'moderno')
+        errors.push(`R2: lineal con ${zone.time}`);
+    }
+    if (zone.morphology === 'retícula' && zone.time === 'medieval')
+      warnings.push('R3: retícula con medieval (bastide planificada?)');
+    if (zone.density > 0.7 && zone.role !== 'núcleo'
+        && zone.time !== 'colonial' && zone.time !== 'industrial')
+      warnings.push(`R4: density ${zone.density.toFixed(2)} con ${zone.time}/${zone.role}`);
+    if (zone.density < 0.2 && zone.role === 'núcleo')
+      warnings.push('R5: núcleo con density muy baja');
+    if (zone.role === 'núcleo' && !zone.functions.has('cívico'))
+      warnings.push('R6: núcleo sin función cívica');
+    if (zone.time === 'moderno' && zone.functions.has('productivo') && zone.functions.has('residencial'))
+      warnings.push('R7: moderno con productivo+residencial');
+    if (zone.role === 'núcleo' && zone.density < 0.3)
+      errors.push('R8: núcleo con density < 0.3');
+
+    return { ok: errors.length === 0, errors, warnings };
+  }
+
+  validateAdjacency(a, b) {
+    const errors = [];
+    const shared = [...a.functions].some(f => b.functions.has(f));
+    const incompatibleTime =
+      (a.time === 'medieval' && b.time === 'moderno') ||
+      (a.time === 'moderno' && b.time === 'medieval');
+    const twoNuclei = a.role === 'núcleo' && b.role === 'núcleo';
+
+    if (twoNuclei) errors.push(`A3: dos núcleos adyacentes (${a.id} · ${b.id})`);
+    if (incompatibleTime) errors.push(`A2: ${a.time}-${b.time} sin buffer (${a.id} · ${b.id})`);
+    if (!shared && !incompatibleTime) errors.push(`A1: sin función común (${a.id} · ${b.id})`);
+
+    return { ok: errors.length === 0, errors };
+  }
+
+  validateCity(zones) {
+    const errors = [];
+    const warnings = [];
+    const zoneMap = new Map(zones.map(z => [z.id, z]));
+    const seen = new Set();
+    for (const zone of zones) {
+      const r = this.validateZone(zone);
+      for (const e of r.errors) errors.push(`${zone.id}: ${e}`);
+      for (const w of r.warnings) warnings.push(`${zone.id}: ${w}`);
+      for (const nId of zone.neighbors) {
+        if (seen.has(nId)) continue;
+        const n = zoneMap.get(nId);
+        if (!n) continue;
+        const ar = this.validateAdjacency(zone, n);
+        for (const e of ar.errors) errors.push(e);
+      }
+      seen.add(zone.id);
+    }
+    return { ok: errors.length === 0, errors, warnings };
+  }
+}
+
+/* ============================================================
+ * DOMAIN · GENERADOR DE TOPOLOGÍA (3 pases)
+ * ============================================================ */
+
+class TopologyGenerator {
+  static grid({ cols, rows, seed, environment }) {
+    const rng = new SeededRandom(seed);
+    const cx = (cols - 1) / 2, cy = (rows - 1) / 2;
+    const maxDist = Math.hypot(cx, cy) || 1;
+
+    const zones = [];
+    for (let r = 0; r < rows; r++) {
+      for (let c = 0; c < cols; c++) {
+        const dist = Math.hypot(c - cx, r - cy) / maxDist;
+        zones.push(this._createZone({
+          id: `Z${r}_${c}`, col: c, row: r, cols, rows, dist, rng, environment
+        }));
+      }
+    }
+
+    const zoneMap = new Map(zones.map(z => [z.id, z]));
+    for (let r = 0; r < rows; r++) {
+      for (let c = 0; c < cols; c++) {
+        const zone = zones[r * cols + c];
+        if (c > 0)         zone.neighbors.push(`Z${r}_${c - 1}`);
+        if (c < cols - 1)  zone.neighbors.push(`Z${r}_${c + 1}`);
+        if (r > 0)         zone.neighbors.push(`Z${r - 1}_${c}`);
+        if (r < rows - 1)  zone.neighbors.push(`Z${r + 1}_${c}`);
+      }
+    }
+
+    for (const zone of zones) {
+      if (zone.role === 'núcleo') continue;
+      if (rng.next() >= 0.1) continue;
+      const candidates = TAGS.time.filter(t => t !== zone.time);
+      const safe = candidates.filter(t => {
+        if (t === 'medieval') return false;
+        if (t === 'moderno') {
+          for (const nId of zone.neighbors) {
+            const n = zoneMap.get(nId);
+            if (n && n.time === 'medieval') return false;
+          }
+        }
+        return true;
+      });
+      if (safe.length === 0) continue;
+      zone.time = rng.pick(safe);
+      if ((zone.time === 'industrial' || zone.time === 'moderno') && rng.next() < 0.3) {
+        zone.morphology = 'lineal';
+      }
+      if (zone.morphology === 'orgánica' && zone.time !== 'medieval' && zone.time !== 'colonial') {
+        zone.morphology = 'retícula';
+      }
+      if (zone.morphology === 'lineal' && zone.time !== 'industrial' && zone.time !== 'moderno') {
+        zone.morphology = 'retícula';
+      }
+    }
+    return zones;
+  }
+
+  static _createZone({ id, col, row, cols, rows, dist, rng, environment }) {
+    let time, role, morphology;
+    if (dist < 0.2)        { time = 'medieval';   role = 'núcleo';    morphology = 'orgánica'; }
+    else if (dist < 0.45)  { time = 'colonial';   role = 'periferia'; morphology = 'retícula'; }
+    else if (dist < 0.7)   { time = 'industrial'; role = 'periferia'; morphology = 'retícula'; }
+    else                   { time = 'moderno';    role = 'periferia'; morphology = 'retícula'; }
+
+    const functions = new Set();
+    if (role === 'núcleo') {
+      functions.add('residencial');
+      functions.add('comercial');
+      if (rng.next() < 0.8) functions.add('cívico');
+      if (rng.next() < 0.5) functions.add('productivo');
+    } else if (time === 'moderno') {
+      functions.add('residencial');
+      if (rng.next() < 0.3) functions.add('comercial');
+    } else if (time === 'industrial') {
+      functions.add('residencial');
+      if (rng.next() < 0.6) functions.add('productivo');
+      if (rng.next() < 0.4) functions.add('comercial');
+    } else {
+      functions.add('residencial');
+      if (rng.next() < 0.5) functions.add('comercial');
+      if (rng.next() < 0.2) functions.add('cívico');
+    }
+
+    const baseDensity = 0.85 - dist * 0.65;
+    const density = Math.max(0.05, Math.min(0.98, baseDensity + (rng.next() - 0.5) * 0.15));
+
+    const cellW = 10, cellH = 10, margin = 1.5;
+    const geom = {
+      x: col * cellW + margin / 2,
+      y: row * cellH + margin / 2,
+      w: cellW - margin,
+      h: cellH - margin
+    };
+
+    return new Zone({
+      id, time, functions: [...functions], morphology, role,
+      density, environment, geometry: geom, seed: rng.state
+    });
+  }
+}
+
+/* ============================================================
+ * DOMAIN · CATÁLOGO DE EDIFICIOS
+ * ============================================================ */
+
+const BUILDING_STYLES = {
+  medieval:   { wallColor: '#c4b5a0', roofColor: '#6a4a3a', chimneyColor: '#7a5a4a',
+                hasChimney: true,  roofType: 'gabled', wMax: 8,  dMax: 12, roofPitch: 0.55 },
+  colonial:   { wallColor: '#f0e8d8', roofColor: '#b85030', chimneyColor: '#8a6a5a',
+                hasChimney: false, roofType: 'hipped', wMax: 10, dMax: 14, roofPitch: 0.45 },
+  industrial: { wallColor: '#a84030', roofColor: '#404048', chimneyColor: '#505058',
+                hasChimney: true,  roofType: 'gabled', wMax: 14, dMax: 22, roofPitch: 0.25 },
+  moderno:    { wallColor: '#e8e8e8', roofColor: '#606870', chimneyColor: '#707880',
+                hasChimney: false, roofType: 'flat',   wMax: 10, dMax: 12, roofPitch: 0 }
+};
+
+const BUILDING_TYPES = {
+  casa:    { aspect: 0.85, baseH: 3.5 },
+  iglesia: { aspect: 1.6,  baseH: 8.0 },
+  nave:    { aspect: 2.0,  baseH: 6.0 }
+};
+
+const STYLE_HEIGHT_MUL = { medieval: 1.0, colonial: 1.1, industrial: 1.0, moderno: 1.3 };
+
+function generateBuilding(seed, styleId, typeId, maxW, maxD) {
+  const rng = new SeededRandom(seed);
+  const style = BUILDING_STYLES[styleId] || BUILDING_STYLES.medieval;
+  const type = BUILDING_TYPES[typeId] || BUILDING_TYPES.casa;
+
+  let w = Math.min(style.wMax, maxW * rng.range(0.6, 0.9));
+  let d = w * type.aspect;
+  const dCap = Math.min(style.dMax, maxD * 0.9);
+  if (d > dCap) {
+    d = dCap;
+    w = d / type.aspect;
+  }
+
+  const wallH = type.baseH * (STYLE_HEIGHT_MUL[styleId] || 1.0) * (0.9 + rng.next() * 0.2);
+  const roofH = style.roofType === 'flat' ? 0.3 : w * style.roofPitch * 0.5;
+
+  const parts = [];
+  parts.push({
+    kind: 'wall',
+    pos: [0, wallH / 2, 0],
+    size: [w, wallH, d],
+    color: style.wallColor
+  });
+  parts.push({
+    kind: 'roof',
+    pos: [0, wallH + roofH / 2, 0],
+    size: [w * 1.06, roofH, d * 1.06],
+    color: style.roofColor,
+    roofType: style.roofType
+  });
+  if (style.hasChimney && w > 0.6) {
+    const chX = (rng.next() - 0.5) * w * 0.5;
+    const chSize = Math.max(0.4, w * 0.1);
+    const chH = 1.5;
+    parts.push({
+      kind: 'chimney',
+      pos: [chX, wallH + roofH * 0.5 + chH / 2, 0],
+      size: [chSize, chH, chSize],
+      color: style.chimneyColor
+    });
+  }
+  return { parts, w, d, wallH, roofH, style: styleId, type: typeId };
+}
+
+function pickBuildingType(zone, plotIndex) {
+  if (plotIndex === 0 && zone.functions.has('cívico')) return 'iglesia';
+  if (plotIndex === 1 && zone.time === 'industrial' && zone.functions.has('productivo')) return 'nave';
+  return 'casa';
+}
+
+function subdivideZone(zone) {
+  const n = zone.density > 0.7 ? 3 : zone.density > 0.4 ? 2 : 1;
+  const { x, y, w, h } = zone.geometry;
+  const pw = w / n, ph = h / n;
+  const plots = [];
+  for (let i = 0; i < n; i++) {
+    for (let j = 0; j < n; j++) {
+      plots.push({
+        cx: x + pw * (i + 0.5),
+        cy: y + ph * (j + 0.5),
+        w: pw,
+        h: ph
+      });
+    }
+  }
+  return plots;
+}
+
+/* ============================================================
+ * DOMAIN · CÁMARA ORBITAL
+ * ============================================================ */
+
+class OrbitCamera {
+  constructor(w, h) {
+    this.w = w; this.h = h;
+    this.yaw = -Math.PI / 4;
+    this.pitch = 0.55;
+    this.dist = 80;
+    this.target = [25, 2, 25];
+    this.fov = Math.PI / 3;
+  }
+  resize(w, h) { this.w = w; this.h = h; }
+  project(p) {
+    const t = this.target;
+    const cx = this.dist * Math.cos(this.pitch) * Math.sin(this.yaw);
+    const cy = this.dist * Math.sin(this.pitch);
+    const cz = this.dist * Math.cos(this.pitch) * Math.cos(this.yaw);
+    const fwd = this._norm([-cx, -cy, -cz]);
+    const right = this._norm(this._cross(fwd, [0, 1, 0]));
+    const up = this._cross(right, fwd);
+    const dx = p[0] - t[0] - cx;
+    const dy = p[1] - t[1] - cy;
+    const dz = p[2] - t[2] - cz;
+    const lx = dx * right[0] + dy * right[1] + dz * right[2];
+    const ly = dx * up[0] + dy * up[1] + dz * up[2];
+    const lz = dx * fwd[0] + dy * fwd[1] + dz * fwd[2];
+    const f = (this.h / 2) / Math.tan(this.fov / 2);
+    return [this.w / 2 + lx * f / lz, this.h / 2 - ly * f / lz, lz];
+  }
+  _norm(v) { const l = Math.hypot(v[0], v[1], v[2]) || 1; return [v[0]/l, v[1]/l, v[2]/l]; }
+  _cross(a, b) { return [a[1]*b[2]-a[2]*b[1], a[2]*b[0]-a[0]*b[2], a[0]*b[1]-a[1]*b[0]]; }
+}
+
+/* ============================================================
+ * DOMAIN · MESH HELPERS
+ * ============================================================ */
+
+function addTri(out, a, b, c, color) {
+  const ax = b[0]-a[0], ay = b[1]-a[1], az = b[2]-a[2];
+  const bx = c[0]-a[0], by = c[1]-a[1], bz = c[2]-a[2];
+  const nx = ay*bz - az*by;
+  const ny = az*bx - ax*bz;
+  const nz = ax*by - ay*bx;
+  const L = Math.hypot(nx, ny, nz) || 1;
+  out.push({ v: [a, b, c], color, n: [nx/L, ny/L, nz/L] });
+}
+
+function addQuad(out, a, b, c, d, color) {
+  addTri(out, a, b, c, color);
+  addTri(out, a, c, d, color);
+}
+
+function addBox(out, cx, cy, cz, w, h, d, color) {
+  const x0 = cx - w/2, x1 = cx + w/2;
+  const y0 = cy - h/2, y1 = cy + h/2;
+  const z0 = cz - d/2, z1 = cz + d/2;
+  addQuad(out, [x0,y0,z0],[x1,y0,z0],[x1,y1,z0],[x0,y1,z0], color);
+  addQuad(out, [x1,y0,z1],[x0,y0,z1],[x0,y1,z1],[x1,y1,z1], color);
+  addQuad(out, [x0,y0,z1],[x0,y1,z1],[x0,y1,z0],[x0,y0,z0], color);
+  addQuad(out, [x1,y0,z0],[x1,y1,z0],[x1,y1,z1],[x1,y0,z1], color);
+  addQuad(out, [x0,y1,z1],[x1,y1,z1],[x1,y1,z0],[x0,y1,z0], color);
+  addQuad(out, [x0,y0,z0],[x1,y0,z0],[x1,y0,z1],[x0,y0,z1], color);
+}
+
+function addGabled(out, cx, cy, cz, w, roofH, d, color) {
+  const baseY = cy - roofH / 2;
+  const apexY = cy + roofH / 2;
+  const x0 = cx - w/2, x1 = cx + w/2;
+  const z0 = cz - d/2, z1 = cz + d/2;
+  const a = [x0, baseY, z0], b = [x1, baseY, z0], c = [x1, baseY, z1], e = [x0, baseY, z1];
+  const rl = [x0, apexY, cz], rr = [x1, apexY, cz];
+  addQuad(out, a, b, rr, rl, color);
+  addQuad(out, c, e, rl, rr, color);
+  addTri(out, e, a, rl, color);
+  addTri(out, b, c, rr, color);
+}
+
+function addHipped(out, cx, cy, cz, w, roofH, d, color) {
+  const baseY = cy - roofH / 2;
+  const apexY = cy + roofH / 2;
+  const x0 = cx - w/2, x1 = cx + w/2;
+  const z0 = cz - d/2, z1 = cz + d/2;
+  const ridgeHalf = w * 0.3;
+  const rl = [cx - ridgeHalf, apexY, cz];
+  const rr = [cx + ridgeHalf, apexY, cz];
+  const a = [x0, baseY, z0], b = [x1, baseY, z0], c = [x1, baseY, z1], e = [x0, baseY, z1];
+  addQuad(out, a, b, rr, rl, color);
+  addQuad(out, c, e, rl, rr, color);
+  addTri(out, e, a, rl, color);
+  addTri(out, b, c, rr, color);
+}
+
+function buildBuildingMesh(building, plot, out) {
+  for (const part of building.parts) {
+    const [lx, ly, lz] = part.pos;
+    const [w, h, d] = part.size;
+    const wx = plot.cx + lx;
+    const wy = ly;
+    const wz = plot.cy + lz;
+
+    if (part.kind === 'wall') {
+      addBox(out, wx, wy, wz, w, h, d, part.color);
+    } else if (part.kind === 'roof') {
+      const rt = part.roofType || 'gabled';
+      if (rt === 'flat') {
+        addBox(out, wx, wy, wz, w, h, d, part.color);
+      } else if (rt === 'hipped') {
+        addHipped(out, wx, wy, wz, w, h, d, part.color);
+      } else {
+        addGabled(out, wx, wy, wz, w, h, d, part.color);
+      }
+    } else if (part.kind === 'chimney') {
+      addBox(out, wx, wy, wz, w, h, d, part.color);
+    }
+  }
+}
+
+function shadeHex(hex, k) {
+  const n = parseInt(hex.slice(1), 16);
+  const r = Math.round(Math.min(255, Math.max(0, ((n >> 16) & 255) * k)));
+  const g = Math.round(Math.min(255, Math.max(0, ((n >> 8) & 255) * k)));
+  const b = Math.round(Math.min(255, Math.max(0, (n & 255) * k)));
+  return `rgb(${r},${g},${b})`;
+}
+
+/* ============================================================
+ * ADAPTER · CanvasRenderer (2D + 3D)
+ * ============================================================ */
+
+class CanvasRenderer {
+  constructor(canvas, camera) {
+    this.cv = canvas;
+    this.ctx = canvas.getContext('2d');
+    this.camera = camera;
+    this.W = 0; this.H = 0;
+    this.hover = null;
+    this.zones = [];
+    this.buildings = new Map();
+    this.zoneResults = new Map();
+    this.mesh3D = [];
+    this.mode = '3d';
+    this.onHover = null;
+    this._bindResize();
+    this._bindHover();
+  }
+  _bindResize() {
+    window.addEventListener('resize', () => this.resize());
+    this.resize();
+  }
+  resize() {
+    const dpr = window.devicePixelRatio || 1;
+    const r = this.cv.getBoundingClientRect();
+    this.cv.width = Math.floor(r.width * dpr);
+    this.cv.height = Math.floor(r.height * dpr);
+    this.ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    this.W = r.width; this.H = r.height;
+    this.camera.resize(this.W, this.H);
+    this.draw();
+  }
+  _bindHover() {
+    this.cv.addEventListener('mousemove', e => {
+      const r = this.cv.getBoundingClientRect();
+      const mx = e.clientX - r.left, my = e.clientY - r.top;
+      let found = null;
+      if (this.mode === '3d') {
+        let bestD = 60;
+        for (const z of this.zones) {
+          const cx = z.geometry.x + z.geometry.w / 2;
+          const cz = z.geometry.y + z.geometry.h / 2;
+          const p = this.camera.project([cx, 3, cz]);
+          if (p[2] <= 0.1) continue;
+          const d = Math.hypot(mx - p[0], my - p[1]);
+          if (d < bestD) { bestD = d; found = z; }
+        }
+      } else {
+        const view = this._computeView2D();
+        for (const z of this.zones) {
+          const sx = view.ox + z.geometry.x * view.scale;
+          const sy = view.oy + z.geometry.y * view.scale;
+          const sw = z.geometry.w * view.scale;
+          const sh = z.geometry.h * view.scale;
+          if (mx >= sx && mx <= sx + sw && my >= sy && my <= sy + sh) { found = z; break; }
+        }
+      }
+      if (this.hover !== found) {
+        this.hover = found;
+        if (this.onHover) this.onHover(found);
+        if (this.mode !== '3d') this.draw();
+      }
+    });
+  }
+  draw() {
+    if (this.mode === '3d') return this._draw3D();
+    return this._draw2D();
+  }
+
+  /* --- 2D (zonas + planta) --- */
+  _computeView2D() {
+    if (!this.zones.length) return { scale: 1, ox: 0, oy: 0 };
+    let maxX = 0, maxY = 0;
+    for (const z of this.zones) {
+      maxX = Math.max(maxX, z.geometry.x + z.geometry.w);
+      maxY = Math.max(maxY, z.geometry.y + z.geometry.h);
+    }
+    const pad = 40;
+    const scale = Math.min((this.W - 2 * pad) / maxX, (this.H - 2 * pad) / maxY);
+    const ox = (this.W - maxX * scale) / 2;
+    const oy = (this.H - maxY * scale) / 2;
+    return { scale, ox, oy };
+  }
+  _draw2D() {
+    const ctx = this.ctx;
+    ctx.clearRect(0, 0, this.W, this.H);
+    const grad = ctx.createLinearGradient(0, 0, 0, this.H);
+    grad.addColorStop(0, '#0a0c10');
+    grad.addColorStop(1, '#12161d');
+    ctx.fillStyle = grad;
+    ctx.fillRect(0, 0, this.W, this.H);
+    if (!this.zones.length) return;
+    const view = this._computeView2D();
+    const showBuildings = this.mode === 'planta';
+    for (const z of this.zones) {
+      const sx = view.ox + z.geometry.x * view.scale;
+      const sy = view.oy + z.geometry.y * view.scale;
+      const sw = z.geometry.w * view.scale;
+      const sh = z.geometry.h * view.scale;
+      const color = TIME_COLORS[z.time] || '#666';
+
+      ctx.fillStyle = color;
+      ctx.globalAlpha = showBuildings ? 0.18 : 0.72;
+      ctx.fillRect(sx, sy, sw, sh);
+      ctx.globalAlpha = 1;
+
+      if (showBuildings) {
+        const buildings = this.buildings.get(z.id) || [];
+        const plots = z.plots || subdivideZone(z);
+        for (let i = 0; i < plots.length; i++) {
+          const b = buildings[i];
+          if (!b) continue;
+          this._drawBuilding2D(ctx, plots[i], b, view);
+        }
+      }
+
+      const vr = this.zoneResults.get(z.id);
+      let border = '#333', borderW = 1;
+      if (vr) {
+        if (vr.errors.length) { border = '#ef4444'; borderW = 2.5; }
+        else if (vr.warnings.length) { border = '#eab308'; borderW = 2.5; }
+        else { border = '#22c55e'; borderW = 1.5; }
+      }
+      if (this.hover === z) { border = '#fff'; borderW = 3.5; }
+      ctx.strokeStyle = border;
+      ctx.lineWidth = borderW;
+      ctx.strokeRect(sx, sy, sw, sh);
+
+      if (!showBuildings && sw > 50 && sh > 30) {
+        ctx.fillStyle = 'rgba(0,0,0,0.75)';
+        ctx.font = 'bold 10px ui-sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(z.time, sx + sw / 2, sy + sh / 2);
+        ctx.font = '9px ui-sans-serif';
+        ctx.fillText('d=' + z.density.toFixed(2), sx + sw / 2, sy + sh / 2 + 13);
+      }
+    }
+  }
+  _drawBuilding2D(ctx, plot, building, view) {
+    const s = view.scale;
+    for (const part of building.parts) {
+      const wx = plot.cx + part.pos[0];
+      const wy = plot.cy + part.pos[2];
+      const ww = part.size[0];
+      const wh = part.size[2];
+      const sx = view.ox + (wx - ww / 2) * s;
+      const sy = view.oy + (wy - wh / 2) * s;
+      if (part.kind === 'roof') {
+        ctx.fillStyle = part.color;
+        ctx.fillRect(sx, sy, ww * s, wh * s);
+      } else if (part.kind === 'wall') {
+        ctx.strokeStyle = part.color;
+        ctx.lineWidth = 1.5;
+        ctx.strokeRect(sx, sy, ww * s, wh * s);
+      } else if (part.kind === 'chimney') {
+        ctx.fillStyle = part.color;
+        ctx.fillRect(sx, sy, ww * s, wh * s);
+      }
+    }
+  }
+
+  /* --- 3D --- */
+  _draw3D() {
+    const ctx = this.ctx;
+    ctx.clearRect(0, 0, this.W, this.H);
+
+    // Sky gradient
+    const grad = ctx.createLinearGradient(0, 0, 0, this.H);
+    grad.addColorStop(0, '#1a2a3a');
+    grad.addColorStop(1, '#0a0c10');
+    ctx.fillStyle = grad;
+    ctx.fillRect(0, 0, this.W, this.H);
+
+    // Ground grid
+    this._drawGround3D(ctx);
+
+    if (!this.mesh3D.length) return;
+
+    // Project all triangles
+    const light = [0.5, 1.0, 0.3];
+    const lL = Math.hypot(light[0], light[1], light[2]);
+    const lx = light[0] / lL, ly = light[1] / lL, lz = light[2] / lL;
+    const projected = [];
+    for (const t of this.mesh3D) {
+      const pa = this.camera.project(t.v[0]);
+      const pb = this.camera.project(t.v[1]);
+      const pc = this.camera.project(t.v[2]);
+      if (pa[2] <= 0.1 || pb[2] <= 0.1 || pc[2] <= 0.1) continue;
+      const depth = (pa[2] + pb[2] + pc[2]) / 3;
+      const dot = Math.abs(t.n[0] * lx + t.n[1] * ly + t.n[2] * lz);
+      const shade = 0.4 + 0.6 * dot;
+      projected.push({
+        pa, pb, pc, depth,
+        color: shadeHex(t.color, shade)
+      });
+    }
+    projected.sort((a, b) => b.depth - a.depth);
+
+    for (const p of projected) {
+      ctx.beginPath();
+      ctx.moveTo(p.pa[0], p.pa[1]);
+      ctx.lineTo(p.pb[0], p.pb[1]);
+      ctx.lineTo(p.pc[0], p.pc[1]);
+      ctx.closePath();
+      ctx.fillStyle = p.color;
+      ctx.fill();
+      ctx.strokeStyle = 'rgba(0,0,0,0.15)';
+      ctx.lineWidth = 0.3;
+      ctx.stroke();
+    }
+
+    // Hover zone outline (on the ground)
+    if (this.hover) {
+      const g = this.hover.geometry;
+      const corners = [
+        [g.x, 0.05, g.y],
+        [g.x + g.w, 0.05, g.y],
+        [g.x + g.w, 0.05, g.y + g.h],
+        [g.x, 0.05, g.y + g.h]
+      ];
+      const proj = corners.map(c => this.camera.project(c));
+      if (proj.every(p => p[2] > 0.1)) {
+        ctx.strokeStyle = '#fff';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(proj[0][0], proj[0][1]);
+        for (let i = 1; i < 4; i++) ctx.lineTo(proj[i][0], proj[i][1]);
+        ctx.closePath();
+        ctx.stroke();
+      }
+    }
+  }
+  _drawGround3D(ctx) {
+    const size = 100;
+    const step = 10;
+    ctx.strokeStyle = 'rgba(255,255,255,0.05)';
+    ctx.lineWidth = 1;
+    for (let x = -size; x <= size; x += step) {
+      const a = this.camera.project([x, 0, -size]);
+      const b = this.camera.project([x, 0, size]);
+      if (a[2] <= 0.1 || b[2] <= 0.1) continue;
+      ctx.beginPath();
+      ctx.moveTo(a[0], a[1]);
+      ctx.lineTo(b[0], b[1]);
+      ctx.stroke();
+    }
+    for (let z = -size; z <= size; z += step) {
+      const a = this.camera.project([-size, 0, z]);
+      const b = this.camera.project([size, 0, z]);
+      if (a[2] <= 0.1 || b[2] <= 0.1) continue;
+      ctx.beginPath();
+      ctx.moveTo(a[0], a[1]);
+      ctx.lineTo(b[0], b[1]);
+      ctx.stroke();
+    }
+  }
+}
+
+/* ============================================================
+ * APPLICATION
+ * ============================================================ */
+
+class App {
+  constructor() {
+    this.camera = new OrbitCamera(800, 600);
+    this.renderer = new CanvasRenderer(document.getElementById('cv'), this.camera);
+    this.zones = [];
+    this.buildings = new Map();
+    this.mesh3D = [];
+    this.mode = '3d';
+    this.validation = null;
+    this.validator = new ZoneValidator();
+    this.renderer.onHover = z => this._updateInfo(z);
+    this._bindControls();
+    this._bindOrbit();
+    this._setMode('3d');
+    this.generate();
+  }
+  _bindControls() {
+    const g = id => document.getElementById(id);
+    g('btnGen').onclick = () => this.generate();
+    g('btnFit').onclick = () => { this._fitCamera(); this.renderer.draw(); };
+    g('btnTests').onclick = () => this.runTests();
+    for (const id of ['seed', 'cols', 'rows', 'env']) {
+      g(id).addEventListener('change', () => this.generate());
+    }
+    g('tabZones').onclick = () => this._setMode('zones');
+    g('tabPlanta').onclick = () => this._setMode('planta');
+    g('tab3D').onclick = () => this._setMode('3d');
+  }
+  _bindOrbit() {
+    const cv = document.getElementById('cv');
+    let drag = null;
+    cv.addEventListener('mousedown', e => {
+      if (this.mode !== '3d') return;
+      drag = { x: e.clientX, y: e.clientY, yaw: this.camera.yaw, pitch: this.camera.pitch };
+    });
+    window.addEventListener('mousemove', e => {
+      if (!drag) return;
+      this.camera.yaw = drag.yaw + (e.clientX - drag.x) * 0.008;
+      this.camera.pitch = Math.max(-0.1, Math.min(1.4, drag.pitch + (e.clientY - drag.y) * 0.008));
+      this.renderer.draw();
+    });
+    window.addEventListener('mouseup', () => { drag = null; });
+    cv.addEventListener('wheel', e => {
+      if (this.mode !== '3d') return;
+      e.preventDefault();
+      this.camera.dist = Math.max(10, Math.min(500,
+        this.camera.dist * (e.deltaY < 0 ? 0.9 : 1.1)));
+      this.renderer.draw();
+    }, { passive: false });
+  }
+  _setMode(mode) {
+    this.mode = mode;
+    this.renderer.mode = mode;
+    const cv = document.getElementById('cv');
+    cv.classList.toggle('mode-3d', mode === '3d');
+    cv.classList.toggle('mode-2d', mode !== '3d');
+    document.getElementById('tabZones').classList.toggle('active', mode === 'zones');
+    document.getElementById('tabPlanta').classList.toggle('active', mode === 'planta');
+    document.getElementById('tab3D').classList.toggle('active', mode === '3d');
+    document.getElementById('hint-3d').classList.toggle('active', mode === '3d');
+    this.renderer.draw();
+  }
+  generate() {
+    const g = id => document.getElementById(id);
+    const seed = parseInt(g('seed').value) || 42;
+    const cols = Math.max(3, Math.min(10, parseInt(g('cols').value) || 5));
+    const rows = Math.max(3, Math.min(10, parseInt(g('rows').value) || 5));
+    const environment = g('env').value;
+    this.zones = TopologyGenerator.grid({ cols, rows, seed, environment });
+    this.validation = this.validator.validateCity(this.zones);
+    this.renderer.zoneResults.clear();
+    for (const z of this.zones) {
+      this.renderer.zoneResults.set(z.id, this.validator.validateZone(z));
+    }
+
+    // Generar edificios por zona
+    this.buildings.clear();
+    let totalBuildings = 0;
+    for (const zone of this.zones) {
+      const plots = subdivideZone(zone);
+      zone.plots = plots;
+      const zoneBuildings = [];
+      for (let i = 0; i < plots.length; i++) {
+        const plot = plots[i];
+        const typeId = pickBuildingType(zone, i);
+        const bSeed = zone.seed + i * 7919;
+        const b = generateBuilding(bSeed, zone.time, typeId, plot.w * 0.85, plot.h * 0.85);
+        zoneBuildings.push(b);
+        totalBuildings++;
+      }
+      this.buildings.set(zone.id, zoneBuildings);
+    }
+
+    // Construir malla 3D
+    this.mesh3D = this._buildCityMesh();
+    this._fitCamera();
+
+    this.renderer.zones = this.zones;
+    this.renderer.buildings = this.buildings;
+    this.renderer.mesh3D = this.mesh3D;
+    this.renderer.draw();
+    this._renderPanel();
+    document.getElementById('hud-count').textContent = this.zones.length;
+    document.getElementById('hud-buildings').textContent = totalBuildings;
+    const st = document.getElementById('hud-status');
+    if (this.validation.ok && !this.validation.warnings.length) {
+      st.textContent = 'OK'; st.style.color = '#22c55e';
+    } else if (this.validation.ok) {
+      st.textContent = this.validation.warnings.length + ' warnings'; st.style.color = '#eab308';
+    } else {
+      st.textContent = this.validation.errors.length + ' errores'; st.style.color = '#ef4444';
+    }
+  }
+  _buildCityMesh() {
+    const tris = [];
+    for (const zone of this.zones) {
+      const plots = zone.plots || [];
+      const buildings = this.buildings.get(zone.id) || [];
+      for (let i = 0; i < plots.length; i++) {
+        const b = buildings[i];
+        if (!b) continue;
+        buildBuildingMesh(b, plots[i], tris);
+      }
+    }
+    return tris;
+  }
+  _fitCamera() {
+    if (!this.zones.length) return;
+    let minX = Infinity, maxX = -Infinity, minZ = Infinity, maxZ = -Infinity;
+    let maxY = 5;
+    for (const z of this.zones) {
+      minX = Math.min(minX, z.geometry.x);
+      maxX = Math.max(maxX, z.geometry.x + z.geometry.w);
+      minZ = Math.min(minZ, z.geometry.y);
+      maxZ = Math.max(maxZ, z.geometry.y + z.geometry.h);
+    }
+    for (const t of this.mesh3D) {
+      for (const v of t.v) if (v[1] > maxY) maxY = v[1];
+    }
+    const cx = (minX + maxX) / 2;
+    const cz = (minZ + maxZ) / 2;
+    const span = Math.max(maxX - minX, maxZ - minZ);
+    this.camera.target = [cx, maxY * 0.3, cz];
+    this.camera.dist = span * 1.6;
+    this.camera.pitch = 0.55;
+    this.camera.yaw = -Math.PI / 4;
+  }
+  _updateInfo(zone) {
+    const el = document.getElementById('info');
+    if (!zone) { el.innerHTML = 'Hover sobre una zona del canvas'; return; }
+    const vr = this.renderer.zoneResults.get(zone.id);
+    const buildings = this.buildings.get(zone.id) || [];
+    let html = `
+      <div class="kv"><span>ID</span><b>${zone.id}</b></div>
+      <div class="kv"><span>Tiempo</span><b>${zone.time}</b></div>
+      <div class="kv"><span>Rol</span><b>${zone.role}</b></div>
+      <div class="kv"><span>Morfología</span><b>${zone.morphology}</b></div>
+      <div class="kv"><span>Density</span><b>${zone.density.toFixed(2)}</b></div>
+      <div class="kv"><span>Funciones</span><b>${[...zone.functions].join(', ')}</b></div>
+      <div class="kv"><span>Edificios</span><b>${buildings.length}</b></div>
+    `;
+    if (buildings.length) {
+      const counts = {};
+      for (const b of buildings) counts[b.type] = (counts[b.type] || 0) + 1;
+      html += `<div class="kv"><span>Tipos</span><b>${Object.entries(counts).map(([k,v])=>`${k}:${v}`).join(' · ')}</b></div>`;
+    }
+    if (vr && vr.errors.length) html += `<div class="err">❌ ${vr.errors.join('<br>❌ ')}</div>`;
+    if (vr && vr.warnings.length) html += `<div class="warn">⚠️ ${vr.warnings.join('<br>⚠️ ')}</div>`;
+    el.innerHTML = html;
+  }
+  _renderPanel() {
+    const el = document.getElementById('validation');
+    if (!this.validation) { el.innerHTML = ''; return; }
+    const v = this.validation;
+    let html = '';
+    if (v.ok && !v.warnings.length) {
+      html += `<div class="summary ok">✅ Todo OK</div>`;
+    } else if (v.ok) {
+      html += `<div class="summary warn">⚠️ ${v.warnings.length} advertencias</div>`;
+    } else {
+      html += `<div class="summary fail">❌ ${v.errors.length} errores · ${v.warnings.length} warnings</div>`;
+    }
+    if (v.errors.length) {
+      html += `<details><summary>${v.errors.length} errores</summary><ul>`;
+      for (const e of v.errors.slice(0, 25)) html += `<li>${e}</li>`;
+      html += `</ul></details>`;
+    }
+    if (v.warnings.length) {
+      html += `<details><summary>${v.warnings.length} advertencias</summary><ul>`;
+      for (const w of v.warnings.slice(0, 25)) html += `<li>${w}</li>`;
+      html += `</ul></details>`;
+    }
+    el.innerHTML = html;
+  }
+  runTests() {
+    const out = document.getElementById('tests');
+    out.innerHTML = '';
+    let pass = 0, fail = 0;
+    const log = (name, ok, extra) => {
+      ok ? pass++ : fail++;
+      const d = document.createElement('div');
+      d.className = 'test ' + (ok ? 'ok' : 'fail');
+      d.textContent = (ok ? '✅ ' : '❌ ') + name + (extra ? ' — ' + extra : '');
+      out.appendChild(d);
+    };
+    const v = new ZoneValidator();
+    const mk = (over = {}) => new Zone({
+      id: 'T', time: 'medieval', functions: ['residencial'], morphology: 'orgánica',
+      role: 'periferia', density: 0.5, environment: 'templado',
+      geometry: { x: 0, y: 0, w: 1, h: 1 }, seed: 1, ...over
+    });
+
+    log('R1: orgánica+moderno → error',
+      v.validateZone(mk({ time: 'moderno', morphology: 'orgánica' })).errors.some(e => e.includes('R1')));
+    log('R2: lineal+medieval → error',
+      v.validateZone(mk({ time: 'medieval', morphology: 'lineal' })).errors.some(e => e.includes('R2')));
+    log('R3: retícula+medieval → warning',
+      v.validateZone(mk({ time: 'medieval', morphology: 'retícula' })).warnings.some(w => w.includes('R3')));
+    log('R4: moderno+periferia+density 0.9 → warning',
+      v.validateZone(mk({ time: 'moderno', role: 'periferia', density: 0.9 })).warnings.some(w => w.includes('R4')));
+    log('R5: núcleo+density 0.1 → warning',
+      v.validateZone(mk({ role: 'núcleo', density: 0.1,
+        functions: ['residencial', 'comercial', 'cívico'] })).warnings.some(w => w.includes('R5')));
+    log('R6: núcleo sin cívico → warning',
+      v.validateZone(mk({ role: 'núcleo', density: 0.8,
+        functions: ['residencial'] })).warnings.some(w => w.includes('R6')));
+    log('R7: moderno+productivo+residencial → warning',
+      v.validateZone(mk({ time: 'moderno',
+        functions: ['residencial', 'productivo'] })).warnings.some(w => w.includes('R7')));
+    log('R8: núcleo+density 0.2 → error',
+      v.validateZone(mk({ role: 'núcleo', density: 0.2,
+        functions: ['residencial', 'comercial', 'cívico'] })).errors.some(e => e.includes('R8')));
+
+    const a1a = mk({ id: 'A', functions: ['residencial'], time: 'colonial' });
+    const a1b = mk({ id: 'B', functions: ['productivo'], time: 'colonial' });
+    log('A1: sin función común → error',
+      v.validateAdjacency(a1a, a1b).errors.some(e => e.includes('A1')));
+    const a2a = mk({ id: 'A', time: 'medieval', functions: ['residencial'] });
+    const a2b = mk({ id: 'B', time: 'moderno', functions: ['residencial'] });
+    log('A2: medieval+moderno → error',
+      v.validateAdjacency(a2a, a2b).errors.some(e => e.includes('A2')));
+    const a3a = mk({ id: 'A', role: 'núcleo', density: 0.8, functions: ['residencial', 'cívico'] });
+    const a3b = mk({ id: 'B', role: 'núcleo', density: 0.8, functions: ['residencial', 'cívico'] });
+    log('A3: dos núcleos adyacentes → error',
+      v.validateAdjacency(a3a, a3b).errors.some(e => e.includes('A3')));
+    const ok1 = mk({ id: 'A', time: 'colonial', functions: ['residencial'] });
+    const ok2 = mk({ id: 'B', time: 'industrial', functions: ['residencial'] });
+    log('Adj válida', v.validateAdjacency(ok1, ok2).ok);
+
+    const zones = TopologyGenerator.grid({ cols: 5, rows: 5, seed: 42, environment: 'templado' });
+    log('Ciudad 5×5 sin errores', v.validateCity(zones).ok);
+
+    const b1 = generateBuilding(42, 'medieval', 'casa', 4, 4);
+    log('Building tiene wall+roof',
+      b1.parts.some(p => p.kind === 'wall') && b1.parts.some(p => p.kind === 'roof'));
+    log('Building cabe en plot', b1.w <= 4 && b1.d <= 4);
+    log('Iglesia más alta que casa',
+      generateBuilding(1, 'medieval', 'iglesia', 10, 10).wallH >
+      generateBuilding(1, 'medieval', 'casa', 10, 10).wallH);
+
+    const sub = subdivideZone(mk({ density: 0.9, geometry: { x: 0, y: 0, w: 10, h: 10 } }));
+    log('Density 0.9 → 9 plots', sub.length === 9);
+    const sub2 = subdivideZone(mk({ density: 0.5, geometry: { x: 0, y: 0, w: 10, h: 10 } }));
+    log('Density 0.5 → 4 plots', sub2.length === 4);
+    const sub3 = subdivideZone(mk({ density: 0.2, geometry: { x: 0, y: 0, w: 10, h: 10 } }));
+    log('Density 0.2 → 1 plot', sub3.length === 1);
+
+    // Mesh tests
+    const tris = [];
+    const testPlot = { cx: 5, cy: 5, w: 4, h: 4 };
+    buildBuildingMesh(generateBuilding(1, 'medieval', 'casa', 3, 3), testPlot, tris);
+    log('Malla tiene triángulos', tris.length > 10, `${tris.length} tris`);
+    log('Malla con normales unitarias',
+      tris.every(t => Math.abs(Math.hypot(t.n[0], t.n[1], t.n[2]) - 1) < 0.001));
+
+    const summary = document.createElement('div');
+    summary.style.cssText = 'margin-top:8px;font-weight:600;color:' + (fail === 0 ? '#22c55e' : '#ef4444');
+    summary.textContent = `${pass} ✓ · ${fail} ✗`;
+    out.appendChild(summary);
+  }
+}
+
+window.addEventListener('DOMContentLoaded', () => {
+  window.__app = new App();
+});
+</script>
+</body>
+</html>
