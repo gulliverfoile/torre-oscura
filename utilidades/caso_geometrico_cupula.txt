@@ -1,0 +1,430 @@
+════════════════════════════════════════════════════════════════════════════════
+CÚPULAS Y ARCOS · EXPLORADOR DE FORMAS DE COMPRESIÓN
+(v1 · el primero, el de la cúpula — el de la visualización bonita)
+════════════════════════════════════════════════════════════════════════════════
+Documento de referencia. Sin código. Para leer antes de usarlo.
+────────────────────────────────────────────────────────────────────────────────
+
+AVISO PREVIO, Y VA EN SERIO:
+Este proyecto nació para "emular la cúpula de Brunelleschi" y explorar formas
+de compresión. En el proceso se descubrió que tiene un fallo conceptual grave:
+lo que parece 3D es, en realidad, un análisis 2D de una rebanada, disfrazado
+de 3D. La cúpula que se dibuja es tridimensional; lo que se analiza es un
+arco meridiano. Eso no es un detalle menor: es la diferencia entre "esta
+cúpula aguanta" y "este arco, aislado, aguanta". La cúpula real puede estar
+agrietándose horizontalmente (tracción de aro) mientras el arco, aislado, dice
+que todo está bien.
+
+Por eso este documento lleva, además de "qué es y qué hace", una sección
+entera de FALLOS. Son reales. Son conocidos. Están documentados en el código.
+No son un bug pendiente de arreglar: son una decisión de alcance de v1 que
+convierte esta herramienta en didáctica, no en certificable. Léelos antes de
+usarla para nada serio.
+
+El juguete B (vigas y pórticos) es honesto porque no promete 3D. Este promete
+una cúpula y da una rebanada. La visualización es más amigable; la física es
+más tramposa. Ambos hechos son ciertos.
+
+
+1. QUÉ ES
+────────────────────────────────────────────────────────────────────────────────
+
+Un explorador interactivo de formas de compresión (arcos, cúpulas, bóvedas,
+cubiertas) que combina:
+
+   ● Un perfil 2D (arco apuntado, parábola, semicírculo, gablete, etc.) que
+     tú parametrizas con sliders.
+   ● Una línea de empujes (funicular) que se calcula a partir de las cargas.
+   ● Un chequeo de seguridad tipo Heyman: si la línea de empujes cabe dentro
+     del espesor del casco, la estructura es segura a compresión pura.
+   ● Una visualización 3D de la cúpula o bóveda generada por revolución o
+     extrusión del perfil.
+   ● Un optimizador de espesor por bisección: encuentra el espesor mínimo
+     seguro.
+   ● Superposición del funicular coloreado por margen (verde si está dentro,
+     rojo si está fuera) sobre el casco 3D.
+   ● Una vista de sección 2D en el panel, con cargas, casco y funicular.
+
+Es un juguete. Herramienta didáctica para explorar la intuición de Brunelleschi
+(la forma es la estructura; el funicular dentro del casco es la seguridad) y
+para comparar perfiles (semicírculo vs. quinto acuto) visualmente.
+
+No certifica. No autoriza a construir. No es 3D real. Todo esto se detalla
+en la sección 9 (Fallos).
+
+
+2. QUÉ HACE
+────────────────────────────────────────────────────────────────────────────────
+
+   ● Selector de forma: cúpula (revolución), bóveda de cañón (extrusión),
+     cubierta a dos aguas (extrusión de triángulo).
+   ● Sliders: semivano a, flecha h, espesor t, densidad ρ, carga viva q.
+   ● Perfil generado por función matemática (arco de dos centros si h ≥ a,
+     parábola rebajada si h < a; gablete si es gable).
+   ● Cálculo de la línea de empujes: para una carga repartida, se busca el
+     funicular (familia 1-paramétrica en H) que mejor se ajusta dentro del
+     casco.
+   ● Chequeo Heyman: margen mínimo de holgura entre el funicular y el
+     intradós/extradós. Si margen ≥ 0 en todo punto, seguro.
+   ● Optimización de espesor por bisección: se reduce t hasta el mínimo que
+     mantiene margen ≥ 0.
+   ● Generación de malla 3D: revolución del perfil derecho (cúpula) o
+     extrusión del perfil completo (bóveda, gable).
+   ● Render 3D con cámara orbital, proyección en perspectiva, algoritmo del
+     pintor (ordenación por profundidad), sombreado básico.
+   ● Superposición del funicular sobre la cúpula 3D, coloreado por margen
+     (verde dentro, rojo fuera).
+   ● Puntos cian donde el funicular toca el casco (tangencia: estado límite,
+     "KKT geométrico").
+   ● Panel de resultados con veredicto (SEGURO / INESTABLE), margen, empuje
+     horizontal H, longitud de arco, espesor, semivano, flecha.
+   ● Vista de sección 2D con casco relleno, superficie media, funicular a
+     trazos, cargas como flechas, apoyos.
+   ● Botón de ejecutar tests del dominio.
+
+
+3. CÓMO LO HACE — FÍSICA
+────────────────────────────────────────────────────────────────────────────────
+
+3.1. Perfiles
+   Arco apuntado de dos centros (gótico):
+     Si rise ≥ a: dos arcos de radio r = (a² + rise²)/(2a), centros en
+     (a − r, 0) y (−a + r, 0).
+     Si rise < a: parábola rebajada y(x) = rise·(1 − (x/a)²). Se usa la
+     parábola porque la fórmula de dos centros degenera.
+   Gablete (triángulo): y(x) = rise·(1 − |x|/a).
+   Semicírculo: caso particular de arco apuntado con rise = a.
+
+3.2. Cargas
+   Carga repartida proporcional a la longitud de arco (modela gravedad de un
+   casco de espesor constante). Se discretiza en cargas puntuales sobre el
+   perfil.
+
+3.3. Momento flector (base del funicular)
+   Para una viga simplemente apoyada en (x0, 0) y (x1, 0) con cargas P_i en
+   posiciones a_i:
+     M(x) = Σ P_i · (x1 − a_i)/L · (x − x0)   si x < a_i
+     M(x) = Σ P_i · (a_i − x0)/L · (x1 − x)   si x > a_i
+   Es el momento de una viga simplemente apoyada bajo las mismas cargas.
+
+3.4. Funicular (línea de empujes)
+   y_f(x) = y_apoyos(x) + M(x)/H
+   donde H es el empuje horizontal. Para una familia 1-paramétrica de
+   funiculares, H es el parámetro. Más H → más plano. Menos H → más colgante.
+   El funicular pasa por los apoyos por construcción.
+
+3.5. Chequeo Heyman (teorema de seguridad)
+   Hipótesis: material sin tracción (mampostería). Si existe un estado de
+   compresión pura compatible con el equilibrio, la estructura es segura.
+   Implementación:
+     - Se aproxima el casco con la superficie media ± t/2 (desplazamiento
+       VERTICAL, no normal — ver fallo F5).
+     - Se barre H en un rango logarítmico (180 valores).
+     - Para cada H, se calcula el margen mínimo:
+         margen(x) = min( y_f(x) − (y_medio(x) − t/2),
+                          (y_medio(x) + t/2) − y_f(x) )
+     - Se elige el H que maximiza el margen mínimo.
+     - Seguro si margen ≥ 0.
+
+3.6. Optimización de espesor
+   Bisección sobre t en [0.001, 12] m. En cada iteración se recalcula la
+   carga (peso propio ∝ t) y se hace el chequeo Heyman. Se reduce t hasta el
+   mínimo que mantiene margen ≥ 0. Si con t = 12 no es seguro, no hay
+   solución.
+
+3.7. Malla 3D
+   Cúpula: revolución del perfil derecho alrededor del eje vertical, con
+   intradós y extradós generados por offset normal ± t/2 (aquí sí normal,
+   a diferencia del chequeo Heyman; inconsistencia, ver F5).
+   Bóveda/gable: extrusión del perfil completo, intradós y extradós por
+   offset normal ± t/2.
+
+3.8. Render
+   Cámara orbital (yaw, pitch, dist, target). Proyección en perspectiva con
+   FOV 60°. Algoritmo del pintor: se ordenan las caras por profundidad media
+   y se dibujan de atrás a adelante. Sombreado por producto escalar con una
+   luz direccional. Color base cian (extradós) y cian oscuro (intradós).
+
+3.9. Puntos de tangencia ("KKT geométrico")
+   Donde el margen |margen(x)| < ε, se marca un punto cian. Estos puntos son
+   el estado límite: el funicular toca el casco. En optimización de forma,
+   esto es la condición KKT en su forma geométrica. En este juguete es una
+   detección numérica, no un cálculo de multiplicadores de Lagrange.
+
+
+4. CÓMO LO HACE — ARQUITECTURA
+────────────────────────────────────────────────────────────────────────────────
+
+Hexagonal, un solo archivo HTML.
+
+   ┌───────────────────────────────────────────────────────────────────────┐
+   │  DOMAIN                                                               │
+   │    Profile (archProfile, gableProfile, semicircleProfile)            │
+   │    LoadCase (fromProfile)                                            │
+   │    momentAt, funicularY                                              │
+   │    safetyCheck                                                       │
+   │    minSafeThickness                                                  │
+   │    revolveProfile, extrudeProfile                                    │
+   ├───────────────────────────────────────────────────────────────────────┤
+   │  PORTS                                                                │
+   │    IRenderer, IControls, ISolver, IScene                             │
+   ├───────────────────────────────────────────────────────────────────────┤
+   │  ADAPTERS                                                             │
+   │    OrbitCamera, Canvas3DRenderer, Section2DRenderer, DOMControls     │
+   ├───────────────────────────────────────────────────────────────────────┤
+   │  APPLICATION                                                          │
+   │    App: estado + servicios activos + cableado                        │
+   └───────────────────────────────────────────────────────────────────────┘
+
+El dominio no toca el DOM. Los adapters pueden importar del dominio, no al
+revés. El App cablea, no calcula. Los tests corren contra el dominio puro sin
+canvas.
+
+Frontera verificable: el dominio (perfil, cargas, funicular, seguridad,
+optimizador) se testea sin navegador. Si un test del dominio necesita DOM, el
+código está mal ubicado.
+
+
+5. TESTS (los que tiene)
+────────────────────────────────────────────────────────────────────────────────
+
+   ● Arco apuntado: arranque en (±a, 0), ápice en (0, h).
+   ● Semicírculo: y(5) = √75 para a = 10.
+   ● Parábola rebajada: y(0) = h, y(±a) = 0.
+   ● Gablete: y(0) = h, y(±a) = 0, lineal en el punto medio.
+   ● Momento flector: carga central P·L/4, M = 0 en los apoyos.
+   ● Funicular: pasa por los apoyos.
+   ● Semicírculo grueso (t = 2) es seguro.
+   ● Semicírculo papel (t = 0.001) es inseguro.
+   ● Optimizador: t mín encontrado para arco apuntado.
+   ● Malla cúpula: vértice ≈ h + t/2.
+   ● Malla bóveda: z ∈ [−L/2, L/2].
+
+Verifican que las matemáticas son coherentes. NO verifican que el modelo 3D
+sea correcto, porque el modelo 3D no se analiza: se dibuja. El análisis es 2D.
+
+
+6. PRESETS Y PARÁMETROS
+────────────────────────────────────────────────────────────────────────────────
+
+   Forma: cúpula (revolución), bóveda (extrusión), gable (extrusión).
+   Semivano a: [4, 40] m.
+   Flecha h: [2, 60] m.
+   Espesor t: [0.05, 6] m.
+   Densidad ρ: [0.5, 5] kg/m² (simplificado).
+   Carga viva q: [0, 3] kg/m².
+
+   El preset por defecto es una cúpula con a = 22, h = 30, t = 1.2. Es una
+   cúpula apuntada, cercana en proporciones a Santa Maria del Fiore
+   (semivano ~22 m, flecha ~30 m, espesor ~1.2 m en la base).
+
+
+7. CÓMO USARLO BIEN (sabiendo lo que es)
+────────────────────────────────────────────────────────────────────────────────
+
+   1. Ábrelo en un navegador. No necesita servidor.
+   2. Ajusta a y h. Verás cómo cambia el perfil y la cúpula 3D.
+   3. Ajusta t. Verás cómo cambia el casco y si la línea de empujes queda
+      dentro (verde) o fuera (rojo).
+   4. Pulsa "Optimizar espesor". El juguete reduce t hasta el mínimo seguro.
+   5. Compara perfiles: sube h con a fija. Un arco más apuntado tiene menos
+      empuje horizontal. Eso es el quinto acuto de Brunelleschi.
+   6. Compara semicírculo (h = a) con quinto acuto (h > a). El quinto acuto
+      necesita menos espesor para la misma luz. Ese es el "teorema de
+      Brunelleschi" en una gráfica.
+   7. Mira los puntos cian: son el estado límite. Ahí el funicular toca el
+      casco. Si el casco se hiciera más delgado, el funicular se saldría y
+      la cúpula sería inestable.
+
+   Para lo que NO usarlo:
+   - Para decidir si una cúpula real aguanta. No lo hace (ver fallo F1).
+   - Para comparar con una cúpula real a nivel de detalle. Solo a orden de
+     magnitud.
+   - Para reproducir las cadenas de Brunelleschi. No las modela (fallo F2).
+
+
+8. FILOSOFÍA (la misma que el juguete B)
+────────────────────────────────────────────────────────────────────────────────
+
+   1. Primero se calcula, después se dibuja. La visualización 3D muestra el
+      resultado del cálculo 2D. Pero ojo: el cálculo 2D no es 3D. Ver fallos.
+
+   2. El juguete puede ser cutre; lo que no puede ser es decorativo. Aquí la
+      visualización es bonita, pero el cálculo es una rebanada. La parte
+      bonita (3D) es más honesta que la parte calculada (2D), porque la 3D
+      no pretende ser análisis; solo es presentación. El problema es cuando
+      la presentación 3D se confunde con el análisis 3D.
+
+   3. En una estructura, si funciona, se ve bien. En un videojuego, si se ve
+      bien, funciona. Este juguete está en la frontera: se ve bien (3D
+      bonito) pero funciona a medias (2D rebanada). No lo confundas con una
+      herramienta de ingeniería.
+
+
+9. FALLOS — ESTA ES LA SECCIÓN IMPORTANTE
+────────────────────────────────────────────────────────────────────────────────
+
+F1. 2.5D DISFRAZADO DE 3D  (GRAVE)
+    Lo que se dibuja es una cúpula 3D por revolución. Lo que se analiza es
+    un arco meridiano en la rebanada z = 0. La cúpula real es tridimensional;
+    el análisis es 2D. Esto significa:
+      - La cúpula real puede tener tracción de aro (hoop tension) que el
+        análisis de rebanada no ve.
+      - Una cúpula semicircular bajo peso propio tiene compresión en el
+        ápice y TRACCIÓN cerca del arranque (en el paralelo). El análisis de
+        rebanada no lo detecta.
+      - Para mampostería, esa tracción agrieta la cúpula horizontalmente.
+        Brunelleschi lo resolvió con TRES CADENAS de piedra y madera, y con
+        el espinapez (herringbone) que convierte la tracción de aro en
+        compresión a lo largo de las hiladas.
+      - El juguete NO modela cadenas ni espinapez. Dice "SEGURO" cuando la
+        cúpula real podría estar agrietándose.
+    Es un falso positivo estructural. El fallo más grave del proyecto.
+
+F2. NO HAY HOOP  (consecuencia de F1)
+    El esfuerzo de aro N_θ(φ) no se calcula. Para una superficie de
+    revolución bajo carga axisimétrica, el equilibrio de membrana se reduce
+    a dos funciones de una variable (N_φ meridional, N_θ de aro), y son
+    baratas de calcular. No se hizo. Un toggle "hoop on/off" con su propio
+    servicio de dominio (puro, testeable) sería v1.1 y convertiría el
+    juguete en algo honesto. Ahora mismo, no lo es.
+
+F3. BÓVEDA DE CAÑÓN: EXTREMOS NO MODELADOS
+    Una bóveda de cañón bajo carga uniforme trabaja, en faja transversal,
+    casi como un arco 2D. Eso es cierto en el centro. Pero los EXTREMOS
+    empujan hacia fuera y necesitan estribos. El juguete no modela los
+    extremos ni el empuje lateral que generan. Puede decir "seguro" cuando
+    los muros de apoyo se están abriendo.
+
+F4. GABLETE SIN TIRANTES
+    Un gablete (cubierta a dos aguas) bajo carga uniforme tiene un funicular
+    en parábola que cae FUERA del triángulo. El juguete lo reporta como
+    "inestable". Físicamente es correcto: un gablete de fábrica sin tirantes
+    no es compresión pura, necesita tracción (tirantes, cerchas). El juguete
+    no modela tirantes. Así que el "inestable" es correcto, pero confuso:
+    el usuario no entiende por qué un techo a dos aguas "no funciona" cuando
+    en la realidad funciona con tirantes. Es un falso negativo didáctico.
+
+F5. APROXIMACIÓN DEL ESPESOR: INCONSISTENTE
+    En el chequeo Heyman, el casco se aproxima por desplazamiento VERTICAL
+    ± t/2 desde la superficie media. Es correcto para pendientes moderadas,
+    falla cerca de arranques verticales. En la malla 3D, el intradós y el
+    extradós se generan por offset NORMAL ± t/2. Las dos aproximaciones son
+    distintas. Para perfiles con pendiente alta, no coinciden. Es una
+    inconsistencia de modelo: lo que se analiza no es exactamente lo que se
+    dibuja.
+
+F6. KKT NUMÉRICO, NO ALGEBRAICO
+    Los "puntos de tangencia" se detectan numéricamente (|margen| < ε). No
+    se calculan multiplicadores de Lagrange. La condición KKT se cumple
+    geométricamente, pero no hay un solver de optimización con restricciones
+    detrás. Para un juguete didáctico es suficiente; para una herramienta
+    de verdad, no.
+
+F7. OPTIMIZADOR 1D, NO DE FORMA
+    El optimizador solo mueve el espesor t (bisección 1D). No mueve el
+    perfil. La forma la decides tú con sliders. La optimización de forma
+    real (mover el perfil para minimizar masa) sería level-set + KKT,
+    reutilizando marching squares iterativamente. No se hizo.
+
+F8. ALGORITMO DEL PINTOR, NO Z-BUFFER
+    El render 3D usa algoritmo del pintor (ordenación por profundidad). Es
+    correcto para geometría convexa, falla con caras que se intersecan o con
+    ordenaciones ambiguas. La cúpula es convexa, así que funciona. Pero no
+    es un z-buffer. Para geometría compleja, fallaría.
+
+F9. SIN PANDEO, SIN NO-LINEALIDAD, SIN CONEXIONES
+    Como el juguete B: lineal, estático, sin pandeo, sin conexiones, sin
+    cimentación, sin normativa.
+
+F10. CÁLCULO DE CARGA ACOPLADO A t, PERO NO A h
+    El peso propio se recalcula cuando cambia t, pero no cuando cambia el
+    perfil (h). En realidad, cambiar h cambia la longitud de arco y por
+    tanto el peso. Está implementado, pero conviene verificarlo si se
+    modifica.
+
+F11. LA VISUALIZACIÓN ES MÁS AMIGABLE QUE EL ANÁLISIS
+    Es el fallo más peligroso desde el punto de vista de la honestidad. La
+    cúpula 3D con cámara orbital y sombreado se ve muy bien. Da la
+    impresión de que la herramienta "entiende" la cúpula. Pero el análisis
+    es 2D. La presentación es más sofisticada que el modelo. Eso es
+    exactamente lo que hay que evitar en una herramienta didáctica: que la
+    estética enmascare la física. Es el mismo error que las cajas de
+    colisión mal ajustadas en un videojuego, pero al revés: aquí lo que se
+    ve es más de lo que se calcula.
+
+
+10. QUÉ SE PUEDE REPRODUCIR Y QUÉ NO (Brunelleschi)
+────────────────────────────────────────────────────────────────────────────────
+
+   SE PUEDE (con este juguete):
+     ● El perfil quinto acuto y su reducción de empuje horizontal comparado
+       con el semicírculo. Es puro form-finding 2D. Ya casi está.
+     ● El espesor mínimo seguro por Heyman.
+     ● La doble casca como reducción de peso sin perder inercia (esto es
+       shape optimization de sección, factible).
+
+   NO SE PUEDE (con este juguete, sin añadir física nueva):
+     ● Las TRES CADENAS (hoop tension). Sin membrana o sin modelo de anillo,
+       no existen. Fallo F2.
+     ● El ESPINAPEZ (herringbone). Es un truco de material y aparejo, no de
+       forma. No hay modelo continuo que lo capture.
+     ● La CONSTRUCCIÓN SIN CIMBRAS. Es una restricción de proceso, no de
+       forma. Necesitarías un modelo de secuencia constructiva.
+
+   Si tu objetivo es "redescubrir la cúpula de Brunelleschi", necesitas al
+   menos Heyman 2D + membrana de hoop (v1.1). Con solo Heyman 2D, el juguete
+   dirá "seguro" cuando la cúpula real necesita cadenas. Falso positivo. Eso
+   es un fallo de honestidad, no de matemáticas.
+
+
+11. COMPARACIÓN CON EL JUGUETE B (vigas)
+────────────────────────────────────────────────────────────────────────────────
+
+   Juguete A (este): cúpulas y arcos. Visualización 3D bonita. Análisis 2D
+   de rebanada. Falso positivo estructural por hoop. Didáctico para
+   entender formas de compresión, pero no honesto sobre lo que calcula.
+
+   Juguete B (vigas): vigas y pórticos. Visualización 2D honesta (sección).
+   Análisis 2D honesto (frame). Sin falsos positivos estructurales graves.
+   Menos bonito, más fiable.
+
+   Los dos son juguetes. Ninguno certifica. El A es más bonito y más
+   tramposo. El B es menos bonito y más honesto. Esa es la diferencia.
+
+   Cuando el módulo A se integre en el B (v1.2), con el toggle de hoop, el
+   A dejará de ser tramposo: dirá "seguro en la rebanada, pero con tracción
+   de aro en el paralelo". Ese es el camino.
+
+
+12. ROADMAP
+────────────────────────────────────────────────────────────────────────────────
+
+   v1       (actual)  Perfil, funicular, Heyman, optimizador de t, malla 3D,
+                      11 tests. Fallos F1–F11 documentados.
+   v1.1               Toggle de hoop (N_θ). Convertiría el falso positivo F1
+                      en un chequeo honesto.
+   v1.2               Integración en el juguete B como segundo IAnalysis,
+                      superponible. Mismas primitivas, mismo renderer.
+   v1.3               Optimización de forma (mover el perfil, no solo t).
+                      Level-set + KKT.
+   v2                 TNA (Block & Ochsendorf). Redes de empujes 3D. El
+                      estado del arte para bóvedas.
+   Nunca              Certificación. No es un fallo, es un límite.
+
+
+13. CÓMO CITARLO
+────────────────────────────────────────────────────────────────────────────────
+
+   "Explorador de formas de compresión. Herramienta didáctica para entender
+   el funicular de arcos y cúpulas y el teorema de seguridad de Heyman.
+   Análisis 2D de rebanada sobre visualización 3D. No modela hoop, cadenas
+   ni secuencia constructiva. No certifica. Uso educativo."
+
+
+════════════════════════════════════════════════════════════════════════════════
+Fin del documento. Versión v1. Los fallos están documentados y no ocultos. Si
+alguien usa esto para algo serio sin leer la sección 9, el fallo es suyo, no
+del juguete. Pero el juguete, por honestidad, debería avisar en la UI. No lo
+hace. Eso también es un fallo (F12 implícito: la UI no avisa de F1).
+════════════════════════════════════════════════════════════════════════════════
