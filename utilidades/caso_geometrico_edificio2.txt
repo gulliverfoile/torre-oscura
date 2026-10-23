@@ -1,0 +1,589 @@
+════════════════════════════════════════════════════════════════════════════════
+GENERADOR PROCEDURAL DE ARQUITECTURA · v0.2
+Documento de referencia completo
+Heredero de la cúpula sin el análisis estructural. Cero física. Solo gramática.
+════════════════════════════════════════════════════════════════════════════════
+Para leer antes de usar. Sin código. Con las decisiones explicadas.
+────────────────────────────────────────────────────────────────────────────────
+
+
+0. QUÉ ES ESTE DOCUMENTO
+────────────────────────────────────────────────────────────────────────────────
+
+Describe el generador procedural de edificios: qué es, qué hace, cómo lo hace, por
+qué lo hace así, qué garantiza y qué no. Si el documento y el código discrepan, el
+código es la realidad; el documento es la intención. Este documento sustituye a
+las notas anteriores y describe la versión v0.2, que arregla el bug que impedía
+que se viera nada (la cámara descartaba el 100% de los triángulos).
+
+El objetivo del proyecto es generar edificios plausibles para videojuegos,
+roguelikes y ciudades procedurales, con variedad real y sin modelado a mano. La
+forma que ve el jugador es la que produce la gramática. No hay cálculo
+estructural. No hay verificación física. El criterio de "bueno" no es "aguanta",
+es "parece un edificio" y "es el mismo edificio a cualquier LOD".
+
+
+1. QUÉ ES
+────────────────────────────────────────────────────────────────────────────────
+
+Un generador procedural de arquitectura. Recibe una semilla y tres decisiones de
+diseño (estilo, tipo, entorno) más tres parámetros (tamaño, densidad, decay), y
+produce un edificio: un conjunto de partes geométricas (muros, cubierta, puerta,
+ventanas, chimeneas, etc.) con posiciones, tamaños y colores. Esa estructura es
+un dato, no una escena renderizada; el renderer la interpreta y la dibuja en un
+canvas 3D con cámara orbital.
+
+El edificio es determinista: la misma semilla, con los mismos parámetros, produce
+exactamente el mismo edificio. No es aleatorio cada vez. Es reproducible.
+
+Es un juguete. Herramienta de generación, no de validación. Lo que produce es una
+malla plausible, no una estructura real. No hay física, ni normativa, ni
+seguridad. Es forma, no función estructural.
+
+La herencia de la cúpula es literal: los perfiles paramétricos, la revolución y
+la extrusión, la idea de "el mismo objeto a distinta resolución" (allí eran
+marching squares con N segmentos; aquí es LOD 0 a LOD 3). Lo que se tira de la
+cúpula es el análisis: el funicular, Heyman, el optimizador de espesor. Aquí no
+hay nada que "aguante" o "no aguante". Solo hay forma.
+
+
+2. QUÉ NO ES (explícito, para que no se cuele)
+────────────────────────────────────────────────────────────────────────────────
+
+  ● No es un analizador estructural. No calcula tensiones, momentos, flechas ni
+    seguridad. No hay Heyman, no hay funicular, no hay KKT. Cero física.
+  ● No es un CAD. No edita geometría a mano. La geometría sale de la gramática.
+  ● No es un motor de juego. Produce mallas; las colisiones, la navegación, la
+    oclusión y la física de juego son responsabilidad del motor que lo use.
+  ● No es realista históricamente. Es plausible. Un "medieval" del generador
+    reconoce a un medieval, no reproduce uno real.
+  ● No genera interiores, mobiliario, ni detalles de escala menor a la ventana.
+    Solo fachada y volumen.
+  ● No exporta OBJ, glTF ni FBX todavía. El JSON describe la geometría; los
+    exportadores son v0.4.
+  ● No tiene editor gráfico. La UI es de parámetros; el "diseño" es elegir
+    semilla, estilo, tipo, entorno y ajustar sliders.
+  ● No genera calles ni plots. La capa de ciudad (CityLayout) es v0.5.
+  ● No es un producto. Es una herramienta de exploración, todavía en pañales,
+    con 15 gramáticas y 4 entornos. Se puede jugar con ella. No se puede
+    enviar a producción sin antes añadir exportadores, LODs validados y un
+    catálogo ampliado.
+
+
+3. QUÉ HACE
+────────────────────────────────────────────────────────────────────────────────
+
+  Generación
+  ● A partir de (seed, style, type, environment, params) produce un edificio
+    con partes geométricas deterministas.
+  ● 5 estilos × 3 tipos = 15 gramáticas. 4 entornos como capa modificadora.
+    3 parámetros: tamaño (small/medium/large), densidad (0.4–1.6), decay (0–1).
+  ● Modulación por entorno: cada entorno cambia paleta, envolvente (pendiente
+    de cubierta, espesor de muro, ratio de ventana) y puede desbloquear
+    variantes adicionales (riyad, loggia, chimenea).
+  ● Modulación por tipo: la iglesia tiene rosetón; la torre tiene almenas y
+    saeteras; la casa no. Cada tipo requiere sus partes.
+
+  Visualización
+  ● Canvas 3D con cámara orbital. Arrastra para orbitar, rueda para zoom.
+  ● Algoritmo del pintor (ordenación por profundidad), sombreado direccional,
+    luz fija. Sin z-buffer, sin texturas.
+  ● Modo color: por parte (cada parte con su color) o por estilo (todo del
+    color del muro). Wireframe activable. Suelo con grid, activable.
+  ● Auto-fit de la cámara al generar un edificio nuevo. Botón de "Ajustar
+    vista" para volver a encuadrar.
+
+  LOD
+  ● LOD 0 a LOD 3, ajustable con un slider. La MISMA semilla produce el MISMO
+    edificio a distinta resolución. LOD bajo = menos partes y menos triángulos.
+    La silueta se mantiene (muro + cubierta siempre; detalles solo en LOD alto).
+  ● Contadores en el HUD: triángulos y partes del LOD actual.
+
+  Inspección
+  ● Panel de info: semilla, dimensiones, número de plantas, tipo de cubierta,
+    número de partes totales.
+  ● Exportable a JSON: semilla, estilo, tipo, entorno, params, dimensiones,
+    número de plantas, y la lista de partes con posición, tamaño, color, minLOD
+    y cara.
+  ● 13 tests de dominio ejecutables desde la UI.
+
+
+4. CÓMO LO HACE — COMPOSICIÓN
+────────────────────────────────────────────────────────────────────────────────
+
+El edificio se compone en tres pasos, en este orden. El orden importa: es la
+diferencia entre "el entorno condiciona el estilo" y "el estilo ignora el
+entorno".
+
+  PASO 1 — Environment.modulate(Style)
+    El entorno no es una familia. Es una capa modificadora. Hace tres cosas:
+
+    a) Paleta: mezcla los colores del estilo con los del entorno (25% de
+       influencia). Un medieval en árido se ve más cálido; un medieval en
+       frío se ve más frío. Es el mismo medieval, con el clima encima.
+
+    b) Envolvente: multiplica la pendiente de la cubierta, el espesor del muro
+       y el ratio de ventana por los factores del entorno. Árido → cubierta
+       plana (pitchMul 0.4), muro grueso (1.5), ventana pequeña (0.6). Frío →
+       cubierta alta (1.4), muro grueso (1.4), ventana media (0.7). Costero →
+       cubierta normal (0.9), muro fino (0.9), ventana grande (1.2).
+
+    c) Derivación de la forma de ventana: a partir del ratio resultante, se
+       elige la forma (pequeña, regular, ancha, alta). Así el entorno cambia
+       también la forma, no solo el tamaño.
+
+    Por qué el entorno es capa y no familia: porque históricamente el entorno
+    no crea vocabulario nuevo (salvo riyad, loggia, chimenea, que son
+    variantes que se activan condicionalmente). El vocabulario es del estilo.
+    El entorno modula cómo ese vocabulario se materializa aquí.
+
+  PASO 2 — Type.compose(Style modulado, params)
+    El tipo compone el programa: qué partes existen y cómo se ordenan.
+
+    Casa: muro, cubierta, puerta, ventanas distribuidas por plantas y columnas,
+          chimenea si el estilo la pide, cornisa si el estilo la pide.
+
+    Iglesia: muro más ancho, cubierta, puerta, ventanas, rosetón (siempre).
+             Sin almenas.
+
+    Torre: muro estrecho, más plantas, cubierta, puerta, saeteras, almenas.
+           Rosetón prohibido (no es su programa).
+
+    La composición de fachada respeta:
+    ● Filas de ventanas = número de plantas (una fila por planta, con la
+      ventana centrada verticalmente en el tercio superior de la planta).
+    ● Columnas de ventanas = ancho / 3 (aprox), con margen lateral.
+    ● En planta baja, las ventanas no se solapan con la puerta.
+    ● La simetría no está forzada: la semilla decide si una ventana falta
+      (10% de probabilidad) para evitar la sensación de "todos iguales".
+
+  PASO 3 — params modulan todo
+    ● Tamaño (small/medium/large): multiplica las dimensiones. 0.75, 1.0, 1.4.
+      Afecta al ancho, la profundidad, la altura de la planta y por tanto la
+      altura total. No cambia el vocabulario de partes.
+    ● Densidad (0.4–1.6): no usada todavía en v0.2; reservada para modular el
+      número de ventanas, aleros y detalles en v0.3.
+    ● Decay (0–1): modifica el edificio ya compuesto. Ventanas desaparecen
+      (probabilidad proporcional a decay), chimeneas caen, la cubierta se
+      hunde (altura reducida), los muros se acortan a partir de decay 0.7.
+      No cambia el vocabulario: elimina y deforma lo que ya existe.
+
+  Aplicación de la semilla
+    La semilla se usa con un SeededRandom determinista. El estado se siembra
+    con seed * 7919 + hash(styleId) + hash(typeId) + hash(envId). Eso garantiza
+    que cambiar el estilo da un edificio distinto, aunque la semilla sea la
+    misma. Cada parte aleatoria (dimensiones, elección de ventanas faltantes,
+    altura de la chimenea, desplazamiento del decay) consume el mismo RNG en
+    el mismo orden, así que la reproducibilidad es exacta.
+
+
+5. CÓMO LO HACE — GEOMETRÍA Y RENDER
+────────────────────────────────────────────────────────────────────────────────
+
+5.1. Partes
+    Cada parte es un objeto { kind, pos, size, color, minLOD, face }. La
+    posición y el tamaño son en metros. El color es hex. El minLOD indica el
+    LOD mínimo en el que aparece. El face indica si es una parte plana
+    (ventana, puerta, saetera, rosetón) y en qué cara se dibuja.
+
+    Kind actuales: wall, roof_flat, roof_gabled, roof_hipped, door, window,
+    chimney, cornice, battlement, arrow_slit, rose_window.
+
+5.2. Malla
+    MeshBuilder.build(building, lod) recorre las partes, filtra por minLOD, y
+    emite triángulos. Cada triángulo guarda sus tres vértices, su color y su
+    normal (calculada con producto vectorial). La geometría por tipo de parte:
+
+    ● Caja (wall, chimney, cornice, battlement, roof_flat): 6 caras × 2
+      triángulos = 12 triángulos.
+    ● Cubierta a dos aguas (roof_gabled): 2 faldones + 2 hastiales + base =
+      8 triángulos.
+    ● Cubierta a cuatro aguas (roof_hipped): 2 faldones trapezoidales + 2
+      triángulos laterales + base = 8 triángulos.
+    ● Panel plano (door, window, arrow_slit): 2 triángulos.
+    ● Disco (rose_window): 12 triángulos (polígono de 12 lados).
+
+    El número total de triángulos depende del LOD. LOD 0 tiene muro y cubierta
+    (~20 triángulos). LOD 3 tiene todo (~200–400 dependiendo del edificio).
+
+5.3. Cámara orbital
+    OrbitCamera con yaw, pitch, dist, target y fov. Proyección en perspectiva.
+    Convención: z del mundo hacia arriba (el suelo es y=0, la altura es y;
+    "depth" del canvas es la profundidad de vista, no z del mundo). La cámara
+    proyecta un punto calculando su posición relativa a la cámara, rotando al
+    espacio de vista (right, up, fwd) y dividiendo por la profundidad.
+
+    FIX de v0.2: la proyección original tenía el signo invertido en la
+    profundidad y el cull descartaba todo lo visible. Ahora se descarta solo lo
+    que está detrás o pegado a la cámara (lz <= 0.1).
+
+5.4. Render
+    Algoritmo del pintor: se proyectan todos los triángulos, se filtran los que
+    están detrás, se calcula la profundidad media de cada uno, se ordenan de
+    más lejano a más cercano, y se pintan en ese orden. Sin z-buffer. Para
+    geometría convexa (que es el caso de estas partes) es suficiente. Para
+    geometría que se interseca o con ordenaciones ambiguas, fallaría; se puede
+    añadir z-buffer o rasterización en v0.4 si hace falta.
+
+    Sombreado: normal del triángulo · luz direccional fija (normalizada a
+    0.5, 1.0, 0.3), con 0.4 + 0.6 × |cos|. Colores calculados multiplicando
+    el color base por el factor de sombra. Fondo con gradiente sutil. Grid en
+    el suelo, con líneas más marcadas en los ejes.
+
+5.5. LOD
+    Un único slider de 0 a 3. Cada parte tiene un minLOD. Al construir la
+    malla, se filtran las partes con minLOD > LOD actual. La MISMA semilla,
+    con los MISMOS parámetros, produce el MISMO edificio en los cuatro LODs,
+    solo que con menos partes materializadas.
+
+    Asignación actual de minLOD:
+    ● LOD 0: muro y cubierta. Es la silueta.
+    ● LOD 1: puerta y ventanas. La fachada.
+    ● LOD 2: chimenea, almenas, saeteras, rosetón. Los detalles estructurales.
+    ● LOD 3: cornisa. El ornamento.
+
+    La herencia de la cúpula es literal: allí el mismo perfil con N segmentos
+    era el mismo edificio a distinta resolución. Aquí es lo mismo, aplicado a
+    un conjunto de partes.
+
+
+6. CATÁLOGO
+────────────────────────────────────────────────────────────────────────────────
+
+Todo el catálogo es data, no código. Añadir un estilo son ~15 líneas en un
+objeto. Añadir un tipo son ~5. Añadir un entorno son ~3. La lógica de
+composición no cambia.
+
+6.1. Estilos (5)
+    medieval    Muro piedra/madera, cubierta a dos aguas, arco apuntado,
+                chimenea. Referencia del gótico y el románico.
+    colonial    Muro blanco, cubierta a cuatro aguas, teja, ventana rectangular,
+                cornisa. Referencia de la arquitectura colonial mediterránea.
+    rustico     Muro grueso, cubierta a dos aguas pronunciada, ventana pequeña,
+                chimenea. Referencia de la casa de campo centroeuropea.
+    moderno     Muro liso, cubierta plana, ventana ancha, sin chimenea ni
+                cornisa. Referencia del movimiento moderno.
+    industrial  Muro de ladrillo, cubierta a dos aguas baja, ventanal alto,
+                chimenea. Referencia de la nave industrial del XIX.
+
+    Cada estilo define: paleta, tipo de cubierta (flat, gabled, hipped),
+    pendiente base, espesor de muro, ratio de ventana, si tiene chimenea, si
+    tiene cornisa.
+
+6.2. Tipos (3)
+    casa     Ancho 6–10 m, profundidad 0.6–0.9 del ancho, 1–3 plantas, 3 m por
+             planta. El programa doméstico.
+    iglesia  Ancho 10–16 m, profundidad 1.5–2.2 del ancho, 1–2 plantas, 4.5 m
+             por planta. Programa religioso. Rosetón obligatorio.
+    torre    Ancho 4–7 m, profundidad 0.9–1.1 del ancho, 2–5 plantas, 3.5 m
+             por planta. Programa defensivo. Almenas y saeteras.
+
+    Cada tipo define: rango de anchura, rango de profundidad relativa, rango de
+    plantas, altura de planta, y las partes requeridas (rosetón, almenas,
+    saeteras) o prohibidas.
+
+6.3. Entornos (4)
+    arido    Paleta cálida, pendiente baja (×0.4), muro grueso (×1.5), ventana
+             pequeña (×0.6). Modela el clima seco: poca lluvia, mucho sol,
+             inercia térmica, huecos pequeños.
+    templado Sin modulación. Es el entorno de referencia.
+    frio     Paleta fría, pendiente alta (×1.4), muro grueso (×1.4), ventana
+             media (×0.7). Modela el clima frío: nieve, necesidad de evacuar
+             agua, aislamiento.
+    costero  Paleta clara, pendiente media (×0.9), muro fino (×0.9), ventana
+             grande (×1.2). Modela el clima templado húmedo: mucha luz, poca
+             inercia necesaria, huecos amplios.
+
+    Por qué 4 y no más: cada entorno es una entrada de data. Añadir uno son
+    ~3 líneas. Pero el catálogo de estilos × tipos × entornos crece linealmente
+    en data, no en código. 5 × 3 × 4 = 60 combinaciones posibles, pero el
+    código que las produce son 13 módulos. Añadir entornos no explota el
+    sistema.
+
+6.4. Tamaños (3)
+    small    ×0.75. Edificio pequeño.
+    medium   ×1.0. Edificio de referencia.
+    large    ×1.4. Edificio grande.
+
+    El tamaño es un parámetro, no una familia. Multiplica dimensiones; no
+    cambia el vocabulario de partes. Una torre small sigue teniendo almenas.
+
+6.5. Densidad (0.4–1.6)
+    Reservada. En v0.3 modulará el número de ventanas por fila y la presencia
+    de detalles (cornisas, molduras, balcones). No usada en v0.2.
+
+6.6. Decay (0–1)
+    Modificador de partes existentes:
+    ● < 0.1: intacto.
+    ● 0.1–0.5: algunas ventanas desaparecen, alguna chimenea cae, la cubierta
+      se hunde ligeramente.
+    ● 0.5–0.7: la mitad de las ventanas faltan, la cubierta está claramente
+      hundida, los muros empiezan a acortarse.
+    ● > 0.7: los muros se acortan visiblemente. El edificio se ve arruinado.
+
+    No añade escombros ni modifica el vocabulario. Solo elimina y deforma.
+
+
+7. POR QUÉ ASÍ — DECISIONES DE DISEÑO
+────────────────────────────────────────────────────────────────────────────────
+
+7.1. Por qué 5 estilos × 3 tipos = 15 gramáticas, y no más
+    Porque la variedad percibida no viene del número de familias, viene de las
+    semillas. 15 gramáticas × 50 semillas = 750 edificios distintos. Es más
+    que suficiente para un mundo abierto o un roguelike. Añadir un eje nuevo
+    multiplica el trabajo, no la variedad percibida. Si dentro de seis meses
+    se sienten repetitivos, el problema será la gramática (falta de variantes
+    dentro de cada familia), no el número de familias.
+
+7.2. Por qué el entorno es capa modificadora y no familia
+    Porque el entorno no crea vocabulario nuevo; modifica el existente. Un
+    medieval en árido y un medieval en frío comparten todas las partes; solo
+    cambian las proporciones y la paleta. Esa es la distinción operativa entre
+    familia (vocabulario) y parámetro (modulación). El entorno es parámetro
+    con esteroides: modula tres cosas a la vez (paleta, envolvente, forma de
+    ventana), pero no añade partes.
+
+    Los casos que sí añaden vocabulario (riyad, loggia, chimenea) se modelan
+    como variantes activadas por el entorno, no como familias nuevas. Son
+    extras que se desbloquean condicionalmente.
+
+7.3. Por qué tamaño y clima son parámetros y no ejes
+    Porque no cambian qué partes existen. Cambian cuánto miden, cómo de
+    inclinadas están, cuántas plantas tienen. Esa es la definición de
+    parámetro. Meterlos como ejes multiplicaría el trabajo por 3 sin añadir
+    variedad percibida.
+
+7.4. Por qué la composición es funcional y no combinatoria
+    Porque 5 × 3 × 4 = 60 combinaciones, pero el código que las produce son 13
+    módulos: 5 entradas de estilo + 3 entradas de tipo + 4 entradas de entorno
+    + 1 función de modulación + 3 parámetros + 1 gramática. Añadir un estilo
+    son 15 líneas; añadir un entorno son 3. No hay explosión combinatoria
+    porque el código es composición de funciones, no ramas paralelas.
+
+7.5. Por qué el LOD existe
+    Porque un juego necesita la misma ciudad vista a 10 m y a 200 m. Sin LOD,
+    tendrías que generar dos veces el edificio y el jugador notaría el cambio
+    al acercarse. Con LOD, el mismo edificio se materializa con más o menos
+    detalle, y el cambio es invisible si el LOD 0 mantiene la silueta. Esa es
+    la herencia directa de la cúpula: el mismo perfil con N segmentos, aquí el
+    mismo edificio con M partes.
+
+7.6. Por qué la semilla se siembra con hash de style/type/env
+    Porque cambiar el estilo, tipo o entorno debe dar un edificio distinto con
+    la misma semilla. Si la semilla fuera solo el número, cambiar el estilo no
+    cambiaría las dimensiones (las dimensiones son las mismas para cualquier
+    estilo del mismo tipo), y el jugador vería "el mismo edificio con otro
+    color". Al mezclar el hash de los identificadores en la semilla, cambiar
+    cualquier decisión de diseño da un edificio nuevo. Es determinismo
+    condicionado a las decisiones.
+
+7.7. Por qué el render es del pintor y no z-buffer
+    Porque las partes son convexas y no se intersecan (excepto casos raros de
+    decay agresivo). El algoritmo del pintor es suficiente y es simple. Un
+    z-buffer (o rasterización por software) es 5× más código y 3× más lento
+    para el mismo resultado en este caso. Si en v0.4 se añaden partes
+    intersectadas o se quiere composición con transparencia, se cambia.
+
+7.8. Por qué no hay física ni normativa
+    Porque el criterio de un juego no es "aguanta", es "parece un edificio" y
+    "es el mismo a cualquier LOD". Añadir física sería importar el dominio del
+    juguete B a un dominio que no lo necesita. Son dos proyectos distintos que
+    comparten la arquitectura hexagonal, no el dominio. Meter Heyman aquí
+    sería matar moscas a cañonazos con la excusa de la "coherencia".
+
+
+8. ARQUITECTURA
+────────────────────────────────────────────────────────────────────────────────
+
+Un solo archivo HTML. Módulos explícitos. Fronteras verificables por test.
+
+  ┌─────────────────────────────────────────────────────────────────────────┐
+  │ DOMAIN (puro, sin DOM, sin canvas)                                     │
+  │   V3, SeededRandom                                                     │
+  │   CATALOG      Estilos, tipos, entornos, tamaños (data)                │
+  │   Building     Clase de datos con seed, style, type, env, parts, meta  │
+  │   Grammar      compose(seed, styleId, typeId, envId, params) → Building│
+  │   MeshBuilder  build(building, lod) → triángulos                       │
+  ├─────────────────────────────────────────────────────────────────────────┤
+  │ PORTS (interfaces documentadas)                                        │
+  │   IGenerator, IRenderer, ICamera, IControls                            │
+  ├─────────────────────────────────────────────────────────────────────────┤
+  │ ADAPTERS (infraestructura)                                             │
+  │   OrbitCamera       Proyección en perspectiva                          │
+  │   Canvas3DRenderer  Pintor + sombreado + grid                          │
+  │   DOMControls       Sliders, selects, botones                          │
+  ├─────────────────────────────────────────────────────────────────────────┤
+  │ APPLICATION                                                            │
+  │   App               Estado + cableado + generate + redraw              │
+  └─────────────────────────────────────────────────────────────────────────┘
+
+Reglas:
+  1. El dominio no toca el DOM. Corre y se testea sin navegador.
+  2. Los adapters pueden importar del dominio. Al revés, no.
+  3. El App cablea, no calcula. Si hay gramática en App, está mal ubicada.
+  4. El renderer recibe triángulos ya calculados. No compone edificios.
+
+Test de frontera: Grammar.compose y MeshBuilder.build corren sin canvas. Si un
+test de dominio necesita DOM, el código está mal ubicado.
+
+
+9. TESTS
+────────────────────────────────────────────────────────────────────────────────
+
+  13 tests de dominio ejecutables desde la UI. Verifican lo que el sistema
+  promete, no lo que podría prometer. Si alguno falla, el generador está roto.
+
+  T1   RNG determinista: dos instancias con la misma semilla dan la misma
+       secuencia. Trivial, pero es la base de todo lo demás.
+  T2   Building determinista: misma semilla, mismos parámetros, mismo JSON.
+  T3   Estilo cambia color: medieval vs moderno dan colores de muro distintos.
+  T4   Entorno modula cubierta: árido tiene menos flecha que templado, con la
+       misma semilla y el mismo estilo.
+  T5   Iglesia tiene rosetón y casa no: el programa del tipo se respeta.
+  T6   Decay reduce partes: con decay 0.6 hay menos partes que con decay 0.
+  T7   LOD reduce triángulos: LOD0 < LOD3 en número de triángulos.
+  T8   Malla finita: todos los vértices de la malla tienen coordenadas finitas.
+  T9   Muro y cubierta presentes: todo edificio tiene al menos un muro y una
+       cubierta.
+  T10  Colores hex válidos: todas las partes tienen color en formato #rrggbb.
+  T11  Cámara proyecta el target al centro del canvas. Verifica la proyección
+       en perspectiva.
+  T12  Punto a la derecha del target proyecta a la derecha del centro. Verifica
+       la orientación del espacio de vista.
+  T13  Al menos un triángulo proyecta dentro del canvas. Verifica que el render
+       no descarta todo (el bug de v0.1).
+
+  T11, T12 y T13 son los tests que evitan que el bug de la cámara vuelva.
+
+
+10. LIMITACIONES Y AVISOS
+────────────────────────────────────────────────────────────────────────────────
+
+  ● No hay interiores. Solo fachada y volumen.
+  ● No hay detalle por debajo de la ventana. Balcones, molduras finas y
+    ornamentos son v0.3.
+  ● El algoritmo del pintor falla con partes que se intersecan o con
+    ordenaciones ambiguas. Para este catálogo no pasa; para geometría compleja,
+    sí. Es una limitación conocida.
+  ● Las partes son convexas y no texturizadas. No hay UVs, ni tangentes, ni
+    normal mapping. El color es plano por parte.
+  ● No hay exportadores. El JSON describe la geometría; convertirlo a OBJ o
+    glTF es v0.4.
+  ● No hay layout de ciudad. Una ciudad procedural necesita CityLayout (calles,
+    plots, asignación de edificios). Es v0.5.
+  ● El catálogo es pequeño. 5 estilos × 3 tipos = 15 gramáticas. Suficiente
+    para probar, insuficiente para un juego completo. La ampliación es data,
+    no código.
+  ● El decay es cosmético. No cambia la estructura interna del edificio; solo
+    elimina y deforma partes de fachada.
+  ● La densidad no se usa todavía. Reservada para v0.3.
+
+  Aviso honesto: este generador produce edificios plausibles, no edificios
+  reales. La forma que ves es la que la gramática produce. No hay validación
+  de nada. Si un edificio se ve raro, es que la gramática es rara. Si se ve
+  repetitivo, es que el catálogo o las semillas son pocas. No hay un criterio
+  objetivo de corrección; el criterio es visual y de jugabilidad.
+
+
+11. ROADMAP
+────────────────────────────────────────────────────────────────────────────────
+
+  v0.2       (actual)  5 estilos × 3 tipos × 4 entornos. LOD 0–3. Canvas 3D.
+                       JSON exportable. 13 tests. Cero física.
+  v0.3      Densidad activa. Balcones, molduras, aleros. Extras condicionales
+            por entorno (riyad, loggia). Catálogo de variantes más rico.
+  v0.4      Exportadores OBJ y glTF. Z-buffer o rasterización por software para
+            composición con transparencia. Cámara con target ajustable.
+  v0.5      CityLayout: red de calles, plots, asignación de tipo por plot,
+            orientación. Pestaña "Ciudad" con vista de planta (heredada del
+            juguete B).
+  v0.6      Extrusión de perfiles curvos (bóvedas, cúpulas). Hereda
+            revolveProfile de la cúpula. Primeros edificios no rectangulares.
+  v1.0      Catálogo ampliado (10 estilos × 5 tipos × 6 entornos). Editor
+            visual de semilla. Exportación completa.
+  Nunca     Certificación. No es un fallo, es un límite. Es un generador, no
+            un analizador.
+
+
+12. CÓMO USARLO
+────────────────────────────────────────────────────────────────────────────────
+
+  1. Ábrelo en un navegador. No necesita servidor ni instalación.
+  2. Elige estilo, tipo y entorno en los selects. El edificio se regenera
+     automáticamente.
+  3. Ajusta la semilla con el campo numérico o con los botones "Nueva semilla"
+     y "Siguiente". Cada semilla da un edificio distinto.
+  4. Ajusta tamaño, densidad y decay con los sliders. La densidad no hace nada
+     todavía; reservada para v0.3.
+  5. Mueve el slider de LOD para ver la misma semilla a distinta resolución.
+     Verás el contador de triángulos bajar. La silueta se mantiene.
+  6. Activa "Color por parte" o "Color por estilo" para ver la diferencia entre
+     colorear cada parte o colorear todo el edificio con el color dominante.
+  7. Pulsa "Ajustar vista" si la cámara se ha descolocado. O arrastra para
+     orbitar y rueda para zoom.
+  8. Pulsa "Ver / copiar JSON" para inspeccionar el edificio generado. El JSON
+     describe la geometría completa: partes, posiciones, colores, LODs.
+  9. Pulsa "Ejecutar tests" para verificar que el dominio funciona. Los 13
+     tests deben pasar. Si alguno falla, el generador está roto.
+
+  Para un juego:
+  ● Este generador produce JSON. El motor del juego lee el JSON y construye la
+    malla (con los adaptadores adecuados: OBJ, glTF, three.js, Unity, Unreal).
+  ● La cámara y el render del HTML son de demostración. En el juego, el motor
+    pone su cámara y su render.
+  ● El LOD es responsabilidad del generador: produce el edificio a la
+    resolución adecuada, el motor cambia de LOD según la distancia.
+  ● Las colisiones son responsabilidad del motor: aproxima con cajas o calcula
+    desde la malla. El generador no produce colisiones.
+
+
+13. FILOSOFÍA
+────────────────────────────────────────────────────────────────────────────────
+
+  Tres reglas que no se negocian:
+
+  1. La forma que ves es la que produce la gramática.
+     No hay modelado a mano escondido. No hay assets. La malla sale de las
+     reglas y la semilla. Si el edificio se ve raro, es que la gramática es
+     rara. Si se ve bonito, es que la gramática funciona.
+
+  2. Familia = vocabulario. Parámetro = escala.
+     Los estilos y tipos son familias porque cambian qué partes existen. Los
+     entornos, tamaños, densidades y decay son parámetros porque modulan las
+     partes existentes. Esa distinción es la que evita la explosión
+     combinatoria y mantiene el código pequeño (13 módulos, no 60).
+
+  3. El mismo edificio a cualquier LOD.
+     La semilla produce el edificio completo. El LOD decide cuánto se
+     materializa. LOD 0 es la silueta; LOD 3 es el detalle. El jugador no debe
+     notar el cambio al acercarse. Esa es la herencia de la cúpula: el mismo
+     perfil con N segmentos.
+
+  Distinciones importantes:
+
+  En una estructura, si funciona, se ve bien.
+  En un juego, si se ve bien, funciona.
+  No es lo mismo en ningún sentido, y confundirlos es el error que produce
+  techos que caen y juegos aburridos.
+
+  Este generador está del lado del juego: la forma que ves es la que el motor
+  usa. No hay validación de seguridad. No hay verificación de nada. Solo hay
+  una gramática que produce formas plausibles y un render que las muestra.
+
+  Lo que la cúpula enseñó fue que la forma tiene que caber en el funicular.
+  Lo que este generador hereda es la lección contraria: la forma tiene que
+  caber en el jugador. No hay funicular, pero hay gramática. La gramática es
+  el "funicular" de la forma legible: si el edificio no la respeta, no parece
+  un edificio. Si la respeta, parece uno, y el jugador puede creérselo.
+
+
+════════════════════════════════════════════════════════════════════════════════
+Fin del documento. Versión v0.2. Cualquier cambio en la gramática, el catálogo
+o la arquitectura debe actualizar este documento. Si el documento y el código
+discrepan, el código manda; el documento es la intención.
+
+Este generador no certifica nada, no analiza nada, no valida nada. Genera
+formas plausibles. Para probar y aprender. Para un juego, para un roguelike,
+para una ciudad procedural. Para lo que no es: para decidir si una estructura
+real aguanta. Eso es otro proyecto, con otro documento, con otras reglas.
+════════════════════════════════════════════════════════════════════════════════
