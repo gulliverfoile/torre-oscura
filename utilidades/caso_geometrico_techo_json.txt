@@ -709,3 +709,60 @@ conviene saber por qué. Si añades un campo que no está aquí, o lo quitas del
 código, actualiza el documento: el JSON es un contrato, y los contratos se
 escriben.
 ════════════════════════════════════════════════════════════════════════════════
+v2
+Qué es nuevo
+Un campo nuevo: roof. No existía en v1.3. Es el modo "techo completo": describes el techo con 8 parámetros y el juguete genera todos los marcos automáticamente.
+
+json
+"roof": {
+  "type": "gable",              // flat | gable | barrel
+  "span": 6,                    // semivano, m
+  "rise": 2,                    // flecha, m
+  "length": 12,                 // longitud, m
+  "frameSpacing": 3,            // separación entre marcos, m
+  "tributaryWidth": 3,          // ancho tributario, m
+  "deadLoad": 800,              // carga muerta, N/m²
+  "liveLoad": 1000,             // carga viva, N/m²
+  "material": "madera",         // id de material existente
+  "section": "viga_10x20"       // id de sección existente
+}
+Si tu JSON tiene roof, el juguete ignora nodes, elements, supports y loads y usa el generador. Si no lo tiene, modo clásico como antes.
+
+Qué cambió de comportamiento (no de esquema)
+1. constraints vacío hace que el optimizador se niegue.
+Antes, con constraints: {}, el optimizador elegía la sección más pequeña del catálogo y fingía que pasaba. Ahora se niega con mensaje explícito. Si quieres optimizar, necesitas al menos maxUtilization o maxDeflectionRelative.
+
+2. En modo gable, los dos apoyos son pinned.
+Antes (v1.5) eran pinned + roller_z como en una viga normal. Ahora ambos son pinned porque un gable transmite empuje horizontal a los muros, y si los muros no lo resisten, necesitas un tirante. La reacción Rx aparece en el panel de resultados. Es más honesto: antes el roller_z fingía que no había empuje.
+
+3. roof.type ya no acepta dome.
+En la versión intermedia de v1.5 se anunciaba dome como opción pero no estaba implementado. En v1.7 solo hay flat, gable, barrel. Si pones dome, el loader rechaza con error.
+
+Qué NO cambió
+units, meta, selfWeight, materials, sections — idénticos.
+
+nodes, elements, supports, loads, constraints en modo clásico — idénticos.
+
+Todos los presets clásicos (beam_center, beam_uniform, cantilever_tip, portal_center, truss_triangle, counterweight) siguen funcionando sin tocar nada. El JSON de v1.3 sigue siendo válido.
+
+Los tipos de apoyo (fixed, pinned, roller_x, roller_z), los tipos de carga (point_node, uniform, point_elem), el formato de materials y sections — todo igual.
+
+Guía de migración
+Si tienes un JSON de v1.3 (modo clásico): no toques nada. Sigue funcionando. Opcionalmente, añade meta con name y note para que dentro de seis meses sepas qué es.
+
+Si quieres pasar al modo techo: coge tu JSON clásico, quita nodes/elements/supports/loads y pon un bloque roof. Los materials, sections y constraints se mantienen.
+
+Si tienes un JSON con constraints: {} y quieres optimizar: añade al menos maxUtilization. Si no, el optimizador se negará — que es lo correcto: no puede optimizar sin saber qué restricción respetar.
+
+Si tienes un JSON con roof.type: "dome": cámbialo a flat, gable o barrel. El dome no está implementado.
+
+Lo que NO está en el JSON (y no cambió)
+Sigue sin haber:
+
+Combinaciones de hipótesis (muerta + viva con factores). Cada análisis es un estado de cargas.
+
+Pandeo.
+
+Editor de geometría (todo va en el JSON o se genera desde roof).
+
+Resultados guardados en el archivo. El JSON es entrada, no salida.
