@@ -1,0 +1,346 @@
+================================================================================
+RIZOMA DE ESCALAS
+África, China, Europa y fusiones · Documentación del prototipo
+Versión: 1.0 · Un solo archivo HTML, sin dependencias
+================================================================================
+
+--------------------------------------------------------------------------------
+1. QUÉ ES
+--------------------------------------------------------------------------------
+
+"Rizoma de escalas" es una visualización interactiva de tradiciones musicales
+y sus relaciones, con dos vistas acopladas:
+
+  - Una RUEDA CROMÁTICA de 12 semitonos que muestra la escala de cada
+    tradición, transpuesta a la tónica que elijas.
+  - Un GRAFO DE INFLUENCIAS donde cada nodo es una tradición y cada arista
+    es una relación documentada (influencia) o una similitud estructural
+    (convergencia, no transmisión).
+
+El objetivo no es "listar géneros" ni hacer un mapa exhaustivo. El objetivo
+es mostrar, de forma honesta, que la historia de la música popular es una
+historia de traducciones: qué se transmitió, por qué vía, y qué se perdió
+o se transformó en el camino.
+
+El nombre "rizoma" se toma de Deleuze y Guattari: sin centro único, con
+múltiples entradas. Conviene aclarar que el grafo NO es un rizoma en sentido
+estricto; es un grafo dirigido con posiciones fijas. Es lo más cercano que
+se puede hacer en una pantalla sin mentir sobre la naturaleza del modelo.
+El rizoma es la ambición; el grafo es la implementación.
+
+--------------------------------------------------------------------------------
+2. QUÉ HACE
+--------------------------------------------------------------------------------
+
+Interacción:
+
+  - Hover sobre un nodo: rótulo mínimo (nombre, región, escala).
+  - Click sobre un nodo: ficha completa en el panel lateral (descripción,
+    escala, notas, influencias entrantes y salientes, botón de audio).
+  - Hover sobre una arista: tarjeta de arista con el "por qué" de la conexión,
+    las notas comunes entre las dos escalas, y botones de audio.
+  - Click sobre una arista: fija la tarjeta para comparar sin perderla.
+  - Botón "Comparar": selecciona dos nodos y superpone sus escalas en la rueda.
+  - Botón "Ruta": con dos nodos seleccionados, traza el camino más corto
+    en el grafo y lo resalta.
+  - Botón "Limpiar": resetea selección, comparación, fijados y ruta.
+  - Botón "Tests": ejecuta los invariantes del dominio y muestra el resultado.
+  - Selector de tónica: transpone todas las escalas a C, C#, D, ... B.
+
+Vistas acopladas:
+
+  - La rueda y el grafo se hablan. Al pasar por una arista, las notas comunes
+    entre las dos escalas se animan en la rueda. Es el puente entre
+    "tradición" (nodo) y "tono" (posición).
+  - El panel lateral muestra fichas de nodo y de arista. La ficha de nodo
+    incluye qué influye en él y de quién recibe; la de arista incluye el
+    "por qué" y las notas comunes.
+
+Audio:
+
+  - Oscilador puro (Web Audio). Sin samples, sin derechos, transpone en
+    tiempo real. Botones para escuchar la escala de un nodo, las notas
+    comunes de una arista, o cada lado de la arista por separado.
+  - Suena a laboratorio, no a instrumento. Es exacto y honesto, pero no
+    es una experiencia musical completa.
+
+Tests:
+
+  - Invariantes del dominio: escalas válidas, intervalos ordenados y únicos,
+    aristas que referencian nodos existentes, sin auto-aristas, sin
+    duplicados no dirigidos, todas las aristas con "why", transposición
+    como biyección, intersecciones conocidas, conectividad total desde
+    África Occidental, y rutas específicas (África → Rock pasa por Blues
+    o Jazz; Highlife influye en Afrobeat; Blues influye en Reggae; etc.).
+
+--------------------------------------------------------------------------------
+3. CÓMO LO HACE
+--------------------------------------------------------------------------------
+
+3.1. Arquitectura: dominio puro + bus de eventos + render
+
+El archivo se organiza en capas:
+
+  - DOMINIO PURO (sin DOM, sin canvas, sin eventos): notas, escalas,
+    tradiciones, aristas, posiciones, grado, adyacencia, y las funciones
+    puras (transpose, scaleNoteNames, commonIntervals, bfsPath,
+    pathEdgeKeys, edgeKey). Esto es lo que se testea y lo que se puede
+    razonar con lápiz y papel.
+  - BUS DE EVENTOS: publica/suscribe. Las vistas no se llaman entre sí;
+    emiten "state:change" y cada una se redibuja leyendo el estado.
+  - ESTADO: único lugar donde vive la verdad. Guarda la tónica (root),
+    no las notas transpuestas. La transposición es del render.
+  - AUDIO: oscilador puro, sin dependencias.
+  - RENDER: rueda, grafo, fichas. Cada render lee del estado y no
+    modifica nada.
+  - TESTS: invariantes del dominio, sin DOM.
+
+3.2. Por qué eventos y no llamadas directas
+
+La rueda no sabe que existe el grafo, y el grafo no sabe que existe la
+rueda. Ambos leen del estado y emiten/escuchan eventos. Si mañana se
+añade una tercera vista (un piano, una línea de tiempo), no hay que tocar
+las otras dos. Es el mismo principio de desacoplamiento por bus que se
+usa en el core.js del motor de juego: módulos que no se conocen.
+
+3.3. Por qué el dominio es puro
+
+Las escalas, la transposición, la intersección y el BFS son funciones sin
+DOM. Eso permite testearlas sin navegador y sin canvas. Si el test falla,
+sabes que es la lógica, no el render.
+
+3.4. Por qué la transposición se hace en el render
+
+El estado guarda root (0-11), no las notas transpuestas. Así no hay que
+recalcular nada al cambiar de tónica: cada vista aplica (root + intervalo)
+% 12 al dibujar. Es la misma lógica de "el modelo no sabe cómo se pinta".
+
+3.5. Por qué BFS y no Dijkstra
+
+El grafo no tiene pesos; todas las aristas valen lo mismo. BFS da el
+camino más corto en aristas y es O(V+E). Si algún día se quiere ponderar
+("influencia fuerte" vs "débil"), entonces sí, Dijkstra o A*.
+
+3.6. Por qué tarjetas en las aristas
+
+Una flecha sin "por qué" es decoración. La tarjeta de arista es la que
+convierte el dibujo en argumento: qué se transmitió (pulso, blue notes,
+clave, llamada-respuesta) y qué se perdió. Es la pieza que faltaba en
+la primera versión del prototipo.
+
+3.7. Por qué divulgación progresiva
+
+Hover = rótulo mínimo (nombre, región, escala). Click = ficha completa.
+Pin = ficha fija para comparar. Así el grafo no se convierte en un mural
+ilegible. Con 14 nodos y 24 aristas, el layout fijo aguanta; con 20
+habrá que pasar a force-directed.
+
+3.8. Audio: oscilador puro
+
+Web Audio genera tonos puros sin descargar nada, sin derechos, y transpone
+en tiempo real. Suena a laboratorio, no a instrumento, pero para "escuchar
+la escala" es exacto y honesto. Un triángulo con envolvente suave sonaría
+menos agresivo, pero es cosmético.
+
+3.9. Tests: invariantes del dominio
+
+Los tests no verifican que el grafo sea "bonito" ni que la historia sea
+"correcta". Verifican que el modelo no se rompe: que las aristas apuntan
+a nodos existentes, que no hay duplicados, que la transposición es una
+biyección, que las intersecciones conocidas se cumplen, que todos los
+nodos son alcanzables desde África Occidental, y que las rutas específicas
+pasan por donde deben. Si un test falla, es lógica, no render.
+
+--------------------------------------------------------------------------------
+4. MODELO DE DATOS
+--------------------------------------------------------------------------------
+
+4.1. Escalas
+
+Cada escala se guarda como una lista de intervalos en semitonos desde la
+tónica (0-11), NO como notas absolutas. Ventaja: la transposición es una
+suma modular y no hay que reescribir los datos.
+
+  pent_mayor:     [0,2,4,7,9]
+  pent_menor:     [0,3,5,7,10]
+  diatonica:      [0,2,4,5,7,9,11]
+  dorico:         [0,2,3,5,7,9,10]
+  blues:          [0,3,5,6,7,10]
+  china_gong:     [0,2,4,7,9]
+  china_shang:    [0,2,5,7,10]
+  frigio_dom:     [0,1,4,5,7,8,10]   (flamenco)
+  menor_armonica: [0,2,3,5,7,8,11]   (tango)
+
+4.2. Nodos (tradiciones)
+
+14 nodos. Cada uno tiene: id, nombre, nombre corto, región, color, escala,
+y una descripción que explica su contexto y, cuando aplica, sus debates
+(por ejemplo, el flamenco como cruce de capas).
+
+  África Occidental, África Central, China, Europa, Blues, Jazz, Rock,
+  Afrobeat, Afro-cubano, Afro-brasileño, Highlife, Reggae, Flamenco, Tango.
+
+4.3. Aristas
+
+24 aristas. Cada una tiene: from, to, type ("influence" o "similarity"),
+y "why" (el argumento: qué se transmitió o en qué se parecen). Sin "why",
+una flecha es ruido.
+
+  - "influence": transmisión documentada o razonablemente argumentada.
+  - "similarity": convergencia estructural, no transmisión directa.
+    Ejemplo: África Occidental ↔ China (pentatonismo). Se etiqueta como
+    similitud, no como influencia, porque no hay transmisión documentada.
+
+4.4. Decisiones de honestidad
+
+  - El flamenco es un SINK: solo recibe de Europa y Afro-cubano. Sus otras
+    capas (romaní/india, norteafricana) se cuentan en la ficha y en el
+    "why", pero no se dibujan como flechas porque no hay nodo ni
+    transmisión directa documentada. Dibujarlas sería mentir por
+    simplificación.
+  - Highlife entra por África Occidental y Jazz, y sale hacia Afrobeat.
+    Cierra el círculo Ghana → Fela.
+  - Reggae entra por Blues y Jazz (vía ska/rocksteady). Es la lectura
+    jamaicana del blues y el jazz con acento en el offbeat.
+  - Tango entra por Europa (bandoneón, armonía) y Afro-cubano (habanera,
+    candombe). El 3-3-2 africano en el compás.
+
+--------------------------------------------------------------------------------
+5. CRÍTICA: "MÚSICA" VS "RITMO"
+--------------------------------------------------------------------------------
+
+Este proyecto nace, en parte, de una discusión sobre cómo se nombra la
+música africana en la tradición occidental. Esa discusión no es semántica:
+es política, y afecta a cómo se construye un grafo como este.
+
+5.1. La categoría "música" no es neutral
+
+La categoría "música" tal como la usa Occidente es una ontología concreta:
+obra, compositor, notación, concierto, público separado del intérprete.
+Lo que no encajaba en ese molde se llamó "ritmo", "folclore", "étnico",
+"tribal". No es una descripción neutra: es una jerarquía. Al jazz, al
+blues y al hip-hop se les negó durante décadas el estatus de "música
+seria" porque venían de tradiciones donde el ritmo, la danza y la función
+social no se separaban.
+
+5.2. "Ritmo" no es falso, pero es parcial
+
+Describir la tradición africana como "ritmos" no es falso: el ritmo es
+central, polirrítmico, estructurante. Pero llamarla "ritmos" en vez de
+"música" ha servido para decir "esto no es lo mismo que lo nuestro". En
+muchas lenguas africanas no hay una palabra separada para "música"; está
+integrada con la danza, el lenguaje, el ritual, la vida social. Preguntar
+"¿es música?" es un error de categoría: se pregunta si encaja en una caja
+que no existía en el contexto donde se produjo.
+
+5.3. La respuesta honesta
+
+Son músicas en el sentido amplio (sonido organizado con intención expresiva
+y función social), pero no encajan en la ontología occidental de "obra".
+Llamarlas "ritmos" es descriptivamente parcial y políticamente cargado.
+El que define la categoría define qué cuenta.
+
+5.4. Qué implica esto para el grafo
+
+  - No se dibuja "África → Blues" como si fuera una transmisión de
+    "ritmo" a "música". Se dibuja como influencia, con un "why" que
+    explica qué se transmitió: pulso cíclico, llamada-respuesta, blue
+    notes, síncopa. La polirritmia se reduce a backbeat y shuffle. Es
+    una traducción, y la traducción no fue neutral: conservó el pulso y
+    perdió el contexto.
+  - La similitud entre África Occidental y China se etiqueta como
+    "similarity", no como "influence". Es convergencia estructural
+    (pentatonismo), no transmisión. Etiquetarla como influencia sería
+    repetir el error colonial de meter todo lo "exótico" en el mismo
+    saco.
+  - El flamenco se trata como cruce de capas, no como "África → España".
+    Sus capas romaní/india y norteafricanas se cuentan, pero no se
+    dibujan como flechas si no hay nodo ni transmisión documentada.
+
+5.5. La lección de método
+
+La distinción "influencia" vs "similitud" no es un tecnicismo: es la
+diferencia entre decir "esto viene de aquello" y decir "esto se parece
+a aquello". La primera afirma causalidad; la segunda, convergencia. Un
+grafo que mezcla las dos sin decirlo está haciendo política con flechas.
+Este prototipo intenta no hacerlo, y cuando no puede evitarlo, lo dice
+en la ficha y en el "why".
+
+--------------------------------------------------------------------------------
+6. LÍMITES Y DECISIONES TOMADAS
+--------------------------------------------------------------------------------
+
+  - Layout fijo: las posiciones están decididas a mano para que África
+    quede a la izquierda y las fusiones al centro-derecha. Con 14 nodos
+    aguanta; con 20 habrá que pasar a force-directed o embedding.
+  - Flamenco como sink: honesto, pero si se quiere que influya en algo,
+    el candidato sería jazz (Sketches of Spain) o rock (flamenco rock),
+    y eso ya es capa moderna.
+  - Roma/India/Norte de África no dibujados: se cuentan en la ficha del
+    flamenco y en el "why". Si se quiere dibujar, hay que abrir un nodo
+    "Roma/India" y etiquetar la arista como "similitud estructural".
+  - Audio sine puro: exacto, pero no es una experiencia musical completa.
+    Un triángulo con envolvente suave sería menos agresivo.
+  - Accesibilidad básica: falta navegación por teclado y paleta apta
+    para daltonismo. El naranja/verde/rojo actual se confunde.
+  - El grafo es un modelo, no una verdad: las influencias son debatidas
+    y la historiografía musical no es neutral. La ficha del flamenco lo
+    dice explícitamente; el resto de nodos también podrían llevar una
+    nota de procedencia.
+  - No hay datos empíricos: no hay corpus de grabaciones, no hay análisis
+    de frecuencias, no hay validación con musicólogos. Es un modelo
+    conceptual, no un estudio.
+
+--------------------------------------------------------------------------------
+7. CÓMO USARLO
+--------------------------------------------------------------------------------
+
+  - Abrir el archivo HTML en un navegador moderno (Chrome, Firefox, Edge,
+    Safari). No requiere servidor ni dependencias.
+  - Hover sobre los nodos para orientarse; click para leer la ficha.
+  - Hover sobre las aristas para ver el "por qué" de cada conexión.
+  - Activar "Comparar" y seleccionar dos nodos para superponer escalas.
+  - Con dos nodos seleccionados, pulsar "Ruta" para ver el camino más
+    corto en el grafo.
+  - Cambiar la tónica para ver cómo rota la escala en la rueda.
+  - Pulsar "Tests" para verificar que el modelo no se ha roto.
+
+--------------------------------------------------------------------------------
+8. PRÓXIMOS PASOS POSIBLES
+--------------------------------------------------------------------------------
+
+  - Layout calculado (force-directed simple o embedding) para escalar a
+    más nodos sin perder legibilidad.
+  - Modo "fusionar": seleccionar dos escalas y crear un nodo temporal
+    con la unión/intersección. Es un juguete, pero enseña mucho.
+  - Capa moderna togglable: hip-hop, electrónica, sampling, industria.
+    No como nodos del mismo grafo, sino como segunda capa.
+  - Audio con envolvente y timbre menos agresivo; opción de escuchar la
+    escala ascendente, descendente, o solo las notas comunes.
+  - Navegación por teclado y paleta apta para daltonismo.
+  - Nota de procedencia en cada nodo: fuentes, grado de debate, nivel de
+    evidencia de cada arista.
+  - Exportar el grafo a JSON para reutilizarlo en otras vistas.
+
+--------------------------------------------------------------------------------
+9. NOTA FINAL
+--------------------------------------------------------------------------------
+
+Este prototipo es un argumento con forma de juguete. Su valor no está en
+la cantidad de nodos ni en la belleza del grafo, sino en la honestidad de
+las aristas: cada flecha dice qué se transmitió y por qué, y cuando no
+hay transmisión documentada, lo dice. Si se añaden nodos sin ese criterio,
+el grafo deja de ser un argumento y se convierte en una lista de Spotify
+con flechas.
+
+La música africana no es "la madre" de las americanas en un sentido
+místico. Es que los traductores del Atlántico —esclavitud, diáspora,
+iglesia, industria— hicieron que esos ritmos entraran en el molde
+occidental y salieran como blues, jazz, rock, hip-hop. La traducción no
+fue neutral: conservó el ritmo y perdió el contexto. Este grafo intenta
+mostrar esa traducción sin repetir el gesto colonial de llamarla "ritmo"
+para no llamarla "música".
+
+================================================================================
+Fin del documento.
+================================================================================
