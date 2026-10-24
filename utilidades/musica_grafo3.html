@@ -1,0 +1,862 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<title>Rizoma de escalas · África, China, Europa y fusiones</title>
+<style>
+  /* ============================================================
+     ESTILO · dos columnas: izquierda (rueda + fichas), derecha
+     (grafo + tests). En móvil se apila.
+     ============================================================ */
+  * { box-sizing: border-box; }
+  body { margin:0; background:#0f1115; color:#e5e7eb;
+         font-family: system-ui, -apple-system, sans-serif; }
+  header { padding:12px 20px; border-bottom:1px solid #2a2f3a;
+           display:flex; justify-content:space-between; align-items:center;
+           flex-wrap:wrap; gap:10px; }
+  header h1 { margin:0; font-size:16px; font-weight:600; }
+  header .hint { font-size:11px; color:#9ca3af; margin-top:2px; }
+  .controls { display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
+  .controls label { font-size:12px; color:#9ca3af; }
+  select, button { background:#2a2f3a; color:#e5e7eb; border:1px solid #3d4752;
+                   padding:5px 10px; border-radius:4px; cursor:pointer; font-size:12px;
+                   font-family:inherit; }
+  button:hover { background:#353b4a; }
+  button.active { background:#1e3a5f; border-color:#2a4a7f; color:#93c5fd; }
+  button.primary { background:#1e3a5f; border-color:#2a4a7f; }
+  main { display:grid; grid-template-columns:440px 1fr; gap:16px;
+         padding:16px; height:calc(100vh - 76px); }
+  .panel { background:#161922; border:1px solid #2a2f3a; border-radius:8px;
+           padding:12px; overflow:auto; }
+  #left { display:flex; flex-direction:column; gap:10px; }
+  #right { display:flex; flex-direction:column; gap:8px; min-height:0; }
+  #wheel { width:100%; height:auto; background:#0a0c10; border-radius:8px; display:block; }
+  #graph { flex:1; width:100%; min-height:0; background:#0a0c10; border-radius:8px; display:block; }
+  .hint { font-size:11px; color:#9ca3af; line-height:1.5; }
+  .notes { font-family: ui-monospace, monospace; font-size:12px; color:#22d3ee; margin:4px 0; }
+  .card { background:#1c2030; border-left:4px solid #888; border-radius:6px; padding:10px; }
+  .card h3 { margin:0 0 4px; font-size:14px; display:flex; justify-content:space-between; align-items:center; }
+  .card .meta { font-size:11px; color:#9ca3af; }
+  .card p { font-size:12px; line-height:1.5; color:#cbd5e1; margin:6px 0 0; }
+  .card .row { display:flex; gap:6px; margin-top:8px; flex-wrap:wrap; }
+  .card .row button { padding:3px 8px; font-size:11px; }
+  .pin { background:none; border:none; cursor:pointer; font-size:14px; padding:0 4px; }
+  .edge-card { background:#1c2030; border-left:4px solid #f1c40f; border-radius:6px; padding:10px; }
+  .edge-card h3 { margin:0 0 4px; font-size:13px; }
+  .edge-card .type { font-size:10px; text-transform:uppercase; letter-spacing:.05em;
+                     padding:1px 6px; border-radius:3px; margin-left:6px; }
+  .edge-card .type.influence { background:#2a4a7f; color:#93c5fd; }
+  .edge-card .type.similarity { background:#4a3a2a; color:#fbbf24; }
+  .edge-card p { font-size:12px; line-height:1.5; color:#cbd5e1; margin:6px 0 0; }
+  .toolbar { display:flex; gap:8px; flex-wrap:wrap; align-items:center; }
+  #tests-out { font-family: ui-monospace, monospace; font-size:11px; max-height:160px; overflow:auto; }
+  .test-pass { color:#86efac; } .test-fail { color:#fca5a5; }
+  .edge { transition: opacity .2s; }
+  .edge.dim { opacity:0.12; }
+  .edge.active { stroke:#fff !important; stroke-width:2.8; }
+  .edge.path { stroke:#22d3ee !important; stroke-width:3; }
+  .node { transition: opacity .2s; cursor:pointer; }
+  .node.dim { opacity:0.25; }
+  .node.sel circle { stroke:#fff; stroke-width:3; }
+  .node.comp circle { stroke:#22d3ee; stroke-width:3; stroke-dasharray:4,3; }
+  .node.path circle { stroke:#22d3ee; stroke-width:3; }
+  #tooltip { position:fixed; background:#1c2030; border:1px solid #3d4752;
+             border-radius:4px; padding:6px 10px; font-size:12px; pointer-events:none;
+             display:none; z-index:100; max-width:240px; line-height:1.4; }
+  .legend { display:flex; gap:12px; font-size:11px; color:#9ca3af; flex-wrap:wrap; }
+  .legend span::before { content:''; display:inline-block; width:16px; height:2px;
+                         background:#4a5568; vertical-align:middle; margin-right:4px; }
+  .legend .sim::before { background: repeating-linear-gradient(90deg,#6b7280 0 4px, transparent 4px 7px); }
+  .legend .inf::before { background:#4a5568; }
+  .legend .pat::before { background:#22d3ee; height:3px; }
+  @media (max-width: 900px) {
+    main { grid-template-columns:1fr; height:auto; }
+    #graph { min-height:420px; }
+  }
+</style>
+</head>
+<body>
+<header>
+  <div>
+    <h1>Rizoma de escalas · África, China, Europa y fusiones</h1>
+    <div class="hint">14 nodos · 24 aristas · Hover en nodo = rótulo · Click = ficha · Hover en arista = por qué · Click = fijar</div>
+  </div>
+  <div class="controls">
+    <label for="root">Tónica:</label>
+    <select id="root"></select>
+    <button id="btn-compare">Comparar</button>
+    <button id="btn-path">Ruta</button>
+    <button id="btn-clear">Limpiar</button>
+    <button id="btn-tests">Tests</button>
+  </div>
+</header>
+<main>
+  <aside class="panel" id="left">
+    <svg id="wheel" viewBox="0 0 400 400" aria-label="Rueda cromática de 12 semitonos"></svg>
+    <div class="hint">Polígono sólido = selección · discontinuo = comparación · aro cian = notas comunes de la arista</div>
+    <div id="scale-info"></div>
+    <div id="edge-card"></div>
+    <div id="cards"></div>
+  </aside>
+  <section class="panel" id="right">
+    <div class="toolbar">
+      <div class="legend">
+        <span class="inf">influencia</span>
+        <span class="sim">similitud estructural</span>
+        <span class="pat">ruta</span>
+      </div>
+    </div>
+    <svg id="graph" viewBox="0 0 1000 820" aria-label="Grafo de tradiciones musicales"></svg>
+    <div id="tests-out" class="hint">Pulsa "Tests" para verificar invariantes del dominio.</div>
+  </section>
+</main>
+<div id="tooltip"></div>
+
+<script>
+"use strict";
+
+/* ============================================================
+   1. DOMINIO PURO
+   ------------------------------------------------------------
+   Sin DOM, sin canvas, sin eventos. Solo datos y funciones.
+   ============================================================ */
+
+const NOTES = ['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'];
+
+// Escalas como intervalos en semitonos desde la tónica (0-11).
+// Se guardan como intervalos para que la transposición sea una
+// suma modular y no haya que reescribir los datos.
+const SCALES = {
+  pent_mayor:    { name:'Pentatónica mayor', intervals:[0,2,4,7,9] },
+  pent_menor:    { name:'Pentatónica menor', intervals:[0,3,5,7,10] },
+  diatonica:     { name:'Diatónica mayor',   intervals:[0,2,4,5,7,9,11] },
+  dorico:        { name:'Dórico',            intervals:[0,2,3,5,7,9,10] },
+  blues:         { name:'Blues',             intervals:[0,3,5,6,7,10] },
+  china_gong:    { name:'China · Gong',      intervals:[0,2,4,7,9] },
+  china_shang:   { name:'China · Shang',     intervals:[0,2,5,7,10] },
+  frigio_dom:    { name:'Frigio dominante',  intervals:[0,1,4,5,7,8,10] },
+  menor_armonica:{ name:'Menor armónica',    intervals:[0,2,3,5,7,8,11] }
+};
+
+// Tradiciones: nodos del grafo. Cada una apunta a una escala.
+const TRADITIONS = [
+  { id:'africa_occ', name:'África Occidental', short:'África O.', region:'África',
+    color:'#e67e22', scale:'pent_mayor',
+    desc:'Polirritmia, llamada y respuesta, escalas pentatónicas y heptatónicas. El griot como archivo vivo. Base rítmica de blues, jazz y afrobeat.' },
+  { id:'africa_central', name:'África Central (pigmeos)', short:'África C.', region:'África',
+    color:'#d35400', scale:'pent_menor',
+    desc:'Polifonía vocal, contrapunto, escalas pentatónicas. Influencia en jazz por su tratamiento del timbre y la polifonía.' },
+  { id:'china', name:'China', short:'China', region:'Asia',
+    color:'#f1c40f', scale:'china_gong',
+    desc:'Sistema de 12 lü, escalas pentatónicas (gong, shang, jue, zhi, yu). Similitud estructural con pentatonismos africanos, sin influencia directa documentada.' },
+  { id:'europa', name:'Europa', short:'Europa', region:'Europa',
+    color:'#3498db', scale:'diatonica',
+    desc:'Sistema diatónico, modos, armonía funcional. Influjo en blues y jazz a través de la armonía, la notación y la forma.' },
+  { id:'blues', name:'Blues', short:'Blues', region:'América',
+    color:'#9b59b6', scale:'blues',
+    desc:'Fusión de tradiciones africanas y europeas. Blue notes, escala de blues, llamada-respuesta, forma de 12 compases.' },
+  { id:'jazz', name:'Jazz', short:'Jazz', region:'América',
+    color:'#8e44ad', scale:'dorico',
+    desc:'Blues + armonía europea + polirritmia africana. Improvisación, swing, blue notes, formas extensas.' },
+  { id:'rock', name:'Rock', short:'Rock', region:'América/Europa',
+    color:'#e74c3c', scale:'blues',
+    desc:'Blues + energía juvenil + tecnología. Riff, backbeat, distorsión. Hereda la escala de blues y el pulso africano.' },
+  { id:'afrobeat', name:'Afrobeat', short:'Afrobeat', region:'África',
+    color:'#16a085', scale:'pent_mayor',
+    desc:'Fela Kuti: highlife, jazz, funk y ritmos yoruba. Polirritmia, metales, protesta política.' },
+  { id:'afro_cubano', name:'Afro-cubano', short:'Afro-cub', region:'Caribe',
+    color:'#27ae60', scale:'pent_mayor',
+    desc:'Rumba, son, mambo. Clave, tumbao, influencia en jazz latino.' },
+  { id:'afro_brasil', name:'Afro-brasileño', short:'Afro-br', region:'América',
+    color:'#2ecc71', scale:'pent_mayor',
+    desc:'Samba, bossa nova. Polirritmia, síncopa, influencia en jazz.' },
+  { id:'highlife', name:'Highlife', short:'Highlife', region:'África',
+    color:'#f39c12', scale:'diatonica',
+    desc:'Ghana, siglo XX. Palm-wine, ritmos akan/yoruba, guitarra y brass bands coloniales. Fela Kuti empieza aquí antes de crear el afrobeat.' },
+  { id:'reggae', name:'Reggae', short:'Reggae', region:'Caribe',
+    color:'#1abc9c', scale:'pent_menor',
+    desc:'Jamaica, años 60. Raíces en ska y rocksteady, que a su vez leen el blues y el jazz con acento en el offbeat. Backbeat, bajo dominante, conciencia política.' },
+  { id:'flamenco', name:'Flamenco', short:'Flamenco', region:'Europa',
+    color:'#c0392b', scale:'frigio_dom',
+    desc:'Andalucía, cruce de capas: europea (armonía, guitarra, copla), romaní/india (melisma, microtonos), norteafricana (modos) y latinoamericana (ida y vuelta). La similitud con maqam/raga es estructural, no transmisión directa documentada. Género debatido.' },
+  { id:'tango', name:'Tango', short:'Tango', region:'América',
+    color:'#d35400', scale:'menor_armonica',
+    desc:'Río de la Plata (Buenos Aires/Montevideo). Habanera cubana, candombe rioplatense, bandoneón alemán, armonía europea. El 3-3-2 africano en el compás.' }
+];
+
+// Aristas: el corazón argumental. Cada una lleva "why": qué se
+// transmitió o en qué se parecen. Sin "why", una flecha es ruido.
+const EDGES = [
+  { from:'africa_occ', to:'blues', type:'influence',
+    why:'Pulso cíclico, llamada-respuesta, blue notes (3ª menor sobre acorde mayor), síncopa. La polirritmia se reduce a backbeat y shuffle.' },
+  { from:'africa_occ', to:'jazz', type:'influence',
+    why:'Polirritmia, swing (pulso desigual), improvisación colectiva, llamada-respuesta entre solista y sección.' },
+  { from:'africa_occ', to:'afrobeat', type:'influence',
+    why:'Polirritmia yoruba, highlife, llamada-respuesta, función social y política de la música (Fela).' },
+  { from:'africa_occ', to:'afro_cubano', type:'influence',
+    why:'Clave (3-2 / 2-3), tumbao, tambores batá, síncopa. El pulso africano se reorganiza en la clave.' },
+  { from:'africa_occ', to:'afro_brasil', type:'influence',
+    why:'Síncopa, polirritmia bantú y yoruba, samba como forma de sociabilidad.' },
+  { from:'africa_central', to:'jazz', type:'influence',
+    why:'Polifonía vocal, contrapunto, timbre como parámetro compositivo. Influencia en jazz modal y free.' },
+  { from:'africa_occ', to:'china', type:'similarity',
+    why:'Similitud estructural: pentatonismo (5 notas). Sin influencia directa documentada; convergencia, no transmisión.' },
+  { from:'europa', to:'blues', type:'influence',
+    why:'Armonía funcional (I-IV-V), notación, forma. Los blue notes son la respuesta africana a la armonía europea.' },
+  { from:'europa', to:'jazz', type:'influence',
+    why:'Armonía extendida, instrumentos (piano, metal), formas (AABA, 32 compases).' },
+  { from:'blues', to:'jazz', type:'influence',
+    why:'Forma de 12 compases, blue notes, swing, improvisación sobre estructura armónica.' },
+  { from:'blues', to:'rock', type:'influence',
+    why:'Riff, backbeat, escala de blues, distorsión como timbre. El blues se electrifica.' },
+  { from:'jazz', to:'afrobeat', type:'influence',
+    why:'Fela: metales, improvisación, arreglos. El jazz como puente de vuelta a África.' },
+  { from:'jazz', to:'rock', type:'influence',
+    why:'Formas extendidas, virtuosismo, experimentación (fusion, prog).' },
+  { from:'afro_cubano', to:'jazz', type:'influence',
+    why:'Clave, tumbao, jazz latino, patrones rítmicos que reorganizan la sección.' },
+  { from:'afro_brasil', to:'jazz', type:'influence',
+    why:'Bossa nova, síncopa, armonía brasileña; el jazz como vehículo de circulación.' },
+
+  // --- Nodos nuevos: highlife, reggae, flamenco, tango ---
+  { from:'africa_occ', to:'highlife', type:'influence',
+    why:'Palm-wine, ritmos akan/yoruba, guitarra. Highlife como fusión de tradición africana y formas coloniales (brass bands, himnos).' },
+  { from:'jazz', to:'highlife', type:'influence',
+    why:'Brass bands coloniales y jazz llegan a la costa de Ghana; el highlife adopta la sección de metales y la armonía. El jazz como puente atlántico.' },
+  { from:'highlife', to:'afrobeat', type:'influence',
+    why:'Fela Kuti empieza en highlife antes de crear el afrobeat. El highlife aporta la base rítmica y la estructura de metales; Fela añade política y polirritmia yoruba.' },
+  { from:'blues', to:'reggae', type:'influence',
+    why:'Vía ska y rocksteady: el shuffle del blues se sincopa y acelera (ska), luego se ralentiza (rocksteady) y da reggae. Backbeat, bajo dominante, offbeat.' },
+  { from:'jazz', to:'reggae', type:'influence',
+    why:'Vía ska: metales, walking bass, armonía jazz. El ska jamaicano es una lectura del jazz y el R&B con acento en el offbeat.' },
+  { from:'europa', to:'flamenco', type:'influence',
+    why:'Armonía, guitarra clásica, copla, forma. La base europea sobre la que se injertan las otras capas. El flamenco no se entiende sin la guitarra española ni sin la copla.' },
+  { from:'afro_cubano', to:'flamenco', type:'influence',
+    why:'Ida y vuelta: guajiras, rumbas, habaneras. El compás de 12 tiempos y la síncopa afrocubana dejan huella en el flamenco. Conexión documentada y bidireccional.' },
+  { from:'europa', to:'tango', type:'influence',
+    why:'Bandoneón (alemán), armonía, forma. El tango rioplatense se construye sobre la estructura europea y el bandoneón como instrumento central.' },
+  { from:'afro_cubano', to:'tango', type:'influence',
+    why:'Habanera cubana y candombe rioplatense. El 3-3-2 africano y la síncopa en el tango. La habanera viaja de Cuba a Buenos Aires y se vuelve tango.' }
+];
+
+// Posiciones fijas. África a la izquierda, fusiones al centro,
+// Europa/Asia a la derecha, ida y vuelta abajo.
+const POS = {
+  africa_occ:     { x: 180, y: 320 },
+  africa_central: { x: 120, y: 520 },
+  china:          { x: 820, y: 180 },
+  europa:         { x: 820, y: 520 },
+  blues:          { x: 420, y: 260 },
+  jazz:           { x: 520, y: 420 },
+  rock:           { x: 680, y: 600 },
+  afrobeat:       { x: 320, y: 600 },
+  afro_cubano:    { x: 200, y: 720 },
+  afro_brasil:    { x: 420, y: 740 },
+  highlife:       { x: 250, y: 440 },
+  reggae:         { x: 600, y: 300 },
+  flamenco:       { x: 700, y: 400 },
+  tango:          { x: 500, y: 760 }
+};
+
+// Grado y radio: el tamaño comunica conectividad.
+const DEGREE = {};
+EDGES.forEach(e => {
+  DEGREE[e.from] = (DEGREE[e.from] || 0) + 1;
+  DEGREE[e.to]   = (DEGREE[e.to]   || 0) + 1;
+});
+const RADIUS = {};
+TRADITIONS.forEach(t => {
+  RADIUS[t.id] = Math.min(30, 16 + (DEGREE[t.id] || 0) * 2);
+});
+
+// Adyacencia no dirigida para BFS.
+const ADJ = {};
+EDGES.forEach(e => {
+  (ADJ[e.from] ||= []).push(e.to);
+  (ADJ[e.to]   ||= []).push(e.from);
+});
+
+function edgeKey(a, b) { return [a, b].sort().join('|'); }
+
+/* ---------- Funciones puras ---------- */
+
+function transpose(interval, root) { return (interval + root) % 12; }
+
+function scaleNoteNames(scaleId, root) {
+  return SCALES[scaleId].intervals.map(i => NOTES[transpose(i, root)]);
+}
+
+function commonIntervals(scaleIdA, scaleIdB) {
+  const a = SCALES[scaleIdA].intervals;
+  const b = SCALES[scaleIdB].intervals;
+  return a.filter(x => b.includes(x));
+}
+
+// BFS: camino más corto en aristas. El grafo no tiene pesos.
+function bfsPath(from, to) {
+  if (from === to) return [from];
+  const prev = { [from]: null };
+  const q = [from];
+  while (q.length) {
+    const n = q.shift();
+    for (const m of ADJ[n] || []) {
+      if (m in prev) continue;
+      prev[m] = n;
+      if (m === to) {
+        const path = [m];
+        let cur = n;
+        while (cur !== null) { path.unshift(cur); cur = prev[cur]; }
+        return path;
+      }
+      q.push(m);
+    }
+  }
+  return null;
+}
+
+function pathEdgeKeys(path) {
+  const keys = new Set();
+  for (let i = 0; i < path.length - 1; i++) keys.add(edgeKey(path[i], path[i+1]));
+  return keys;
+}
+
+/* ============================================================
+   2. BUS DE EVENTOS
+   ============================================================ */
+const Bus = {
+  _h: new Map(),
+  on(ev, fn) {
+    if (!this._h.has(ev)) this._h.set(ev, new Set());
+    this._h.get(ev).add(fn);
+    return () => this.off(ev, fn);
+  },
+  off(ev, fn) { this._h.get(ev)?.delete(fn); },
+  emit(ev, data) { this._h.get(ev)?.forEach(fn => fn(data)); }
+};
+
+/* ============================================================
+   3. ESTADO
+   ============================================================ */
+const state = {
+  root: 0,
+  selected: null,
+  compare: null,
+  compareMode: false,
+  pinned: new Set(),
+  hoverEdge: null,
+  pinnedEdge: null,
+  path: null
+};
+
+/* ============================================================
+   4. AUDIO
+   ============================================================ */
+const AudioEngine = {
+  ctx: null,
+  getCtx() {
+    if (!this.ctx) this.ctx = new (window.AudioContext || window.webkitAudioContext)();
+    return this.ctx;
+  },
+  freqOf(noteIndex) { return 261.63 * Math.pow(2, noteIndex / 12); },
+  playIntervals(intervals, root, dur = 0.32, gap = 0.04) {
+    const ctx = this.getCtx();
+    const t0 = ctx.currentTime + 0.03;
+    intervals.forEach((iv, i) => {
+      const noteIdx = transpose(iv, root);
+      const f = this.freqOf(noteIdx);
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = 'sine';
+      osc.frequency.value = f;
+      const start = t0 + i * (dur + gap);
+      const end = start + dur;
+      gain.gain.setValueAtTime(0, start);
+      gain.gain.linearRampToValueAtTime(0.16, start + 0.02);
+      gain.gain.linearRampToValueAtTime(0, end);
+      osc.connect(gain).connect(ctx.destination);
+      osc.start(start);
+      osc.stop(end + 0.01);
+    });
+  }
+};
+
+/* ============================================================
+   5. RENDER · RUEDA
+   ============================================================ */
+function polar(cx, cy, r, deg) {
+  const rad = (deg - 90) * Math.PI / 180;
+  return { x: cx + r * Math.cos(rad), y: cy + r * Math.sin(rad) };
+}
+
+function polygonFor(intervals, root, color, opacity, dashed, cx=200, cy=200, R=150) {
+  const pts = intervals.map(iv => {
+    const p = polar(cx, cy, R, transpose(iv, root) * 30);
+    return `${p.x.toFixed(1)},${p.y.toFixed(1)}`;
+  }).join(' ');
+  return `<polygon points="${pts}" fill="${color}" fill-opacity="${opacity}"
+    stroke="${color}" stroke-width="${dashed ? 1.5 : 2.5}"
+    stroke-dasharray="${dashed ? '5,3' : ''}" stroke-linejoin="round"/>`;
+}
+
+function renderWheel() {
+  const svg = document.getElementById('wheel');
+  const cx = 200, cy = 200, R = 150, labelR = 182;
+  let html = '';
+
+  html += `<circle cx="${cx}" cy="${cy}" r="${R + 20}" fill="none" stroke="#2a2f3a" stroke-width="1"/>`;
+
+  for (let i = 0; i < 12; i++) {
+    const p = polar(cx, cy, R, i * 30);
+    html += `<line x1="${cx}" y1="${cy}" x2="${p.x}" y2="${p.y}" stroke="#1f2430" stroke-width="1"/>`;
+  }
+
+  if (state.compare) {
+    const t = TRADITIONS.find(x => x.id === state.compare);
+    html += polygonFor(SCALES[t.scale].intervals, state.root, t.color, 0.10, true);
+  }
+  if (state.selected) {
+    const t = TRADITIONS.find(x => x.id === state.selected);
+    html += polygonFor(SCALES[t.scale].intervals, state.root, t.color, 0.22, false);
+  }
+
+  for (let i = 0; i < 12; i++) {
+    const p = polar(cx, cy, R, i * 30);
+    const lp = polar(cx, cy, labelR, i * 30);
+    const isRoot = i === state.root;
+    html += `<circle cx="${p.x}" cy="${p.y}" r="${isRoot ? 7 : 5}"
+      fill="${isRoot ? '#22d3ee' : '#2a2f3a'}"
+      stroke="${isRoot ? '#22d3ee' : '#4a5568'}" stroke-width="1"/>`;
+    html += `<text x="${lp.x}" y="${lp.y + 4}" text-anchor="middle" font-size="11"
+      fill="${isRoot ? '#22d3ee' : '#9ca3af'}">${NOTES[i]}</text>`;
+  }
+
+  if (state.selected) {
+    const t = TRADITIONS.find(x => x.id === state.selected);
+    SCALES[t.scale].intervals.forEach(iv => {
+      const p = polar(cx, cy, R, transpose(iv, state.root) * 30);
+      html += `<circle cx="${p.x}" cy="${p.y}" r="9" fill="${t.color}" stroke="#fff" stroke-width="1.5"/>`;
+    });
+  }
+  if (state.compare) {
+    const t = TRADITIONS.find(x => x.id === state.compare);
+    SCALES[t.scale].intervals.forEach(iv => {
+      const p = polar(cx, cy, R, transpose(iv, state.root) * 30);
+      html += `<circle cx="${p.x}" cy="${p.y}" r="12" fill="none" stroke="${t.color}" stroke-width="2" stroke-dasharray="3,2"/>`;
+    });
+  }
+
+  // Notas comunes de la arista activa: aro cian animado.
+  const activeEdge = state.pinnedEdge || state.hoverEdge;
+  if (activeEdge) {
+    const a = TRADITIONS.find(x => x.id === activeEdge.from);
+    const b = TRADITIONS.find(x => x.id === activeEdge.to);
+    const common = commonIntervals(a.scale, b.scale);
+    common.forEach(iv => {
+      const p = polar(cx, cy, R, transpose(iv, state.root) * 30);
+      html += `<circle cx="${p.x}" cy="${p.y}" r="14" fill="none" stroke="#22d3ee" stroke-width="2" stroke-dasharray="2,2"><animate attributeName="r" values="12;16;12" dur="1.4s" repeatCount="indefinite"/></circle>`;
+    });
+  }
+
+  svg.innerHTML = html;
+}
+
+/* ============================================================
+   6. RENDER · GRAFO
+   ============================================================ */
+function renderGraph() {
+  const svg = document.getElementById('graph');
+  let html = '';
+
+  html += `<defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#9ca3af"/>
+    </marker>
+  </defs>`;
+
+  EDGES.forEach(e => {
+    const from = POS[e.from], to = POS[e.to];
+    const dx = to.x - from.x, dy = to.y - from.y;
+    const len = Math.hypot(dx, dy) || 1;
+    const ux = dx / len, uy = dy / len;
+    const r1 = RADIUS[e.from], r2 = RADIUS[e.to];
+    const x1 = from.x + ux * r1, y1 = from.y + uy * r1;
+    const x2 = to.x - ux * r2, y2 = to.y - uy * r2;
+
+    const key = edgeKey(e.from, e.to);
+    const isPath = state.path && pathEdgeKeys(state.path).has(key);
+    const activeEdge = state.pinnedEdge || state.hoverEdge;
+    const isActive = activeEdge && edgeKey(activeEdge.from, activeEdge.to) === key;
+    const connected = state.selected && (e.from === state.selected || e.to === state.selected);
+
+    let cls = 'edge';
+    if (state.selected && !connected && !isPath) cls += ' dim';
+    if (isActive) cls += ' active';
+    if (isPath) cls += ' path';
+
+    const stroke = e.type === 'similarity' ? '#6b7280' : '#4a5568';
+    const dash = e.type === 'similarity' ? '6,4' : '';
+    const marker = e.type === 'influence' ? 'url(#arrow)' : '';
+
+    html += `<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}"
+      stroke="${stroke}" stroke-width="1.5" stroke-dasharray="${dash}"
+      marker-end="${marker}" class="${cls}" pointer-events="none"/>`;
+
+    html += `<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}"
+      stroke="transparent" stroke-width="14" style="cursor:pointer"
+      data-edge="${key}" data-from="${e.from}" data-to="${e.to}"/>`;
+  });
+
+  TRADITIONS.forEach(t => {
+    const p = POS[t.id];
+    const r = RADIUS[t.id];
+    const connected = !state.selected || t.id === state.selected ||
+      EDGES.some(e => (e.from === state.selected && e.to === t.id) ||
+                      (e.to === state.selected && e.from === t.id));
+    const isSel = state.selected === t.id;
+    const isComp = state.compare === t.id;
+    const isPath = state.path && state.path.includes(t.id);
+
+    let cls = 'node';
+    if (state.selected && !connected && !isPath) cls += ' dim';
+    if (isSel) cls += ' sel';
+    if (isComp) cls += ' comp';
+    if (isPath) cls += ' path';
+
+    html += `<g class="${cls}" data-node="${t.id}">
+      <title>${t.name}</title>
+      <circle cx="${p.x}" cy="${p.y}" r="${r}" fill="${t.color}" stroke="#111" stroke-width="1.5"/>
+      <text x="${p.x}" y="${p.y + 4}" text-anchor="middle" font-size="9"
+        fill="#111" font-weight="700" pointer-events="none">${t.short}</text>
+    </g>`;
+  });
+
+  svg.innerHTML = html;
+
+  svg.querySelectorAll('[data-edge]').forEach(el => {
+    el.addEventListener('mouseenter', () => {
+      state.hoverEdge = { from: el.dataset.from, to: el.dataset.to };
+      Bus.emit('state:change');
+    });
+    el.addEventListener('mouseleave', () => {
+      if (state.hoverEdge && edgeKey(state.hoverEdge.from, state.hoverEdge.to) === el.dataset.edge) {
+        state.hoverEdge = null;
+        Bus.emit('state:change');
+      }
+    });
+    el.addEventListener('click', (ev) => {
+      ev.stopPropagation();
+      const key = el.dataset.edge;
+      const cur = state.pinnedEdge ? edgeKey(state.pinnedEdge.from, state.pinnedEdge.to) : null;
+      state.pinnedEdge = (cur === key) ? null : { from: el.dataset.from, to: el.dataset.to };
+      Bus.emit('state:change');
+    });
+  });
+
+  const tip = document.getElementById('tooltip');
+  svg.querySelectorAll('[data-node]').forEach(el => {
+    const id = el.dataset.node;
+    el.addEventListener('mousemove', (ev) => {
+      const t = TRADITIONS.find(x => x.id === id);
+      const s = SCALES[t.scale];
+      tip.innerHTML = `<strong>${t.name}</strong><br><span style="color:#9ca3af">${t.region} · ${s.name}</span>`;
+      tip.style.display = 'block';
+      tip.style.left = (ev.clientX + 14) + 'px';
+      tip.style.top = (ev.clientY + 14) + 'px';
+    });
+    el.addEventListener('mouseleave', () => { tip.style.display = 'none'; });
+    el.addEventListener('click', () => onNodeClick(id));
+  });
+}
+
+/* ============================================================
+   7. RENDER · INFO Y FICHAS
+   ============================================================ */
+function renderScaleInfo() {
+  const el = document.getElementById('scale-info');
+  if (!state.selected) {
+    el.innerHTML = '<p class="hint">Selecciona una tradición en el grafo. Activa "Comparar" para superponer dos escalas.</p>';
+    return;
+  }
+  const t = TRADITIONS.find(x => x.id === state.selected);
+  const s = SCALES[t.scale];
+  const names = scaleNoteNames(t.scale, state.root);
+  let html = `<div style="font-size:13px;"><strong>${s.name}</strong> · ${s.intervals.length} notas · tónica ${NOTES[state.root]}</div>`;
+  html += `<div class="notes">${names.map((n, i) => `${n} (${s.intervals[i]})`).join(' · ')}</div>`;
+
+  if (state.compare) {
+    const t2 = TRADITIONS.find(x => x.id === state.compare);
+    const common = commonIntervals(t.scale, t2.scale);
+    html += `<div style="margin-top:6px;font-size:12px;"><strong>Común con ${t2.name}:</strong> ${
+      common.length ? common.map(i => NOTES[transpose(i, state.root)]).join(' · ') : 'ninguna'}</div>`;
+  }
+  el.innerHTML = html;
+}
+
+function renderEdgeCard() {
+  const el = document.getElementById('edge-card');
+  const active = state.pinnedEdge || state.hoverEdge;
+  if (!active) { el.innerHTML = ''; return; }
+
+  const a = TRADITIONS.find(x => x.id === active.from);
+  const b = TRADITIONS.find(x => x.id === active.to);
+  const edge = EDGES.find(e => edgeKey(e.from, e.to) === edgeKey(active.from, active.to));
+  if (!edge) { el.innerHTML = ''; return; }
+
+  const common = commonIntervals(a.scale, b.scale);
+  const commonNames = common.map(i => NOTES[transpose(i, state.root)]);
+
+  el.innerHTML = `<div class="edge-card">
+    <h3>${a.name} → ${b.name}
+      <span class="type ${edge.type}">${edge.type === 'influence' ? 'influencia' : 'similitud'}</span>
+    </h3>
+    <p>${edge.why}</p>
+    <div class="notes">Notas comunes: ${commonNames.length ? commonNames.join(' · ') : 'ninguna'}</div>
+    <div class="row">
+      <button data-play-common>▶ escuchar notas comunes</button>
+      <button data-play-a>▶ ${a.short}</button>
+      <button data-play-b>▶ ${b.short}</button>
+    </div>
+  </div>`;
+
+  el.querySelector('[data-play-common]').onclick = () =>
+    AudioEngine.playIntervals(common, state.root);
+  el.querySelector('[data-play-a]').onclick = () =>
+    AudioEngine.playIntervals(SCALES[a.scale].intervals, state.root);
+  el.querySelector('[data-play-b]').onclick = () =>
+    AudioEngine.playIntervals(SCALES[b.scale].intervals, state.root);
+}
+
+function cardHTML(id, isPinned) {
+  const t = TRADITIONS.find(x => x.id === id);
+  const s = SCALES[t.scale];
+  const names = scaleNoteNames(t.scale, state.root);
+  const out = EDGES.filter(e => e.from === id);
+  const inn  = EDGES.filter(e => e.to === id);
+
+  return `<div class="card" style="border-left-color:${t.color}">
+    <h3>${t.name}
+      <button class="pin" data-pin="${id}" title="${isPinned ? 'Desfijar' : 'Fijar'}">${isPinned ? '📌' : '📍'}</button>
+    </h3>
+    <div class="meta">${t.region} · ${s.name} · tónica ${NOTES[state.root]}</div>
+    <div class="notes">${names.join(' · ')}</div>
+    <p>${t.desc}</p>
+    ${out.length ? `<div class="meta" style="margin-top:6px;">Influye en: ${out.map(e => TRADITIONS.find(x => x.id === e.to).short).join(', ')}</div>` : ''}
+    ${inn.length ? `<div class="meta">Recibe de: ${inn.map(e => TRADITIONS.find(x => x.id === e.from).short).join(', ')}</div>` : ''}
+    <div class="row">
+      <button data-play-scale="${id}">▶ escuchar escala</button>
+    </div>
+  </div>`;
+}
+
+function renderCards() {
+  const el = document.getElementById('cards');
+  let html = '';
+  if (state.selected) html += cardHTML(state.selected, state.pinned.has(state.selected));
+  if (state.compare) html += cardHTML(state.compare, state.pinned.has(state.compare));
+  for (const id of state.pinned) {
+    if (id !== state.selected && id !== state.compare) html += cardHTML(id, true);
+  }
+  el.innerHTML = html;
+
+  el.querySelectorAll('[data-pin]').forEach(b => {
+    b.onclick = () => {
+      const id = b.dataset.pin;
+      if (state.pinned.has(id)) state.pinned.delete(id); else state.pinned.add(id);
+      Bus.emit('state:change');
+    };
+  });
+  el.querySelectorAll('[data-play-scale]').forEach(b => {
+    b.onclick = () => {
+      const id = b.dataset.playScale;
+      const t = TRADITIONS.find(x => x.id === id);
+      AudioEngine.playIntervals(SCALES[t.scale].intervals, state.root);
+    };
+  });
+}
+
+/* ============================================================
+   8. RENDER GLOBAL
+   ============================================================ */
+function renderAll() {
+  renderWheel();
+  renderGraph();
+  renderScaleInfo();
+  renderEdgeCard();
+  renderCards();
+}
+
+/* ============================================================
+   9. INTERACCIÓN
+   ============================================================ */
+function onNodeClick(id) {
+  if (state.compareMode) {
+    if (!state.selected) state.selected = id;
+    else if (state.selected === id) { state.selected = null; state.compare = null; }
+    else state.compare = id;
+  } else {
+    state.selected = state.selected === id ? null : id;
+    state.compare = null;
+  }
+  state.path = null;
+  Bus.emit('state:change');
+}
+
+function computePath() {
+  if (!state.selected || !state.compare) {
+    alert('Selecciona dos nodos (activa Comparar) para trazar una ruta.');
+    return;
+  }
+  const p = bfsPath(state.selected, state.compare);
+  if (!p) { alert('No hay ruta entre esos nodos.'); return; }
+  state.path = p;
+  Bus.emit('state:change');
+}
+
+/* ============================================================
+   10. TESTS
+   ============================================================ */
+function runTests() {
+  const results = [];
+  const assert = (name, ok, detail = '') => results.push({ name, ok: !!ok, detail });
+
+  // Escalas
+  assert('Todas las tradiciones tienen escala válida',
+    TRADITIONS.every(t => SCALES[t.scale]));
+
+  assert('Intervalos ordenados, únicos y en 0-11',
+    Object.values(SCALES).every(s => {
+      const iv = s.intervals;
+      return iv.every((v, i) => v >= 0 && v <= 11 && (i === 0 || v > iv[i - 1]));
+    }));
+
+  const pent = Object.values(SCALES).filter(s => s.intervals.length === 5);
+  assert('Al menos 4 escalas pentatónicas', pent.length >= 4, `${pent.length}`);
+
+  assert('Blues tiene 6 notas', SCALES.blues.intervals.length === 6);
+  assert('Flamenco usa frigio dominante', SCALES.frigio_dom.intervals.length === 7);
+  assert('Tango usa menor armónica', SCALES.menor_armonica.intervals.length === 7);
+
+  // Aristas
+  const ids = new Set(TRADITIONS.map(t => t.id));
+  assert('Aristas referencian nodos existentes',
+    EDGES.every(e => ids.has(e.from) && ids.has(e.to)));
+
+  assert('Sin auto-aristas', EDGES.every(e => e.from !== e.to));
+
+  const undirected = new Set();
+  let dup = false;
+  EDGES.forEach(e => {
+    const k = edgeKey(e.from, e.to);
+    if (undirected.has(k)) dup = true;
+    undirected.add(k);
+  });
+  assert('Sin aristas duplicadas (no dirigidas)', !dup);
+
+  assert('Todas las aristas tienen "why"',
+    EDGES.every(e => typeof e.why === 'string' && e.why.length > 10));
+
+  // Transposición
+  assert('Transposición es biyección 0-11',
+    (() => {
+      const seen = new Set();
+      for (let r = 0; r < 12; r++) seen.add(transpose(0, r));
+      return seen.size === 12;
+    })());
+
+  assert('Transposición respeta módulo 12',
+    transpose(14, 3) === 5 && transpose(-1, 0) === 11);
+
+  // Intersecciones
+  assert('Pentatónica mayor = China Gong (5 notas)',
+    commonIntervals('pent_mayor', 'china_gong').length === 5);
+  assert('Pentatónica mayor ∩ Blues = 2',
+    commonIntervals('pent_mayor', 'blues').length === 2);
+  assert('Pentatónica mayor ∩ menor = 2',
+    commonIntervals('pent_mayor', 'pent_menor').length === 2);
+
+  // Conectividad y rutas
+  assert('África Occidental alcanza Blues', bfsPath('africa_occ', 'blues') !== null);
+  assert('África Occidental alcanza Rock', bfsPath('africa_occ', 'rock') !== null);
+  assert('Ruta a sí mismo = [id]',
+    JSON.stringify(bfsPath('jazz', 'jazz')) === JSON.stringify(['jazz']));
+
+  assert('Ruta África → Rock pasa por Blues o Jazz',
+    (() => {
+      const p = bfsPath('africa_occ', 'rock');
+      return p && (p.includes('blues') || p.includes('jazz'));
+    })());
+
+  // Nodos nuevos
+  assert('Highlife alcanzable desde África O.', bfsPath('africa_occ', 'highlife') !== null);
+  assert('Highlife influye en Afrobeat',
+    EDGES.some(e => e.from === 'highlife' && e.to === 'afrobeat'));
+  assert('Reggae alcanzable desde África O.', bfsPath('africa_occ', 'reggae') !== null);
+  assert('Blues influye en Reggae',
+    EDGES.some(e => e.from === 'blues' && e.to === 'reggae'));
+  assert('Flamenco alcanzable desde África O.', bfsPath('africa_occ', 'flamenco') !== null);
+  assert('Flamenco tiene 2 fuentes', EDGES.filter(e => e.to === 'flamenco').length >= 2);
+  assert('Tango alcanzable desde África O.', bfsPath('africa_occ', 'tango') !== null);
+  assert('Tango tiene 2 fuentes', EDGES.filter(e => e.to === 'tango').length >= 2);
+
+  // Conectividad total
+  assert('Todos los nodos alcanzables desde África O.',
+    (() => {
+      const reach = new Set();
+      for (const t of TRADITIONS) {
+        if (bfsPath('africa_occ', t.id)) reach.add(t.id);
+      }
+      return reach.size === TRADITIONS.length;
+    })());
+
+  const out = document.getElementById('tests-out');
+  out.innerHTML = results.map(r =>
+    `<div class="${r.ok ? 'test-pass' : 'test-fail'}">${r.ok ? '✓' : '✗'} ${r.name}${r.detail ? ` · ${r.detail}` : ''}</div>`
+  ).join('') + `<div style="margin-top:6px;color:#9ca3af">${results.filter(r => r.ok).length}/${results.length} OK</div>`;
+}
+
+/* ============================================================
+   11. ARRANQUE
+   ============================================================ */
+document.addEventListener('DOMContentLoaded', () => {
+  const sel = document.getElementById('root');
+  NOTES.forEach((n, i) => {
+    const o = document.createElement('option');
+    o.value = i; o.textContent = n;
+    sel.appendChild(o);
+  });
+  sel.value = state.root;
+  sel.onchange = () => {
+    state.root = parseInt(sel.value, 10);
+    Bus.emit('state:change');
+  };
+
+  const btnCompare = document.getElementById('btn-compare');
+  btnCompare.onclick = () => {
+    state.compareMode = !state.compareMode;
+    if (!state.compareMode) state.compare = null;
+    btnCompare.classList.toggle('active', state.compareMode);
+    Bus.emit('state:change');
+  };
+
+  document.getElementById('btn-path').onclick = computePath;
+
+  document.getElementById('btn-clear').onclick = () => {
+    state.selected = null;
+    state.compare = null;
+    state.compareMode = false;
+    state.pinned.clear();
+    state.hoverEdge = null;
+    state.pinnedEdge = null;
+    state.path = null;
+    btnCompare.classList.remove('active');
+    Bus.emit('state:change');
+  };
+
+  document.getElementById('btn-tests').onclick = runTests;
+
+  Bus.on('state:change', renderAll);
+  renderAll();
+});
+</script>
+</body>
+</html>
