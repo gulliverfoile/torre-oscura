@@ -1,38 +1,506 @@
-README · Mini Ajedrez (Base de Datos + 2 Jugadores)
-¿Qué es?
-Un pequeño juego de ajedrez completo, con todas las reglas (movimientos, captura al paso, enroque, promoción), diseñado para funcionar en navegador en un único archivo HTML.
-Incluye dos modos de juego:
+═══════════════════════════════════════════════════════════════════════════════
+MINI AJEDREZ · HEXAGONAL + EVENTOS + TESTS
+Documento de especificación: qué es, qué hace y cómo lo hace
+═══════════════════════════════════════════════════════════════════════════════
 
-Jugador contra IA: la IA consulta una base de datos de posiciones precalculadas (35 posiciones de apertura, tácticas y finales) y, si no encuentra coincidencia, usa una heurística simple (prioriza capturas).
 
-Dos jugadores humanos: perfecto para echar partidas con un amigo en el móvil pasándose el dispositivo.
+───────────────────────────────────────────────────────────────────────────────
+1. QUÉ ES
+───────────────────────────────────────────────────────────────────────────────
 
-¿Cómo funciona?
-Motor de reglas completo (ChessEngine): genera todos los movimientos legales, valida jaque, jaque mate, rey ahogado, enroque, captura al paso y promoción.
+Un mini-juego de ajedrez jugable en el navegador, contenido en un único archivo
+HTML. No es un motor de ajedrez de competición: es un banco de pruebas didáctico
+para demostrar cuatro ideas a la vez:
 
-Base de datos de posiciones (POSITION_DB): un diccionario que asocia una cadena similar a FEN (piezas + turno) con una jugada recomendada. La IA consulta esta base de datos primero.
+  a) Arquitectura hexagonal (puertos y adaptadores) aplicada a algo pequeño.
+  b) Programación orientada a eventos (bus de eventos como frontera entre capas).
+  c) Dominio puro testeable, sin dependencias del DOM ni de temporizadores.
+  d) Reglas de ajedrez implementadas correctamente, con bugs históricos
+     documentados y corregidos.
 
-Heurística de captura: si no hay coincidencia en la base de datos, la IA elige aleatoriamente entre las capturas disponibles, o cualquier movimiento legal si no puede capturar.
+El objetivo no es que juegue como Stockfish. El objetivo es que sea legible,
+correcto en las reglas, extensible sin tocar el núcleo, y auto-verificable:
+al cargar la página se ejecutan 18 tests de comportamiento real sobre el motor.
 
-Interfaz gráfica: canvas que dibuja el tablero y las piezas con símbolos Unicode; soporta clic/tap para seleccionar y mover.
 
-¿Para qué sirve?
-Como minijuego dentro de un proyecto más grande (torre RPG, juegos de mesa…).
+───────────────────────────────────────────────────────────────────────────────
+2. QUÉ HACE
+───────────────────────────────────────────────────────────────────────────────
 
-Para aprender o practicar ajedrez contra una IA sencilla.
+FUNCIONALIDAD DE JUEGO
+  · Partida de ajedrez completa 8x8 con las reglas oficiales:
+      - Movimientos legales de peón, caballo, alfil, torre, reina y rey.
+      - Enroque corto y largo, con todas sus restricciones (derechos, casillas
+        vacías, rey no en jaque, casillas de paso no atacadas).
+      - Captura al paso.
+      - Promoción de peón, tanto por avance recto como por captura diagonal
+        (esta última era un bug histórico; ahora está corregida).
+      - Detección de jaque, jaque mate y ahogado (tablas por rey ahogado).
+      - Filtro de piezas clavadas: una pieza no puede moverse si deja al rey
+        propio en jaque.
 
-Para jugar partidas rápidas entre dos personas en el mismo dispositivo.
+MODOS DE JUEGO
+  · "Jugador vs IA": el humano juega blancas; la IA responde con negras.
+  · "2 Jugadores": dos humanos en el mismo dispositivo, por turnos.
 
-Como base para experimentos con IA de ajedrez basada en ejemplos.
+INTERFAZ
+  · Tablero en canvas 400x400, piezas dibujadas con glifos Unicode.
+  · Resaltado del último movimiento (casillas amarillas translúcidas).
+  · Resaltado de la pieza seleccionada (recuadro verde).
+  · Panel de estado: turno actual, aviso de jaque, resultado final.
+  · Botón "Nueva partida" para reiniciar en cualquier momento.
+  · Selector de modo (IA / 2 jugadores).
 
-Cómo usar
-Abre el archivo .html en cualquier navegador moderno (PC, móvil, tablet).
+PANEL "ARQUITECTO" (control en caliente de la IA)
+  · Peso de captura    (0-100 %): cuánto valora la IA el material.
+  · Peso de estrategia (0-100 %): cuánto valora centro y seguridad del rey.
+  · Profundidad de búsqueda (1-3): cuántos plies explora el negamax.
+  · Poda (4-20): cuántos movimientos evalúa por nodo.
+  Al aplicar cambios se reinicia la partida con los nuevos pesos.
+  Es el equivalente lúdico del "mando de control" de Ashby: ajustas
+  acoplamientos y dejas que el comportamiento emerja.
 
-Selecciona el modo: Jugador vs IA o 2 Jugadores.
+BASE DE APERTURAS (libro de jugadas)
+  · Diccionario FEN → jugada en notación de coordenadas o SAN.
+  · La IA consulta el libro antes de buscar.
+  · La jugada del libro SIEMPRE se valida contra legalMoves() antes de
+    aplicarse (bug histórico corregido: antes se confiaba ciegamente y
+    corrompía el estado del rey).
 
-Toca/clic en una pieza propia (se resalta en verde) y luego en la casilla destino.
+AUTO-VERIFICACIÓN
+  · 18 tests de comportamiento que se ejecutan al cargar la página.
+  · Resultado visible en consola y en panel desplegable (botón 🧪).
+  · Los tests juegan posiciones reales: no hay mocks.
+  · Relanzables en cualquier momento desde el botón 🧪.
 
-La IA responde automáticamente en el modo correspondiente.
+DEPURACIÓN
+  · Objeto global window.__chess con referencias a motor, bus, IA, tests,
+    clases y constantes, para inspeccionar desde la consola del navegador.
 
-Para reiniciar la partida, pulsa 🔄 Nueva partida.
 
+───────────────────────────────────────────────────────────────────────────────
+3. CÓMO LO HACE
+───────────────────────────────────────────────────────────────────────────────
+
+3.1 ARQUITECTURA GENERAL (hexagonal)
+
+El código se organiza en tres anillos concéntricos:
+
+  ┌──────────────────────────────────────────────────────────────────┐
+  │  ADAPTADORES (borde, conocen el mundo exterior)                  │
+  │    CanvasRenderer · WindowClock · DOMControls · MemoryOpeningBook│
+  │                                                                  │
+  │  ┌────────────────────────────────────────────────────────────┐  │
+  │  │  APLICACIÓN (orquesta, sin conocer detalles técnicos)      │  │
+  │  │    GameOrchestrator · EventBus · MinimaxAI                 │  │
+  │  │                                                            │  │
+  │  │  ┌──────────────────────────────────────────────────────┐  │  │
+  │  │  │  DOMINIO (puro, sin DOM, sin timers, sin canvas)     │  │  │
+  │  │  │    ChessEngine · Evaluator · PIECE · constantes      │  │  │
+  │  │  └──────────────────────────────────────────────────────┘  │  │
+  │  └────────────────────────────────────────────────────────────┘  │
+  └──────────────────────────────────────────────────────────────────┘
+
+Regla de dependencia: las flechas solo apuntan hacia dentro. El dominio no
+importa nada del exterior. La aplicación depende del dominio y de los puertos.
+Los adaptadores dependen de la aplicación y del dominio, nunca al revés.
+
+3.2 PUERTOS (contratos documentados)
+
+  OpeningBookPort
+      lookup(fen: string) → Move | null
+      El dominio de la IA pide jugadas de libro sin saber si vienen de un
+      diccionario en memoria, de un fetch HTTP o de un fichero.
+
+  RendererPort
+      render(state) → void
+      cellFromPoint(x, y) → { row, col } | null
+      El orquestador emite estado; no sabe si se dibuja en canvas, en SVG o
+      se envía por WebSocket.
+
+  ClockPort
+      schedule(fn, ms) → id
+      Abstrae setTimeout. Permite testear turnos de IA de forma determinista
+      (un clock instantáneo) sin tocar el orquestador.
+
+3.3 FLUJO POR EVENTOS
+
+El bus de eventos es la única frontera entre la UI y la lógica. No hay
+llamadas directas del DOM al motor.
+
+  ENTRADA (adaptador DOM → bus):
+      canvas.click      → emite 'ui:cell-click' con { row, col }
+      restart-btn.click → emite 'ui:restart'
+      mode-select.change→ emite 'ui:mode-change' con { mode }
+      applyArchitectBtn → emite 'ui:config-apply'
+
+  ORQUESTADOR (GameOrchestrator, suscrito a ui:*):
+      ui:cell-click     → selecciona pieza o aplica movimiento legal
+      ui:restart        → reinicia motor y estado local
+      ui:mode-change    → cambia modo y reinicia
+      ui:config-apply   → reinicia con nuevos pesos de IA
+
+  SALIDA (orquestador → bus):
+      'game:state'      → { squares, selection, lastMove, turn, mode,
+                            busy, finished, status }
+      'game:thinking'   → la IA ha empezado a calcular
+      'game:ended'      → { kind: 'checkmate' | 'stalemate', ... }
+
+  CONSUMIDORES:
+      CanvasRenderer    escucha 'game:state' y dibuja
+      StatusUI          escucha 'game:state' y 'game:ended' y escribe texto
+      InfoUI            escucha 'game:thinking' y 'game:state'
+
+Ventajas del esquema:
+  · Añadir un segundo consumidor (panel de movimientos, log, sonido) es
+    suscribirse a 'game:state'. Cero cambios en el núcleo.
+  · El bus copia el set de handlers antes de iterar, de modo que un handler
+    puede darse de baja durante un emit sin romper la iteración.
+  · Un handler que lanza excepción no tumba el bus: se captura y se loguea.
+
+3.4 DOMINIO: ChessEngine
+
+Representación del estado:
+  · squares[8][8]: matriz de caracteres ('P','n','k',... o null).
+  · turn: 'blanco' | 'negro'.
+  · castling: { blanco: {k,q}, negro: {k,q} }.
+  · enPassant: { row, col } | null.
+  · halfmove, fullmove: contadores de la regla de 50 movimientos.
+  · kings: caché { blanco, negro } con la posición de cada rey.
+
+Generación de movimientos (en dos fases):
+  1. Pseudo-legales: _pseudoMovesFrom(row, col) produce todos los movimientos
+     geométricamente posibles, sin comprobar jaques ni clavadas.
+  2. Filtro de legalidad: legalMoves() recorre todas las piezas del bando
+     activo, acumula sus pseudo-legales, y descarta los que dejan al rey
+     propio en jaque (_leavesKingInCheck, que simula con withMove).
+
+Detección de ataques (isAttacked): NO recursiva.
+  Bug histórico: la versión anterior hacía
+      isAttacked → legalMoves → _leavesKingInCheck → isCheck → isAttacked
+  una recursión mutua que en posiciones complejas explotaba exponencialmente
+  o colgaba la pestaña.
+  Solución: chequeo directo por tipo de pieza.
+    - Peones: dos casillas diagonales en la dirección de ataque.
+    - Caballos: ocho offsets fijos.
+    - Rey: ocho offsets fijos.
+    - Alfiles/reinas: recorrido diagonal hasta primer obstáculo.
+    - Torres/reinas: recorrido ortogonal hasta primer obstáculo.
+  Coste O(1) por casilla, sin recursión, sin clonar el tablero.
+
+Aplicación de movimientos (applyMove):
+  · Mueve la pieza de origen a destino.
+  · Si es captura al paso, elimina el peón capturado (que está en la fila
+    adyacente, no en el destino).
+  · Si hay promoción, sustituye la pieza por la elegida con el color correcto.
+  · Si es enroque, mueve también la torre (k: torre h→f; q: torre a→d).
+  · Revoca derechos de enroque si:
+      - se mueve el rey,
+      - se mueve una torre desde su casilla inicial,
+      - se captura una torre en su casilla inicial (bug histórico corregido).
+  · Actualiza la caché de reyes si se movió un rey.
+  · Actualiza enPassant (solo tras avance de dos casillas de peón).
+  · Actualiza halfmove/fullmove y cambia el turno.
+
+FEN:
+  · toFEN() serializa el estado completo en notación estándar.
+  · fromFEN(fen) construye un motor desde una posición arbitraria.
+  · Round-trip verificado por test: parse(serialize(x)) === x.
+
+Estado de la partida (status):
+  · 'checkmate'  si no hay movimientos legales y el rey está en jaque.
+  · 'stalemate'  si no hay movimientos legales y el rey no está en jaque.
+  · 'check'      si hay movimientos legales y el rey está en jaque.
+  · 'ongoing'    en cualquier otro caso.
+
+3.5 DOMINIO: MinimaxAI (negamax con poda alpha-beta)
+
+Selección de jugada en dos pasos:
+
+  Paso 1 — Libro de aperturas:
+      bookMove = openingBook.lookup(fen)
+      Si existe Y coincide con algún movimiento de legalMoves(),
+      se devuelve inmediatamente.
+      Si existe pero NO es legal en la posición actual, se ignora y se
+      pasa a búsqueda. Este paso es el bugfix principal: antes se confiaba
+      ciegamente en el libro y eso corrompía el estado del rey, producía
+      "jugadas raras" y mates que no se detectaban.
+
+  Paso 2 — Búsqueda negamax:
+      Ordena los movimientos legales por prioridad (MVV-LVA aproximado:
+      capturas valiosas con atacantes baratos primero, promociones y
+      enroques con bonus).
+      Limita la ramificación a 'poda' movimientos por nodo.
+      Para cada uno, llama a _negamax con profundidad - 1 y ventana
+      alpha-beta. Devuelve el de mayor puntuación.
+
+  _negamax(engine, depth, alpha, beta):
+      · depth === 0            → devuelve Evaluator.evaluate(engine, turn).
+      · sin movimientos legales→ -MATE_SCORE si jaque, 0 si ahogado.
+      · por cada movimiento (hasta 'poda'):
+          score = -_negamax(child, depth-1, -beta, -alpha)
+          if score >= beta: return beta        (corte beta)
+          if score > alpha: alpha = score
+      · devuelve alpha.
+
+  La poda alpha-beta reduce el árbol explorado sin cambiar el resultado
+  respecto a un minimax puro, siempre que el orden de movimientos sea
+  razonable (de ahí el _orderMoves).
+
+3.6 DOMINIO: Evaluator
+
+Función de evaluación estática desde el punto de vista de un color:
+
+  material: suma de valores de pieza (peón 1, caballo/alfil 3, torre 5,
+            reina 9, rey 100) con signo según bando.
+
+  positional:
+      + 0.5 por cada pieza propia en las cuatro casillas centrales (d4, e4,
+        d5, e5).
+      + 0.3 por cada pieza propia en las ocho casillas que rodean al rey
+        propio (seguridad del rey).
+
+  score = material * pesoCaptura + positional * pesoEstrategia
+
+Los pesos vienen del panel Arquitecto. El material domina a propósito,
+como en ajedrez real: con pesoCaptura = 0 la IA juega solo posicional y se
+aprecia el efecto del slider.
+
+3.7 APLICACIÓN: GameOrchestrator
+
+Máquina de estados sencilla:
+
+  ESTADO INICIAL
+      engine = ChessEngine.initial()
+      mode = 'ia'
+      selection = null
+      lastMove = null
+      busy = false        (IA calculando)
+      finished = false    (partida terminada)
+
+  CLICK EN CASILLA (ui:cell-click)
+      · Si finished o busy o (modo IA y turno != blanco): ignorar.
+      · Si hay selección previa y el destino es legal desde ella:
+        aplicar movimiento.
+      · Si no, seleccionar pieza del turno actual o deseleccionar.
+
+  TRAS APLICAR MOVIMIENTO (_afterMove)
+      · Si status es checkmate o stalemate: finished = true, emitir
+        'game:ended'.
+      · Si modo IA y turno == negro: busy = true, emitir 'game:thinking',
+        programar _aiTurn con el ClockPort a 300 ms.
+
+  TURNO DE LA IA (_aiTurn)
+      · Guard: si finished o turno != negro, salir (protege contra
+        reinicios durante el setTimeout; bug histórico).
+      · move = ai.chooseMove(engine)
+      · Si no hay move: emitir 'game:ended'.
+      · Aplicar, emitir 'game:state', _afterMove.
+
+  REINICIO (_restart)
+      engine = ChessEngine.initial(); selection, lastMove, busy y finished
+      a sus valores iniciales; emitir 'game:state'.
+
+3.8 ADAPTADORES
+
+  CanvasRenderer
+      render(state): pinta tablero, resalta lastMove y selection, dibuja
+      piezas con fillText y glifos Unicode.
+      cellFromPoint(x, y): convierte coordenadas de píxel en {row, col}.
+
+  WindowClock
+      schedule(fn, ms): setTimeout. Sustituible por un clock instantáneo
+      en tests sin tocar el orquestador.
+
+  MemoryOpeningBook
+      lookup(fen): primero intenta match exacto, luego match parcial por
+      "tablero + turno" (split(' ').slice(0,2)). El match parcial es
+      deliberadamente laxo; la validación contra legalMoves() la hace la IA.
+      _parse(str): acepta tres formatos:
+        - 4 chars coordenados: 'e2e4'
+        - 6 chars SAN con captura: 'Nc3xd5'
+        - 5 chars SAN sin captura: 'Ng1f3'
+      El parser de 6 chars era otro bug histórico: devolvía null y se
+      perdía la jugada de libro.
+
+  DOMControls (inline en bootstrap)
+      Traduce clicks, cambios de select y sliders a eventos del bus.
+
+3.9 BUGS HISTÓRICOS CORREGIDOS
+
+  BUG 1 — Jugada del libro no validada
+      Síntoma: "el mate puedes mover otras fichas y hace cosas raras".
+      Causa: la IA devolvía la jugada del libro sin comprobar que fuera
+      legal en la posición actual. Un partial match FEN que ignoraba
+      enroque y al paso podía devolver un enroque sin derechos o un al
+      paso fantasma. applyMove no validaba, corrompía kings, y el filtro
+      de legalidad se volvía permeable. El mate no se detectaba.
+      Fix: validar bookMove contra legalMoves() antes de devolverlo.
+
+  BUG 2 — Promoción solo por avance recto
+      Síntoma: peón atascado en la fila 8.
+      Causa: el filtro de promoción comparaba colDest con la columna
+      original, ignorando capturas diagonales.
+      Fix: filtrar por filaOrig/colOrig, no por colDest.
+
+  BUG 3 — Enroque no revocado al capturar torre
+      Síntoma: enroque ilegal más tarde.
+      Causa: _actualizar solo revocaba derechos al mover una torre desde
+      su casilla inicial, no al capturarla.
+      Fix: revocar también cuando toRow/toCol coincide con la casilla
+      inicial de una torre.
+
+  BUG 4 — Parser SAN de 6 caracteres
+      Síntoma: jugadas de libro con captura se ignoraban.
+      Causa: _parseAlg solo manejaba 4 y 5 caracteres.
+      Fix: rama explícita para 'Nc3xd5' (length 6, str[3] === 'x').
+
+  BUG 5 — Recursión isAttacked ↔ legalMoves
+      Síntoma: pestaña colgada en posiciones complejas.
+      Causa: detección de ataques vía generación de movimientos legales,
+      que a su vez comprobaba jaques, que a su vez detectaba ataques.
+      Fix: isAttacked directo por tipo de pieza, sin recursión.
+
+  BUG 6 — IA movía tras reinicio
+      Síntoma: la IA movía negras en la jugada 1 del tablero nuevo.
+      Causa: el setTimeout de 300 ms seguía vivo tras pulsar "Nueva
+      partida" y _aiTurn no comprobaba el turno.
+      Fix: guard turno !== 'negro' al inicio de _aiTurn.
+
+3.10 TESTS DE COMPORTAMIENTO
+
+Filosofía: los tests juegan. No hay mocks, no hay stubs. Se instancia
+ChessEngine con posiciones reales (FEN) o desde el inicio, se aplican
+movimientos legales y se comprueba el resultado observable. Si el test
+pasa, el motor funciona; no se está midiendo si el test está bien escrito,
+se está midiendo el comportamiento del programa.
+
+Los 18 tests:
+
+  1. Mate del loco (fool's mate): 1.f3 e5 2.g4 Qh4# es mate de negras.
+  2. Mate del pastor (scholar's mate): 1.e4 e5 2.Bc4 Nc6 3.Qh5 Nf6 4.Qxf7#.
+  3. Enroque corto mueve rey a g1 y torre a f1, y revoca el derecho.
+  4. Enroque bloqueado si el rey está en jaque.
+  5. Enroque bloqueado si una casilla de paso (f1) está atacada.
+  6. Captura al paso: e5xd6 elimina el peón de d5.
+  7. Promoción al capturar en diagonal: b7xa8=Q.
+  8. Capturar torre en su casilla inicial revoca el derecho de enroque.
+  9. Pieza clavada no puede moverse (caballo en e2, torre enemiga en e3,
+     rey blanco en e1).
+ 10. Ahogado: Ka8, Qb6, Kc6, turno negro → sin movimientos y sin jaque.
+ 11. isAttacked detecta dama en diagonal.
+ 12. isCheck detecta jaque de torre.
+ 13. La jugada del libro devuelta por la IA es legal según legalMoves().
+ 14. Parser SAN entiende 'Nc3xd5' y devuelve las coordenadas correctas.
+ 15. La IA devuelve siempre jugada legal en cinco posiciones distintas,
+     incluida una con captura (la del libro de 6 chars).
+ 16. La IA devuelve null en jaque mate.
+ 17. Round-trip FEN: fromFEN(toFEN(x)) === x.
+ 18. Promoción por avance recto a caballo: b7-b8=N.
+
+Ejecución:
+  · Al cargar la página, tras 50 ms (para que el DOM esté listo).
+  · Bajo demanda con el botón 🧪.
+  · Salida a consola (console.log por test) y a panel desplegable con
+    marca ✓/✗ y resumen "N/M pasados".
+
+
+───────────────────────────────────────────────────────────────────────────────
+4. ESTRUCTURA DEL FICHERO
+───────────────────────────────────────────────────────────────────────────────
+
+  Bloque 0. Utilidades
+      EventBus, función opposite.
+
+  Bloque 1. Dominio: piezas y offsets
+      PIECE (mapa de piezas con valor, símbolo, color), colorOf,
+      KING_OFFSETS, KNIGHT_OFFSETS, BISHOP_DIRS, ROOK_DIRS.
+
+  Bloque 2. Dominio: motor
+      ChessEngine: constructor, initial, fromFEN, toFEN, clone, withMove,
+      _recomputeKings, _inBounds, isAttacked (no recursivo), isCheck,
+      _pseudoMovesFrom, _pushPawn, _slide, _castlingMoves, legalMoves,
+      legalMovesFrom, _leavesKingInCheck, applyMove, status.
+
+  Bloque 3. Dominio: evaluación e IA
+      MATE_SCORE, Evaluator, MinimaxAI (chooseMove, _negamax,
+      _orderMoves, _priority).
+
+  Bloque 4. Puerto + adaptador del libro de aperturas
+      POSITION_DB (FEN → jugada), MemoryOpeningBook (lookup, _parse).
+
+  Bloque 5. Puertos + adaptadores de renderer y clock
+      CanvasRenderer (render, cellFromPoint), WindowClock (schedule).
+
+  Bloque 6. Aplicación: orquestador
+      GameOrchestrator (constructor, _wire, _onCellClick, _applyMove,
+      _afterMove, _aiTurn, _restart, _broadcast).
+
+  Bloque 7. Bootstrap
+      IA_WEIGHTS, statusToText, wiring del DOM al bus, panel Arquitecto,
+      panel de tests, exposición de window.__chess.
+
+  Bloque 8. Tests
+      runSelfTests: 18 tests de comportamiento. Auto-ejecución al cargar.
+
+
+───────────────────────────────────────────────────────────────────────────────
+5. QUÉ NO HACE (límites conscientes)
+───────────────────────────────────────────────────────────────────────────────
+
+  · No implementa la regla de los 50 movimientos ni la triple repetición
+    (halfmove y fullmove se mantienen actualizados en FEN, pero status()
+    no las usa para declarar tablas). Añadirlas es un ejercicio aparte:
+    basta con un historial de FEN y comprobar halfmove >= 100 o repetición
+    triple en status().
+
+  · La evaluación es deliberadamente simple (material + centro + seguridad
+    del rey). No hay tablas de posiciones por pieza ni evaluación de
+    estructura de peones. La profundidad máxima es 3 para que siga siendo
+    jugable en el navegador.
+
+  · El libro de aperturas es un diccionario estático de ~20 posiciones.
+    No es un libro real. Su función es didáctica: mostrar cómo se inyecta
+    un puerto y cómo se valida contra el dominio.
+
+  · No hay persistencia: al recargar se pierde la partida.
+
+  · No hay sonido, ni animaciones, ni historial de movimientos visible
+    (aunque el estado incluye lastMove y el bus emite cada estado, así que
+    añadir un log es suscribirse a 'game:state').
+
+
+───────────────────────────────────────────────────────────────────────────────
+6. CÓMO EXTENDERLO (sin tocar el dominio)
+───────────────────────────────────────────────────────────────────────────────
+
+  · Añadir un renderer distinto (SVG, texto, WebSocket):
+      implementar { render(state), cellFromPoint(x,y) } y suscribirlo a
+      'game:state'.
+
+  · Añadir un clock determinista para tests de integración:
+      implementar { schedule(fn, ms) } que ejecute fn de forma síncrona
+      o controlada, e inyectarlo en GameOrchestrator.
+
+  · Añadir un libro de aperturas remoto:
+      implementar OpeningBookPort.lookup(fen) como fetch. El dominio de
+      la IA no cambia.
+
+  · Añadir un panel de movimientos:
+      suscribirse a 'game:state', leer lastMove y acumular en una lista.
+
+  · Cambiar el algoritmo de búsqueda:
+      sustituir MinimaxAI por otra clase que implemente chooseMove(engine)
+      → Move | null. El orquestador no cambia.
+
+  · Añadir una segunda IA (por ejemplo, MCTS):
+      inyectar la instancia en el orquestador; el bus y el renderer no se
+      enteran.
+
+  · Añadir reglas de tablas (50 movimientos, triple repetición):
+      mantener un historial de FEN en el orquestador o en el motor, y
+      extender status() para devolver { kind: 'draw', reason }.
+
+═══════════════════════════════════════════════════════════════════════════════
+Fin del documento.
+═══════════════════════════════════════════════════════════════════════════════
