@@ -1,0 +1,302 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<title>Meta-juego de cartas españolas</title>
+<style>
+  :root { --bg:#0f1115; --fg:#e6e6e6; --muted:#888; --panel:#161a20; --border:#2a2f3a; --accent:#22d3ee; }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--bg); color:var(--fg); font-family:system-ui,sans-serif; font-size:13px; overflow:hidden; display:flex; height:100vh; }
+  #left { flex:1; display:flex; flex-direction:column; padding:16px; }
+  #right { width:380px; background:var(--panel); border-left:1px solid var(--border); padding:16px; overflow-y:auto; }
+  h2 { font-size:14px; font-weight:500; margin:0 0 12px; color:var(--muted); }
+  .hand { display:flex; gap:8px; flex-wrap:wrap; margin-bottom:12px; }
+  .card { width:60px; height:90px; background:#fff; color:#000; border-radius:6px; display:flex; flex-direction:column; align-items:center; justify-content:center; font-weight:600; border:1px solid #333; cursor:pointer; transition:transform .1s; }
+  .card:hover { transform:translateY(-4px); }
+  .card.selected { outline:3px solid var(--accent); }
+  .card .suit { font-size:20px; }
+  .card .value { font-size:18px; }
+  .table { flex:1; display:flex; align-items:center; justify-content:center; gap:12px; border:1px dashed var(--border); border-radius:8px; margin-bottom:12px; min-height:120px; }
+  button { background:#1f252f; color:var(--fg); border:1px solid var(--border); padding:8px 14px; border-radius:4px; cursor:pointer; font-size:12px; }
+  button:hover { background:#2a3140; }
+  button.primary { background:#1e3a5f; border-color:#2a4a7f; }
+  .info { font-size:12px; color:var(--muted); margin-bottom:8px; }
+  .config { font-family:ui-monospace,monospace; font-size:11px; background:#0a0c10; padding:8px; border-radius:4px; white-space:pre-wrap; color:#c9c9c9; max-height:300px; overflow-y:auto; }
+  .log { font-size:11px; color:var(--muted); margin-top:8px; max-height:120px; overflow-y:auto; }
+</style>
+</head>
+<body>
+<div id="left">
+  <h2 id="gameName">—</h2>
+  <div class="info" id="status">—</div>
+  <div class="table" id="table"></div>
+  <div class="hand" id="hand"></div>
+  <div style="display:flex; gap:8px;">
+    <button class="primary" id="btnPlay">Jugar carta</button>
+    <button id="btnPass">Pasar</button>
+    <button id="btnNew">Nueva partida</button>
+  </div>
+  <div class="log" id="log"></div>
+</div>
+<div id="right">
+  <h2>Configuración (Intención Débil)</h2>
+  <div class="info">Edita el JSON y pulsa "Aplicar". El motor no cambia; la configuración sí.</div>
+  <textarea id="configEditor" class="config" style="width:100%; height:400px;"></textarea>
+  <button class="primary" id="btnApply" style="margin-top:8px;">Aplicar configuración</button>
+  <div class="info" style="margin-top:12px;">Juegos disponibles:</div>
+  <div id="gameList"></div>
+</div>
+<script>
+"use strict";
+
+// ============================================================
+// 1. SUELO MATERIAL: BARAJA ESPAÑOLA
+// ============================================================
+const SUITS = ['oros', 'copas', 'espadas', 'bastos'];
+const VALUES = [1, 2, 3, 4, 5, 6, 7, 10, 11, 12];
+const SUIT_SYMBOLS = { oros: '🪙', copas: '🍷', espadas: '⚔️', bastos: '🌿' };
+
+function createDeck() {
+  const deck = [];
+  for (const suit of SUITS) {
+    for (const value of VALUES) {
+      deck.push({ suit, value });
+    }
+  }
+  return deck;
+}
+
+function shuffle(deck) {
+  const d = [...deck];
+  for (let i = d.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [d[i], d[j]] = [d[j], d[i]];
+  }
+  return d;
+}
+
+// ============================================================
+// 2. CONFIGURACIONES (Intención Débil)
+// ============================================================
+const CONFIGS = {
+  "chichon-simplificado": {
+    name: "Chichón simplificado",
+    players: 4,
+    cardsPerPlayer: 3,
+    turnOrder: "clockwise",
+    bidding: { enabled: true, maxRaises: 3, pointsPerRaise: 1 },
+    trick: { enabled: true, trumpSuit: "oros", winCondition: "highestCard" },
+    winCondition: { type: "points", target: 30 }
+  },
+  "mus-simplificado": {
+    name: "Mus simplificado",
+    players: 4,
+    cardsPerPlayer: 4,
+    turnOrder: "clockwise",
+    bidding: { enabled: true, maxRaises: 2, pointsPerRaise: 2 },
+    trick: { enabled: false },
+    winCondition: { type: "points", target: 40 }
+  },
+  "julepe-simplificado": {
+    name: "Julepe simplificado",
+    players: 4,
+    cardsPerPlayer: 5,
+    turnOrder: "clockwise",
+    bidding: { enabled: false },
+    trick: { enabled: true, trumpSuit: "copas", winCondition: "highestCard" },
+    winCondition: { type: "points", target: 25 }
+  }
+};
+
+// ============================================================
+// 3. MOTOR GENÉRICO (Intención Fuerte)
+// ============================================================
+class CardGameEngine {
+  constructor(config) {
+    this.config = JSON.parse(JSON.stringify(config)); // copia profunda
+    this.reset();
+  }
+
+  reset() {
+    this.deck = shuffle(createDeck());
+    this.hands = Array.from({ length: this.config.players }, () => []);
+    this.table = [];
+    this.turn = 0;
+    this.scores = Array(this.config.players).fill(0);
+    this.finished = false;
+    this.log = [];
+    this._deal();
+    this._log('Nueva partida: ' + this.config.name);
+  }
+
+  _deal() {
+    for (let i = 0; i < this.config.cardsPerPlayer; i++) {
+      for (let p = 0; p < this.config.players; p++) {
+        if (this.deck.length) this.hands[p].push(this.deck.pop());
+      }
+    }
+  }
+
+  _log(msg) {
+    this.log.push(msg);
+    if (this.log.length > 50) this.log.shift();
+  }
+
+  playCard(playerIndex, cardIndex) {
+    if (this.finished) return { ok: false, reason: 'Partida terminada' };
+    if (playerIndex !== this.turn) return { ok: false, reason: 'No es tu turno' };
+    const hand = this.hands[playerIndex];
+    if (cardIndex < 0 || cardIndex >= hand.length) return { ok: false, reason: 'Carta inválida' };
+    const card = hand.splice(cardIndex, 1)[0];
+    this.table.push({ player: playerIndex, card });
+    this._log(`Jugador ${playerIndex + 1} juega ${card.value} de ${card.suit}`);
+    this._nextTurn();
+    return { ok: true, card };
+  }
+
+  pass(playerIndex) {
+    if (this.finished) return { ok: false, reason: 'Partida terminada' };
+    if (playerIndex !== this.turn) return { ok: false, reason: 'No es tu turno' };
+    this._log(`Jugador ${playerIndex + 1} pasa`);
+    this._nextTurn();
+    return { ok: true };
+  }
+
+  _nextTurn() {
+    this.turn = (this.turn + 1) % this.config.players;
+    if (this.table.length === this.config.players) {
+      this._resolveTrick();
+    }
+    if (this.hands.every(h => h.length === 0)) {
+      this._endRound();
+    }
+  }
+
+  _resolveTrick() {
+    if (!this.config.trick.enabled) {
+      this.table = [];
+      return;
+    }
+    const trump = this.config.trick.trumpSuit;
+    const winner = this.table.reduce((best, current) => {
+      if (current.card.suit === trump && best.card.suit !== trump) return current;
+      if (current.card.suit === trump && best.card.suit === trump) {
+        return current.card.value > best.card.value ? current : best;
+      }
+      if (current.card.suit !== trump && best.card.suit !== trump) {
+        return current.card.value > best.card.value ? current : best;
+      }
+      return best;
+    });
+    this.scores[winner.player] += 1;
+    this._log(`Baza ganada por Jugador ${winner.player + 1}`);
+    this.table = [];
+  }
+
+  _endRound() {
+    this._log('Fin de ronda. Puntuaciones: ' + this.scores.join(', '));
+    const target = this.config.winCondition.target;
+    const winner = this.scores.findIndex(s => s >= target);
+    if (winner !== -1) {
+      this.finished = true;
+      this._log(`¡Ganador: Jugador ${winner + 1}!`);
+    } else {
+      this.deck = shuffle(createDeck());
+      this.hands = Array.from({ length: this.config.players }, () => []);
+      this.turn = 0;
+      this._deal();
+      this._log('Nueva ronda');
+    }
+  }
+}
+
+// ============================================================
+// 4. UI
+// ============================================================
+let engine = null;
+let selectedCard = null;
+let currentConfigKey = "chichon-simplificado";
+
+function initGame(configKey) {
+  currentConfigKey = configKey;
+  engine = new CardGameEngine(CONFIGS[configKey]);
+  selectedCard = null;
+  render();
+}
+
+function render() {
+  document.getElementById('gameName').textContent = engine.config.name;
+  document.getElementById('status').textContent =
+    `Turno: Jugador ${engine.turn + 1} · Puntuaciones: ${engine.scores.join(', ')}` +
+    (engine.finished ? ' · PARTIDA TERMINADA' : '');
+
+  // Mesa
+  const tableEl = document.getElementById('table');
+  tableEl.innerHTML = '';
+  for (const t of engine.table) {
+    const card = document.createElement('div');
+    card.className = 'card';
+    card.innerHTML = `<div class="suit">${SUIT_SYMBOLS[t.card.suit]}</div><div class="value">${t.card.value}</div>`;
+    tableEl.appendChild(card);
+  }
+
+  // Mano del jugador 0 (siempre el humano)
+  const handEl = document.getElementById('hand');
+  handEl.innerHTML = '';
+  engine.hands[0].forEach((card, i) => {
+    const el = document.createElement('div');
+    el.className = 'card' + (selectedCard === i ? ' selected' : '');
+    el.innerHTML = `<div class="suit">${SUIT_SYMBOLS[card.suit]}</div><div class="value">${card.value}</div>`;
+    el.onclick = () => { selectedCard = (selectedCard === i ? null : i); render(); };
+    handEl.appendChild(el);
+  });
+
+  // Log
+  document.getElementById('log').innerHTML = engine.log.slice(-10).map(l => `<div>${l}</div>`).join('');
+}
+
+document.getElementById('btnPlay').onclick = () => {
+  if (selectedCard === null) return;
+  const res = engine.playCard(0, selectedCard);
+  if (res.ok) { selectedCard = null; render(); }
+  else { alert(res.reason); }
+};
+
+document.getElementById('btnPass').onclick = () => {
+  const res = engine.pass(0);
+  if (res.ok) render();
+  else alert(res.reason);
+};
+
+document.getElementById('btnNew').onclick = () => initGame(currentConfigKey);
+
+document.getElementById('btnApply').onclick = () => {
+  try {
+    const newConfig = JSON.parse(document.getElementById('configEditor').value);
+    CONFIGS['custom'] = newConfig;
+    initGame('custom');
+  } catch (e) {
+    alert('JSON inválido: ' + e.message);
+  }
+};
+
+// Lista de juegos
+const gameListEl = document.getElementById('gameList');
+for (const key of Object.keys(CONFIGS)) {
+  const btn = document.createElement('button');
+  btn.textContent = CONFIGS[key].name;
+  btn.style.marginRight = '6px';
+  btn.style.marginBottom = '6px';
+  btn.onclick = () => {
+    document.getElementById('configEditor').value = JSON.stringify(CONFIGS[key], null, 2);
+    initGame(key);
+  };
+  gameListEl.appendChild(btn);
+}
+
+// Inicializar
+document.getElementById('configEditor').value = JSON.stringify(CONFIGS[currentConfigKey], null, 2);
+initGame(currentConfigKey);
+</script>
+</body>
+</html>
