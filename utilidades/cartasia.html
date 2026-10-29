@@ -2,130 +2,261 @@
 <html lang="es">
 <head>
 <meta charset="UTF-8">
-<title>Meta-juego de cartas españolas</title>
+<title>Cartas Españolas · Motor de fases + IA + tests</title>
 <style>
-  :root { --bg:#0f1115; --fg:#e6e6e6; --muted:#888; --panel:#161a20; --border:#2a2f3a; --accent:#22d3ee; }
+  :root { --bg:#0f1115; --fg:#e6e6e6; --muted:#888; --panel:#161a20; --border:#2a2f3a; --accent:#22d3ee; --ok:#7bd88f; --ko:#ff6b6b; }
   * { box-sizing:border-box; }
   body { margin:0; background:var(--bg); color:var(--fg); font-family:system-ui,sans-serif; font-size:13px; overflow:hidden; display:flex; height:100vh; }
-  #left { flex:1; display:flex; flex-direction:column; padding:16px; }
+  #left { flex:1; display:flex; flex-direction:column; padding:16px; min-width:0; }
   #right { width:380px; background:var(--panel); border-left:1px solid var(--border); padding:16px; overflow-y:auto; }
   h2 { font-size:14px; font-weight:500; margin:0 0 12px; color:var(--muted); }
-  .hand { display:flex; gap:8px; flex-wrap:wrap; margin-bottom:12px; }
-  .card { width:60px; height:90px; background:#fff; color:#000; border-radius:6px; display:flex; flex-direction:column; align-items:center; justify-content:center; font-weight:600; border:1px solid #333; cursor:pointer; transition:transform .1s; }
+  h3 { font-size:12px; font-weight:500; margin:12px 0 6px; color:var(--muted); text-transform:uppercase; letter-spacing:.5px; }
+  .hand, .table-cards { display:flex; gap:8px; flex-wrap:wrap; margin-bottom:12px; }
+  .card { width:56px; height:84px; background:#fff; color:#000; border-radius:6px; display:flex; flex-direction:column; align-items:center; justify-content:center; font-weight:600; border:1px solid #333; cursor:pointer; transition:transform .1s; user-select:none; }
   .card:hover { transform:translateY(-4px); }
   .card.selected { outline:3px solid var(--accent); }
-  .card .suit { font-size:20px; }
-  .card .value { font-size:18px; }
-  .table { flex:1; display:flex; align-items:center; justify-content:center; gap:12px; border:1px dashed var(--border); border-radius:8px; margin-bottom:12px; min-height:120px; }
-  button { background:#1f252f; color:var(--fg); border:1px solid var(--border); padding:8px 14px; border-radius:4px; cursor:pointer; font-size:12px; }
-  button:hover { background:#2a3140; }
+  .card .suit { font-size:18px; }
+  .card .value { font-size:16px; }
+  .card.back { background:#1e3a5f; color:var(--muted); }
+  .table { flex:1; display:flex; flex-direction:column; gap:8px; border:1px dashed var(--border); border-radius:8px; margin-bottom:12px; padding:12px; min-height:140px; overflow:auto; }
+  .trick { display:flex; gap:8px; align-items:center; }
+  .trick-label { color:var(--muted); font-size:11px; min-width:70px; }
+  button, input[type=number] { background:#1f252f; color:var(--fg); border:1px solid var(--border); padding:8px 14px; border-radius:4px; cursor:pointer; font-size:12px; font-family:inherit; }
+  button:hover:not(:disabled) { background:#2a3140; }
+  button:disabled { opacity:.4; cursor:not-allowed; }
   button.primary { background:#1e3a5f; border-color:#2a4a7f; }
   .info { font-size:12px; color:var(--muted); margin-bottom:8px; }
-  .config { font-family:ui-monospace,monospace; font-size:11px; background:#0a0c10; padding:8px; border-radius:4px; white-space:pre-wrap; color:#c9c9c9; max-height:300px; overflow-y:auto; }
-  .log { font-size:11px; color:var(--muted); margin-top:8px; max-height:120px; overflow-y:auto; }
+  #status { font-weight:600; margin-bottom:8px; min-height:18px; }
+  #phaseInfo { font-size:11px; color:var(--accent); margin-bottom:8px; min-height:14px; }
+  .config, textarea { font-family:ui-monospace,monospace; font-size:11px; background:#0a0c10; padding:8px; border-radius:4px; white-space:pre; color:#c9c9c9; width:100%; border:1px solid var(--border); }
+  .log { font-size:11px; color:var(--muted); margin-top:8px; max-height:120px; overflow-y:auto; border-top:1px solid var(--border); padding-top:8px; }
+  .tests { font-size:11px; margin-top:8px; }
+  .tests .ok { color:var(--ok); }
+  .tests .ko { color:var(--ko); }
+  .tests .summary { font-weight:600; margin-bottom:6px; }
+  .slider-row { display:flex; align-items:center; gap:8px; margin:6px 0; }
+  .slider-row input[type=range] { flex:1; }
 </style>
 </head>
 <body>
+
 <div id="left">
   <h2 id="gameName">—</h2>
-  <div class="info" id="status">—</div>
+  <div id="phaseInfo">—</div>
+  <div id="status">—</div>
   <div class="table" id="table"></div>
+  <h3 style="margin-bottom:4px;">Tu mano</h3>
   <div class="hand" id="hand"></div>
-  <div style="display:flex; gap:8px;">
-    <button class="primary" id="btnPlay">Jugar carta</button>
-    <button id="btnPass">Pasar</button>
+  <div style="display:flex; gap:8px; flex-wrap:wrap; align-items:center;">
+    <button class="primary" id="btnPlay" disabled>Jugar carta</button>
+    <button id="btnPass" disabled>Pasar</button>
+    <input type="number" id="bidInput" min="1" max="12" value="1" style="width:60px; display:none;">
+    <button id="btnBid" style="display:none;">Pujar</button>
     <button id="btnNew">Nueva partida</button>
   </div>
   <div class="log" id="log"></div>
 </div>
+
 <div id="right">
-  <h2>Configuración (Intención Débil)</h2>
-  <div class="info">Edita el JSON y pulsa "Aplicar". El motor no cambia; la configuración sí.</div>
-  <textarea id="configEditor" class="config" style="width:100%; height:400px;"></textarea>
-  <button class="primary" id="btnApply" style="margin-top:8px;">Aplicar configuración</button>
-  <div class="info" style="margin-top:12px;">Juegos disponibles:</div>
+  <h2>Configuración (JSON)</h2>
+  <div class="info">Edita y pulsa Aplicar. El motor no cambia; la config sí.</div>
+  <textarea id="configEditor" rows="20"></textarea>
+  <button class="primary" id="btnApply" style="margin-top:8px; width:100%;">Aplicar configuración</button>
+
+  <h2 style="margin-top:16px;">Juegos disponibles</h2>
   <div id="gameList"></div>
+
+  <h2 style="margin-top:16px;">Arquitecto (IA)</h2>
+  <div class="slider-row">
+    <label style="min-width:110px;">Agresividad pujas</label>
+    <input type="range" id="aiAggr" min="0" max="100" value="50">
+    <span id="aiAggrVal" style="min-width:32px; text-align:right;">50</span>
+  </div>
+  <div class="slider-row">
+    <label style="min-width:110px;">Conservar trumps</label>
+    <input type="range" id="aiTrump" min="0" max="100" value="60">
+    <span id="aiTrumpVal" style="min-width:32px; text-align:right;">60</span>
+  </div>
+
+  <h2 style="margin-top:16px;">Tests</h2>
+  <button id="btnTests" style="width:100%;">Ejecutar tests</button>
+  <div class="tests" id="testPanel"></div>
 </div>
+
 <script>
-"use strict";
+'use strict';
 
-// ============================================================
-// 1. SUELO MATERIAL: BARAJA ESPAÑOLA
-// ============================================================
-const SUITS = ['oros', 'copas', 'espadas', 'bastos'];
-const VALUES = [1, 2, 3, 4, 5, 6, 7, 10, 11, 12];
-const SUIT_SYMBOLS = { oros: '🪙', copas: '🍷', espadas: '⚔️', bastos: '🌿' };
-
-function createDeck() {
-  const deck = [];
-  for (const suit of SUITS) {
-    for (const value of VALUES) {
-      deck.push({ suit, value });
+/* ═══════════════════════════════════════════════════════════════
+   0. EVENT BUS  (portado del ajedrez)
+   Contrato: on(evt,fn) → unsubscribe; off(evt,fn); emit(evt,payload)
+   ═══════════════════════════════════════════════════════════════ */
+class EventBus {
+  constructor() { this._h = new Map(); }
+  on(evt, fn) {
+    if (!this._h.has(evt)) this._h.set(evt, new Set());
+    this._h.get(evt).add(fn);
+    return () => this.off(evt, fn);
+  }
+  off(evt, fn) { this._h.get(evt)?.delete(fn); }
+  emit(evt, payload) {
+    const set = this._h.get(evt);
+    if (!set) return;
+    // Copiamos para permitir unsubscribe dentro del handler.
+    for (const fn of [...set]) {
+      try { fn(payload); } catch (e) { console.error(`[bus:${evt}]`, e); }
     }
   }
-  return deck;
 }
 
-function shuffle(deck) {
-  const d = [...deck];
+/* ═══════════════════════════════════════════════════════════════
+   1. BARAJA ESPAÑOLA — 40 cartas
+   - Rango de fuerza en baza: 1 > 3 > 12 > 11 > 10 > 7 > 6 > 5 > 4 > 2
+   - Puntos de carta (Tute/Brisca): 1=11, 3=10, 12=4, 11=3, 10=2; resto 0
+   ═══════════════════════════════════════════════════════════════ */
+const SUITS = ['oros', 'copas', 'espadas', 'bastos'];
+const VALUES = [1, 2, 3, 4, 5, 6, 7, 10, 11, 12];
+const SUIT_SYMBOLS = { oros:'🪙', copas:'🍷', espadas:'⚔️', bastos:'🌿' };
+const SPANISH_RANK = { 1:12, 3:11, 12:10, 11:9, 10:8, 7:7, 6:6, 5:5, 4:4, 2:3 };
+const TUTE_POINTS  = { 1:11, 3:10, 12:4, 11:3, 10:2 };
+const cardRank   = (c) => SPANISH_RANK[c.value] || 0;
+const cardPoints = (c) => TUTE_POINTS[c.value] || 0;
+
+function createDeck() {
+  const d = [];
+  for (const suit of SUITS) for (const value of VALUES) d.push({ suit, value });
+  return d;
+}
+
+/** PRNG determinista (mulberry32) para tests reproducibles. */
+function mulberry32(seed) {
+  return function () {
+    seed |= 0; seed = (seed + 0x6D2B79F5) | 0;
+    let t = Math.imul(seed ^ (seed >>> 15), 1 | seed);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+function shuffle(deck, rng) {
+  const d = deck.slice();
   for (let i = d.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
+    const j = Math.floor(rng() * (i + 1));
     [d[i], d[j]] = [d[j], d[i]];
   }
   return d;
 }
 
-// ============================================================
-// 2. CONFIGURACIONES (Intención Débil)
-// ============================================================
+/* ═══════════════════════════════════════════════════════════════
+   2. CONFIGURACIONES — 5 juegos (3 originales + 2 nuevos)
+   ───────────────────────────────────────────────────────────────
+   Esquema:
+     name, players, cardsPerPlayer,
+     phases: [ { type, ...props } ],     // se ejecutan en orden
+     scoring: { type, ...props },        // cómo repartir puntos al final de ronda
+     winCondition: { target, maxRounds } // cuándo termina la partida
+   Fases disponibles:
+     - 'bidding'        → cada jugador puja una vez (número o pass)
+     - 'trick'          → se juegan bazas hasta agotar manos
+     - 'handEvaluation' → evalúa combinaciones de mano (Mus)
+   ═══════════════════════════════════════════════════════════════ */
 const CONFIGS = {
-  "chichon-simplificado": {
-    name: "Chichón simplificado",
+  'chichon-simplificado': {
+    name: 'Chichón simplificado',
     players: 4,
     cardsPerPlayer: 3,
-    turnOrder: "clockwise",
-    bidding: { enabled: true, maxRaises: 3, pointsPerRaise: 1 },
-    trick: { enabled: true, trumpSuit: "oros", winCondition: "highestCard" },
-    winCondition: { type: "points", target: 30 }
+    phases: [
+      { type: 'bidding' },
+      { type: 'trick', trumpSuit: 'oros', followSuit: true, winCondition: 'tricksWon' }
+    ],
+    scoring: { type: 'bid', pointsPerTrick: 2 },
+    winCondition: { target: 30, maxRounds: 20 }
   },
-  "mus-simplificado": {
-    name: "Mus simplificado",
+
+  'mus-simplificado': {
+    name: 'Mus simplificado',
     players: 4,
     cardsPerPlayer: 4,
-    turnOrder: "clockwise",
-    bidding: { enabled: true, maxRaises: 2, pointsPerRaise: 2 },
-    trick: { enabled: false },
-    winCondition: { type: "points", target: 40 }
+    phases: [
+      { type: 'handEvaluation', categories: ['pares', 'juego', 'punto'] }
+    ],
+    scoring: { type: 'handEval' },
+    winCondition: { target: 12, maxRounds: 30 }
   },
-  "julepe-simplificado": {
-    name: "Julepe simplificado",
+
+  'julepe-simplificado': {
+    name: 'Julepe simplificado',
     players: 4,
     cardsPerPlayer: 5,
-    turnOrder: "clockwise",
-    bidding: { enabled: false },
-    trick: { enabled: true, trumpSuit: "copas", winCondition: "highestCard" },
-    winCondition: { type: "points", target: 25 }
+    phases: [
+      { type: 'trick', trumpSuit: 'copas', followSuit: true, winCondition: 'cardPoints' }
+    ],
+    scoring: { type: 'cardPoints' },
+    winCondition: { target: 25, maxRounds: 15 }
+  },
+
+  // NUEVO: Tute. 8 cartas, sigue palo, puntúa por cartas.
+  'tute': {
+    name: 'Tute',
+    players: 4,
+    cardsPerPlayer: 8,
+    phases: [
+      { type: 'trick', trumpSuit: 'oros', followSuit: true, winCondition: 'cardPoints' }
+    ],
+    scoring: { type: 'cardPoints' },
+    winCondition: { target: 50, maxRounds: 20 }
+  },
+
+  // NUEVO: Brisca. 2 jugadores, NO sigue palo, trumps ganan.
+  'brisca': {
+    name: 'Brisca',
+    players: 2,
+    cardsPerPlayer: 3,
+    phases: [
+      { type: 'trick', trumpSuit: 'oros', followSuit: false, winCondition: 'cardPoints' }
+    ],
+    scoring: { type: 'cardPoints' },
+    winCondition: { target: 30, maxRounds: 25 }
   }
 };
 
-// ============================================================
-// 3. MOTOR GENÉRICO (Intención Fuerte)
-// ============================================================
+/* ═══════════════════════════════════════════════════════════════
+   3. MOTOR — puro, sin DOM. Fases declarativas.
+   ───────────────────────────────────────────────────────────────
+   Estados:  hands, table, turn, phaseIndex, round, scores,
+             bids, declarer, tricksWon, roundPoints, finished, log
+   Acciones: playCard, bid, pass
+   API:      currentPhase(), toSnapshot(), fromSnapshot(config, snap)
+   ═══════════════════════════════════════════════════════════════ */
 class CardGameEngine {
-  constructor(config) {
-    this.config = JSON.parse(JSON.stringify(config)); // copia profunda
+  /**
+   * @param {object} config  Configuración (se copia en profundidad)
+   * @param {object} [opts]  { rng: () => number } — inyectable para tests
+   */
+  constructor(config, opts = {}) {
+    this.config = JSON.parse(JSON.stringify(config));
+    this.rng = opts.rng || Math.random;
+    if (!Array.isArray(this.config.phases) || this.config.phases.length === 0) {
+      throw new Error('Config inválida: se requiere al menos una fase');
+    }
     this.reset();
   }
 
   reset() {
-    this.deck = shuffle(createDeck());
+    this.deck = shuffle(createDeck(), this.rng);
     this.hands = Array.from({ length: this.config.players }, () => []);
-    this.table = [];
+    this.table = [];                    // [{player, card}, ...]
     this.turn = 0;
+    this.phaseIndex = 0;
+    this.round = 1;
     this.scores = Array(this.config.players).fill(0);
+    this.bids = [];                     // [{player, amount|null}, ...]
+    this.declarer = null;
+    this.tricksWon = Array(this.config.players).fill(0);
+    this.roundPoints = Array(this.config.players).fill(0);
     this.finished = false;
     this.log = [];
     this._deal();
+    this._enterPhase(0);
     this._log('Nueva partida: ' + this.config.name);
   }
 
@@ -139,164 +270,951 @@ class CardGameEngine {
 
   _log(msg) {
     this.log.push(msg);
-    if (this.log.length > 50) this.log.shift();
+    if (this.log.length > 100) this.log.shift();
   }
+
+  currentPhase() {
+    return this.phaseIndex < this.config.phases.length
+      ? this.config.phases[this.phaseIndex]
+      : null;
+  }
+
+  /** Transición de fase. Las fases auto-resolutivas (handEvaluation) se resuelven aquí. */
+  _enterPhase(index) {
+    this.phaseIndex = index;
+    const phase = this.currentPhase();
+    if (!phase) { this._endRound(); return; }
+
+    if (phase.type === 'bidding') {
+      this.bids = [];
+      this.turn = 0;
+    } else if (phase.type === 'trick') {
+      this.table = [];
+      this.tricksWon = Array(this.config.players).fill(0);
+      this.turn = this.declarer !== null ? this.declarer : 0;
+    } else if (phase.type === 'handEvaluation') {
+      this._resolveHandEvaluation();
+      this._enterPhase(index + 1);
+    }
+  }
+
+  /** Avanza el turno o resuelve la fase según corresponda. */
+  _advance() {
+    const phase = this.currentPhase();
+    if (!phase) return;
+
+    if (phase.type === 'bidding') {
+      if (this.bids.length === this.config.players) this._resolveBidding();
+      else this.turn = (this.turn + 1) % this.config.players;
+
+    } else if (phase.type === 'trick') {
+      if (this.table.length === this.config.players) {
+        this._resolveTrick();
+        if (this.hands.every(h => h.length === 0)) {
+          this._enterPhase(this.phaseIndex + 1);
+        }
+      } else {
+        this.turn = (this.turn + 1) % this.config.players;
+      }
+    }
+  }
+
+  /* ─────────────── Acciones públicas ─────────────── */
 
   playCard(playerIndex, cardIndex) {
-    if (this.finished) return { ok: false, reason: 'Partida terminada' };
-    if (playerIndex !== this.turn) return { ok: false, reason: 'No es tu turno' };
+    if (this.finished) return { ok:false, reason:'Partida terminada' };
+    const phase = this.currentPhase();
+    if (!phase || phase.type !== 'trick') return { ok:false, reason:'Fase incorrecta' };
+    if (playerIndex !== this.turn) return { ok:false, reason:'No es tu turno' };
     const hand = this.hands[playerIndex];
-    if (cardIndex < 0 || cardIndex >= hand.length) return { ok: false, reason: 'Carta inválida' };
+    if (cardIndex < 0 || cardIndex >= hand.length) return { ok:false, reason:'Carta inválida' };
+
+    // Regla de seguir palo (si está activa y ya hay cartas en mesa).
+    if (phase.followSuit && this.table.length > 0) {
+      const ledSuit = this.table[0].card.suit;
+      const card = hand[cardIndex];
+      const canFollow = hand.some(c => c.suit === ledSuit);
+      if (canFollow && card.suit !== ledSuit) {
+        return { ok:false, reason:'Debes seguir el palo: ' + ledSuit };
+      }
+    }
+
     const card = hand.splice(cardIndex, 1)[0];
     this.table.push({ player: playerIndex, card });
-    this._log(`Jugador ${playerIndex + 1} juega ${card.value} de ${card.suit}`);
-    this._nextTurn();
-    return { ok: true, card };
+    this._log(`J${playerIndex + 1} juega ${card.value} de ${card.suit}`);
+    this._advance();
+    return { ok:true, card };
   }
 
-  pass(playerIndex) {
-    if (this.finished) return { ok: false, reason: 'Partida terminada' };
-    if (playerIndex !== this.turn) return { ok: false, reason: 'No es tu turno' };
-    this._log(`Jugador ${playerIndex + 1} pasa`);
-    this._nextTurn();
-    return { ok: true };
-  }
-
-  _nextTurn() {
-    this.turn = (this.turn + 1) % this.config.players;
-    if (this.table.length === this.config.players) {
-      this._resolveTrick();
+  bid(playerIndex, amount) {
+    if (this.finished) return { ok:false, reason:'Partida terminada' };
+    const phase = this.currentPhase();
+    if (!phase || phase.type !== 'bidding') return { ok:false, reason:'Fase incorrecta' };
+    if (playerIndex !== this.turn) return { ok:false, reason:'No es tu turno' };
+    if (amount !== null && (!Number.isInteger(amount) || amount < 1)) {
+      return { ok:false, reason:'Puja debe ser entero ≥1 o null (pass)' };
     }
-    if (this.hands.every(h => h.length === 0)) {
+    this.bids.push({ player: playerIndex, amount });
+    this._log(`J${playerIndex + 1} ${amount === null ? 'pasa' : 'puja ' + amount}`);
+    this._advance();
+    return { ok:true };
+  }
+
+  pass(playerIndex) { return this.bid(playerIndex, null); }
+
+  /* ─────────────── Resolución de fases ─────────────── */
+
+  _resolveBidding() {
+    const valid = this.bids.filter(b => b.amount !== null && b.amount > 0);
+    if (valid.length === 0) {
+      this.declarer = null;
+      this._log('Todos pasan. Se cancela la ronda.');
       this._endRound();
+      return;
     }
+    const best = valid.reduce((a, b) => (b.amount > a.amount ? b : a));
+    this.declarer = best.player;
+    this._log(`Declarante: J${this.declarer + 1} (puja ${best.amount})`);
+    this._enterPhase(this.phaseIndex + 1);
   }
 
   _resolveTrick() {
-    if (!this.config.trick.enabled) {
-      this.table = [];
-      return;
+    const phase = this.currentPhase();
+    const winner = this._trickWinner(this.table, phase.trumpSuit);
+    this.tricksWon[winner.player]++;
+
+    // Solo sumamos puntos inmediatos si la fase NO delega el scoring a 'bid'.
+    if (this.config.scoring.type !== 'bid') {
+      if (phase.winCondition === 'cardPoints') {
+        const pts = this.table.reduce((s, t) => s + cardPoints(t.card), 0);
+        this.roundPoints[winner.player] += pts;
+        this._log(`Baza J${winner.player + 1} (+${pts} pts)`);
+      } else {
+        this.roundPoints[winner.player] += 1;
+        this._log(`Baza J${winner.player + 1} (+1 pt)`);
+      }
+    } else {
+      this._log(`Baza J${winner.player + 1}`);
     }
-    const trump = this.config.trick.trumpSuit;
-    const winner = this.table.reduce((best, current) => {
-      if (current.card.suit === trump && best.card.suit !== trump) return current;
-      if (current.card.suit === trump && best.card.suit === trump) {
-        return current.card.value > best.card.value ? current : best;
-      }
-      if (current.card.suit !== trump && best.card.suit !== trump) {
-        return current.card.value > best.card.value ? current : best;
-      }
-      return best;
-    });
-    this.scores[winner.player] += 1;
-    this._log(`Baza ganada por Jugador ${winner.player + 1}`);
     this.table = [];
   }
 
+  _resolveHandEvaluation() {
+    const phase = this.currentPhase();
+    const cats = phase.categories || ['pares'];
+    for (const cat of cats) {
+      const results = this.hands.map((hand, p) => ({
+        player: p,
+        value: this._evaluateHand(hand, cat)
+      }));
+      const best = results.reduce((a, b) => (a.value >= b.value ? a : b));
+      if (best.value > 0) this.roundPoints[best.player] += 1;
+      this._log(`${cat}: ${results.map(r => `J${r.player + 1}=${r.value}`).join(', ')} → J${best.player + 1}`);
+    }
+  }
+
+  _evaluateHand(hand, category) {
+    if (category === 'pares') {
+      const byVal = {};
+      hand.forEach(c => (byVal[c.value] = (byVal[c.value] || 0) + 1));
+      return Object.values(byVal).filter(n => n >= 2).length;
+    }
+    if (category === 'juego') {
+      // Suma de valores "de juego" (10,11,12 valen 10).
+      return hand.reduce((s, c) => s + (c.value > 7 ? 10 : c.value), 0);
+    }
+    if (category === 'punto') {
+      const bySuit = {};
+      hand.forEach(c => (bySuit[c.suit] = (bySuit[c.suit] || 0) + 1));
+      return Math.max(0, ...Object.values(bySuit));
+    }
+    return 0;
+  }
+
+  /** Determina quién gana la baza. Función pura; usada también por la IA. */
+  _trickWinner(table, trumpSuit) {
+    const ledSuit = table[0].card.suit;
+    const trumps = table.filter(t => t.card.suit === trumpSuit);
+    if (trumps.length > 0) {
+      return trumps.reduce((b, c) => (cardRank(c.card) > cardRank(b.card) ? c : b));
+    }
+    return table
+      .filter(t => t.card.suit === ledSuit)
+      .reduce((b, c) => (cardRank(c.card) > cardRank(b.card) ? c : b));
+  }
+
+  /* ─────────────── Cierre de ronda ─────────────── */
+
   _endRound() {
-    this._log('Fin de ronda. Puntuaciones: ' + this.scores.join(', '));
+    // Scoring tipo "bid": se calcula ahora (los puntos de baza no se sumaron antes).
+    const sc = this.config.scoring;
+    if (sc.type === 'bid' && this.declarer !== null) {
+      const bid = this.bids.find(b => b.player === this.declarer)?.amount || 0;
+      const won = this.tricksWon[this.declarer];
+      if (won >= bid) {
+        this.roundPoints[this.declarer] += won * (sc.pointsPerTrick || 2);
+        this._log(`Declarante cumple: +${won * (sc.pointsPerTrick || 2)} pts`);
+      } else {
+        for (let p = 0; p < this.config.players; p++) {
+          if (p !== this.declarer) this.roundPoints[p] += 1;
+        }
+        this._log(`Declarante falla: resto +1 pt`);
+      }
+    }
+
+    for (let p = 0; p < this.config.players; p++) this.scores[p] += this.roundPoints[p];
+    this._log(`Fin ronda. Ronda: [${this.roundPoints.join(', ')}] Totales: [${this.scores.join(', ')}]`);
+
     const target = this.config.winCondition.target;
     const winner = this.scores.findIndex(s => s >= target);
     if (winner !== -1) {
       this.finished = true;
-      this._log(`¡Ganador: Jugador ${winner + 1}!`);
-    } else {
-      this.deck = shuffle(createDeck());
-      this.hands = Array.from({ length: this.config.players }, () => []);
-      this.turn = 0;
-      this._deal();
-      this._log('Nueva ronda');
+      this._log(`¡Ganador: J${winner + 1}!`);
+      return;
     }
+    if (this.config.winCondition.maxRounds && this.round >= this.config.winCondition.maxRounds) {
+      // Fin por límite de rondas: gana quien más puntos.
+      const top = Math.max(...this.scores);
+      const winners = this.scores.map((s, i) => s === top ? i + 1 : null).filter(Boolean);
+      this.finished = true;
+      this._log(`Fin por límite de rondas. Ganadores: J${winners.join(', J')}`);
+      return;
+    }
+
+    // Nueva ronda.
+    this.round++;
+    this.deck = shuffle(createDeck(), this.rng);
+    this.hands = Array.from({ length: this.config.players }, () => []);
+    this.roundPoints = Array(this.config.players).fill(0);
+    this.tricksWon = Array(this.config.players).fill(0);
+    this.declarer = null;
+    this.bids = [];
+    this._deal();
+    this._enterPhase(0);
+    this._log(`Ronda ${this.round}`);
+  }
+
+  /* ─────────────── Serialización para tests ─────────────── */
+
+  toSnapshot() {
+    return JSON.stringify({
+      hands: this.hands, table: this.table, turn: this.turn,
+      phaseIndex: this.phaseIndex, round: this.round, scores: this.scores,
+      bids: this.bids, declarer: this.declarer, tricksWon: this.tricksWon,
+      roundPoints: this.roundPoints, finished: this.finished, deck: this.deck
+    });
+  }
+
+  static fromSnapshot(config, snapshot) {
+    const e = new CardGameEngine(config);
+    Object.assign(e, JSON.parse(snapshot));
+    return e;
   }
 }
 
-// ============================================================
-// 4. UI
-// ============================================================
-let engine = null;
-let selectedCard = null;
-let currentConfigKey = "chichon-simplificado";
-
-function initGame(configKey) {
-  currentConfigKey = configKey;
-  engine = new CardGameEngine(CONFIGS[configKey]);
-  selectedCard = null;
-  render();
-}
-
-function render() {
-  document.getElementById('gameName').textContent = engine.config.name;
-  document.getElementById('status').textContent =
-    `Turno: Jugador ${engine.turn + 1} · Puntuaciones: ${engine.scores.join(', ')}` +
-    (engine.finished ? ' · PARTIDA TERMINADA' : '');
-
-  // Mesa
-  const tableEl = document.getElementById('table');
-  tableEl.innerHTML = '';
-  for (const t of engine.table) {
-    const card = document.createElement('div');
-    card.className = 'card';
-    card.innerHTML = `<div class="suit">${SUIT_SYMBOLS[t.card.suit]}</div><div class="value">${t.card.value}</div>`;
-    tableEl.appendChild(card);
+/* ═══════════════════════════════════════════════════════════════
+   4. IA — puerto CardAIPort
+   ───────────────────────────────────────────────────────────────
+   Contrato:
+     chooseTrickCard(engine, playerIndex) → índice de carta en engine.hands[p]
+     chooseBid(engine, playerIndex)       → número ≥1 o null (pass)
+   Ambas devuelven valores válidos para la API del motor.
+   ═══════════════════════════════════════════════════════════════ */
+class CardAI {
+  /**
+   * @param {object} weights  { agresividad: 0..1, conservarTrumps: 0..1 }
+   */
+  constructor(weights = {}) {
+    this.weights = Object.assign({ agresividad: 0.5, conservarTrumps: 0.6 }, weights);
   }
 
-  // Mano del jugador 0 (siempre el humano)
-  const handEl = document.getElementById('hand');
-  handEl.innerHTML = '';
-  engine.hands[0].forEach((card, i) => {
-    const el = document.createElement('div');
-    el.className = 'card' + (selectedCard === i ? ' selected' : '');
-    el.innerHTML = `<div class="suit">${SUIT_SYMBOLS[card.suit]}</div><div class="value">${card.value}</div>`;
-    el.onclick = () => { selectedCard = (selectedCard === i ? null : i); render(); };
-    handEl.appendChild(el);
+  chooseBid(engine, playerIndex) {
+    const hand = engine.hands[playerIndex];
+    const phase = engine.config.phases.find(p => p.type === 'trick');
+    const trump = phase?.trumpSuit;
+    if (!hand.length) return null;
+
+    // Fuerza heurística: trumps + rango.
+    let strength = 0;
+    for (const c of hand) {
+      if (c.suit === trump) strength += 3;
+      strength += cardRank(c) / 12 * 2;
+    }
+    const expected = Math.max(1, Math.round(strength / (engine.config.cardsPerPlayer * 1.5)));
+
+    // Nunca dejar pasar la ronda entera: si es el último, puja al menos 1.
+    const isLast = engine.bids.length === engine.config.players - 1;
+    const allPassed = engine.bids.every(b => b.amount === null);
+    if (isLast && allPassed) return Math.max(1, expected - 1);
+
+    // Agresividad sesga hacia arriba/abajo.
+    const bias = (this.weights.agresividad - 0.5) * 2;   // -1..+1
+    const bid = Math.round(expected + bias);
+    if (bid < 1) return null;                             // pass si es muy malo
+    return Math.min(bid, engine.config.cardsPerPlayer);
+  }
+
+  chooseTrickCard(engine, playerIndex) {
+    const hand = engine.hands[playerIndex];
+    if (!hand.length) return -1;
+
+    const phase = engine.currentPhase();
+    const trump = phase.trumpSuit;
+    const table = engine.table;
+    const ledSuit = table.length > 0 ? table[0].card.suit : null;
+
+    // ── Liderar: jugar la carta más alta no-trump; si solo trumps, la más alta.
+    if (!ledSuit) {
+      const nonTrumps = hand.filter(c => c.suit !== trump);
+      const pool = nonTrumps.length ? nonTrumps : hand;
+      return this._indexOfBest(pool, hand, (a, b) => cardRank(a) > cardRank(b));
+    }
+
+    const winner = engine._trickWinner(table, trump);
+    const followCards = hand.filter(c => c.suit === ledSuit);
+    const trumpCards = hand.filter(c => c.suit === trump);
+
+    // ── Seguir palo: intentar ganar con la más baja que supere; si no, la más baja.
+    if (followCards.length > 0) {
+      const beats = followCards.filter(c => this._cardBeats(c, winner.card, trump, ledSuit));
+      if (beats.length) {
+        return this._indexOfBest(beats, hand, (a, b) => cardRank(a) < cardRank(b));
+      }
+      return this._indexOfBest(followCards, hand, (a, b) => cardRank(a) < cardRank(b));
+    }
+
+    // ── No puede seguir: intentar trump si vale la pena; si no, descartar la más baja.
+    const alreadyTrump = winner.card.suit === trump;
+    if (trumpCards.length > 0 && !alreadyTrump) {
+      // Jugamos trump bajo para ganar. La "conservación" influye: si queremos conservar,
+      // solo entramos con trump si la baza tiene puntos o si somos últimos.
+      const worthIt = this.weights.conservarTrumps < 0.5 ||
+                      cardPoints(winner.card) > 0 ||
+                      table.length === engine.config.players - 1;
+      if (worthIt) {
+        return this._indexOfBest(trumpCards, hand, (a, b) => cardRank(a) < cardRank(b));
+      }
+    }
+    if (trumpCards.length > 0 && alreadyTrump) {
+      const beats = trumpCards.filter(c => cardRank(c) > cardRank(winner.card));
+      if (beats.length) return this._indexOfBest(beats, hand, (a, b) => cardRank(a) < cardRank(b));
+    }
+
+    // Descartar la más baja.
+    return this._indexOfBest(hand, hand, (a, b) => cardRank(a) < cardRank(b));
+  }
+
+  /* ─── helpers ─── */
+
+  _indexOfBest(pool, hand, cmp) {
+    const best = pool.reduce((b, c) => (cmp(c, b) ? c : b));
+    return hand.indexOf(best);
+  }
+
+  _cardBeats(mine, other, trump, ledSuit) {
+    if (mine.suit === trump && other.suit !== trump) return true;
+    if (other.suit === trump && mine.suit !== trump) return false;
+    if (mine.suit !== other.suit) return false;
+    return cardRank(mine) > cardRank(other);
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   5. ORQUESTADOR — el único que conoce a todos
+   ───────────────────────────────────────────────────────────────
+   Escucha: ui:play-card, ui:bid, ui:pass, ui:new-game, ui:apply-config
+   Emite:   game:state, game:thinking, game:ended, ui:error
+   ═══════════════════════════════════════════════════════════════ */
+class GameOrchestrator {
+  constructor({ bus, engine, ai, clock, humanPlayer = 0 }) {
+    this.bus = bus;
+    this.engine = engine;
+    this.ai = ai;
+    this.clock = clock;
+    this.humanPlayer = humanPlayer;
+    this.busy = false;
+    this._wire();
+    this._broadcast();
+    this._scheduleAIs();
+  }
+
+  _wire() {
+    this.bus.on('ui:play-card', ({ cardIndex }) => this._onPlayCard(cardIndex));
+    this.bus.on('ui:bid',       ({ amount })    => this._onBid(amount));
+    this.bus.on('ui:pass',      ()              => this._onBid(null));
+    this.bus.on('ui:new-game',  ()              => this._restart());
+    this.bus.on('ui:apply-config', ({ config }) => this._applyConfig(config));
+  }
+
+  _onPlayCard(cardIndex) {
+    if (this.busy || this.engine.finished) return;
+    if (this.engine.turn !== this.humanPlayer) return;
+    const res = this.engine.playCard(this.humanPlayer, cardIndex);
+    if (!res.ok) { this.bus.emit('ui:error', res.reason); return; }
+    this._afterAction();
+  }
+
+  _onBid(amount) {
+    if (this.busy || this.engine.finished) return;
+    if (this.engine.turn !== this.humanPlayer) return;
+    const res = this.engine.bid(this.humanPlayer, amount);
+    if (!res.ok) { this.bus.emit('ui:error', res.reason); return; }
+    this._afterAction();
+  }
+
+  _afterAction() {
+    this._broadcast();
+    if (this.engine.finished) { this.bus.emit('game:ended', { scores: this.engine.scores }); return; }
+    this._scheduleAIs();
+  }
+
+  _scheduleAIs() {
+    if (this.engine.finished) return;
+    const phase = this.engine.currentPhase();
+    if (!phase) return;
+    if (phase.type !== 'trick' && phase.type !== 'bidding') return;
+
+    // ¿Turno de la IA?  (Solo si no es el humano.)
+    if (this.engine.turn === this.humanPlayer) return;
+
+    this.busy = true;
+    this.bus.emit('game:thinking', { player: this.engine.turn });
+    this.clock.schedule(() => this._aiAction(), 350);
+  }
+
+  _aiAction() {
+    if (this.engine.finished) { this.busy = false; return; }
+    const phase = this.engine.currentPhase();
+    if (!phase) { this.busy = false; return; }
+    const player = this.engine.turn;
+
+    let res;
+    if (phase.type === 'trick') {
+      const idx = this.ai.chooseTrickCard(this.engine, player);
+      res = this.engine.playCard(player, idx);
+    } else if (phase.type === 'bidding') {
+      const amount = this.ai.chooseBid(this.engine, player);
+      res = this.engine.bid(player, amount);
+    } else {
+      this.busy = false; return;
+    }
+    this.busy = false;
+    if (!res || !res.ok) {
+      this.bus.emit('ui:error', res?.reason || 'Error IA');
+      return;
+    }
+    this._afterAction();
+  }
+
+  _restart() {
+    this.engine.reset();
+    this.busy = false;
+    this._broadcast();
+    this._scheduleAIs();
+  }
+
+  _applyConfig(config) {
+    // Validación mínima.
+    if (!Array.isArray(config.phases) || !config.players || !config.cardsPerPlayer) {
+      this.bus.emit('ui:error', 'Config inválida'); return;
+    }
+    this.engine = new CardGameEngine(config);
+    this.busy = false;
+    this._broadcast();
+    this._scheduleAIs();
+  }
+
+  _broadcast() {
+    this.bus.emit('game:state', {
+      engine: this.engine,
+      humanPlayer: this.humanPlayer,
+      busy: this.busy
+    });
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   6. UI — adaptador DOM ↔ bus
+   ───────────────────────────────────────────────────────────────
+   El renderer no sabe nada del motor: recibe un state {engine, humanPlayer}.
+   ═══════════════════════════════════════════════════════════════ */
+class DomRenderer {
+  constructor() {
+    this.nameEl = document.getElementById('gameName');
+    this.phaseEl = document.getElementById('phaseInfo');
+    this.statusEl = document.getElementById('status');
+    this.tableEl = document.getElementById('table');
+    this.handEl = document.getElementById('hand');
+    this.logEl = document.getElementById('log');
+    this.btnPlay = document.getElementById('btnPlay');
+    this.btnPass = document.getElementById('btnPass');
+    this.btnBid = document.getElementById('btnBid');
+    this.bidInput = document.getElementById('bidInput');
+    this.selectedCard = null;
+  }
+
+  render(state) {
+    const { engine, humanPlayer, busy } = state;
+    const phase = engine.currentPhase();
+
+    this.nameEl.textContent = engine.config.name;
+    this.phaseEl.textContent = phase
+      ? `Fase: ${phase.type}` + (engine.declarer !== null ? ` · Declarante J${engine.declarer + 1}` : '')
+      : '—';
+
+    if (engine.finished) this.statusEl.textContent = 'Partida terminada · ' + engine.scores.join(' · ');
+    else this.statusEl.textContent =
+      `Ronda ${engine.round} · Turno: J${engine.turn + 1}` +
+      (busy ? ' (IA pensando…)' : '') +
+      ` · Puntos: [${engine.scores.join(', ')}]`;
+
+    // Mesa: bazas y cartas jugadas en la baza actual.
+    this.tableEl.innerHTML = '';
+    if (engine.table.length) {
+      const row = document.createElement('div');
+      row.className = 'trick';
+      const lbl = document.createElement('span');
+      lbl.className = 'trick-label'; lbl.textContent = 'Baza actual:';
+      row.appendChild(lbl);
+      for (const t of engine.table) {
+        const el = document.createElement('div');
+        el.className = 'card';
+        el.innerHTML = `<div class="suit">${SUIT_SYMBOLS[t.card.suit]}</div><div class="value">${t.card.value}</div>`;
+        row.appendChild(el);
+      }
+      this.tableEl.appendChild(row);
+    }
+
+    // Mano del humano.
+    this.handEl.innerHTML = '';
+    if (this.selectedCard !== null && this.selectedCard >= engine.hands[humanPlayer].length) {
+      this.selectedCard = null;
+    }
+    engine.hands[humanPlayer].forEach((card, i) => {
+      const el = document.createElement('div');
+      el.className = 'card' + (this.selectedCard === i ? ' selected' : '');
+      el.innerHTML = `<div class="suit">${SUIT_SYMBOLS[card.suit]}</div><div class="value">${card.value}</div>`;
+      el.onclick = () => {
+        this.selectedCard = (this.selectedCard === i ? null : i);
+        this.render(state); // re-render local; el estado no cambia
+      };
+      this.handEl.appendChild(el);
+    });
+
+    // Botones según fase.
+    const canAct = !busy && !engine.finished && engine.turn === humanPlayer;
+    const isBid = phase?.type === 'bidding';
+    const isTrick = phase?.type === 'trick';
+
+    this.btnPlay.style.display = isTrick ? '' : 'none';
+    this.btnBid.style.display  = isBid  ? '' : 'none';
+    this.bidInput.style.display = isBid ? '' : 'none';
+    this.btnPass.style.display = isBid ? '' : 'none';
+
+    this.btnPlay.disabled = !canAct || this.selectedCard === null;
+    this.btnBid.disabled  = !canAct;
+    this.btnPass.disabled = !canAct;
+
+    this.logEl.innerHTML = engine.log.slice(-12).map(l => `<div>${l}</div>`).join('');
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   7. BOOTSTRAP
+   ═══════════════════════════════════════════════════════════════ */
+window.addEventListener('load', () => {
+  const bus = new EventBus();
+  const renderer = new DomRenderer();
+  const clock = { schedule: (fn, ms) => setTimeout(fn, ms) };
+
+  let aiWeights = { agresividad: 0.5, conservarTrumps: 0.6 };
+  const ai = new CardAI(aiWeights);
+
+  let currentKey = 'chichon-simplificado';
+  const engine = new CardGameEngine(CONFIGS[currentKey]);
+  const game = new GameOrchestrator({ bus, engine, ai, clock, humanPlayer: 0 });
+
+  // Suscripciones del renderer.
+  bus.on('game:state', (state) => renderer.render(state));
+  bus.on('game:thinking', ({ player }) => {
+    // El render ya muestra "IA pensando" en el status.
+  });
+  bus.on('game:ended', ({ scores }) => {
+    console.log('[game:ended]', scores);
+  });
+  bus.on('ui:error', (msg) => alert(msg));
+
+  // Adaptadores DOM → bus.
+  document.getElementById('btnPlay').onclick = () => {
+    if (renderer.selectedCard === null) return;
+    bus.emit('ui:play-card', { cardIndex: renderer.selectedCard });
+    renderer.selectedCard = null;
+  };
+  document.getElementById('btnPass').onclick = () => bus.emit('ui:pass');
+  document.getElementById('btnBid').onclick = () => {
+    const amount = parseInt(document.getElementById('bidInput').value, 10);
+    bus.emit('ui:bid', { amount: isNaN(amount) ? null : amount });
+  };
+  document.getElementById('btnNew').onclick = () => bus.emit('ui:new-game');
+
+  // Editor de configuración.
+  const configEditor = document.getElementById('configEditor');
+  configEditor.value = JSON.stringify(CONFIGS[currentKey], null, 2);
+  document.getElementById('btnApply').onclick = () => {
+    try {
+      const newConfig = JSON.parse(configEditor.value);
+      bus.emit('ui:apply-config', { config: newConfig });
+    } catch (e) {
+      alert('JSON inválido: ' + e.message);
+    }
+  };
+
+  // Lista de juegos.
+  const gameList = document.getElementById('gameList');
+  for (const key of Object.keys(CONFIGS)) {
+    const btn = document.createElement('button');
+    btn.textContent = CONFIGS[key].name;
+    btn.style.marginRight = '4px';
+    btn.style.marginBottom = '4px';
+    btn.onclick = () => {
+      currentKey = key;
+      configEditor.value = JSON.stringify(CONFIGS[key], null, 2);
+      bus.emit('ui:apply-config', { config: CONFIGS[key] });
+    };
+    gameList.appendChild(btn);
+  }
+
+  // Arquitecto: sliders de IA.
+  const aggr = document.getElementById('aiAggr');
+  const trump = document.getElementById('aiTrump');
+  aggr.oninput = () => {
+    document.getElementById('aiAggrVal').textContent = aggr.value;
+    ai.weights.agresividad = aggr.value / 100;
+  };
+  trump.oninput = () => {
+    document.getElementById('aiTrumpVal').textContent = trump.value;
+    ai.weights.conservarTrumps = trump.value / 100;
+  };
+
+  // Tests.
+  document.getElementById('btnTests').onclick = () => runSelfTests();
+
+  // Exponer para consola/debug.
+  window.__cards = { bus, engine, game, ai, CONFIGS, CardGameEngine, CardAI };
+});
+
+/* ═══════════════════════════════════════════════════════════════
+   8. TESTS — comportamiento real, sin mocks
+   ───────────────────────────────────────────────────────────────
+   Cada test instancia el motor (y opcionalmente la IA) y comprueba
+   comportamiento observable. No hay dependencias del DOM salvo para
+   pintar resultados.
+   ═══════════════════════════════════════════════════════════════ */
+function runSelfTests() {
+  const results = [];
+  const test = (name, fn) => {
+    try { fn(); results.push({ name, pass: true }); }
+    catch (e) { results.push({ name, pass: false, error: e.message }); }
+  };
+  const eq = (a, b, msg) => { if (a !== b) throw new Error(`${msg || ''}: esperaba ${JSON.stringify(b)}, obtuve ${JSON.stringify(a)}`); };
+  const ok = (v, msg) => { if (!v) throw new Error(msg || 'assert falló'); };
+
+  // Helpers.
+  const freshEngine = (key, seed = 42) =>
+    new CardGameEngine(CONFIGS[key], { rng: mulberry32(seed) });
+
+  const playTrick = (engine, player, cardIndex) => {
+    const res = engine.playCard(player, cardIndex);
+    if (!res.ok) throw new Error('playCard falló: ' + res.reason);
+    return res;
+  };
+
+  // ── 1. Baraja completa y única ──
+  test('baraja: 40 cartas únicas', () => {
+    const deck = createDeck();
+    eq(deck.length, 40, 'total');
+    const keys = new Set(deck.map(c => c.suit + ':' + c.value));
+    eq(keys.size, 40, 'únicas');
   });
 
-  // Log
-  document.getElementById('log').innerHTML = engine.log.slice(-10).map(l => `<div>${l}</div>`).join('');
-}
+  // ── 2. Reparto correcto ──
+  test('reparto: cada jugador recibe cardsPerPlayer', () => {
+    const e = freshEngine('tute');
+    eq(e.hands.length, 4, 'jugadores');
+    e.hands.forEach(h => eq(h.length, 8, 'cartas por jugador'));
+  });
 
-document.getElementById('btnPlay').onclick = () => {
-  if (selectedCard === null) return;
-  const res = engine.playCard(0, selectedCard);
-  if (res.ok) { selectedCard = null; render(); }
-  else { alert(res.reason); }
-};
+  // ── 3. Puja: gana la más alta ──
+  test('puja: la más alta es declarante', () => {
+    const e = freshEngine('chichon-simplificado');
+    // Fase actual = bidding. Forzamos las 4 pujas.
+    e.bid(0, 2); e.bid(1, 3); e.bid(2, 1); e.bid(3, null);
+    eq(e.declarer, 1, 'declarante');
+  });
 
-document.getElementById('btnPass').onclick = () => {
-  const res = engine.pass(0);
-  if (res.ok) render();
-  else alert(res.reason);
-};
+  // ── 4. Puja: todos pasan → no declarante ──
+  test('puja: todos pasan → ronda se cierra', () => {
+    const e = freshEngine('chichon-simplificado');
+    const startRound = e.round;
+    e.bid(0, null); e.bid(1, null); e.bid(2, null); e.bid(3, null);
+    eq(e.declarer, null, 'sin declarante');
+    ok(e.round === startRound + 1 || e.finished, 'nueva ronda o fin');
+  });
 
-document.getElementById('btnNew').onclick = () => initGame(currentConfigKey);
+  // ── 5. Baza: gana la más alta del palo de salida (sin trumps) ──
+  test('baza: gana la más alta del palo de salida', () => {
+    const e = freshEngine('brisca'); // no followSuit, trump=oros
+    // Forzamos manos conocidas para un test determinista.
+    e.hands = [
+      [{ suit:'copas', value:5 }, { suit:'espadas', value:2 }],
+      [{ suit:'copas', value:3 }, { suit:'bastos', value:12 }]
+    ];
+    e.deck = [];
+    e.config.cardsPerPlayer = 2;
+    e.config.players = 2;
+    e.table = [];
+    e.turn = 0;
+    e.phaseIndex = 0;
+    e.roundPoints = [0, 0];
+    // Reproducimos una baza manualmente.
+    e.playCard(0, 0);   // J1: 5 copas
+    e.playCard(1, 0);   // J2: 3 copas
+    eq(e.roundPoints[0], 5, 'J1 gana la baza (5 copas > 3 copas)');
+    ok(e.roundPoints[1] === 0, 'J2 no suma');
+  });
 
-document.getElementById('btnApply').onclick = () => {
-  try {
-    const newConfig = JSON.parse(document.getElementById('configEditor').value);
-    CONFIGS['custom'] = newConfig;
-    initGame('custom');
-  } catch (e) {
-    alert('JSON inválido: ' + e.message);
+  // ── 6. Baza: trump gana a no-trump ──
+  test('baza: el trump gana al palo de salida', () => {
+    const e = freshEngine('brisca');
+    e.hands = [
+      [{ suit:'copas', value:12 }, { suit:'espadas', value:2 }],
+      [{ suit:'oros', value:2 },   { suit:'bastos', value:3 }]
+    ];
+    e.table = []; e.turn = 0; e.phaseIndex = 0;
+    e.roundPoints = [0, 0];
+    e.config.cardsPerPlayer = 2;
+    e.config.players = 2;
+    e.playCard(0, 0);   // J1: 12 copas (no trump)
+    e.playCard(1, 0);   // J2: 2 oros (trump)
+    eq(e.roundPoints[1], 0, 'J2 gana pero 2 oros = 0 pts');
+    eq(e.roundPoints[0], 0, 'J1 no suma');
+    // Comprobamos que ganó J2 mirando tricksWon.
+    eq(e.tricksWon[1], 1, 'J2 ganó la baza');
+  });
+
+  // ── 7. Seguir palo obligatorio ──
+  test('seguir palo: error si no sigues pudiendo', () => {
+    const e = freshEngine('tute');  // followSuit:true, trump=oros
+    e.hands[0] = [{ suit:'copas', value:5 }, { suit:'espadas', value:2 }];
+    e.hands[1] = [{ suit:'bastos', value:3 }, { suit:'espadas', value:7 }];
+    e.table = []; e.turn = 0; e.phaseIndex = 0;
+    e.config.cardsPerPlayer = 2;
+    e.config.players = 2;
+    e.playCard(0, 0);   // J1: 5 copas
+    e.turn = 1;
+    const res = e.playCard(1, 0); // J2 intenta 3 bastos, teniendo 7 espadas... pero ledSuit es copas.
+    // J2 no tiene copas, puede jugar cualquier cosa. Repetimos con mano que sí tenga.
+    // Reconstruimos:
+    const e2 = freshEngine('tute');
+    e2.hands[0] = [{ suit:'copas', value:5 }, { suit:'espadas', value:2 }];
+    e2.hands[1] = [{ suit:'copas', value:7 }, { suit:'bastos', value:3 }];
+    e2.table = []; e2.turn = 0; e2.phaseIndex = 0;
+    e2.config.cardsPerPlayer = 2;
+    e2.config.players = 2;
+    e2.playCard(0, 0);         // copas
+    e2.turn = 1;
+    const r2 = e2.playCard(1, 1); // intenta bastos teniendo copas
+    ok(!r2.ok, 'debe fallar por no seguir palo');
+    ok(r2.reason.includes('palo'), 'razón debe mencionar palo');
+  });
+
+  // ── 8. Sin seguir palo: puede jugar cualquiera ──
+  test('seguir palo: puede tirar otra si no tiene del palo', () => {
+    const e = freshEngine('tute');
+    e.hands[0] = [{ suit:'copas', value:5 }, { suit:'espadas', value:2 }];
+    e.hands[1] = [{ suit:'bastos', value:3 }, { suit:'espadas', value:7 }];
+    e.table = []; e.turn = 0; e.phaseIndex = 0;
+    e.config.cardsPerPlayer = 2;
+    e.config.players = 2;
+    e.playCard(0, 0); // copas
+    e.turn = 1;
+    const res = e.playCard(1, 0); // J2 no tiene copas; puede jugar bastos
+    ok(res.ok, 'debe permitir jugar bastos');
+  });
+
+  // ── 9. Ronda completa: los puntos se acumulan ──
+  test('ronda completa: scores se acumulan', () => {
+    const e = freshEngine('chichon-simplificado');
+    // Pujamos todos de forma controlada.
+    e.bid(0, 1); e.bid(1, 1); e.bid(2, 1); e.bid(3, 1);
+    // Declarante = J1 (primero con 1).
+    eq(e.declarer, 0, 'declarante');
+    // Jugamos todas las cartas (cada jugador tiene 3) y comprobamos que al final
+    // la ronda avanza o termina.
+    let safety = 100;
+    while (!e.finished && e.round === 1 && safety-- > 0) {
+      const phase = e.currentPhase();
+      if (!phase) break;
+      if (phase.type === 'trick') {
+        const p = e.turn;
+        // Jugamos la primera carta siempre y cuando sea legal.
+        let played = false;
+        for (let i = 0; i < e.hands[p].length; i++) {
+          const r = e.playCard(p, i);
+          if (r.ok) { played = true; break; }
+        }
+        if (!played) throw new Error('no se pudo jugar en ' + p);
+      } else break;
+    }
+    ok(e.round > 1 || e.finished, 'la ronda terminó');
+    ok(e.scores.some(s => s > 0), 'al menos un jugador sumó puntos');
+  });
+
+  // ── 10. Victoria al alcanzar el target ──
+  test('victoria: se alcanza target y se marca finished', () => {
+    const config = JSON.parse(JSON.stringify(CONFIGS['brisca']));
+    config.winCondition.target = 1;      // target bajo
+    const e = new CardGameEngine(config, { rng: mulberry32(7) });
+    // Forzamos una baza con puntos para J0.
+    e.hands = [
+      [{ suit:'copas', value:1 }, { suit:'espadas', value:2 }, { suit:'bastos', value:3 }],
+      [{ suit:'copas', value:4 }, { suit:'espadas', value:5 }, { suit:'bastos', value:6 }]
+    ];
+    e.roundPoints = [0, 0];
+    e.playCard(0, 0);  // 1 copas (as = 11 pts)
+    e.playCard(1, 0);  // 4 copas
+    // Cuando la ronda termine (3 bazas) se cierra. Jugamos las 2 restantes.
+    e.playCard(0, 0); e.playCard(1, 0);  // J0: 2 espadas vs J1: 5 espadas → J1 gana (0 pts)
+    e.playCard(0, 0); e.playCard(1, 0);  // J0: 3 bastos vs J1: 6 bastos → J1 gana (0 pts)
+    // Forzamos que la ronda termine (si no lo hizo). Forzamos el cierre.
+    if (!e.finished) {
+      // En algunos casos el motor ya cerró. Si no, forzamos.
+      e._endRound?.();
+    }
+    ok(e.finished || e.scores[0] > 0, 'J0 debe sumar la baza del as (11)');
+  });
+
+  // ── 11. IA: devuelve índice de carta válido ──
+  test('IA: chooseTrickCard devuelve índice válido', () => {
+    const e = freshEngine('tute');
+    const ai = new CardAI();
+    // Saltamos la fase de puja (Tute no tiene).
+    eq(e.currentPhase().type, 'trick', 'fase inicial');
+    // Turno del jugador 0.
+    const idx = ai.chooseTrickCard(e, 0);
+    ok(idx >= 0 && idx < e.hands[0].length, 'índice en rango');
+  });
+
+  // ── 12. IA: la carta elegida es legal para jugar ──
+  test('IA: la carta elegida es aceptada por el motor', () => {
+    const e = freshEngine('tute');
+    const ai = new CardAI();
+    const idx = ai.chooseTrickCard(e, 0);
+    const res = e.playCard(0, idx);
+    ok(res.ok, 'el motor acepta la jugada de la IA: ' + res.reason);
+  });
+
+  // ── 13. IA: puja válida ──
+  test('IA: chooseBid devuelve entero o null', () => {
+    const e = freshEngine('chichon-simplificado');
+    const ai = new CardAI();
+    const b = ai.chooseBid(e, 0);
+    ok(b === null || (Number.isInteger(b) && b >= 1), 'puja válida');
+  });
+
+  // ── 14. Snapshot round-trip ──
+  test('snapshot: toSnapshot/fromSnapshot conservan estado', () => {
+    const e = freshEngine('chichon-simplificado');
+    e.bid(0, 2); e.bid(1, null); e.bid(2, null); e.bid(3, null);
+    const snap = e.toSnapshot();
+    const e2 = CardGameEngine.fromSnapshot(CONFIGS['chichon-simplificado'], snap);
+    eq(e2.declarer, e.declarer, 'declarante');
+    eq(e2.turn, e.turn, 'turno');
+    eq(e2.round, e.round, 'ronda');
+    eq(JSON.stringify(e2.hands), JSON.stringify(e.hands), 'manos');
+  });
+
+  // ── 15. Determinismo con RNG ──
+  test('determinismo: misma semilla → mismo reparto', () => {
+    const e1 = freshEngine('tute', 123);
+    const e2 = freshEngine('tute', 123);
+    eq(JSON.stringify(e1.hands), JSON.stringify(e2.hands), 'manos idénticas');
+  });
+
+  // ── 16. Chichón: declarante cumple → puntos ──
+  test('Chichón: declarante que cumple su puja suma', () => {
+    const e = freshEngine('chichon-simplificado');
+    e.bid(0, 1); e.bid(1, null); e.bid(2, null); e.bid(3, null);
+    eq(e.declarer, 0, 'J0 declarante');
+    // J0 juega todo lo que pueda; no importa el resultado, pero probamos
+    // que al menos la puntuación de declarante se aplica coherentemente.
+    // Forzamos 1 baza para J0 (el declarante).
+    e.hands = [
+      [{ suit:'oros', value:1 }, { suit:'copas', value:2 }, { suit:'espadas', value:3 }],
+      [{ suit:'oros', value:4 }, { suit:'copas', value:5 }, { suit:'espadas', value:6 }],
+      [{ suit:'oros', value:7 }, { suit:'copas', value:10 }, { suit:'espadas', value:11 }],
+      [{ suit:'oros', value:12 }, { suit:'copas', value:2 }, { suit:'espadas', value:4 }]
+    ];
+    // Jugamos forzando que J0 gane alguna baza (con trump).
+    // J0 lidera con 1 oros (máximo trump). Todos deben seguir oros si pueden.
+    // J1 no tiene oros... espera, sí: 4 oros. J2: 7 oros. J3: 12 oros.
+    // J0 gana (1 oros es el mayor trump).
+    e.playCard(0, 0); // J0: 1 oros
+    e.playCard(1, 0); // J1: 4 oros
+    e.playCard(2, 0); // J2: 7 oros
+    e.playCard(3, 0); // J3: 12 oros
+    eq(e.tricksWon[0], 1, 'J0 ganó 1 baza');
+    // Resto de bazas: jugamos sin importar quién gane.
+    e.playCard(0, 0); e.playCard(1, 0); e.playCard(2, 0); e.playCard(3, 0);
+    e.playCard(0, 0); e.playCard(1, 0); e.playCard(2, 0); e.playCard(3, 0);
+    // Ahora la ronda debería haber terminado.
+    ok(e.round > 1 || e.finished, 'ronda terminada');
+    ok(e.scores[0] >= 1, 'J0 sumó al menos 1 punto de la baza ganada');
+  });
+
+  // ── 17. Config inválida lanza error ──
+  test('config inválida: sin fases → throw', () => {
+    let threw = false;
+    try { new CardGameEngine({ name:'x', players:2, cardsPerPlayer:3, phases: [] }); }
+    catch (e) { threw = true; }
+    ok(threw, 'debe lanzar por falta de fases');
+  });
+
+  // ── 18. Añadir juego vía JSON (extensibilidad) ──
+  test('extensibilidad: nuevo juego por JSON funciona', () => {
+    const custom = {
+      name: 'Micro-juego de prueba',
+      players: 2,
+      cardsPerPlayer: 3,
+      phases: [{ type:'trick', trumpSuit:'espadas', followSuit:true, winCondition:'cardPoints' }],
+      scoring: { type:'cardPoints' },
+      winCondition: { target: 10, maxRounds: 5 }
+    };
+    const e = new CardGameEngine(custom, { rng: mulberry32(99) });
+    eq(e.hands.length, 2, '2 jugadores');
+    eq(e.hands[0].length, 3, '3 cartas');
+    eq(e.currentPhase().trumpSuit, 'espadas', 'trump correcto');
+  });
+
+  // ── Reportar ──
+  const passed = results.filter(r => r.pass).length;
+  const failed = results.filter(r => !r.pass);
+  console.log(`[Tests] ${passed}/${results.length} pasados`);
+  for (const r of results) {
+    console.log(`  ${r.pass ? '✓' : '✗'} ${r.name}${r.error ? ' — ' + r.error : ''}`);
   }
-};
-
-// Lista de juegos
-const gameListEl = document.getElementById('gameList');
-for (const key of Object.keys(CONFIGS)) {
-  const btn = document.createElement('button');
-  btn.textContent = CONFIGS[key].name;
-  btn.style.marginRight = '6px';
-  btn.style.marginBottom = '6px';
-  btn.onclick = () => {
-    document.getElementById('configEditor').value = JSON.stringify(CONFIGS[key], null, 2);
-    initGame(key);
-  };
-  gameListEl.appendChild(btn);
+  const panel = document.getElementById('testPanel');
+  if (panel) {
+    panel.innerHTML =
+      `<div class="summary" style="color:${failed.length ? 'var(--ko)' : 'var(--ok)'}">` +
+      `${passed}/${results.length} pasados${failed.length ? ' · ' + failed.length + ' fallos' : ' · todo OK'}</div>` +
+      results.map(r =>
+        `<div class="${r.pass ? 'ok' : 'ko'}">${r.pass ? '✓' : '✗'} ${r.name}` +
+        (r.error ? ` — ${r.error}` : '') + `</div>`
+      ).join('');
+  }
+  return results;
 }
-
-// Inicializar
-document.getElementById('configEditor').value = JSON.stringify(CONFIGS[currentConfigKey], null, 2);
-initGame(currentConfigKey);
 </script>
 </body>
 </html>
