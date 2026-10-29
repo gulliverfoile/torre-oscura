@@ -1,0 +1,555 @@
+════════════════════════════════════════════════════════════════════════
+  CARTAS ESPAÑOLAS — MOTOR DE FASES + IA + TESTS
+  Documentación / README
+════════════════════════════════════════════════════════════════════════
+
+
+┌──────────────────────────────────────────────────────────────────────┐
+│  1. QUÉ ES                                                            │
+└──────────────────────────────────────────────────────────────────────┘
+
+Es un motor de juegos de cartas españolas (baraja de 40: oros, copas,
+espadas, bastos) que separa tres cosas:
+
+  · El MOTOR      → sabe jugar "partidas" pero no sabe a qué juego
+  · La CONFIG     → un JSON dice a qué juego se juega (fases, puntuación)
+  · La IA         → juega los turnos de los jugadores no humanos
+
+La idea es: un mismo motor, muchos juegos, añadibles por JSON sin tocar
+una sola línea de código.
+
+Viene con 5 juegos de serie:
+  · Chichón simplificado
+  · Mus simplificado
+  · Julepe simplificado
+  · Tute
+  · Brisca
+
+Y trae 18 tests automáticos que verifican que el motor y la IA se
+comportan correctamente.
+
+
+┌──────────────────────────────────────────────────────────────────────┐
+│  2. QUÉ HACE                                                          │
+└──────────────────────────────────────────────────────────────────────┘
+
+Al abrir el HTML:
+
+  · Arranca una partida del juego seleccionado.
+  · Tú eres el Jugador 1. Los otros 3 son IA.
+  · La interfaz te muestra: tu mano, la mesa (baza actual), el estado
+    (ronda, turno, puntos), el log de eventos y los botones de acción
+    según la fase (Jugar carta / Pujar / Pasar).
+  · La IA juega automáticamente cuando le toca, con un pequeño delay
+    para que se vea.
+  · Cuando termina una ronda, se reparte otra. Cuando alguien llega al
+    objetivo de puntos (o se agotan las rondas máximas), la partida
+    termina.
+
+Paneles laterales:
+
+  · "Configuración (JSON)": editor del JSON del juego. Pegas uno nuevo,
+    pulsas "Aplicar configuración" y se juega ese. Sin recargar página.
+  · "Juegos disponibles": botones para cambiar entre los 5 de serie.
+  · "Arquitecto (IA)": dos sliders que ajustan el comportamiento de la
+    IA en caliente:
+       - Agresividad pujas   (0..100) → cuánto sube sus apuestas
+       - Conservar trumps    (0..100) → si guarda o malgasta triunfos
+  · "Tests": botón que ejecuta los 18 tests y muestra resultados
+    (verdes = OK, rojos = fallo con el motivo).
+
+
+┌──────────────────────────────────────────────────────────────────────┐
+│  3. CÓMO LO HACE — ARQUITECTURA                                       │
+└──────────────────────────────────────────────────────────────────────┘
+
+La arquitectura copia la del ajedrez: capas desacopladas por eventos.
+
+   ┌─────────────────┐     emit      ┌──────────┐     on     ┌──────────────────────┐
+   │  UI (DOM)       │ ────────────► │ EventBus │ ─────────► │  GameOrchestrator    │
+   │  DomRenderer    │ ◄──────────── │          │ ◄───────── │  (único que une todo)│
+   └─────────────────┘   game:state  └──────────┘            └──────────┬───────────┘
+                                                                       │
+                                        ┌──────────────────────────────┼───────────────────────────┐
+                                        ▼                              ▼                           ▼
+                              ┌───────────────────┐         ┌──────────────────┐        ┌───────────────────┐
+                              │ CardGameEngine    │         │ CardAI           │        │ clock (setTimeout)│
+                              │ (puro, sin DOM)   │         │ (puerto IA)      │        │ (simula pensar)   │
+                              │ · fases           │         │ · chooseBid      │        └───────────────────┘
+                              │ · bazas           │         │ · chooseTrickCard│
+                              │ · puntuación      │         └──────────────────┘
+                              │ · snapshot        │
+                              └───────────────────┘
+
+REGLAS DE ORO:
+
+  1. El motor NO sabe que existe el DOM. Se puede testear sin navegador.
+  2. La IA NO conoce al motor más allá de su API pública
+     (hands, table, currentPhase, _trickWinner...).
+  3. La UI NO conoce al motor más allá del state que recibe por el bus.
+  4. El Orchestrator es el único que habla con todos a la vez.
+
+FLUJO DE UN TURNO:
+
+  Usuario hace click en una carta
+        │
+        ▼
+  DOM emite 'ui:play-card' con el índice
+        │
+        ▼
+  Orchestrator llama engine.playCard(0, idx)
+        │
+        ▼
+  Motor valida (¿es tu turno? ¿sigues palo?) y aplica
+        │
+        ▼
+  Orchestrator emite 'game:state' con el motor actualizado
+        │
+        ▼
+  Renderer pinta el nuevo estado
+        │
+        ▼
+  Si el siguiente turno es de la IA → agenda _aiAction en 350 ms
+  Si no → espera input del humano
+
+
+ESTADOS INTERNOS DEL MOTOR:
+
+  deck        baraja restante
+  hands       array de manos por jugador
+  table       cartas en la baza actual [{player, card}, ...]
+  turn        índice del jugador al que le toca
+  phaseIndex  índice de la fase actual dentro de config.phases
+  round       número de ronda (1, 2, 3...)
+  scores      puntos acumulados por jugador
+  bids        pujas de la fase de subasta
+  declarer    jugador declarante (el que pujó más) o null
+  tricksWon   bazas ganadas por jugador en esta ronda
+  roundPoints puntos de la ronda actual (se suman a scores al cerrar)
+  finished    true si la partida ha terminado
+  log         historial de eventos (últimos 100)
+
+
+FASES — el corazón del sistema:
+
+  Cada juego es una secuencia de fases que se ejecutan en orden.
+  Hay tres tipos de fase:
+
+    bidding          → cada jugador puja una vez. Gana la más alta.
+                       El ganador es el "declarante".
+                       Acción: engine.bid(player, amount)
+                               engine.pass(player) = bid(player, null)
+
+    trick            → se juegan bazas hasta que todos agotan mano.
+                       Se resuelve cada baza al completarse.
+                       Acción: engine.playCard(player, cardIndex)
+
+    handEvaluation   → evalúa combinaciones de mano (Mus).
+                       Se resuelve automáticamente al entrar.
+                       No requiere acción del jugador.
+
+  La transición de fase es automática cuando se cumple su condición de
+  fin (todos pujan / manos vacías / evaluación hecha).
+
+
+RESOLUCIÓN DE BAZA — cómo se decide quién gana:
+
+  Dada la mesa (2-4 cartas jugadas) y el palo de triunfo:
+
+   1. Si hay trumps en la mesa → gana el trump más alto.
+   2. Si no hay trumps → gana la carta más alta del palo de salida
+      (el palo de la primera carta jugada en la baza).
+   3. Cartas de otros palos (no trump, no salida) NUNCA ganan.
+
+  Rango de fuerza de las cartas españolas (mayor a menor):
+       1 (as) > 3 > 12 (rey) > 11 (caballo) > 10 (sota) > 7 > 6 > 5 > 4 > 2
+
+  Puntos de carta (para Tute/Brisca/Julepe):
+       1 (as) = 11 pts · 3 = 10 pts · 12 = 4 pts · 11 = 3 pts · 10 = 2 pts
+       resto = 0 pts
+
+
+PUNTUACIÓN — tres modalidades:
+
+  scoring.type = 'cardPoints'
+      Los puntos de carta de cada baza se suman al ganador de esa baza.
+      Ejemplo: Tute, Brisca, Julepe.
+
+  scoring.type = 'tricksWon'
+      Cada baza ganada vale 1 punto (sin importar las cartas).
+      Ejemplo: juegos de "hacer bazas".
+
+  scoring.type = 'bid'
+      Solo el declarante puntúa, y solo si cumple su puja:
+        · cumple  → suma tricksWon × pointsPerTrick
+        · falla   → los demás suman +1 cada uno
+      Ejemplo: Chichón simplificado.
+
+  scoring.type = 'handEval'
+      Los puntos vienen de la fase handEvaluation, no de bazas.
+      Ejemplo: Mus simplificado.
+
+
+FIN DE PARTIDA:
+
+  Se comprueba al cerrar cada ronda:
+    · Si algún jugador alcanza winCondition.target → gana.
+    · Si se alcanza winCondition.maxRounds → gana el que más puntos tenga.
+    · Si no → nueva ronda: se rebaraja, se reparte, se vuelve a la fase 0.
+
+
+IA — qué hace y por qué:
+
+  La IA no hace negamax. Las cartas tienen información oculta (no ves
+  las manos rivales), así que una búsqueda pura no es correcta sin
+  "determinización" (samplear manos rivales). Para un prototipo,
+  heurística bien hecha gana a minimax mal hecho.
+
+  CardAI.chooseBid(engine, player):
+    · Calcula la "fuerza" de su mano (trumps × 3 + rango/12 × 2 por carta)
+    · La divide por (cardsPerPlayer × 1.5) → puja esperada
+    · Aplica sesgo de agresividad (−1..+1) al resultado
+    · Si es muy bajo → pasa (null)
+    · Si es el último y todos pasaron → puja 1 para no cerrar en vacío
+
+  CardAI.chooseTrickCard(engine, player):
+    · Si lidera: juega la más alta no-trump (o la más alta si solo tiene
+      trumps) para intentar ganar la baza.
+    · Si sigue palo:
+        - Si puede superar la carta ganadora actual con la más baja
+          posible → lo hace (eficiencia).
+        - Si no → descarta la más baja del palo.
+    · Si no puede seguir palo:
+        - Si la baza tiene puntos o es la última carta → mete trump bajo.
+        - Si ya hay trump ganando y puede superarlo → lo supera con el
+          más bajo que gane.
+        - Si no → descarta la más baja de la mano.
+    · El parámetro 'conservarTrumps' modula cuándo entra con trump.
+
+  Los pesos de la IA son ajustables en caliente desde el panel "Arquitecto".
+
+
+TESTS — 18 comprobaciones automáticas:
+
+  Al pulsar "Tests" (o al cargar la página, en consola) se ejecutan:
+
+    1. baraja: 40 cartas únicas
+    2. reparto: cada jugador recibe cardsPerPlayer
+    3. puja: la más alta es declarante
+    4. puja: todos pasan → ronda se cierra
+    5. baza: gana la más alta del palo de salida
+    6. baza: el trump gana al palo de salida
+    7. seguir palo: error si no sigues pudiendo
+    8. seguir palo: puede tirar otra si no tiene del palo
+    9. ronda completa: scores se acumulan
+   10. victoria: se alcanza target y se marca finished
+   11. IA: chooseTrickCard devuelve índice válido
+   12. IA: la carta elegida es aceptada por el motor
+   13. IA: chooseBid devuelve entero o null
+   14. snapshot: toSnapshot/fromSnapshot conservan estado
+   15. determinismo: misma semilla → mismo reparto
+   16. Chichón: declarante que cumple su puja suma
+   17. config inválida: sin fases → throw
+   18. extensibilidad: nuevo juego por JSON funciona
+
+  Los tests usan un RNG con semilla (mulberry32) para ser reproducibles.
+  No hay mocks: cada test instancia el motor real y juega posiciones
+  reales, igual que los tests del ajedrez.
+
+
+┌──────────────────────────────────────────────────────────────────────┐
+│  4. CÓMO AÑADIR UN JUEGO NUEVO POR JSON                               │
+└──────────────────────────────────────────────────────────────────────┘
+
+Añadir un juego = añadir un objeto al diccionario CONFIGS del script,
+o pegar el JSON directamente en el editor del panel derecho y pulsar
+"Aplicar configuración" (para probarlo sin tocar código).
+
+
+── ESTRUCTURA DE UN JUEGO ────────────────────────────────────────────
+
+  {
+    "name":            "Nombre visible en la UI",
+    "players":         4,
+    "cardsPerPlayer":  5,
+    "phases":          [ ... lista ordenada de fases ... ],
+    "scoring":         { "type": "..." },
+    "winCondition":    { "target": 30, "maxRounds": 20 }
+  }
+
+  Campos obligatorios:
+    name             texto libre
+    players          entero ≥2
+    cardsPerPlayer   entero ≥1 (players × cardsPerPlayer ≤ 40)
+    phases           array con al menos una fase
+    scoring          objeto con type
+    winCondition     objeto con target
+
+
+── FASES: LAS TRES DISPONIBLES ───────────────────────────────────────
+
+  FASE 1 — bidding (subasta)
+
+    { "type": "bidding" }
+
+    Hace que cada jugador, en orden, puje un número ≥1 o pase (null).
+    Gana la puja más alta y se convierte en declarante.
+    Si todos pasan, se cierra la ronda sin puntuar.
+    No tiene propiedades adicionales.
+
+    Se usa en: Chichón, Pocha, subastas en general.
+
+
+  FASE 2 — trick (bazas)
+
+    {
+      "type":         "trick",
+      "trumpSuit":    "oros",         // "oros" | "copas" | "espadas" | "bastos"
+      "followSuit":   true,           // ¿obliga a seguir el palo de salida?
+      "winCondition": "cardPoints"    // "cardPoints" | "tricksWon"
+    }
+
+    Se juegan bazas hasta agotar las manos.
+    · trumpSuit    → qué palo es triunfo.
+    · followSuit   → si true, es ilegal tirar otra cosa si tienes del
+                     palo de salida. Si false, puedes tirar lo que quieras.
+    · winCondition → cómo se puntúa cada baza (afecta a roundPoints).
+                     'cardPoints' suma puntos de carta,
+                     'tricksWon' suma 1 por baza.
+                     (Nota: si scoring.type='bid', esto se ignora porque
+                      los puntos los calcula el scoring al cerrar ronda.)
+
+    Se usa en: Tute, Brisca, Julepe, Chichón, Pocha.
+
+
+  FASE 3 — handEvaluation (evaluación de manos)
+
+    {
+      "type":       "handEvaluation",
+      "categories": ["pares", "juego", "punto"]
+    }
+
+    Evalúa cada mano del jugador y reparte 1 punto por categoría al que
+    mejor la tenga. Categorías disponibles:
+      · "pares"  → cuenta cuántas parejas hay en la mano
+      · "juego"  → suma de valores (10+ valen 10) → el más alto gana
+      · "punto"  → palo con más cartas → el más alto gana
+
+    No requiere acción del jugador: se resuelve al entrar en la fase.
+    Se usa en: Mus.
+
+
+── SCORING: CÓMO SE PUNTÚA LA RONDA ──────────────────────────────────
+
+  { "type": "cardPoints" }   → los puntos ya están en roundPoints por baza
+  { "type": "tricksWon" }    → idem (ya sumados por baza)
+
+  { "type": "bid", "pointsPerTrick": 2 }
+                             → al cerrar ronda, si el declarante cumplió
+                               su puja, suma tricksWon × pointsPerTrick;
+                               si falló, los demás suman +1 cada uno.
+
+  { "type": "handEval" }     → los puntos vienen de handEvaluation
+
+
+── WINCONDITION: CUÁNDO SE TERMINA ───────────────────────────────────
+
+  { "target": 30, "maxRounds": 20 }
+
+  · target    → puntos que hay que alcanzar para ganar
+  · maxRounds → límite de rondas (si se llega, gana el que más puntos
+                tenga, o empatan si hay varios con el máximo)
+
+
+──────────────────────────────────────────────────────────────────────
+EJEMPLO 1 — Un juego de bazas sencillo (tipo Tute)
+──────────────────────────────────────────────────────────────────────
+
+  {
+    "name": "Tute rápido",
+    "players": 4,
+    "cardsPerPlayer": 8,
+    "phases": [
+      { "type": "trick",
+        "trumpSuit": "oros",
+        "followSuit": true,
+        "winCondition": "cardPoints" }
+    ],
+    "scoring": { "type": "cardPoints" },
+    "winCondition": { "target": 50, "maxRounds": 20 }
+  }
+
+  Qué hace:
+    Reparte 8 cartas a cada uno. Juega 8 bazas. Cada baza suma al
+    ganador los puntos de carta. Quien llegue a 50 puntos primero gana.
+
+
+──────────────────────────────────────────────────────────────────────
+EJEMPLO 2 — Con subasta (tipo Chichón)
+──────────────────────────────────────────────────────────────────────
+
+  {
+    "name": "Chichón",
+    "players": 4,
+    "cardsPerPlayer": 3,
+    "phases": [
+      { "type": "bidding" },
+      { "type": "trick",
+        "trumpSuit": "oros",
+        "followSuit": true,
+        "winCondition": "tricksWon" }
+    ],
+    "scoring": { "type": "bid", "pointsPerTrick": 2 },
+    "winCondition": { "target": 30, "maxRounds": 20 }
+  }
+
+  Qué hace:
+    Reparte 3 cartas. Ronda de pujas; el que puja más es declarante.
+    Juega 3 bazas. Al cerrar:
+      · Si el declarante ganó al menos tantas bazas como pujó →
+        suma tricksWon × 2.
+      · Si no → cada otro jugador suma 1.
+
+
+──────────────────────────────────────────────────────────────────────
+EJEMPLO 3 — Solo evaluación de mano (tipo Mus)
+──────────────────────────────────────────────────────────────────────
+
+  {
+    "name": "Mus minimalista",
+    "players": 4,
+    "cardsPerPlayer": 4,
+    "phases": [
+      { "type": "handEvaluation",
+        "categories": ["pares", "juego", "punto"] }
+    ],
+    "scoring": { "type": "handEval" },
+    "winCondition": { "target": 12, "maxRounds": 30 }
+  }
+
+  Qué hace:
+    Reparte 4 cartas. Evalúa pares, juego y punto. Un punto por
+    categoría al mejor. Alcanzar 12 gana.
+
+
+──────────────────────────────────────────────────────────────────────
+EJEMPLO 4 — Juego nuevo que combina subasta + bazas + evaluación
+──────────────────────────────────────────────────────────────────────
+
+  {
+    "name": "Inventado",
+    "players": 3,
+    "cardsPerPlayer": 4,
+    "phases": [
+      { "type": "bidding" },
+      { "type": "trick",
+        "trumpSuit": "copas",
+        "followSuit": false,
+        "winCondition": "tricksWon" },
+      { "type": "handEvaluation",
+        "categories": ["punto"] }
+    ],
+    "scoring": { "type": "bid", "pointsPerTrick": 1 },
+    "winCondition": { "target": 15, "maxRounds": 10 }
+  }
+
+  Qué hace:
+    3 jugadores, 4 cartas cada uno.
+    Fase 1: subasta.
+    Fase 2: 4 bazas, sin obligación de seguir palo, cada baza vale 1.
+    Fase 3: se evalúa quién tiene más cartas del mismo palo (+1 pt).
+    Al cerrar: declarante suma tricksWon × 1 si cumple su puja, resto
+    +1 si falla (el punto de "punto" ya se sumó aparte).
+    Alcanzar 15 gana, o máximo 10 rondas.
+
+
+── CÓMO PROBARLO SIN TOCAR CÓDIGO ────────────────────────────────────
+
+  1. Abre el HTML en el navegador.
+  2. En el panel derecho "Configuración (JSON)", borra lo que hay y pega
+     el JSON del juego nuevo.
+  3. Pulsa "Aplicar configuración".
+  4. Juega. Si algo no cuadra, cambia el JSON y vuelve a aplicar.
+  5. Cuando estés contento, copia ese JSON a CONFIGS en el script para
+     que quede como juego permanente (opcional).
+
+
+── CÓMO PROBARLO COMO CÓDIGO ─────────────────────────────────────────
+
+  Desde la consola del navegador (window.__cards ya está expuesto):
+
+    const { CardGameEngine, CardAI, CONFIGS } = window.__cards;
+
+    // Crear un motor con un juego nuevo
+    const miJuego = { /* el JSON de arriba */ };
+    const engine = new CardGameEngine(miJuego);
+
+    // Jugar
+    engine.bid(0, 2);   // jugador 0 puja 2
+    engine.pass(1);     // jugador 1 pasa
+    // ... etc.
+
+    // O dejar que juegue la IA sola
+    const ai = new CardAI();
+    while (!engine.finished) {
+      const phase = engine.currentPhase();
+      if (phase.type === 'trick') {
+        const idx = ai.chooseTrickCard(engine, engine.turn);
+        engine.playCard(engine.turn, idx);
+      } else if (phase.type === 'bidding') {
+        engine.bid(engine.turn, ai.chooseBid(engine, engine.turn));
+      }
+    }
+    console.log(engine.scores);
+
+
+┌──────────────────────────────────────────────────────────────────────┐
+│  5. LÍMITES Y QUÉ FALTA PARA JUEGOS "COMPLETOS"                       │
+└──────────────────────────────────────────────────────────────────────┘
+
+Los 5 juegos de serie son APROXIMACIONES jugables, no reglamentos
+completos. Lo que falta respecto al juego tradicional:
+
+  CHICHÓN REAL
+    · Rondas de subasta con "ver / no ver / subir" (no solo una puja).
+    · Juego por parejas (2 contra 2).
+    · Órdagos (apuestas puntuales durante el juego).
+    → Se añadiría una fase "betting" con acciones ver/noVer/subir.
+
+  MUS REAL
+    · Cuatro fases de descarte (cada jugador puede cambiar cartas).
+    · Cuatro rondas de envite (grande/chica/pares/juego).
+    · Señas y faroles (requiere interacción entre jugadores).
+    → Se añadiría "exchange" (descartes) y "betting" por categoría.
+
+  JULEPE REAL
+    · Apuesta final al "julepe" (ver quién tiene la carta más alta).
+    → Se añadiría una fase "finalBet" tras las bazas.
+
+  TUTE REAL
+    · Cantar las 40 (rey + caballo del trump = 40 puntos).
+    · Arrastre de tanto (obligatorio).
+    → Se añadiría fase "cantes" antes de las bazas.
+
+  CÓMO AÑADIR ESAS FASES
+
+    El motor está preparado: solo hay que añadir un case más en
+    _advance() y _enterPhase(), y una acción pública (por ejemplo
+    engine.discard(player, indices) para descartes).
+
+    El resto (config JSON, UI, IA) se puede extender sin tocar las
+    fases existentes. Eso es exactamente lo que permite el diseño
+    de fases declarativas.
+
+
+┌──────────────────────────────────────────────────────────────────────┐
+│  6. RESUMEN EN UNA LÍNEA                                              │
+└──────────────────────────────────────────────────────────────────────┘
+
+  Motor de cartas con fases declarativas (bidding / trick /
+  handEvaluation), puntuación configurable (cardPoints / tricksWon /
+  bid / handEval), IA heurística ajustable, 18 tests de comportamiento
+  y juegos añadibles por JSON sin tocar código.
+
+
+════════════════════════════════════════════════════════════════════════
