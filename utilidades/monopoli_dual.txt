@@ -1,0 +1,387 @@
+================================================================================
+  EL JUEGO DEL PROPIETARIO
+  Un rediseño jugable del Landlord's Game de Elizabeth Magie (1904)
+  Documentación técnica y de diseño
+================================================================================
+
+
+--------------------------------------------------------------------------------
+1. ¿QUÉ ES?
+--------------------------------------------------------------------------------
+
+El Juego del Propietario es un juego de mesa digital para navegador que presenta
+DOS MODOS DE JUEGO OPUESTOS sobre el mismo tablero y las mismas mecánicas:
+
+  🎩 MODO MONOPOLIO   → El Monopoly que todos conocemos. Acumular, arruinar
+                        a los rivales, ganar siendo el más rico.
+
+  🌱 MODO PROSPERIDAD → El juego original de Elizabeth Magie. Cooperar,
+                        redistribuir, ganar cuando el más pobre prospera.
+
+La idea es la misma que tenía Magie en 1904: que el jugador sienta en sus
+carnes la diferencia entre los dos sistemas económicos jugando ambos.
+
+No es un clon del Monopoly de Parker Brothers. Es una reinterpretación del
+juego original, más corto (20 turnos, 20 casillas) y con la doble moral
+recuperada.
+
+
+--------------------------------------------------------------------------------
+2. ¿QUÉ HACE?
+--------------------------------------------------------------------------------
+
+MECÁNICAS COMPARTIDAS (iguales en ambos modos)
+-----------------------------------------------
+
+  · Tablero circular de 20 casillas: propiedades, estaciones, servicios,
+    suerte, caja de comunidad y 4 esquinas (SALIDA, CÁRCEL, PLAZA LIBRE,
+    IMPUESTO).
+  · Dos jugadores controlados por la IA: Lord Vetinari y El Bibliotecario.
+  · Turnos de 2d6: tiras, avanzas, resuelves lo que haya en la casilla.
+  · Compra de propiedades: pagas el precio, la propiedad pasa a ser tuya
+    y genera alquiler cuando alguien cae en ella.
+  · Cartas de Suerte y Caja de Comunidad con efectos variados.
+  · Casillas de impuesto, cárcel y bonus al pasar por SALIDA.
+  · Duración fija: 20 turnos. Al final se evalúa la partida.
+
+DIFERENCIAS ENTRE MODOS (el corazón del juego)
+----------------------------------------------
+
+  MODO MONOPOLIO
+  ───────────────
+  · Comprar propiedad: pagas el precio completo al banco. Nadie más gana.
+  · Alquiler: el que cae paga el 100% al dueño.
+  · Pasar por SALIDA: solo tú cobras el bonus.
+  · Quiebra: si no puedes pagar, quiebras y pierdes.
+  · Victoria: arruinar a todos los rivales, o ser el más rico al
+    terminar los 20 turnos.
+
+  MODO PROSPERIDAD
+  ─────────────────
+  · Comprar propiedad: pagas el precio, pero el 50% va al fondo común
+    y el 25% se reparte como dividendo entre los demás jugadores.
+    → Comprar beneficia a todos. No hay incentivo para acaparar.
+  · Alquiler: el que cae paga, pero el dueño solo recibe el 40%.
+    El 60% va al fondo común.
+    → Tener propiedades da un pequeño retorno, pero sobre todo
+      alimenta el fondo colectivo.
+  · Pasar por SALIDA: tú cobras el bonus completo, los demás cobran
+    la mitad.
+    → Moverse hace prosperar al grupo.
+  · Quiebra: NO EXISTE. Si no puedes pagar, pagas lo que tienes y
+    el resto queda a deber (parte va al fondo). Nunca quedas fuera.
+  · Victoria: cuando el jugador más pobre dobla su riqueza inicial.
+    Es cooperativa: todos ganan a la vez, o nadie gana.
+    Si al llegar al turno 20 nadie ha doblado su riqueza, pierden todos.
+
+MECÁNICA DE VICTORIA EN DETALLE
+--------------------------------
+  · Monopolio: gana el que tenga más riqueza (dinero + propiedades) al
+    final. O el que quede como único jugador no quebrado.
+  · Prosperidad: gana todo el grupo si el jugador con menos riqueza
+    (dinero + propiedades) llega a 2x su riqueza inicial. Es decir,
+    el objetivo no es que TÚ ganes, sino que NADIE se quede atrás.
+
+
+--------------------------------------------------------------------------------
+3. ¿CÓMO LO HACE? (Arquitectura)
+--------------------------------------------------------------------------------
+
+El código está organizado en tres capas siguiendo el patrón de arquitectura
+hexagonal (puertos y adaptadores). Esto permite:
+
+  · Testear el dominio sin navegador.
+  · Añadir un modo nuevo sin tocar el motor.
+  · Cambiar la interfaz sin tocar las reglas.
+  · Añadir un renderizador alternativo (canvas, móvil, consola) sin
+    tocar nada más.
+
+DIAGRAMA DE CAPAS
+------------------
+
+    ┌───────────────────────────────────────────────────────┐
+    │  INFRAESTRUCTURA                                       │
+    │  UIRenderer · RandomAdapter · UINotifier              │
+    │  (DOM, azar real, eventos UI)                         │
+    └────────────────────┬──────────────────────────────────┘
+                         │  eventos / comandos
+    ┌────────────────────▼──────────────────────────────────┐
+    │  APLICACIÓN                                            │
+    │  GameEngine · EventBus                                 │
+    │  (orquesta casos de uso, emite eventos)                │
+    └────────────────────┬──────────────────────────────────┘
+                         │  llamadas puras
+    ┌────────────────────▼──────────────────────────────────┐
+    │  DOMINIO                                               │
+    │  GameSession · TILE_CATALOG                            │
+    │  MonopolioRules · ProsperidadRules                     │
+    │  (estado y reglas puras, sin DOM, sin azar, sin IO)    │
+    └───────────────────────────────────────────────────────┘
+
+
+CAPA 1 · DOMINIO (lógica pura, testeable sin navegador)
+-------------------------------------------------------
+
+  GameSession
+    Estado completo de la partida: dinero, posición, propiedades,
+    rivales, fondo común, contador de turnos, etc.
+    Métodos puros:
+      · wealthOfPlayer()  → dinero + valor de propiedades
+      · poorestWealth()   → mínimo entre todos los no quebrados
+      · allPlayers()      → vista unificada jugador + competidores
+
+  TILE_CATALOG
+    Array congelado (Object.freeze) con las 20 casillas. Cada casilla
+    tiene: id, name, type, icon, group, price, rent.
+    Al empezar partida se hace una copia mutable (con owner: null).
+
+  TILE_POSITIONS
+    Mapeo posición-lógica → coordenada del grid CSS 6x6.
+    Las 20 casillas se distribuyen por el perímetro del grid.
+
+  MonopolioRules · ProsperidadRules
+    Cada una implementa la interfaz BaseRules con tres métodos:
+
+      onBuy(session, buyer, tile)              → cómo se paga la compra
+      onRent(session, payer, owner, tile)      → cómo se reparte el alquiler
+      checkVictory(session)                    → cuándo termina la partida
+
+    Esta es la pieza clave. El motor NO SABE qué modo está activo.
+    Solo llama a los métodos de la clase que le toque. Si mañana se
+    quiere un "Modo Trueque" o "Modo Comuna", se escribe una tercera
+    clase con esos tres métodos y ya está.
+
+  CHANCE_CARDS · COMMUNITY_CARDS
+    Mazos congelados de eventos narrativos. Cada carta tiene un texto
+    y un efecto ({ money, fund, move, allBonus }).
+
+
+CAPA 2 · APLICACIÓN (orquestación por eventos)
+----------------------------------------------
+
+  EventBus
+    Sistema pub/sub minimalista. on() y emit(). Sin dependencias.
+
+  GameEngine
+    El orquestador. Se suscribe a eventos y emite otros. El flujo de
+    un turno completo es:
+
+      TURN_STARTED
+        ├─ IA juega (40% prob. de comprar por rival)
+        ├─ Tiras 2d6
+        └─ emite MOVEMENT_ROLLED
+             ├─ Aplica regla de SALIDA si cruza el 0
+             ├─ Actualiza posición
+             └─ emite TILE_LANDED
+                  ├─ Esquina  → aplica regla correspondiente
+                  ├─ Propiedad libre → emite CHOICE (comprar / no)
+                  ├─ Propiedad ajena → aplica rules.onRent()
+                  ├─ Suerte/Comunidad → saca carta y aplica efecto
+                  └─ emite ACTION_RESOLVED
+                       ├─ rules.checkVictory()
+                       ├─ si over → emite GAME_OVER
+                       └─ si no  → emite ENABLE_NEXT_TURN
+
+    La API pública del motor es mínima:
+      startNewGame(mode)  → nueva partida
+      nextTurn()          → avanza turno
+      chooseOption(id)    → resuelve decisión pendiente
+
+  UINotifier
+    Hereda de EventBus. Es el "puerto de salida" hacia la vista.
+    El motor nunca toca el DOM: emite eventos que el renderer escucha.
+
+    Eventos que emite:
+      GAME_STARTED        → partida nueva (con modo)
+      STATS_UPDATED       → estado cambiado (para repintar)
+      LOG                 → entrada al diario
+      DICE_RESULT         → tirada de dados
+      CHOICE              → pregunta al jugador
+      ENABLE_NEXT_TURN    → habilita el botón de siguiente turno
+      GAME_OVER           → fin de partida (con motivo)
+
+
+CAPA 3 · INFRAESTRUCTURA (el mundo real)
+----------------------------------------
+
+  RandomAdapter
+    Encapsula Math.random. Métodos d6(), pick(), chance().
+    Al estar aislado, se puede sustituir por un RNG sembrado para
+    reproducir partidas o por un mock en tests.
+
+  UIRenderer
+    Escucha al UINotifier y pinta:
+      · El tablero 6x6 con las 20 casillas
+      · El panel de stats del jugador
+      · El diario de eventos
+      · El modal de fin de partida
+      · Los botones contextuales (comprar / siguiente turno)
+
+    Regla de oro: el renderer LEE del session pero NUNCA MUTA el
+    dominio. Solo llama a engine.chooseOption() o engine.nextTurn().
+
+
+FLUJO COMPLETO DE UN TURNO (ejemplo)
+------------------------------------
+
+  1. El jugador pulsa "Siguiente turno".
+  2. Renderer llama a engine.nextTurn().
+  3. Engine emite TURN_STARTED.
+  4. _onTurnStarted:
+       - incrementa turnCounter
+       - IA juega: cada rival con 40% de prob. compra una propiedad
+       - tira 2d6
+       - emite DICE_RESULT (el renderer pinta los números)
+       - emite MOVEMENT_ROLLED
+  5. _onMovementRolled:
+       - calcula nueva posición
+       - si cruzó el 0, rules.onPassGo() (en prosperidad, todos
+         cobran algo)
+       - emite TILE_LANDED
+  6. _onTileLanded:
+       - mira el tipo de casilla y actúa
+       - si es propiedad libre y el jugador puede pagar, emite CHOICE
+         (el motor se PARA y espera decisión humana)
+       - si es propiedad ajena, rules.onRent() reparte el pago según
+         el modo
+       - emite ACTION_RESOLVED
+  7. _onActionResolved:
+       - rules.checkVictory() decide si ha terminado
+       - si no, emite ENABLE_NEXT_TURN
+  8. Renderer reactiva el botón "Siguiente turno".
+
+  Si el jugador hubiera tenido que decidir (comprar/no comprar):
+       - 6b. _onOptionChosen recibe la decisión y aplica rules.onBuy()
+       - luego emite ACTION_RESOLVED y sigue el flujo normal.
+
+
+TESTS
+-----
+
+  Hay 17 tests automáticos embebidos. Cubren:
+
+    · Estructura del catálogo (20 casillas, 4 esquinas, 4 grupos).
+    · Cálculos de riqueza y del "más pobre".
+    · Monopolio: alquiler normal, alquiler con quiebra, victoria por
+      arruinar rivales, derrota por quiebra propia.
+    · Prosperidad: dividendos al comprar, reparto 40/60 del alquiler,
+      quiebra imposible, victoria cooperativa, límite de turnos.
+    · Paso por SALIDA en ambos modos.
+
+  Cómo ejecutarlos:
+    · Consola:  window.__gameTests()
+    · URL:      abrir el HTML con ?test al final
+
+
+--------------------------------------------------------------------------------
+4. ¿POR QUÉ ESTÁ HECHO ASÍ? (Decisiones de diseño)
+--------------------------------------------------------------------------------
+
+POR QUÉ DOS CLASES DE REGLAS EN VEZ DE IF/ELSE
+----------------------------------------------
+  Los modos no son "variaciones" del mismo juego. Son dos juegos
+  distintos compartiendo motor. Mezclar la lógica con if (mode === X)
+  dentro del motor haría:
+    · El motor imposible de testear en aislamiento.
+    · Añadir un tercer modo un infierno de condiciones anidadas.
+    · Las reglas del dominio quedar mezcladas con la orquestación.
+
+  Con Strategy:
+    · Cada modo es una clase pequeña y testeable.
+    · Añadir un modo = escribir una clase + registrarla.
+    · El motor ignora qué modo hay. Solo llama a rules.onX().
+
+POR QUÉ EVENTOS EN VEZ DE LLAMADAS DIRECTAS
+--------------------------------------------
+  El motor no conoce al renderer. Emite eventos. El renderer escucha.
+  Ventajas:
+    · Puedes añadir un segundo renderer (gráfico, canvas, consola)
+      sin tocar nada más.
+    · Los tests pueden suscribirse al UINotifier y verificar la
+      secuencia de eventos sin tocar el DOM.
+    · Cada handler es independiente. Si uno falla, los demás siguen.
+
+POR QUÉ EL DOMINIO ES "PURO"
+-----------------------------
+  GameSession no tiene métodos que toquen document, Math.random ni
+  localStorage. Solo mutaciones de datos y cálculos puros. Esto
+  permite:
+    · Testear la lógica sin navegador (Node.js).
+    · Razones sobre el estado sin distracciones.
+    · Persistencia futura trivial (serializar el session).
+
+POR QUÉ LA VICTORIA EN PROSPERIDAD ES COLECTIVA
+------------------------------------------------
+  Es la decisión más importante del juego. Magie diseñó su juego así
+  porque quería demostrar que la prosperidad compartida es posible.
+  Si el modo prosperidad tuviera un ganador único, sería una versión
+  "amable" del monopolio, no una alternativa real.
+
+  Con victoria colectiva:
+    · Nadie puede "ganar" si deja a otros atrás.
+    · El juego te obliga a pensar en el grupo.
+    · La tensión es distinta: no compites, colaboras bajo presión.
+
+
+--------------------------------------------------------------------------------
+5. LIMITACIONES Y LÍNEAS FUTURAS
+--------------------------------------------------------------------------------
+
+NO IMPLEMENTADO (pero preparado)
+---------------------------------
+  · Persistencia en localStorage (la capa existe, falta conectarla).
+  · Construcción de mejoras en propiedades (upgrades: 0 en el modelo,
+    sin lógica aún).
+  · Comercio entre jugadores.
+  · Eventos más ricos: hipotecas, alianzas, cartas de "reforma".
+  · Modo solitario con IA más lista (la IA actual es aleatoria).
+
+EXTENSIONES NATURALES
+---------------------
+  · Modo "Tutorial": jugar primero monopolio, luego prosperidad, con
+    mensajes explicativos.
+  · Modo "Sandbox": barajar todas las reglas y ver qué pasa.
+  · Estadísticas persistentes: cuántas partidas has ganado en cada
+    modo, qué tan rápido doblas la riqueza, etc.
+  · Exportar la crónica final como texto para compartir.
+
+CÓMO AÑADIR UN MODO NUEVO
+-------------------------
+  1. Escribe una clase nueva que herede de BaseRules:
+       class MiModoRules extends BaseRules {
+         name() { return 'mimodo'; }
+         onBuy(session, buyer, tile) { ... }
+         onRent(session, payer, owner, tile) { ... }
+         onPassGo(session, player) { ... }
+         checkVictory(session) { return { over, victory, reason }; }
+       }
+
+  2. En GameEngine.startNewGame(mode):
+       this.rules = mode === 'mimodo' ? new MiModoRules() : ...
+
+  3. Añade un botón en el HTML con data-mode="mimodo".
+
+  4. Listo. El motor, el renderer y los tests no cambian.
+
+
+--------------------------------------------------------------------------------
+6. CRÉDITOS Y CONTEXTO HISTÓRICO
+--------------------------------------------------------------------------------
+
+  El Juego del Propietario es una reinterpretación del Landlord's Game
+  diseñado por Elizabeth Magie en 1904. Magie, una cuáquera y
+  georgista convencida, creó el juego con DOS conjuntos de reglas
+  para enseñar los peligros del monopolio y las bondades de un
+  sistema basado en la propiedad común de la tierra.
+
+  En 1935 Charles Darrow vendió una versión modificada —solo con las
+  reglas del monopolio— a Parker Brothers. Magie recibió 500$ por
+  los derechos y su versión cooperativa fue enterrada durante
+  décadas.
+
+  Este proyecto es un pequeño homenaje a esa versión perdida.
+
+
+================================================================================
+  Fin del documento
+================================================================================
