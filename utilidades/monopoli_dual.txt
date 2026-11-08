@@ -1,7 +1,7 @@
 ================================================================================
-  EL JUEGO DEL PROPIETARIO
+  EL JUEGO DEL PROPIETARIO · v3
   Un rediseño jugable del Landlord's Game de Elizabeth Magie (1904)
-  Documentación técnica y de diseño
+  Documentación técnica, de diseño e histórica
 ================================================================================
 
 
@@ -9,82 +9,192 @@
 1. ¿QUÉ ES?
 --------------------------------------------------------------------------------
 
-El Juego del Propietario es un juego de mesa digital para navegador que presenta
-DOS MODOS DE JUEGO OPUESTOS sobre el mismo tablero y las mismas mecánicas:
+El Juego del Propietario es un juego de mesa digital que corre en el navegador
+y que presenta DOS MODOS DE JUEGO OPUESTOS sobre el mismo tablero:
 
-  🎩 MODO MONOPOLIO   → El Monopoly que todos conocemos. Acumular, arruinar
-                        a los rivales, ganar siendo el más rico.
+  🎩 MODO MONOPOLIO   → El Monopoly que todos conocemos: comprar, construir,
+                        acumular, arruinar a los rivales, ganar siendo el
+                        más rico.
 
-  🌱 MODO PROSPERIDAD → El juego original de Elizabeth Magie. Cooperar,
-                        redistribuir, ganar cuando el más pobre prospera.
+  🌱 MODO PROSPERIDAD → El juego original de Elizabeth Magie: cooperar,
+                        redistribuir, ganar cuando el jugador más pobre
+                        prospera.
+
+Soporta de 1 a 4 jugadores humanos, con IA rellenando los huecos hasta 4.
+Cada jugador juega su propio turno, tira sus propios dados, gestiona sus
+propias propiedades y construye sus propias casas.
 
 La idea es la misma que tenía Magie en 1904: que el jugador sienta en sus
-carnes la diferencia entre los dos sistemas económicos jugando ambos.
-
-No es un clon del Monopoly de Parker Brothers. Es una reinterpretación del
-juego original, más corto (20 turnos, 20 casillas) y con la doble moral
-recuperada.
+carnes la diferencia entre los dos sistemas económicos, jugando ambos.
 
 
 --------------------------------------------------------------------------------
-2. ¿QUÉ HACE?
+2. CONTEXTO HISTÓRICO: EL JUEGO QUE FUE SECUESTRADO
 --------------------------------------------------------------------------------
 
-MECÁNICAS COMPARTIDAS (iguales en ambos modos)
------------------------------------------------
+El Monopoly que se vende hoy en las jugueterías no es el juego original.
+Es la mitad de un juego que tenía dos mitades.
+
+En 1903, Elizabeth Magie Phillips, una cuáquera y georgista convencida,
+diseñó un juego de mesa llamado THE LANDLORD'S GAME (El Juego del
+Propietario). Su objetivo era doble:
+
+  · Demostrar los peligros del monopolio de la tierra.
+  · Demostrar las bondades de un sistema basado en la propiedad común.
+
+Para ello, el juego incluía DOS CONJUNTOS DE REGLAS que los jugadores
+podían elegir:
+
+  EL JUEGO MONOPOLISTA
+  ─────────────────────
+  Los jugadores compiten por acaparar propiedades. El objetivo es
+  arruinar a los demás. Cuando alguien cae en tu propiedad, te paga
+  el alquiler. Quien acapara más, gana. La partida termina cuando
+  solo queda un jugador en pie.
+
+  EL JUEGO ANTIMONOPOLISTA (o de la Prosperidad)
+  ───────────────────────────────────────────────
+  Las reglas cambian por completo:
+    · Cuando un jugador compra una propiedad, el resto también
+      se beneficia (recibe un dividendo o un pequeño pago).
+    · El alquiler no va al dueño, va a un fondo común que
+      redistribuye la riqueza.
+    · La partida NO termina con un ganador único. Termina cuando
+      el jugador que empezó con menos recursos dobla su riqueza.
+    · Ganar no es arruinar al otro. Ganar es que nadie se quede
+      atrás.
+
+En 1933, un vendedor de puertas en paro llamado Charles Darrow jugó
+una versión del juego, la copió, la vendió a Parker Brothers en 1935,
+y la empresa eliminó el modo cooperativo de las reglas publicadas.
+Solo sobrevivió el modo monopolista. Magie recibió 500$ por los
+derechos y su versión cooperativa fue enterrada durante décadas.
+
+Lo irónico es que Darrow es recordado como "el inventor del Monopoly"
+en los libros de historia, y Magie es una nota al pie. Este proyecto
+es un pequeño homenaje a la mitad perdida del juego original.
+
+
+--------------------------------------------------------------------------------
+3. ¿QUÉ HACE? (mecánicas)
+--------------------------------------------------------------------------------
+
+MECÁNICAS COMPARTIDAS EN AMBOS MODOS
+------------------------------------
 
   · Tablero circular de 20 casillas: propiedades, estaciones, servicios,
     suerte, caja de comunidad y 4 esquinas (SALIDA, CÁRCEL, PLAZA LIBRE,
     IMPUESTO).
-  · Dos jugadores controlados por la IA: Lord Vetinari y El Bibliotecario.
-  · Turnos de 2d6: tiras, avanzas, resuelves lo que haya en la casilla.
-  · Compra de propiedades: pagas el precio, la propiedad pasa a ser tuya
-    y genera alquiler cuando alguien cae en ella.
-  · Cartas de Suerte y Caja de Comunidad con efectos variados.
-  · Casillas de impuesto, cárcel y bonus al pasar por SALIDA.
-  · Duración fija: 20 turnos. Al final se evalúa la partida.
+
+  · De 1 a 4 jugadores humanos. Los huecos hasta 4 se rellenan con IA
+    (Lord Vetinari, El Bibliotecario, La Muerte). Cada jugador tiene su
+    propio dinero, posición, propiedades y casas.
+
+  · Turnos por jugador. Al empezar un turno, los dados se tiran
+    automáticamente. El jugador avanza, resuelve lo que haya en la casilla
+    (comprar, pagar alquiler, robar una carta...) y luego puede construir
+    casas antes de pulsar "Terminar turno".
+
+  · Compra de propiedades. Si caes en una propiedad sin dueño y tienes
+    dinero, se te ofrece comprarla.
+
+  · Alquiler. Si caes en propiedad ajena, pagas. El alquiler escala con
+    sinergias (ver más abajo).
+
+  · Construcción de casas. Solo puedes construir en una propiedad si
+    tienes TODAS las del mismo color (grupo completo). Máximo 3 casas
+    por propiedad. Cada casa sube el alquiler.
+
+  · Sinergias de grupo. Tener todas las propiedades de un grupo multiplica
+    el alquiler ×1.5. Tener casas multiplica el alquiler ×1.25 por cada
+    casa, acumulativamente.
+
+  · Cartas de Suerte y Caja de Comunidad. Eventos aleatorios: dinero,
+    donaciones al fondo, movimiento a SALIDA, bonificaciones grupales...
+
+  · Esquinas con efecto. SALIDA da bonus, CÁRCEL quita dinero, PLAZA
+    LIBRE no hace nada (descanso), IMPUESTO grava.
+
+  · Duración fija: 10 rondas (cada ronda = todos los jugadores juegan
+    una vez). Al final, se evalúa la partida.
+
+  · Victoria por evaluación. En monopolio, gana el más rico (o el único
+    no quebrado). En prosperidad, ganan todos si el jugador más pobre
+    dobla su riqueza inicial; si no, pierden todos.
+
 
 DIFERENCIAS ENTRE MODOS (el corazón del juego)
-----------------------------------------------
+-----------------------------------------------
 
   MODO MONOPOLIO
   ───────────────
-  · Comprar propiedad: pagas el precio completo al banco. Nadie más gana.
-  · Alquiler: el que cae paga el 100% al dueño.
-  · Pasar por SALIDA: solo tú cobras el bonus.
-  · Quiebra: si no puedes pagar, quiebras y pierdes.
-  · Victoria: arruinar a todos los rivales, o ser el más rico al
-    terminar los 20 turnos.
+  · Comprar: pagas el precio completo al banco. Nadie más gana.
+  · Alquiler: el 100% va al dueño.
+  · Pasar por SALIDA: solo tú cobras.
+  · Quiebra: si no puedes pagar el alquiler, quiebras y sales del juego.
+  · Victoria: único jugador no quebrado, o el más rico al final.
 
   MODO PROSPERIDAD
   ─────────────────
-  · Comprar propiedad: pagas el precio, pero el 50% va al fondo común
-    y el 25% se reparte como dividendo entre los demás jugadores.
-    → Comprar beneficia a todos. No hay incentivo para acaparar.
-  · Alquiler: el que cae paga, pero el dueño solo recibe el 40%.
-    El 60% va al fondo común.
-    → Tener propiedades da un pequeño retorno, pero sobre todo
-      alimenta el fondo colectivo.
-  · Pasar por SALIDA: tú cobras el bonus completo, los demás cobran
-    la mitad.
-    → Moverse hace prosperar al grupo.
-  · Quiebra: NO EXISTE. Si no puedes pagar, pagas lo que tienes y
-    el resto queda a deber (parte va al fondo). Nunca quedas fuera.
+  · Comprar: pagas el precio, pero el 50% va al fondo común y el 25% se
+    reparte como dividendo entre los demás jugadores. Comprar beneficia
+    a todos.
+  · Alquiler: el 40% va al dueño, el 60% al fondo común. Tener
+    propiedades da retorno, pero sobre todo alimenta al grupo.
+  · Pasar por SALIDA: tú cobras completo, los demás cobran la mitad.
+  · Casas: cada casa del tablero aporta +1 al fondo común por turno.
+    Invertir es caro, pero el retorno es colectivo.
+  · Quiebra: NO EXISTE. Si no puedes pagar, pagas lo que tienes y el
+    resto queda como deuda (parte va al fondo). Nunca quedas fuera.
   · Victoria: cuando el jugador más pobre dobla su riqueza inicial.
-    Es cooperativa: todos ganan a la vez, o nadie gana.
-    Si al llegar al turno 20 nadie ha doblado su riqueza, pierden todos.
+    Si al llegar al final nadie lo ha logrado, pierden todos.
+
+  La diferencia no es cosmética. Es un cambio completo del incentivo
+  económico. En monopolio, comprar es bueno porque perjudica al rival.
+  En prosperidad, comprar es bueno porque beneficia a todos. El juego
+  te obliga a pensar en el grupo.
+
 
 MECÁNICA DE VICTORIA EN DETALLE
 --------------------------------
-  · Monopolio: gana el que tenga más riqueza (dinero + propiedades) al
-    final. O el que quede como único jugador no quebrado.
-  · Prosperidad: gana todo el grupo si el jugador con menos riqueza
-    (dinero + propiedades) llega a 2x su riqueza inicial. Es decir,
-    el objetivo no es que TÚ ganes, sino que NADIE se quede atrás.
+  · Monopolio: victoria individual. Se evalúa al final de cada turno
+    si queda un único jugador no quebrado (victoria automática) o si
+    se llegó al máximo de turnos (gana el más rico por riqueza total =
+    dinero + valor de propiedades + valor de casas).
+
+  · Prosperidad: victoria cooperativa. Al final de cada turno se
+    comprueba si el jugador más pobre (de todos los vivos) tiene al
+    menos el doble de riqueza que la riqueza inicial de todos (15).
+    Si sí, ganan todos. Si al llegar al límite de turnos nadie lo ha
+    conseguido, pierden todos.
+
+
+SISTEMA DE CASAS Y SINERGIAS (compartido)
+------------------------------------------
+
+  El alquiler de una propiedad no es fijo. Depende de tres factores:
+
+    1. Alquiler base (definido en el catálogo)
+    2. Grupo completo: si el dueño tiene TODAS las propiedades de ese
+       grupo, el alquiler se multiplica ×1.5.
+    3. Casas: cada casa multiplica ×1.25, acumulativamente. Con 3 casas
+       el multiplicador es ×1.75 (1 + 3×0.25).
+
+  Fórmula: alquiler = base × (1.5 si grupo completo) × (1 + casas×0.25)
+
+  Ejemplos:
+    · Barrio completo con 2 casas: 2 × 1.5 × 1.5 = 4.5 → 4
+    · Élite completo con 3 casas: 9 × 1.5 × 1.75 = 23.6 → 23
+    · Propiedad sola sin casas: base sin cambios
+
+  Regla clave: SOLO puedes construir casas si tienes el grupo completo.
+  Esto crea la tensión táctica clásica: ¿compro la última del grupo
+  aunque esté cara, para poder construir? ¿Vale la pena invertir en
+  casas en un grupo que el rival puede completar y bloquear?
 
 
 --------------------------------------------------------------------------------
-3. ¿CÓMO LO HACE? (Arquitectura)
+4. ¿CÓMO LO HACE? (Arquitectura)
 --------------------------------------------------------------------------------
 
 El código está organizado en tres capas siguiendo el patrón de arquitectura
@@ -93,8 +203,8 @@ hexagonal (puertos y adaptadores). Esto permite:
   · Testear el dominio sin navegador.
   · Añadir un modo nuevo sin tocar el motor.
   · Cambiar la interfaz sin tocar las reglas.
-  · Añadir un renderizador alternativo (canvas, móvil, consola) sin
-    tocar nada más.
+  · Añadir un renderizador alternativo (canvas, móvil, consola).
+
 
 DIAGRAMA DE CAPAS
 ------------------
@@ -113,7 +223,7 @@ DIAGRAMA DE CAPAS
                          │  llamadas puras
     ┌────────────────────▼──────────────────────────────────┐
     │  DOMINIO                                               │
-    │  GameSession · TILE_CATALOG                            │
+    │  GameSession · Player · TILE_CATALOG · GROUPS          │
     │  MonopolioRules · ProsperidadRules                     │
     │  (estado y reglas puras, sin DOM, sin azar, sin IO)    │
     └───────────────────────────────────────────────────────┘
@@ -122,82 +232,122 @@ DIAGRAMA DE CAPAS
 CAPA 1 · DOMINIO (lógica pura, testeable sin navegador)
 -------------------------------------------------------
 
+  Player
+    Clase simple con: nombre, esIA, índice, dinero, posición,
+    propiedades, estado de bancarrota.
+
   GameSession
-    Estado completo de la partida: dinero, posición, propiedades,
-    rivales, fondo común, contador de turnos, etc.
+    Estado completo de la partida:
+      · mode, players (array de Player), activePlayerIndex
+      · tiles (copia mutable del catálogo)
+      · turnCounter, maxTurns, hasRolled, pendingChoice
+      · commonFund, isGameOver, isVictory, reason
+
     Métodos puros:
-      · wealthOfPlayer()  → dinero + valor de propiedades
+      · wealthOf(player)  → dinero + propiedades + casas
       · poorestWealth()   → mínimo entre todos los no quebrados
-      · allPlayers()      → vista unificada jugador + competidores
+      · totalHouses()     → total de casas del tablero
+      · get activePlayer  → jugador actual
+      · get currentTile   → casilla del jugador actual
 
-  TILE_CATALOG
-    Array congelado (Object.freeze) con las 20 casillas. Cada casilla
-    tiene: id, name, type, icon, group, price, rent.
-    Al empezar partida se hace una copia mutable (con owner: null).
+  TILE_CATALOG · TILE_POSITIONS
+    Array congelado con las 20 casillas y su mapeo a coordenadas del
+    grid 6x6. Cada casilla tiene: id, name, type, icon, group, price,
+    rent.
 
-  TILE_POSITIONS
-    Mapeo posición-lógica → coordenada del grid CSS 6x6.
-    Las 20 casillas se distribuyen por el perímetro del grid.
+  GROUPS
+    Definición de los 5 grupos de color (barrio, comercio, centro,
+    élite, tren) con sus tamaños y las propiedades que los componen.
+    Fundamental para calcular sinergias y saber cuándo se completa
+    un grupo.
 
   MonopolioRules · ProsperidadRules
     Cada una implementa la interfaz BaseRules con tres métodos:
 
-      onBuy(session, buyer, tile)              → cómo se paga la compra
-      onRent(session, payer, owner, tile)      → cómo se reparte el alquiler
-      checkVictory(session)                    → cuándo termina la partida
+      onBuy(session, buyer, tile)              → pago de compra
+      onRent(session, payer, owner, tile)      → reparto del alquiler
+      onPassGo(session, playerName)            → bonus al pasar SALIDA
+      checkVictory(session)                    → evaluación de fin
+      housesToFundPerTurn(session)             → aporte al fondo (0 o n)
 
-    Esta es la pieza clave. El motor NO SABE qué modo está activo.
-    Solo llama a los métodos de la clase que le toque. Si mañana se
-    quiere un "Modo Trueque" o "Modo Comuna", se escribe una tercera
-    clase con esos tres métodos y ya está.
+    Esta es la pieza clave de la arquitectura. El motor NO SABE qué modo
+    está activo. Solo llama a los métodos de la clase que le toque.
+    Si mañana se quiere un "Modo Trueque" o "Modo Comuna", se escribe
+    una tercera clase con esos métodos y ya está.
 
-  CHANCE_CARDS · COMMUNITY_CARDS
-    Mazos congelados de eventos narrativos. Cada carta tiene un texto
-    y un efecto ({ money, fund, move, allBonus }).
+  Funciones puras auxiliares
+    · houseCost(tile)           → coste de una casa
+    · isGroupComplete(s, owner, group) → ¿tiene todo el grupo?
+    · calculateRent(s, tile)    → alquiler con sinergias aplicadas
+    · canBuildHouse(s, player, tile) → ¿puede construir? ¿cuánto cuesta?
+    · findPlayerRef(s, name)    → busca jugador por nombre
+
+    Ninguna toca el DOM, ninguna usa Math.random directamente (se pasa
+    por el RandomAdapter), todas son testeables en aislamiento.
 
 
 CAPA 2 · APLICACIÓN (orquestación por eventos)
 ----------------------------------------------
 
   EventBus
-    Sistema pub/sub minimalista. on() y emit(). Sin dependencias.
+    Sistema pub/sub minimalista: on() y emit(). Sin dependencias.
 
   GameEngine
-    El orquestador. Se suscribe a eventos y emite otros. El flujo de
-    un turno completo es:
+    El orquestador. Se suscribe a eventos y emite otros. El flujo
+    completo de un turno es:
 
-      TURN_STARTED
-        ├─ IA juega (40% prob. de comprar por rival)
-        ├─ Tiras 2d6
-        └─ emite MOVEMENT_ROLLED
-             ├─ Aplica regla de SALIDA si cruza el 0
-             ├─ Actualiza posición
-             └─ emite TILE_LANDED
-                  ├─ Esquina  → aplica regla correspondiente
-                  ├─ Propiedad libre → emite CHOICE (comprar / no)
-                  ├─ Propiedad ajena → aplica rules.onRent()
-                  ├─ Suerte/Comunidad → saca carta y aplica efecto
-                  └─ emite ACTION_RESOLVED
-                       ├─ rules.checkVictory()
-                       ├─ si over → emite GAME_OVER
-                       └─ si no  → emite ENABLE_NEXT_TURN
+      START_TURN (emitido por el motor tras un pequeño delay)
+        ├─ log del turno
+        ├─ reset hasRolled
+        └─ después de 400ms → ROLL_DICE
 
-    La API pública del motor es mínima:
-      startNewGame(mode)  → nueva partida
-      nextTurn()          → avanza turno
-      chooseOption(id)    → resuelve decisión pendiente
+          ROLL_DICE
+            ├─ IA/Humano por igual: 2d6
+            ├─ emite DICE_RESULT (para animación en UI)
+            ├─ cálculo de nueva posición
+            ├─ aplica onPassGo() si cruzó SALIDA
+            └─ después de 250ms → TILE_LANDED
+
+              TILE_LANDED
+                ├─ Esquina   → aplica regla → _finishTurn()
+                ├─ Propiedad libre + humano con dinero → emite CHOICE
+                ├─ Propiedad ajena → onRent() → _finishTurn()
+                ├─ Suerte/Comunidad → saca carta → _finishTurn()
+                └─ (IA) → _finishTurn() → _aiDecide() interno
+
+                  _finishTurn()
+                    ├─ checkVictory() si over → GAME_OVER
+                    ├─ si IA → _aiDecide() + 700ms → END_TURN
+                    └─ si humano → emite ENABLE_END_TURN
+
+                      END_TURN (lo pulsa el humano o lo fuerza la IA)
+                        ├─ housesToFundPerTurn() si modo prosperidad
+                        ├─ checkVictory() otra vez
+                        └─ _advanceTurn() → siguiente jugador vivo
+                             └─ 350ms → START_TURN → bucle
+
+    La clave del diseño: la tirada de dados es AUTOMÁTICA al inicio del
+    turno. No hay botón de tirar dados que pueda quedar bloqueado. El
+    humano solo pulsa "Terminar turno" cuando ha terminado de gestionar
+    sus propiedades.
+
+    Los turnos de IA se encadenan automáticamente con setTimeout. El
+    motor lleva un _gameId que se incrementa al empezar partida nueva,
+    y cada timer comprueba que sigue siendo el actual antes de ejecutar.
+    Si reinicias a mitad de turno de IA, los timers pendientes se
+    cancelan solos.
 
   UINotifier
     Hereda de EventBus. Es el "puerto de salida" hacia la vista.
     El motor nunca toca el DOM: emite eventos que el renderer escucha.
 
     Eventos que emite:
-      GAME_STARTED        → partida nueva (con modo)
+      GAME_STARTED        → partida nueva (con modo y jugadores)
       STATS_UPDATED       → estado cambiado (para repintar)
       LOG                 → entrada al diario
-      DICE_RESULT         → tirada de dados
-      CHOICE              → pregunta al jugador
-      ENABLE_NEXT_TURN    → habilita el botón de siguiente turno
+      DICE_RESULT         → tirada de dados (para animación)
+      CHOICE              → pregunta al humano activo
+      ENABLE_END_TURN     → habilita el botón de terminar turno
       GAME_OVER           → fin de partida (con motivo)
 
 
@@ -211,62 +361,126 @@ CAPA 3 · INFRAESTRUCTURA (el mundo real)
 
   UIRenderer
     Escucha al UINotifier y pinta:
-      · El tablero 6x6 con las 20 casillas
-      · El panel de stats del jugador
+      · El tablero 6x6 con las 20 casillas y los marcadores de cada
+        jugador (con colores por índice)
+      · La lista de jugadores con stats en vivo
+      · El portfolio del jugador activo, con sus cartas estilo Monopoly
+      · El progreso de grupos de color (cuántas tiene de cada)
       · El diario de eventos
-      · El modal de fin de partida
-      · Los botones contextuales (comprar / siguiente turno)
+      · El modal de fin de partida y el de configuración inicial
 
     Regla de oro: el renderer LEE del session pero NUNCA MUTA el
-    dominio. Solo llama a engine.chooseOption() o engine.nextTurn().
+    dominio. Solo llama a engine.endTurn(), engine.buildHouse() o
+    engine.chooseOption().
+
+    El portfolio cambia según el jugador activo: cuando es turno de
+    un humano, muestra sus cartas con el botón "construir" habilitado.
+    Cuando es turno de la IA, muestra las suyas sin botón.
 
 
-FLUJO COMPLETO DE UN TURNO (ejemplo)
+SISTEMA DE IDENTIDAD VISUAL POR JUGADOR
+----------------------------------------
+
+  Cada jugador tiene un color fijo asignado por índice:
+    · Jugador 0 (Tú)        → dorado  (#f5c842)
+    · Jugador 1             → rojo    (#e94560)
+    · Jugador 2             → azul    (#4ea5ff)
+    · Jugador 3             → verde   (#4ecca3)
+
+  Este color aparece en:
+    · El badge de la lista de jugadores
+    · Los marcadores en las casillas del tablero
+    · El resaltado del jugador activo
+
+  Es la forma de saber de un vistazo quién está en qué casilla y a
+  quién pertenece cada propiedad (por el nombre del dueño en la casilla).
+
+
+FLUJO DE UN TURNO COMPLETO (ejemplo real)
+------------------------------------------
+
+  1. El motor emite START_TURN.
+  2. _onStartTurn: resetea hasRolled, escribe "── Turno 5/40 · Tú ──",
+     programa ROLL_DICE a 400ms.
+  3. _onRollDice: tira 2d6, calcula nueva posición, aplica onPassGo si
+     cruzó SALIDA, emite DICE_RESULT (para la animación de dados),
+     programa TILE_LANDED a 250ms.
+  4. _onTileLanded:
+       · Si es propiedad libre y tiene dinero, guarda pendingChoice y
+         emite CHOICE. El motor espera.
+       · Si es propiedad ajena, llama a rules.onRent(). Los dineros se
+         mueven, el log lo registra, y va a _finishTurn.
+  5. (Humano) Pulsa "Comprar". _onOptionChosen: llama a rules.onBuy(),
+     marca la propiedad como suya, va a _finishTurn.
+  6. _finishTurn: checkVictory. Si no ha terminado y es humano, emite
+     ENABLE_END_TURN. El jugador ve el botón "Terminar turno".
+  7. El humano puede construir casas antes (botones en el portfolio).
+     Cada construcción emite BUILD_HOUSE, el motor la valida, descuenta
+     dinero, incrementa el contador de casas y repinta.
+  8. El humano pulsa "Terminar turno". _onEndTurn:
+       · aplica housesToFundPerTurn (en prosperidad, las casas aportan
+         al fondo común)
+       · checkVictory otra vez
+       · _advanceTurn: siguiente jugador vivo, incrementa turnCounter
+         si se ha dado la vuelta al círculo
+  9. 350ms después, START_TURN del siguiente jugador. Si es IA, se
+     juega sola y avanza. Si es humano, espera su interacción.
+
+
+IA · COMPORTAMIENTO DE LOS RIVALES
 ------------------------------------
 
-  1. El jugador pulsa "Siguiente turno".
-  2. Renderer llama a engine.nextTurn().
-  3. Engine emite TURN_STARTED.
-  4. _onTurnStarted:
-       - incrementa turnCounter
-       - IA juega: cada rival con 40% de prob. compra una propiedad
-       - tira 2d6
-       - emite DICE_RESULT (el renderer pinta los números)
-       - emite MOVEMENT_ROLLED
-  5. _onMovementRolled:
-       - calcula nueva posición
-       - si cruzó el 0, rules.onPassGo() (en prosperidad, todos
-         cobran algo)
-       - emite TILE_LANDED
-  6. _onTileLanded:
-       - mira el tipo de casilla y actúa
-       - si es propiedad libre y el jugador puede pagar, emite CHOICE
-         (el motor se PARA y espera decisión humana)
-       - si es propiedad ajena, rules.onRent() reparte el pago según
-         el modo
-       - emite ACTION_RESOLVED
-  7. _onActionResolved:
-       - rules.checkVictory() decide si ha terminado
-       - si no, emite ENABLE_NEXT_TURN
-  8. Renderer reactiva el botón "Siguiente turno".
+  Los rivales son IA básica pero con dos capas de decisión:
 
-  Si el jugador hubiera tenido que decidir (comprar/no comprar):
-       - 6b. _onOptionChosen recibe la decisión y aplica rules.onBuy()
-       - luego emite ACTION_RESOLVED y sigue el flujo normal.
+  1. COMPRA
+     · Con probabilidad del 65% compran una propiedad que puedan pagar.
+     · EXCEPCIÓN: si comprar les completa un grupo (tienen todas las
+       demás del mismo color), compran siempre, sin tirar el dado de
+       probabilidad.
+     Esto hace que la IA priorice grupos completos, que es donde están
+     las sinergias reales.
+
+  2. CONSTRUCCIÓN
+     · Con probabilidad del 55% construyen una casa si tienen un grupo
+       completo y dinero suficiente.
+     · Priorizan propiedades con menos casas ya construidas (lo cual
+       distribuye la inversión y maximiza el alquiler).
+
+  La IA no "razona" sobre el estado global del juego. Juega a corto
+  plazo. En monopolio, esto es suficiente. En prosperidad, la IA
+  no tiene estrategia cooperativa explícita: juega como en monopolio,
+  pero las reglas del modo se encargan de redistribuir automáticamente.
 
 
-TESTS
------
+--------------------------------------------------------------------------------
+5. TESTS
+--------------------------------------------------------------------------------
 
-  Hay 17 tests automáticos embebidos. Cubren:
+  Hay 14 tests automáticos embebidos. Cubren:
 
-    · Estructura del catálogo (20 casillas, 4 esquinas, 4 grupos).
-    · Cálculos de riqueza y del "más pobre".
-    · Monopolio: alquiler normal, alquiler con quiebra, victoria por
-      arruinar rivales, derrota por quiebra propia.
-    · Prosperidad: dividendos al comprar, reparto 40/60 del alquiler,
-      quiebra imposible, victoria cooperativa, límite de turnos.
-    · Paso por SALIDA en ambos modos.
+    ESTRUCTURA
+      · Catálogo tiene 20 casillas.
+      · GameSession con N humanos crea 4 jugadores con N IA correctas.
+
+    CÁLCULOS PUROS
+      · calculateRent sin sinergias → base.
+      · calculateRent con grupo completo → ×1.5.
+      · calculateRent con casas → multiplicadores encadenados.
+      · canBuildHouse rechaza grupo incompleto.
+      · canBuildHouse acepta si grupo completo y dinero.
+      · houseCost proporcional al precio.
+
+    REGLAS MONOPOLIO
+      · Alquiler va al dueño íntegro.
+      · Victoria por riqueza máxima al final.
+      · Derrota por quiebra propia.
+
+    REGLAS PROSPERIDAD
+      · Compra reparte dividendos y alimenta el fondo.
+      · Alquiler 40/60 entre dueño y fondo.
+      · Quiebra imposible: paga lo que puede.
+      · Victoria colectiva cuando el más pobre dobla su riqueza.
+      · Aporte de casas al fondo por turno.
 
   Cómo ejecutarlos:
     · Consola:  window.__gameTests()
@@ -274,7 +488,7 @@ TESTS
 
 
 --------------------------------------------------------------------------------
-4. ¿POR QUÉ ESTÁ HECHO ASÍ? (Decisiones de diseño)
+6. ¿POR QUÉ ESTÁ HECHO ASÍ? (Decisiones de diseño)
 --------------------------------------------------------------------------------
 
 POR QUÉ DOS CLASES DE REGLAS EN VEZ DE IF/ELSE
@@ -284,30 +498,46 @@ POR QUÉ DOS CLASES DE REGLAS EN VEZ DE IF/ELSE
   dentro del motor haría:
     · El motor imposible de testear en aislamiento.
     · Añadir un tercer modo un infierno de condiciones anidadas.
-    · Las reglas del dominio quedar mezcladas con la orquestación.
+    · Las reglas del dominio mezcladas con la orquestación.
 
   Con Strategy:
     · Cada modo es una clase pequeña y testeable.
     · Añadir un modo = escribir una clase + registrarla.
     · El motor ignora qué modo hay. Solo llama a rules.onX().
 
-POR QUÉ EVENTOS EN VEZ DE LLAMADAS DIRECTAS
---------------------------------------------
-  El motor no conoce al renderer. Emite eventos. El renderer escucha.
-  Ventajas:
-    · Puedes añadir un segundo renderer (gráfico, canvas, consola)
-      sin tocar nada más.
-    · Los tests pueden suscribirse al UINotifier y verificar la
-      secuencia de eventos sin tocar el DOM.
-    · Cada handler es independiente. Si uno falla, los demás siguen.
+POR QUÉ TIRO AUTOMÁTICO DE DADOS
+---------------------------------
+  La v1 tenía un botón "Tirar dados" separado del "Terminar turno",
+  y eso creaba un bug: si el jugador no tenía nada que hacer (no podía
+  comprar, no había evento), la fase de gestión no se completaba y el
+  botón de tirar dados no se rehabilitaba.
+
+  La v3 lo resuelve tirando los dados al inicio de cada turno, sin
+  intervención del jugador. El humano solo tiene un botón ("Terminar
+  turno") cuando ha terminado de gestionar. Si no hace nada, el botón
+  sigue ahí y puede pulsarlo en cualquier momento. No hay estado
+  intermedio que se pueda romper.
+
+POR QUÉ LOS TURNOS DE IA SE ENCADENAN CON TIMEOUT
+--------------------------------------------------
+  Si la IA jugara sincrónicamente dentro del turno del humano, la UI
+  no podría mostrar el proceso: los dados, las compras, las casas.
+  Se vería todo de golpe al final.
+
+  Con setTimeout encadenados:
+    · El humano ve cada paso (tirada → movimiento → decisión → fin).
+    · La UI tiene tiempo de animar los dados.
+    · Cada turno de IA se siente "vivo", no instantáneo.
+
+  El _gameId asegura que si reinicias a mitad, los timers pendientes
+  se cancelan (comparan su id con el actual).
 
 POR QUÉ EL DOMINIO ES "PURO"
 -----------------------------
   GameSession no tiene métodos que toquen document, Math.random ni
-  localStorage. Solo mutaciones de datos y cálculos puros. Esto
-  permite:
+  localStorage. Solo mutaciones de datos y cálculos puros. Esto permite:
     · Testear la lógica sin navegador (Node.js).
-    · Razones sobre el estado sin distracciones.
+    · Razonar sobre el estado sin distracciones.
     · Persistencia futura trivial (serializar el session).
 
 POR QUÉ LA VICTORIA EN PROSPERIDAD ES COLECTIVA
@@ -324,62 +554,88 @@ POR QUÉ LA VICTORIA EN PROSPERIDAD ES COLECTIVA
 
 
 --------------------------------------------------------------------------------
-5. LIMITACIONES Y LÍNEAS FUTURAS
+7. DIFERENCIAS CON LA V2 (por qué esta versión)
+--------------------------------------------------------------------------------
+
+  La v2 era monojugador: tú contra dos IAs fijas. Tenía una fase de
+  tirada manual que se rompía cuando no había acción. El botón de
+  "Terminar turno" podía quedar bloqueado esperando algo imposible.
+
+  La v3 introduce:
+    · Multijugador de 1 a 4 humanos con IA rellenando.
+    · Turnos automáticos con tirada de dados al inicio.
+    · IA visible (compras y construcciones en el log con color propio).
+    · Sinergias de grupo y sistema de casas ya funcionando.
+    · Portfolio del jugador activo, con botón de construir contextual.
+    · Marcadores de posición por jugador en el tablero.
+    · Sistema de identidad visual (colores por índice de jugador).
+
+  La arquitectura de dominio se mantiene igual. Solo cambia el motor
+  (ahora orquesta múltiples jugadores) y el renderer (ahora pinta
+  varios jugadores a la vez).
+
+
+--------------------------------------------------------------------------------
+8. LIMITACIONES Y LÍNEAS FUTURAS
 --------------------------------------------------------------------------------
 
 NO IMPLEMENTADO (pero preparado)
 ---------------------------------
-  · Persistencia en localStorage (la capa existe, falta conectarla).
-  · Construcción de mejoras en propiedades (upgrades: 0 en el modelo,
-    sin lógica aún).
-  · Comercio entre jugadores.
-  · Eventos más ricos: hipotecas, alianzas, cartas de "reforma".
-  · Modo solitario con IA más lista (la IA actual es aleatoria).
-
-EXTENSIONES NATURALES
----------------------
-  · Modo "Tutorial": jugar primero monopolio, luego prosperidad, con
-    mensajes explicativos.
-  · Modo "Sandbox": barajar todas las reglas y ver qué pasa.
-  · Estadísticas persistentes: cuántas partidas has ganado en cada
-    modo, qué tan rápido doblas la riqueza, etc.
-  · Exportar la crónica final como texto para compartir.
+  · Persistencia en localStorage. La arquitectura lo permite, falta
+    conectarlo.
+  · Comercio entre jugadores (intercambiar propiedades).
+  · Hipotecas sobre propiedades.
+  · Cartas de evento más ricas: alianzas, reformas del tablero,
+    subastas, huelgas de inquilinos.
+  · Modo "Tutorial" que te haga jugar primero monopolio y luego
+    prosperidad con explicaciones.
+  · Estadísticas persistentes (cuántas partidas has ganado en cada
+    modo, qué tan rápido doblas la riqueza...).
 
 CÓMO AÑADIR UN MODO NUEVO
--------------------------
+--------------------------
   1. Escribe una clase nueva que herede de BaseRules:
        class MiModoRules extends BaseRules {
-         name() { return 'mimodo'; }
          onBuy(session, buyer, tile) { ... }
          onRent(session, payer, owner, tile) { ... }
          onPassGo(session, player) { ... }
          checkVictory(session) { return { over, victory, reason }; }
+         housesToFundPerTurn(session) { return 0; }
        }
 
   2. En GameEngine.startNewGame(mode):
        this.rules = mode === 'mimodo' ? new MiModoRules() : ...
 
-  3. Añade un botón en el HTML con data-mode="mimodo".
+  3. Añade un botón en el modal de configuración con data-mode="mimodo".
 
   4. Listo. El motor, el renderer y los tests no cambian.
 
+CÓMO AÑADIR UN JUGADOR MÁS (5-6 jugadores)
+-------------------------------------------
+  · Ampliar el array de nombres humanos y de nombres IA.
+  · Asignar colores nuevos en el CSS (:root).
+  · TILE_CATALOG no cambia. Los marcadores se apilan en las casillas.
+  · Nota: con más de 4 jugadores, algunos grupos de color podrían quedar
+    incompletos muy fácilmente. Considerar ampliar el catálogo a 24-28
+    casillas o reducir la exigencia de "grupo completo" a "mayoría del
+    grupo".
+
 
 --------------------------------------------------------------------------------
-6. CRÉDITOS Y CONTEXTO HISTÓRICO
+9. CRÉDITOS
 --------------------------------------------------------------------------------
 
-  El Juego del Propietario es una reinterpretación del Landlord's Game
-  diseñado por Elizabeth Magie en 1904. Magie, una cuáquera y
-  georgista convencida, creó el juego con DOS conjuntos de reglas
-  para enseñar los peligros del monopolio y las bondades de un
-  sistema basado en la propiedad común de la tierra.
+  El Juego del Propietario v3 es una reinterpretación del Landlord's Game
+  diseñado por Elizabeth Magie en 1904. Magie, una cuáquera y georgista
+  convencida, creó el juego con dos conjuntos de reglas para enseñar los
+  peligros del monopolio y las bondades de la propiedad común.
 
-  En 1935 Charles Darrow vendió una versión modificada —solo con las
-  reglas del monopolio— a Parker Brothers. Magie recibió 500$ por
-  los derechos y su versión cooperativa fue enterrada durante
-  décadas.
+  Charles Darrow vendió una versión solo-monopolio a Parker Brothers en
+  1935. Magie recibió 500$ y su modo cooperativo fue enterrado durante
+  décadas. Hoy el Monopoly es el juego de mesa más vendido de la historia,
+  y muy poca gente sabe que nació siendo la mitad de un juego.
 
-  Este proyecto es un pequeño homenaje a esa versión perdida.
+  Este proyecto es un pequeño intento de recuperar esa mitad perdida.
 
 
 ================================================================================
