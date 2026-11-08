@@ -3,186 +3,324 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>🏛️ El Juego del Propietario · Monopolio vs Prosperidad</title>
+<title>🏛️ El Juego del Propietario v3 · Multijugador</title>
 <style>
-  /* ============================================================
-     UI · tema oscuro, tablero 6x6, tres columnas
-     ============================================================ */
   :root {
-    --bg:#0d0d18; --panel:#161628; --card:#1e1e3a;
+    --bg:#0d0d18; --panel:#161628; --card:#1e1e3a; --card-dark:#14142a;
     --ink:#e8e8f0; --muted:#7a7a9a;
     --gold:#f5c842; --prosper:#4ecca3; --mono:#e94560;
     --border:#2a2a44; --radius:10px;
     --font:'Segoe UI',system-ui,sans-serif;
+    --g-barrio:#8b4513; --g-comercio:#87ceeb; --g-centro:#ff69b4;
+    --g-elite:#1e3a8a; --g-tren:#3a3a3a; --g-servicio:#6b7280;
+    --p0:#f5c842; --p1:#e94560; --p2:#4ea5ff; --p3:#4ecca3;
   }
   * { margin:0; padding:0; box-sizing:border-box; }
   body {
     font-family:var(--font); background:var(--bg); color:var(--ink);
-    min-height:100vh; padding:12px; font-size:14px;
-  }
-  header {
-    display:flex; flex-wrap:wrap; gap:12px; align-items:center;
-    max-width:1400px; margin:0 auto 12px;
-  }
-  h1 { font-size:1.1rem; color:var(--gold); flex:1; letter-spacing:.5px; }
-  .mode-bar { display:flex; gap:6px; flex-wrap:wrap; align-items:center; }
-  .mode-bar span { color:var(--muted); font-size:.8rem; }
-  .mode-btn {
-    background:var(--panel); color:var(--ink); border:1px solid var(--border);
-    padding:6px 14px; border-radius:20px; cursor:pointer; font-family:inherit;
-    font-size:.85rem; transition:all .15s;
-  }
-  .mode-btn.active[data-mode="monopolio"] { background:var(--mono); border-color:var(--mono); }
-  .mode-btn.active[data-mode="prosperidad"] { background:var(--prosper); border-color:var(--prosper); color:#0a1a15; font-weight:700; }
-  .mode-btn:hover:not(.active) { border-color:var(--muted); }
-  #btnRestart {
-    background:var(--card); border:1px solid var(--border); color:var(--ink);
-    padding:6px 14px; border-radius:20px; cursor:pointer; font-family:inherit;
-    font-size:.85rem;
+    min-height:100vh; padding:10px; font-size:13px;
   }
 
+  header {
+    display:flex; flex-wrap:wrap; gap:10px; align-items:center;
+    max-width:1500px; margin:0 auto 10px;
+    padding:10px 14px; background:var(--panel);
+    border-radius:var(--radius); border:1px solid var(--border);
+  }
+  header h1 { font-size:1rem; color:var(--gold); letter-spacing:.5px; }
+  #btnNewGame {
+    margin-left:auto;
+    background:var(--gold); color:#000; border:none;
+    padding:7px 16px; border-radius:20px; cursor:pointer;
+    font-family:inherit; font-size:.82rem; font-weight:700;
+  }
+  #phase-indicator {
+    padding:5px 14px; border-radius:20px; font-size:.78rem; font-weight:700;
+    background:var(--card); color:var(--muted); border:1px solid var(--border);
+  }
+  #phase-indicator.active { color:var(--gold); border-color:var(--gold); }
+
   main {
-    display:grid; grid-template-columns:220px 1fr 320px;
-    gap:12px; max-width:1400px; margin:0 auto;
+    display:grid; grid-template-columns:230px 1fr 340px;
+    gap:10px; max-width:1500px; margin:0 auto;
   }
-  @media (max-width:1000px) {
-    main { grid-template-columns:1fr; }
-  }
+  @media (max-width:1100px) { main { grid-template-columns:1fr; } }
 
   .panel {
     background:var(--panel); border:1px solid var(--border);
-    border-radius:var(--radius); padding:12px;
+    border-radius:var(--radius); padding:10px;
+    display:flex; flex-direction:column; gap:6px;
   }
   .panel h3 {
-    font-size:.7rem; color:var(--muted); text-transform:uppercase;
-    letter-spacing:.08em; margin-bottom:8px; padding-bottom:4px;
+    font-size:.68rem; color:var(--muted); text-transform:uppercase;
+    letter-spacing:.08em; padding-bottom:4px;
     border-bottom:1px solid var(--border);
   }
   .stat-row {
-    display:flex; justify-content:space-between; padding:3px 0;
-    font-size:.85rem;
+    display:flex; justify-content:space-between; padding:2px 0;
+    font-size:.82rem;
   }
   .stat-row .val { font-weight:600; font-variant-numeric:tabular-nums; }
   .stat-row .val.gold { color:var(--gold); }
   .stat-row .val.prosper { color:var(--prosper); }
-  .stat-row .val.mono { color:var(--mono); }
-  .wealth-bar {
-    height:8px; background:#0a0a14; border-radius:4px;
-    overflow:hidden; margin:4px 0 8px;
-  }
-  .wealth-bar > div { height:100%; transition:width .4s; }
-  .wealth-bar .fill-mono { background:var(--mono); }
-  .wealth-bar .fill-prosper { background:var(--prosper); }
 
-  /* Tablero 6x6 con perímetro de casillas y centro grande */
+  /* Player cards */
+  .player-card {
+    background:var(--card); border:2px solid var(--border);
+    border-radius:8px; padding:6px 8px; margin-bottom:5px;
+    display:flex; gap:8px; align-items:center;
+    transition:all .2s;
+  }
+  .player-card.active {
+    border-color:var(--gold); background:rgba(245,200,66,.1);
+    box-shadow:0 0 12px rgba(245,200,66,.25);
+  }
+  .player-card.bankrupt { opacity:.35; }
+  .player-badge {
+    width:26px; height:26px; border-radius:50%;
+    display:flex; align-items:center; justify-content:center;
+    font-weight:800; font-size:12px; flex-shrink:0;
+    border:1px solid #000;
+  }
+  .player-badge.p0 { background:var(--p0); color:#000; }
+  .player-badge.p1 { background:var(--p1); color:#fff; }
+  .player-badge.p2 { background:var(--p2); color:#fff; }
+  .player-badge.p3 { background:var(--p3); color:#000; }
+  .player-info { flex:1; min-width:0; }
+  .player-name {
+    font-size:.78rem; font-weight:600;
+    white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+    display:flex; gap:4px; align-items:center;
+  }
+  .player-ai-tag { font-size:.55rem; color:var(--muted); }
+  .player-stats {
+    font-size:.68rem; color:var(--muted); display:flex; gap:6px;
+    margin-top:1px;
+  }
+  .player-stats strong { color:var(--ink); font-weight:600; }
+
+  /* Board */
   #board {
     display:grid; grid-template-columns:repeat(6, 1fr);
     grid-template-rows:repeat(6, 1fr);
     aspect-ratio:1; gap:3px;
     background:#08080f; padding:6px;
     border-radius:var(--radius); border:1px solid var(--border);
+    position:relative;
   }
   .tile {
     background:var(--card); border:2px solid var(--border);
-    border-radius:6px; padding:3px; cursor:pointer;
+    border-radius:6px; padding:2px; cursor:pointer;
     display:flex; flex-direction:column; align-items:center;
     justify-content:center; text-align:center;
-    font-size:.62rem; line-height:1.1; overflow:hidden;
+    font-size:.58rem; line-height:1.1; overflow:hidden;
     transition:all .15s; position:relative;
   }
   .tile:hover { transform:scale(1.04); border-color:var(--gold); z-index:2; }
-  .tile .icon { font-size:1.1rem; }
+  .tile .icon { font-size:1rem; }
   .tile .name { font-weight:600; color:var(--ink); margin-top:1px; }
-  .tile .price { font-size:.55rem; color:var(--gold); }
+  .tile .price { font-size:.5rem; color:var(--gold); }
   .tile .owner-tag {
-    font-size:.5rem; padding:1px 4px; border-radius:6px;
+    font-size:.46rem; padding:1px 4px; border-radius:6px;
     background:var(--border); color:var(--muted); margin-top:1px;
   }
-  .tile.player-here { box-shadow:0 0 0 2px var(--gold), 0 0 12px rgba(245,200,66,.4); }
+  .tile .houses-dots { font-size:.55rem; color:var(--prosper); letter-spacing:-1px; }
   .tile.corner { background:#12122a; }
   .tile.corner.start { border-color:var(--prosper); }
   .tile.corner.jail { border-color:var(--mono); }
   .tile.corner.free { border-color:var(--gold); }
   .tile.corner.tax { border-color:#c084fc; }
-  .tile.owned-mono { border-color:var(--mono); }
-  .tile.owned-prosper { border-color:var(--prosper); }
-  .marker {
-    position:absolute; top:1px; right:1px; font-size:.85rem;
-  }
+  .tile[data-group="barrio"].owned { border-color:var(--g-barrio); }
+  .tile[data-group="comercio"].owned { border-color:var(--g-comercio); }
+  .tile[data-group="centro"].owned { border-color:var(--g-centro); }
+  .tile[data-group="elite"].owned { border-color:var(--g-elite); }
+  .tile[data-group="tren"].owned { border-color:var(--g-tren); }
+  .tile.group-complete { box-shadow:inset 0 0 12px rgba(245,200,66,.3); }
 
-  /* Centro del tablero */
+  .markers {
+    position:absolute; bottom:1px; left:50%; transform:translateX(-50%);
+    display:flex; gap:1px;
+  }
+  .marker-p {
+    width:12px; height:12px; border-radius:50%;
+    display:flex; align-items:center; justify-content:center;
+    font-size:7px; font-weight:800; border:1px solid #000;
+  }
+  .marker-p.p0 { background:var(--p0); color:#000; }
+  .marker-p.p1 { background:var(--p1); color:#fff; }
+  .marker-p.p2 { background:var(--p2); color:#fff; }
+  .marker-p.p3 { background:var(--p3); color:#000; }
+
   #board-center {
     grid-row:2 / 6; grid-column:2 / 6;
     background:linear-gradient(135deg, #0f0f22, #08080f);
     border-radius:var(--radius); border:1px solid var(--border);
     display:flex; flex-direction:column; align-items:center;
-    justify-content:center; padding:14px; gap:8px;
-    color:var(--muted);
+    justify-content:center; padding:14px; gap:6px;
   }
   #board-center .title {
-    font-size:1rem; color:var(--gold); font-weight:700; letter-spacing:.5px;
+    font-size:.9rem; color:var(--gold); font-weight:700;
+    letter-spacing:.5px; text-align:center;
   }
-  #board-center .subtitle { font-size:.75rem; }
+  #board-center .subtitle { font-size:.7rem; color:var(--muted); text-align:center; }
   #dice-display {
-    font-size:2rem; margin:6px 0; color:var(--ink); min-height:44px;
-    font-variant-numeric:tabular-nums;
+    font-size:2.2rem; margin:4px 0; color:var(--ink); min-height:44px;
+    font-variant-numeric:tabular-nums; letter-spacing:2px;
+    transition:all .2s;
+  }
+  #dice-display.rolling {
+    animation:shake .3s infinite; color:var(--gold);
+  }
+  @keyframes shake {
+    0%,100%{transform:rotate(-4deg) scale(1)}
+    50%{transform:rotate(4deg) scale(1.05)}
   }
   #turn-indicator {
-    font-size:.9rem; color:var(--ink); padding:4px 10px;
-    background:var(--card); border-radius:10px;
+    font-size:.75rem; color:var(--ink); padding:4px 12px;
+    background:var(--card); border-radius:10px; text-align:center;
+    max-width:220px; line-height:1.35;
   }
 
-  /* Panel de log */
+  /* Portfolio */
+  #portfolio-panel {
+    overflow-y:auto; max-height:calc(100vh - 340px);
+    min-height:100px;
+  }
+  .group-progress {
+    display:grid; grid-template-columns:repeat(2, 1fr); gap:3px;
+    font-size:.68rem; margin-bottom:6px;
+  }
+  .gp-item {
+    display:flex; justify-content:space-between; padding:2px 6px;
+    border-radius:6px; background:var(--card-dark);
+    border-left:3px solid var(--muted);
+  }
+  .gp-item.complete { background:rgba(78,204,163,.15); }
+  .gp-item[data-group="barrio"] { border-left-color:var(--g-barrio); }
+  .gp-item[data-group="comercio"] { border-left-color:var(--g-comercio); }
+  .gp-item[data-group="centro"] { border-left-color:var(--g-centro); }
+  .gp-item[data-group="elite"] { border-left-color:var(--g-elite); }
+  .gp-item[data-group="tren"] { border-left-color:var(--g-tren); }
+  .gp-item .gp-name { color:var(--muted); }
+  .gp-item .gp-count { font-weight:700; color:var(--ink); }
+
+  .pcard {
+    background:var(--card); border-radius:6px; margin-bottom:6px;
+    overflow:hidden; border:1px solid var(--border);
+  }
+  .pcard-header {
+    padding:2px 8px; font-size:.58rem; font-weight:800;
+    text-transform:uppercase; letter-spacing:.1em;
+    color:#fff; background:var(--muted);
+  }
+  .pcard[data-group="barrio"] .pcard-header { background:var(--g-barrio); }
+  .pcard[data-group="comercio"] .pcard-header { background:var(--g-comercio); color:#0a1a2a; }
+  .pcard[data-group="centro"] .pcard-header { background:var(--g-centro); color:#1a0a14; }
+  .pcard[data-group="elite"] .pcard-header { background:var(--g-elite); }
+  .pcard[data-group="tren"] .pcard-header { background:var(--g-tren); }
+  .pcard[data-group="servicio"] .pcard-header { background:var(--g-servicio); }
+
+  .pcard-body { padding:5px 8px; display:flex; gap:8px; align-items:center; }
+  .pcard-info { flex:1; min-width:0; }
+  .pcard-name {
+    font-size:.76rem; font-weight:600;
+    white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+  }
+  .pcard-stats {
+    display:flex; gap:8px; font-size:.63rem; color:var(--muted); margin-top:1px;
+  }
+  .pcard-stats strong { color:var(--ink); }
+  .pcard-houses {
+    font-size:.82rem; color:var(--prosper); letter-spacing:-1px;
+    min-width:30px; text-align:center;
+  }
+  .pcard-houses.empty { color:#333; }
+  .pcard-build {
+    background:var(--gold); color:#000; border:none;
+    padding:4px 8px; border-radius:6px; font-family:inherit;
+    font-size:.62rem; font-weight:700; cursor:pointer; white-space:nowrap;
+  }
+  .pcard-build:hover:not(:disabled) { background:#ffd966; }
+  .pcard-build:disabled { opacity:.3; cursor:not-allowed; }
+  .empty-portfolio {
+    color:var(--muted); font-size:.72rem; font-style:italic;
+    text-align:center; padding:14px 0;
+  }
+
+  /* Log & actions */
   #log {
     background:#08080f; border-radius:6px;
-    height:280px; overflow-y:auto; padding:8px;
-    font-size:.75rem; line-height:1.5; font-family:ui-monospace,monospace;
+    height:180px; overflow-y:auto; padding:6px;
+    font-size:.7rem; line-height:1.42; font-family:ui-monospace,monospace;
   }
-  #log .entry { padding:3px 0; border-bottom:1px solid #12121f; }
+  #log .entry { padding:2px 0; border-bottom:1px solid #12121f; }
   #log .entry:last-child { border-bottom:none; }
-  #log .entry.turn { color:var(--gold); font-weight:600; margin-top:4px; }
+  #log .entry.turn { color:var(--gold); font-weight:700; margin-top:4px; }
+  #log .entry.roll { color:#8bc3ff; }
   #log .entry.mono { color:#ff8899; }
   #log .entry.prosper { color:#7ee8c8; }
   #log .entry.good { color:var(--prosper); }
   #log .entry.bad { color:var(--mono); }
   #log .entry.system { color:var(--muted); font-style:italic; }
+  #log .entry.ai { color:#c084fc; }
 
-  #actions {
-    display:flex; flex-direction:column; gap:6px; margin-top:10px;
-  }
+  #actions { display:flex; flex-direction:column; gap:5px; margin-top:6px; }
   #actions button {
     background:var(--card); color:var(--ink); border:1px solid var(--border);
     padding:10px 14px; border-radius:8px; cursor:pointer; font-family:inherit;
-    font-size:.9rem; font-weight:600; text-align:left;
-    transition:all .15s;
+    font-size:.85rem; font-weight:600; text-align:left; transition:all .15s;
   }
   #actions button:hover:not(:disabled) { border-color:var(--gold); transform:translateX(2px); }
   #actions button:disabled { opacity:.4; cursor:not-allowed; }
   #actions button.primary { background:var(--gold); color:#000; border-color:var(--gold); }
   #actions button.primary:hover { background:#ffd966; }
   #actions button.success { background:var(--prosper); color:#0a1a15; border-color:var(--prosper); }
+  #actions button.danger { background:var(--mono); color:#fff; border-color:var(--mono); }
+  #actions .waiting {
+    padding:10px 14px; color:var(--muted); font-size:.8rem;
+    font-style:italic; text-align:center;
+  }
 
-  /* Modal para eventos/final */
+  /* Modals */
   .modal-overlay {
-    position:fixed; inset:0; background:rgba(0,0,0,.8);
+    position:fixed; inset:0; background:rgba(0,0,0,.85);
     display:none; align-items:center; justify-content:center;
     z-index:100; padding:20px;
   }
   .modal-overlay.active { display:flex; }
   .modal-card {
     background:var(--panel); border:1px solid var(--border);
-    border-radius:var(--radius); padding:24px; max-width:520px;
+    border-radius:var(--radius); padding:22px; max-width:520px;
     width:100%; box-shadow:0 10px 40px rgba(0,0,0,.6);
   }
-  .modal-card h2 { color:var(--gold); margin-bottom:10px; }
-  .modal-card p { color:var(--ink); line-height:1.55; margin-bottom:14px; }
-  .modal-card button {
-    background:var(--gold); color:#000; border:none; padding:10px 20px;
-    border-radius:8px; cursor:pointer; font-family:inherit; font-weight:700;
-    width:100%;
+  .modal-card h2 { color:var(--gold); margin-bottom:12px; font-size:1.1rem; }
+  .modal-card p { color:var(--ink); line-height:1.55; margin-bottom:10px;
+                  white-space:pre-line; font-size:.88rem; }
+  .modal-card .setup-label {
+    color:var(--muted); font-size:.78rem; text-transform:uppercase;
+    letter-spacing:.05em; margin:12px 0 6px;
   }
+  .modal-card .setup-buttons {
+    display:flex; gap:6px; flex-wrap:wrap; margin-bottom:6px;
+  }
+  .modal-card .setup-buttons button {
+    background:var(--card); color:var(--ink);
+    border:2px solid var(--border); padding:8px 16px;
+    border-radius:8px; cursor:pointer; font-family:inherit;
+    font-size:.85rem; transition:all .15s;
+  }
+  .modal-card .setup-buttons button.selected {
+    border-color:var(--gold); background:rgba(245,200,66,.15);
+    color:var(--gold); font-weight:700;
+  }
+  .modal-card .setup-buttons button:hover:not(.selected) { border-color:var(--muted); }
+  #setup-start {
+    width:100%; padding:12px; background:var(--gold); color:#000;
+    border:none; border-radius:8px; font-family:inherit;
+    font-weight:700; font-size:.95rem; cursor:pointer; margin-top:12px;
+  }
+  #setup-start:hover { background:#ffd966; }
 
-  /* Panel de tests */
   #testpanel {
     position:fixed; bottom:0; left:0; right:0; max-height:50vh;
     overflow-y:auto; background:rgba(0,0,0,.95); color:#7ee8c8;
@@ -197,30 +335,22 @@
 <body>
 
 <header>
-  <h1>🏛️ El Juego del Propietario</h1>
-  <div class="mode-bar">
-    <span>Modo:</span>
-    <button class="mode-btn active" data-mode="monopolio">🎩 Monopolio</button>
-    <button class="mode-btn" data-mode="prosperidad">🌱 Prosperidad</button>
-    <button id="btnRestart">🔄 Reiniciar</button>
-  </div>
+  <h1>🏛️ El Juego del Propietario · v3</h1>
+  <span id="phase-indicator">—</span>
+  <button id="btnNewGame">⚙️ Nueva partida</button>
 </header>
 
 <main>
   <aside>
     <div class="panel">
-      <h3>Concursante</h3>
-      <div class="stat-row"><span>💰 Dinero</span><span class="val gold" id="ui-money">—</span></div>
-      <div class="stat-row"><span>🏠 Propiedades</span><span class="val" id="ui-props">0</span></div>
-      <div class="stat-row"><span>📊 Riqueza</span><span class="val" id="ui-wealth">0</span></div>
-      <div class="wealth-bar"><div class="fill-prosper" id="ui-wealth-bar" style="width:0%"></div></div>
-      <div class="stat-row"><span id="ui-target-label">Objetivo</span><span class="val prosper" id="ui-target">—</span></div>
+      <h3>Jugadores</h3>
+      <div id="players-list"></div>
     </div>
-    <div class="panel" style="margin-top:12px;">
-      <h3 id="ui-mode-title">Modo</h3>
+    <div class="panel" style="margin-top:10px;">
+      <h3>Estado</h3>
       <div class="stat-row"><span>🏦 Fondo común</span><span class="val prosper" id="ui-fund">—</span></div>
-      <div class="stat-row"><span>📈 Turno</span><span class="val" id="ui-turn">0 / 20</span></div>
-      <div class="stat-row"><span>👥 Rivales vivos</span><span class="val" id="ui-rivals">0</span></div>
+      <div class="stat-row"><span>📈 Turno</span><span class="val" id="ui-turn">0 / 0</span></div>
+      <div class="stat-row"><span>🎯 Objetivo</span><span class="val prosper" id="ui-target">—</span></div>
     </div>
   </aside>
 
@@ -230,6 +360,11 @@
 
   <aside>
     <div class="panel">
+      <h3>Portfolio · <span id="portfolio-owner">—</span></h3>
+      <div class="group-progress" id="group-progress"></div>
+      <div id="portfolio-panel"></div>
+    </div>
+    <div class="panel" style="margin-top:10px;">
       <h3>Diario</h3>
       <div id="log"></div>
       <div id="actions"></div>
@@ -237,7 +372,28 @@
   </aside>
 </main>
 
-<div class="modal-overlay" id="modal">
+<!-- Modal de configuración -->
+<div class="modal-overlay" id="setup-modal">
+  <div class="modal-card">
+    <h2>⚙️ Configurar partida</h2>
+    <div class="setup-label">Modo de juego</div>
+    <div class="setup-buttons" id="setup-mode">
+      <button data-mode="monopolio" class="selected">🎩 Monopolio</button>
+      <button data-mode="prosperidad">🌱 Prosperidad</button>
+    </div>
+    <div class="setup-label">Jugadores humanos (el resto son IA · total 4)</div>
+    <div class="setup-buttons" id="setup-humans">
+      <button data-n="1" class="selected">1</button>
+      <button data-n="2">2</button>
+      <button data-n="3">3</button>
+      <button data-n="4">4</button>
+    </div>
+    <button id="setup-start">▶ Empezar partida</button>
+  </div>
+</div>
+
+<!-- Modal de fin de partida -->
+<div class="modal-overlay" id="game-over-modal">
   <div class="modal-card">
     <h2 id="modal-title">—</h2>
     <p id="modal-body">—</p>
@@ -251,374 +407,339 @@
 'use strict';
 
 /* ==================================================================
-   ARQUITECTURA HEXAGONAL
-   ------------------------------------------------------------------
-   DOMINIO          → GameSession, TILE_CATALOG, reglas puras
-   APLICACIÓN       → EventBus, GameEngine (casos de uso)
-   INFRAESTRUCTURA  → adaptadores (random, renderer, notifier)
+   1. DOMINIO · Constantes
    ================================================================== */
 
-
-/* ==================================================================
-   1. DOMINIO · Constantes y tipos
-   ================================================================== */
-
-const MODE = Object.freeze({
-  MONOPOLIO:   'monopolio',
-  PROSPERIDAD: 'prosperidad'
-});
-
+const MODE = Object.freeze({ MONOPOLIO:'monopolio', PROSPERIDAD:'prosperidad' });
 const TILE_TYPE = Object.freeze({
-  PROPERTY:      'property',
-  RAILROAD:      'railroad',
-  UTILITY:       'utility',
-  CHANCE:        'chance',
-  COMMUNITY:     'community',
-  CORNER_START:  'start',
-  CORNER_JAIL:   'jail',
-  CORNER_FREE:   'free',
-  TAX:           'tax'
+  PROPERTY:'property', RAILROAD:'railroad', UTILITY:'utility',
+  CHANCE:'chance', COMMUNITY:'community',
+  CORNER_START:'start', CORNER_JAIL:'jail', CORNER_FREE:'free', TAX:'tax',
 });
 
-/* Catálogo de 20 casillas. Las esquinas en 0, 5, 10, 15.
-   Grupos de propiedades: 'barrio', 'comercio', 'centro', 'elite'
-   Las estaciones y servicios no dan sinergia de grupo. */
+const GROUPS = Object.freeze({
+  barrio:   { name:'Barrio',   size:2, properties:['barrio1','barrio2'] },
+  comercio: { name:'Comercio', size:3, properties:['comercio1','comercio2','comercio3'] },
+  centro:   { name:'Centro',   size:2, properties:['centro1','centro2'] },
+  elite:    { name:'Élite',    size:2, properties:['elite1','elite2'] },
+  tren:     { name:'Tren',     size:2, properties:['rail_n','rail_s'] },
+});
+
+const BALANCE = Object.freeze({
+  startingMoney:15,
+  rounds:10,           // rondas (cada ronda = todos juegan una vez)
+  goBonus:2,
+  jailFine:2,
+  taxAmount:5,
+  maxHouses:3,
+  groupBonusMult:1.5,
+  houseBonusMult:0.25,
+  houseCostRatio:0.34,
+  prosperityOwnerShare:0.4,
+  prosperityFundPerHouse:1,
+});
+
 const TILE_CATALOG = Object.freeze([
-  // 0 · Esquina SALIDA
-  { id:'start', name:'SALIDA', type: TILE_TYPE.CORNER_START, icon:'🏁' },
-
-  // 1-4 · Barrio (propiedades baratas)
-  { id:'barrio1', name:'Calle del Barrio', type: TILE_TYPE.PROPERTY, group:'barrio', icon:'🏘️', price:6,  rent:2 },
-  { id:'barrio2', name:'Calle del Pan',    type: TILE_TYPE.PROPERTY, group:'barrio', icon:'🍞', price:6,  rent:2 },
-  { id:'chance1', name:'Suerte',           type: TILE_TYPE.CHANCE,   icon:'🎲' },
-  { id:'rail_n',  name:'Estación Norte',   type: TILE_TYPE.RAILROAD, group:'tren', icon:'🚂', price:10, rent:3 },
-
-  // 5 · Esquina CÁRCEL
-  { id:'jail', name:'CÁRCEL', type: TILE_TYPE.CORNER_JAIL, icon:'🔒' },
-
-  // 6-9 · Comercio
-  { id:'comercio1', name:'Calle del Trueque',   type: TILE_TYPE.PROPERTY, group:'comercio', icon:'🛒', price:10, rent:3 },
-  { id:'community1', name:'Caja de Comunidad',  type: TILE_TYPE.COMMUNITY, icon:'📦' },
-  { id:'comercio2', name:'Calle de los Oficios',type: TILE_TYPE.PROPERTY, group:'comercio', icon:'🔨', price:12, rent:4 },
-  { id:'comercio3', name:'Avenida del Mercado', type: TILE_TYPE.PROPERTY, group:'comercio', icon:'🏪', price:12, rent:4 },
-
-  // 10 · Esquina PLAZA LIBRE
-  { id:'free', name:'Plaza de la Abundancia', type: TILE_TYPE.CORNER_FREE, icon:'⛲' },
-
-  // 11-14 · Centro
-  { id:'centro1',  name:'Avenida Central',      type: TILE_TYPE.PROPERTY, group:'centro', icon:'🌳', price:14, rent:5 },
-  { id:'utility1', name:'Compañía de Agua',     type: TILE_TYPE.UTILITY,  group:'servicio', icon:'💧', price:12, rent:4 },
-  { id:'chance2',  name:'Suerte',               type: TILE_TYPE.CHANCE,   icon:'🎲' },
-  { id:'centro2',  name:'Calle de la Riqueza',  type: TILE_TYPE.PROPERTY, group:'centro', icon:'💰', price:16, rent:5 },
-
-  // 15 · Esquina IMPUESTO
-  { id:'tax', name:'Impuesto', type: TILE_TYPE.TAX, icon:'🧾' },
-
-  // 16-19 · Élite
-  { id:'rail_s',  name:'Estación Sur',            type: TILE_TYPE.RAILROAD, group:'tren', icon:'🚂', price:10, rent:3 },
-  { id:'community2', name:'Caja de Comunidad',    type: TILE_TYPE.COMMUNITY, icon:'📦' },
-  { id:'elite1',  name:'Avenida de la Bolsa',     type: TILE_TYPE.PROPERTY, group:'elite', icon:'📈', price:20, rent:7 },
-  { id:'elite2',  name:'Finca de Lord Blueblood', type: TILE_TYPE.PROPERTY, group:'elite', icon:'🏰', price:26, rent:9 },
+  { id:'start', name:'SALIDA', type:TILE_TYPE.CORNER_START, icon:'🏁' },
+  { id:'barrio1',   name:'Calle del Barrio', type:TILE_TYPE.PROPERTY, group:'barrio',   icon:'🏘️', price:6,  rent:2 },
+  { id:'barrio2',   name:'Calle del Pan',    type:TILE_TYPE.PROPERTY, group:'barrio',   icon:'🍞', price:6,  rent:2 },
+  { id:'chance1',   name:'Suerte',           type:TILE_TYPE.CHANCE,   icon:'🎲' },
+  { id:'rail_n',    name:'Estación Norte',   type:TILE_TYPE.RAILROAD, group:'tren',     icon:'🚂', price:10, rent:3 },
+  { id:'jail', name:'CÁRCEL', type:TILE_TYPE.CORNER_JAIL, icon:'🔒' },
+  { id:'comercio1',  name:'Calle del Trueque',    type:TILE_TYPE.PROPERTY, group:'comercio', icon:'🛒', price:10, rent:3 },
+  { id:'community1', name:'Caja de Comunidad',    type:TILE_TYPE.COMMUNITY, icon:'📦' },
+  { id:'comercio2',  name:'Calle de los Oficios', type:TILE_TYPE.PROPERTY, group:'comercio', icon:'🔨', price:12, rent:4 },
+  { id:'comercio3',  name:'Avenida del Mercado',  type:TILE_TYPE.PROPERTY, group:'comercio', icon:'🏪', price:12, rent:4 },
+  { id:'free', name:'Plaza de la Abundancia', type:TILE_TYPE.CORNER_FREE, icon:'⛲' },
+  { id:'centro1',  name:'Avenida Central',     type:TILE_TYPE.PROPERTY, group:'centro', icon:'🌳', price:14, rent:5 },
+  { id:'utility1', name:'Compañía de Agua',    type:TILE_TYPE.UTILITY,  group:'servicio', icon:'💧', price:12, rent:4 },
+  { id:'chance2',  name:'Suerte',              type:TILE_TYPE.CHANCE,   icon:'🎲' },
+  { id:'centro2',  name:'Calle de la Riqueza', type:TILE_TYPE.PROPERTY, group:'centro', icon:'💰', price:16, rent:5 },
+  { id:'tax', name:'Impuesto', type:TILE_TYPE.TAX, icon:'🧾' },
+  { id:'rail_s',     name:'Estación Sur',            type:TILE_TYPE.RAILROAD, group:'tren', icon:'🚂', price:10, rent:3 },
+  { id:'community2', name:'Caja de Comunidad',       type:TILE_TYPE.COMMUNITY, icon:'📦' },
+  { id:'elite1',     name:'Avenida de la Bolsa',     type:TILE_TYPE.PROPERTY, group:'elite', icon:'📈', price:20, rent:7 },
+  { id:'elite2',     name:'Finca de Lord Blueblood', type:TILE_TYPE.PROPERTY, group:'elite', icon:'🏰', price:26, rent:9 },
 ]);
 
-/* Mapeo posición-lógica → coordenada visual en el grid 6x6.
-   Esquina top-left = 0, top-right = 5, bottom-right = 10, bottom-left = 15. */
 const TILE_POSITIONS = [
-  [1,1], [1,2], [1,3], [1,4], [1,5], [1,6],
-  [2,6], [3,6], [4,6], [5,6], [6,6],
-  [6,5], [6,4], [6,3], [6,2], [6,1],
-  [5,1], [4,1], [3,1], [2,1],
+  [1,1],[1,2],[1,3],[1,4],[1,5],[1,6],
+  [2,6],[3,6],[4,6],[5,6],[6,6],
+  [6,5],[6,4],[6,3],[6,2],[6,1],
+  [5,1],[4,1],[3,1],[2,1],
 ];
 
-/* Cartas de evento */
 const CHANCE_CARDS = Object.freeze([
-  { text:'Un inversor te da 3.', effect:{ money: 3 } },
-  { text:'Multa: -2.', effect:{ money: -2 } },
-  { text:'Donas 4 al fondo común.', effect:{ money: -4, fund: 4 } },
-  { text:'Ganas un premio: 5 al fondo.', effect:{ fund: 5 } },
-  { text:'Vuelves a SALIDA.', effect:{ move: 0 } },
+  { text:'Un inversor te da 3.',            effect:{ money:3 } },
+  { text:'Multa: -2.',                      effect:{ money:-2 } },
+  { text:'Donas 4 al fondo común.',         effect:{ money:-4, fund:4 } },
+  { text:'Ganas un premio: 5 al fondo.',    effect:{ fund:5 } },
+  { text:'Volver a SALIDA.',                effect:{ move:0 } },
 ]);
 
 const COMMUNITY_CARDS = Object.freeze([
-  { text:'Campaña vecinal: 2 al fondo.', effect:{ fund: 2 } },
-  { text:'Donación anónima: +2.', effect:{ money: 2 } },
-  { text:'Cooperativa: todos +1.', effect:{ allBonus: 1 } },
-  { text:'Gastos médicos: -3.', effect:{ money: -3 } },
+  { text:'Campaña vecinal: 2 al fondo.',    effect:{ fund:2 } },
+  { text:'Donación anónima: +2.',           effect:{ money:2 } },
+  { text:'Cooperativa: todos +1.',          effect:{ allBonus:1 } },
+  { text:'Gastos médicos: -3.',             effect:{ money:-3 } },
 ]);
 
 
 /* ==================================================================
-   2. DOMINIO · GameSession (estado puro, sin DOM, sin efectos)
+   2. DOMINIO · Player + GameSession
    ================================================================== */
 
-class GameSession {
-  constructor(mode = MODE.MONOPOLIO) {
-    this.mode = mode;
-    this.playerName = 'Tú';
-    this.maxTurns = 20;
-
-    // Estado del jugador
-    this.money = 15;
+class Player {
+  constructor(name, isAI, index) {
+    this.name = name;
+    this.isAI = isAI;
+    this.index = index;
+    this.money = BALANCE.startingMoney;
     this.position = 0;
     this.properties = [];
     this.isBankrupt = false;
+  }
+}
 
-    // Estado de la partida
+class GameSession {
+  constructor(mode, numHumans) {
+    this.mode = mode;
+    this.numHumans = numHumans;
+    this.players = [];
+
+    const humanNames = ['Tú', 'Jugador 2', 'Jugador 3', 'Jugador 4'];
+    const aiNames = ['Lord Vetinari', 'El Bibliotecario', 'La Muerte'];
+    const totalPlayers = 4;
+    const numAI = totalPlayers - numHumans;
+
+    for (let i = 0; i < numHumans; i++) {
+      this.players.push(new Player(humanNames[i] || `Jugador ${i+1}`, false, i));
+    }
+    for (let i = 0; i < numAI; i++) {
+      this.players.push(new Player(aiNames[i] || `IA ${i+1}`, true, numHumans + i));
+    }
+
+    this.activePlayerIndex = 0;
+    this.hasRolled = false;
+    this.pendingChoice = null;
     this.turnCounter = 0;
+    this.maxTurns = BALANCE.rounds * this.players.length;
     this.isGameOver = false;
     this.isVictory = false;
     this.reason = '';
 
-    // Prosperidad
     this.commonFund = 0;
-    this.startingWealth = 15;
-    this.poorestStarting = 15;
+    this.startingWealth = BALANCE.startingMoney;
+    this.poorestStarting = BALANCE.startingMoney;
 
-    // Tablero: instancias (owner, upgrades)
     this.tiles = [];
-
-    // IA rival
-    this.competitors = [];
-
-    // Eventos pendientes
-    this.pendingChoice = null;
   }
 
-  get currentTile() { return this.tiles[this.position] || null; }
-
-  /* Riqueza = dinero + valor de propiedades */
-  wealthOfPlayer() { return this.wealthOf(this._playerView()); }
+  get activePlayer() { return this.players[this.activePlayerIndex]; }
+  get currentTile() { return this.tiles[this.activePlayer.position]; }
 
   wealthOf(p) {
+    if (!p) return 0;
     const propValue = (p.properties || []).reduce((sum, id) => {
       const tile = this.tiles.find(t => t.id === id);
-      return sum + (tile ? (tile.price || 0) : 0);
+      if (!tile) return sum;
+      return sum + (tile.price || 0) + ((tile.houses || 0) * houseCost(tile));
     }, 0);
     return p.money + propValue;
   }
 
-  _playerView() {
-    return { money: this.money, properties: this.properties };
-  }
-
-  /* Devuelve todas las vistas de jugador (para cálculos colectivos) */
-  allPlayers() {
-    return [
-      { name: this.playerName, isPlayer: true, isBankrupt: this.isBankrupt,
-        money: this.money, properties: this.properties },
-      ...this.competitors.map(c => ({
-        name: c.name, isPlayer: false, isBankrupt: c.isBankrupt,
-        money: c.money, properties: c.properties,
-      })),
-    ];
-  }
-
-  /* Riqueza del jugador más pobre (para victoria en prosperidad) */
   poorestWealth() {
-    const alive = this.allPlayers().filter(p => !p.isBankrupt);
+    const alive = this.players.filter(p => !p.isBankrupt);
     if (alive.length === 0) return 0;
     return Math.min(...alive.map(p => this.wealthOf(p)));
+  }
+
+  totalHouses() {
+    return this.tiles.reduce((sum, t) => sum + (t.houses || 0), 0);
   }
 }
 
 
 /* ==================================================================
-   3. DOMINIO · Políticas de reglas (Strategy pattern)
-   ------------------------------------------------------------------
-   Aquí está la magia del juego de Elizabeth Magie: el mismo motor
-   aplica reglas distintas según el modo. Añadir un modo nuevo es
-   escribir otra clase con los mismos métodos.
+   3. DOMINIO · Helpers puros
+   ================================================================== */
+
+function houseCost(tile) {
+  return Math.max(1, Math.floor((tile.price || 0) * BALANCE.houseCostRatio));
+}
+
+function isGroupComplete(session, ownerName, groupId) {
+  const g = GROUPS[groupId];
+  if (!g) return false;
+  return g.properties.every(pid => {
+    const tile = session.tiles.find(t => t.id === pid);
+    return tile && tile.owner === ownerName;
+  });
+}
+
+function calculateRent(session, tile) {
+  if (!tile.owner || tile.rent === undefined) return 0;
+  let rent = tile.rent;
+  if (tile.group && GROUPS[tile.group] && isGroupComplete(session, tile.owner, tile.group)) {
+    rent *= BALANCE.groupBonusMult;
+  }
+  if (tile.houses && tile.houses > 0) {
+    rent *= (1 + tile.houses * BALANCE.houseBonusMult);
+  }
+  return Math.floor(rent);
+}
+
+function canBuildHouse(session, playerName, tile) {
+  if (!tile || tile.owner !== playerName) return { ok:false, reason:'no es tuya' };
+  if (tile.type !== TILE_TYPE.PROPERTY) return { ok:false, reason:'no edificable' };
+  if (!tile.group || !GROUPS[tile.group]) return { ok:false, reason:'sin grupo' };
+  if (!isGroupComplete(session, playerName, tile.group)) return { ok:false, reason:'grupo incompleto' };
+  if ((tile.houses || 0) >= BALANCE.maxHouses) return { ok:false, reason:'máximo' };
+  const cost = houseCost(tile);
+  const player = session.players.find(p => p.name === playerName);
+  if (!player || player.money < cost) return { ok:false, reason:'sin dinero', cost };
+  return { ok:true, cost };
+}
+
+function findPlayerRef(session, name) {
+  return session.players.find(p => p.name === name) || null;
+}
+
+
+/* ==================================================================
+   4. DOMINIO · Reglas por modo (Strategy)
    ================================================================== */
 
 class BaseRules {
-  constructor(config = {}) {
-    this.goBonus = config.goBonus ?? 2;
-    this.taxAmount = config.taxAmount ?? 5;
-    this.jailFine = config.jailFine ?? 2;
-  }
-
-  /* Busca un jugador por nombre (jugador o competidor) */
-  findPlayer(session, name) {
-    if (name === session.playerName) return session;
-    return session.competitors.find(c => c.name === name);
-  }
-
-  /* Compra: en monopolio, el comprador paga al banco (nada más).
-     Devuelve un objeto con la info que quiera el motor. */
-  onBuy(/* session, buyerName, tile */) { throw new Error('abstract'); }
-
-  /* Alquiler: cómo se reparte el pago */
-  onRent(/* session, payerName, ownerName, tile */) { throw new Error('abstract'); }
-
-  /* Pasar por SALIDA */
-  onPassGo(/* session, playerName */) { throw new Error('abstract'); }
-
-  /* Comprobación de fin de partida */
-  checkVictory(/* session */) { throw new Error('abstract'); }
+  onBuy() { throw new Error('abstract'); }
+  onRent() { throw new Error('abstract'); }
+  onPassGo() { throw new Error('abstract'); }
+  checkVictory() { throw new Error('abstract'); }
+  housesToFundPerTurn() { return 0; }
 }
 
-/* ------------------------------------------------------------------
-   MODO MONOPOLIO (reglas clásicas)
-   ------------------------------------------------------------------ */
 class MonopolioRules extends BaseRules {
-  name() { return 'monopolio'; }
-
   onBuy(session, buyerName, tile) {
-    const buyer = this.findPlayer(session, buyerName);
+    const buyer = findPlayerRef(session, buyerName);
     if (buyer) buyer.money -= tile.price;
-    return { paid: tile.price };
+    return { paid:tile.price };
   }
 
   onRent(session, payerName, ownerName, tile) {
-    const payer = this.findPlayer(session, payerName);
-    const owner = this.findPlayer(session, ownerName);
-    if (!payer) return { paid: 0 };
+    const payer = findPlayerRef(session, payerName);
+    const owner = findPlayerRef(session, ownerName);
+    if (!payer) return { paid:0 };
 
-    const rent = tile.rent;
+    const rent = calculateRent(session, tile);
     if (payer.money < rent) {
-      // Quiebra: paga lo que tiene y el resto se pierde
       const paid = payer.money;
       payer.money = 0;
       if (owner) owner.money += paid;
-      return { paid, bankrupt: true };
+      return { paid, rent, bankrupt:true };
     }
     payer.money -= rent;
     if (owner) owner.money += rent;
-    return { paid: rent, bankrupt: false };
+    return { paid:rent, rent, bankrupt:false };
   }
 
   onPassGo(session, playerName) {
-    const player = this.findPlayer(session, playerName);
-    if (player) player.money += this.goBonus;
+    const p = findPlayerRef(session, playerName);
+    if (p) p.money += BALANCE.goBonus;
   }
 
   checkVictory(session) {
-    // 1. Jugador en bancarrota → fin
-    if (session.isBankrupt) {
-      return { over: true, victory: false,
-               reason: 'Has quebrado. En el modo monopolio, la quiebra es el final.' };
-    }
-    // 2. Todos los rivales fuera → victoria
-    const alive = session.competitors.filter(c => !c.isBankrupt);
+    const alive = session.players.filter(p => !p.isBankrupt);
+
     if (alive.length === 0) {
-      return { over: true, victory: true,
-               reason: '¡Has arruinado a todos tus rivales! Victoria monopolista.' };
+      return { over:true, victory:false, reason:'Todos han quebrado.' };
     }
-    // 3. Límite de turnos → comparar riqueza
+    if (alive.length === 1) {
+      return { over:true, victory:true,
+               reason:`¡${alive[0].name} es el único que no ha quebrado! Victoria monopolista.` };
+    }
     if (session.turnCounter >= session.maxTurns) {
-      const playerW = session.wealthOfPlayer();
-      const rivalW = Math.max(...alive.map(c => session.wealthOf(c)));
-      if (playerW > rivalW) {
-        return { over: true, victory: true,
-                 reason: `Fin del juego. Riqueza ${playerW} vs ${rivalW}. Ganas por acumulación.` };
-      }
-      return { over: true, victory: false,
-               reason: `Fin del juego. Riqueza ${playerW} vs ${rivalW}. Un rival te supera.` };
+      const richest = alive.reduce((best, p) =>
+        session.wealthOf(p) > session.wealthOf(best) ? p : best
+      );
+      return { over:true, victory:true,
+               reason:`Fin del juego. ${richest.name} gana con ${session.wealthOf(richest)} de riqueza.` };
     }
-    return { over: false, victory: false, reason: '' };
+    return { over:false, victory:false, reason:'' };
   }
 }
 
-/* ------------------------------------------------------------------
-   MODO PROSPERIDAD (reglas del Landlord's Game de Magie)
-   ------------------------------------------------------------------ */
 class ProsperidadRules extends BaseRules {
-  name() { return 'prosperidad'; }
-
-  /* Compra: el comprador paga el precio completo, pero:
-     - La mitad va al fondo común
-     - Cada otro jugador recibe un dividendo (precio/4)
-     Esto incentiva comprar porque todos ganan. */
   onBuy(session, buyerName, tile) {
-    const buyer = this.findPlayer(session, buyerName);
+    const buyer = findPlayerRef(session, buyerName);
     if (buyer) buyer.money -= tile.price;
 
     const toFund = Math.floor(tile.price / 2);
     const dividend = Math.floor(tile.price / 4);
     session.commonFund += toFund;
 
-    // Reparto al resto (referencias mutables)
-    const all = [
-      { name: session.playerName, ref: session },
-      ...session.competitors.map(c => ({ name: c.name, ref: c })),
-    ];
-    for (const { name, ref } of all) {
-      if (name === buyerName) continue;
-      if (ref.isBankrupt) continue;
-      ref.money += dividend;
+    for (const p of session.players) {
+      if (p.name === buyerName || p.isBankrupt) continue;
+      p.money += dividend;
     }
-    return { paid: tile.price, fund: toFund, dividend };
+    return { paid:tile.price, fund:toFund, dividend };
   }
 
-  /* Alquiler: el pagador paga, pero:
-     - 40% va al dueño
-     - 60% va al fondo común
-     Si no puede pagar, paga lo que tiene (sin quiebra). */
   onRent(session, payerName, ownerName, tile) {
-    const payer = this.findPlayer(session, payerName);
-    const owner = this.findPlayer(session, ownerName);
-    if (!payer) return { paid: 0 };
+    const payer = findPlayerRef(session, payerName);
+    const owner = findPlayerRef(session, ownerName);
+    if (!payer) return { paid:0 };
 
-    const rent = tile.rent;
-    const toOwner = Math.floor(rent * 0.4);
+    const rent = calculateRent(session, tile);
+    const toOwner = Math.floor(rent * BALANCE.prosperityOwnerShare);
     const toFund = rent - toOwner;
 
     if (payer.money < rent) {
       const paid = payer.money;
       payer.money = 0;
-      const partialFund = Math.floor(paid * 0.6);
+      const partialOwner = Math.floor(paid * BALANCE.prosperityOwnerShare);
+      const partialFund = paid - partialOwner;
+      if (owner) owner.money += partialOwner;
       session.commonFund += partialFund;
-      if (owner) owner.money += Math.floor(paid * 0.4);
-      return { paid, toOwner: Math.floor(paid * 0.4), toFund: partialFund, welfare: true };
+      return { paid, rent, toOwner:partialOwner, toFund:partialFund, welfare:true };
     }
 
     payer.money -= rent;
     if (owner) owner.money += toOwner;
     session.commonFund += toFund;
-    return { paid: rent, toOwner, toFund, welfare: false };
+    return { paid:rent, rent, toOwner, toFund, welfare:false };
   }
 
-  /* Pasar por SALIDA: todo el mundo recibe un pequeño bono.
-     El que pasa recibe el bonus completo. */
   onPassGo(session, playerName) {
-    const smallBonus = Math.floor(this.goBonus / 2);
-    const all = [
-      { name: session.playerName, ref: session },
-      ...session.competitors.map(c => ({ name: c.name, ref: c })),
-    ];
-    for (const { name, ref } of all) {
-      if (ref.isBankrupt) continue;
-      if (name === playerName) {
-        ref.money += this.goBonus;
-      } else {
-        ref.money += smallBonus;
-      }
+    const small = Math.floor(BALANCE.goBonus / 2);
+    for (const p of session.players) {
+      if (p.isBankrupt) continue;
+      p.money += (p.name === playerName ? BALANCE.goBonus : small);
     }
   }
 
-  /* Victoria: cuando el jugador más pobre dobla su riqueza inicial.
-     Es cooperativa: todos ganan. */
+  housesToFundPerTurn(session) {
+    return session.totalHouses() * BALANCE.prosperityFundPerHouse;
+  }
+
   checkVictory(session) {
     const poorest = session.poorestWealth();
     const target = 2 * session.poorestStarting;
 
     if (poorest >= target) {
-      return { over: true, victory: true,
-               reason: `¡Prosperidad común! El jugador más pobre (${poorest}) ha doblado su riqueza inicial (${session.poorestStarting}). Todos ganan.` };
+      return { over:true, victory:true,
+               reason:`¡Prosperidad común! El más pobre (${poorest}) ha doblado su riqueza inicial (${session.poorestStarting}). Todos ganan.` };
     }
-
     if (session.turnCounter >= session.maxTurns) {
-      return { over: true, victory: false,
-               reason: `Fin del juego. El más pobre tiene ${poorest} (necesitaba ${target}). No se alcanzó la prosperidad.` };
+      return { over:true, victory:false,
+               reason:`Fin. El más pobre tiene ${poorest} (necesitaba ${target}). No hubo prosperidad.` };
     }
-
-    return { over: false, victory: false, reason: '' };
+    return { over:false, victory:false, reason:'' };
   }
 }
 
 
 /* ==================================================================
-   4. APLICACIÓN · EventBus (pub/sub mínimo)
+   5. APLICACIÓN · EventBus
    ================================================================== */
 
 class EventBus {
@@ -636,29 +757,28 @@ class EventBus {
   }
 }
 
-
-/* ==================================================================
-   5. INFRAESTRUCTURA · Adaptadores
-   ================================================================== */
-
-class RandomAdapter {
-  d6() { return 1 + Math.floor(Math.random() * 6); }
-  pick(arr) { return arr[Math.floor(Math.random() * arr.length)]; }
-  chance(p) { return Math.random() < p; }
-}
-
-/* Notifier: el puerto por el que el motor habla con la vista.
-   La vista (renderer) se suscribe a los eventos del notifier. */
 class UINotifier extends EventBus {}
 
 
 /* ==================================================================
-   6. APLICACIÓN · GameEngine (casos de uso orquestados por eventos)
+   6. APLICACIÓN · GameEngine
    ------------------------------------------------------------------
-   Flujo:
-     TURN_STARTED → IA + tirada → MOVEMENT_ROLLED → TILE_LANDED
-       → (CHOICE | auto) → ACTION_RESOLVED → checkVictory
-       → (GAME_OVER | siguiente turno habilitado)
+   FLUJO DE TURNO (auto-roll al inicio):
+   
+     _startTurn()  → log turno, espera 300ms
+       _rollDice() → tirada + animación
+         _onTileLanded() → resuelve casilla
+           _finishTurn():
+             · IA  → _aiDecide() + 600ms → _endTurn()
+             · Hum → emite ENABLE_END_TURN (muestra botón)
+   
+     Usuario humano pulsa "Terminar turno":
+       _onEndTurn() → aporta casas al fondo
+         _advanceTurn() → siguiente jugador vivo
+           _startTurn() → bucle
+   
+   Los turnos de IA se encadenan con setTimeout y un _gameId
+   para abortar si se empieza partida nueva a mitad.
    ================================================================== */
 
 class GameEngine {
@@ -668,52 +788,65 @@ class GameEngine {
     this.bus = new EventBus();
     this.session = null;
     this.rules = null;
-
+    this._gameId = 0;
+    this._timers = [];
     this._registerHandlers();
   }
 
   _registerHandlers() {
-    this.bus.on('TURN_STARTED',    (e) => this._onTurnStarted(e));
-    this.bus.on('MOVEMENT_ROLLED', (e) => this._onMovementRolled(e));
-    this.bus.on('TILE_LANDED',     (e) => this._onTileLanded(e));
-    this.bus.on('OPTION_CHOSEN',   (e) => this._onOptionChosen(e));
-    this.bus.on('ACTION_RESOLVED', (e) => this._onActionResolved(e));
+    this.bus.on('START_TURN',   () => this._onStartTurn());
+    this.bus.on('ROLL_DICE',    () => this._onRollDice());
+    this.bus.on('TILE_LANDED',  (e) => this._onTileLanded(e));
+    this.bus.on('OPTION_CHOSEN',(e) => this._onOptionChosen(e));
+    this.bus.on('BUILD_HOUSE',  (e) => this._onBuildHouse(e));
+    this.bus.on('END_TURN',     () => this._onEndTurn());
   }
 
-  /* --- API pública (comandos) --- */
+  _schedule(fn, ms) {
+    const id = this._gameId;
+    const t = setTimeout(() => {
+      if (this._gameId === id) fn();
+    }, ms);
+    this._timers.push(t);
+    return t;
+  }
 
-  startNewGame(mode) {
-    this.session = new GameSession(mode);
-    this.rules = mode === MODE.PROSPERIDAD
-      ? new ProsperidadRules()
-      : new MonopolioRules();
+  _clearTimers() {
+    this._timers.forEach(t => clearTimeout(t));
+    this._timers = [];
+  }
 
-    // Tablero: copia del catálogo con campos mutables
-    this.session.tiles = TILE_CATALOG.map(t => ({ ...t, owner: null, upgrades: 0 }));
+  /* --- API pública --- */
 
-    // Competidores IA
-    this.session.competitors = [
-      { name: 'Lord Vetinari',  money: 15, properties: [], isBankrupt: false },
-      { name: 'El Bibliotecario', money: 15, properties: [], isBankrupt: false },
-    ];
+  startNewGame(mode, numHumans) {
+    this._clearTimers();
+    this._gameId++;
 
-    // Fijar riqueza inicial para la victoria en prosperidad
-    this.session.startingWealth = 15;
-    this.session.poorestStarting = 15; // todos empiezan con 15
+    this.session = new GameSession(mode, numHumans);
+    this.rules = mode === MODE.PROSPERIDAD ? new ProsperidadRules() : new MonopolioRules();
+    this.session.tiles = TILE_CATALOG.map(t => ({ ...t, owner:null, houses:0 }));
+    this.session.turnCounter = 0;
 
-    this.notifier.emit('GAME_STARTED', { session: this.session, mode });
+    this.notifier.emit('GAME_STARTED', { session:this.session, mode });
     this._syncUI();
-    this.notifier.emit('ENABLE_NEXT_TURN', {});
-    this._log(`Partida iniciada en modo ${mode.toUpperCase()}.`);
+    this._log(`Partida ${mode.toUpperCase()} · ${numHumans} humano(s) + ${4-numHumans} IA`, 'system');
+    this._log(`Empieza ${this.session.players[0].name}.`, 'system');
+
+    // Arranca el primer turno tras un pequeño delay
+    this._schedule(() => this.bus.emit('START_TURN', {}), 300);
   }
 
-  nextTurn() {
+  endTurn() {
     if (!this.session || this.session.isGameOver) return;
-    if (this.session.pendingChoice) {
-      this._log('Debes resolver la decisión pendiente primero.');
-      return;
-    }
-    this.bus.emit('TURN_STARTED', {});
+    if (this.session.activePlayer.isAI) return;
+    this.bus.emit('END_TURN', {});
+  }
+
+  buildHouse(tileId) {
+    if (!this.session || this.session.isGameOver) return;
+    const p = this.session.activePlayer;
+    if (p.isAI) return;
+    this.bus.emit('BUILD_HOUSE', { tileId, playerName:p.name });
   }
 
   chooseOption(optionId) {
@@ -721,227 +854,286 @@ class GameEngine {
     this.bus.emit('OPTION_CHOSEN', { optionId });
   }
 
-  /* --- Handlers de eventos --- */
+  /* --- Handlers --- */
 
-  _onTurnStarted() {
+  _onStartTurn() {
     const s = this.session;
     if (s.isGameOver) return;
+    const p = s.activePlayer;
+    s.hasRolled = false;
+    this._log(`── Turno ${s.turnCounter + 1}/${s.maxTurns} · ${p.name} ──`, 'turn');
+    this._syncUI();
+    this._schedule(() => this.bus.emit('ROLL_DICE', {}), 400);
+  }
 
-    s.turnCounter++;
-    this._log(`── Turno ${s.turnCounter} ──`, 'turn');
+  _onRollDice() {
+    const s = this.session;
+    const p = s.activePlayer;
+    if (s.hasRolled || p.isBankrupt || s.isGameOver) return;
+    s.hasRolled = true;
 
-    // Turno de la IA: 40% de probabilidad de comprar por rival
-    this._runAITurn();
-
-    // Tirada 2d6
     const d1 = this.random.d6();
     const d2 = this.random.d6();
     const total = d1 + d2;
-    this.notifier.emit('DICE_RESULT', { dice: [d1, d2], total });
-    this._log(`Tiras ${d1}+${d2} = ${total}.`);
+    this.notifier.emit('DICE_RESULT', { dice:[d1,d2], total, playerName:p.name, playerIndex:p.index });
+    this._log(`${p.name} tira ${d1}+${d2} = ${total}.`, 'roll');
 
-    this.bus.emit('MOVEMENT_ROLLED', { total });
-  }
-
-  _onMovementRolled({ total }) {
-    const s = this.session;
-    const oldPos = s.position;
+    const oldPos = p.position;
     const newPos = (oldPos + total) % s.tiles.length;
-
-    // ¿Pasó por SALIDA?
-    if (newPos < oldPos) {
-      this.rules.onPassGo(s, s.playerName);
-      this._log(`Pasas por SALIDA: +${this.rules.goBonus}.`, 'prosper');
+    if (newPos < oldPos || newPos === 0) {
+      this.rules.onPassGo(s, p.name);
+      this._log(`${p.name} pasa por SALIDA.`, 'good');
     }
-
-    s.position = newPos;
-    const tile = s.currentTile;
-    this._log(`Llegas a ${tile.name}.`);
-
-    this.bus.emit('TILE_LANDED', { tile });
+    p.position = newPos;
+    const tile = s.tiles[newPos];
+    this._syncUI();
+    this._schedule(() => this.bus.emit('TILE_LANDED', { tile }), 250);
   }
 
   _onTileLanded({ tile }) {
     const s = this.session;
+    const p = s.activePlayer;
 
-    // --- Esquinas ---
+    // Esquinas
     if (tile.type === TILE_TYPE.CORNER_START) {
-      this.rules.onPassGo(s, s.playerName);
-      this._log('Descansas en SALIDA. Cobras bonus.');
-      return this.bus.emit('ACTION_RESOLVED', {});
+      this.rules.onPassGo(s, p.name);
+      return this._finishTurn();
     }
-
     if (tile.type === TILE_TYPE.CORNER_JAIL) {
-      s.money = Math.max(0, s.money - this.rules.jailFine);
-      if (s.mode === MODE.PROSPERIDAD) s.commonFund += this.rules.jailFine;
-      this._log(`Cárcel. Pagas ${this.rules.jailFine} de multa.`, 'bad');
-      return this.bus.emit('ACTION_RESOLVED', {});
+      p.money = Math.max(0, p.money - BALANCE.jailFine);
+      if (s.mode === MODE.PROSPERIDAD) s.commonFund += BALANCE.jailFine;
+      this._log(`${p.name} paga multa en Cárcel.`, 'bad');
+      return this._finishTurn();
     }
-
     if (tile.type === TILE_TYPE.CORNER_FREE) {
-      this._log('Descansas en la Plaza de la Abundancia.');
-      return this.bus.emit('ACTION_RESOLVED', {});
+      this._log(`${p.name} descansa en la Plaza.`, 'system');
+      return this._finishTurn();
     }
-
     if (tile.type === TILE_TYPE.TAX) {
-      const tax = this.rules.taxAmount;
-      s.money = Math.max(0, s.money - tax);
-      if (s.mode === MODE.PROSPERIDAD) {
-        s.commonFund += tax;
-        this._log(`Impuesto: ${tax} al fondo común.`, 'bad');
-      } else {
-        this._log(`Impuesto: ${tax} al banco.`, 'bad');
-      }
-      return this.bus.emit('ACTION_RESOLVED', {});
+      p.money = Math.max(0, p.money - BALANCE.taxAmount);
+      if (s.mode === MODE.PROSPERIDAD) s.commonFund += BALANCE.taxAmount;
+      this._log(`${p.name} paga impuesto.`, 'bad');
+      return this._finishTurn();
     }
 
-    // --- Propiedad / tren / servicio ---
-    if (tile.type === TILE_TYPE.PROPERTY ||
-        tile.type === TILE_TYPE.RAILROAD ||
-        tile.type === TILE_TYPE.UTILITY) {
-
+    // Propiedades
+    const purchasable = [TILE_TYPE.PROPERTY, TILE_TYPE.RAILROAD, TILE_TYPE.UTILITY];
+    if (purchasable.includes(tile.type)) {
       if (!tile.owner) {
-        // Ofrecer compra si puede permitírselo
-        if (s.money >= tile.price) {
+        // IA: decide en _aiDecide
+        if (p.isAI) return this._finishTurn();
+
+        // Humano: ofrecer compra si puede
+        if (p.money >= tile.price) {
           s.pendingChoice = { tileId: tile.id };
+          this._syncUI();
           this.notifier.emit('CHOICE', {
-            prompt: `¿Comprar ${tile.name} por ${tile.price}?`,
+            prompt: `${p.name}, ¿comprar ${tile.name} por ${tile.price}?`,
             options: [
-              { id: 'buy',  label: `💰 Comprar (${tile.price})` },
-              { id: 'skip', label: `🚶 No comprar` },
+              { id:'buy',  label:`💰 Comprar (${tile.price})`, kind:'primary' },
+              { id:'skip', label:`🚶 No comprar`, kind:'normal' },
             ],
           });
-          return; // Esperando decisión
+          return;
         }
-        this._log('No puedes permitirte esta propiedad.');
-        return this.bus.emit('ACTION_RESOLVED', {});
+        this._log(`${p.name} no puede comprar.`, 'system');
+        return this._finishTurn();
       }
 
-      if (tile.owner === s.playerName) {
-        this._log(`Es tu propiedad: ${tile.name}.`);
-        return this.bus.emit('ACTION_RESOLVED', {});
+      if (tile.owner === p.name) {
+        this._log(`${p.name} está en su propiedad.`, 'system');
+        return this._finishTurn();
       }
 
-      // Alquiler a rival
-      const res = this.rules.onRent(s, s.playerName, tile.owner, tile);
-      if (res.welfare) {
-        this._log(`Pagas ${res.paid} de alquiler (no puedes más). Fondo +${res.toFund}.`, 'prosper');
-      } else if (s.mode === MODE.PROSPERIDAD) {
-        this._log(`Pagas ${res.paid} a ${tile.owner}: ${res.toOwner} al dueño, ${res.toFund} al fondo.`);
-      } else {
-        this._log(`Pagas ${res.paid} a ${tile.owner}.`, 'bad');
+      // Pagar alquiler
+      const res = this.rules.onRent(s, p.name, tile.owner, tile);
+      const extra = res.welfare ? ' (paga lo que puede)' : '';
+      this._log(`${p.name} paga ${res.paid} a ${tile.owner}${extra}.`,
+        s.mode === MODE.PROSPERIDAD ? 'prosper' : 'mono');
+      if (res.toFund) this._log(`Fondo +${res.toFund}.`, 'prosper');
+      if (res.bankrupt) {
+        p.isBankrupt = true;
+        this._log(`¡${p.name} ha quebrado!`, 'bad');
       }
-      if (res.bankrupt) s.isBankrupt = true;
-
-      return this.bus.emit('ACTION_RESOLVED', {});
+      return this._finishTurn();
     }
 
-    // --- Suerte / Comunidad ---
+    // Suerte / Comunidad
     if (tile.type === TILE_TYPE.CHANCE || tile.type === TILE_TYPE.COMMUNITY) {
       const deck = tile.type === TILE_TYPE.CHANCE ? CHANCE_CARDS : COMMUNITY_CARDS;
       const card = this.random.pick(deck);
-      this._log(`📜 ${card.text}`);
+      this._log(`📜 ${card.text}`, 'system');
       const eff = card.effect;
-
-      if (eff.money) s.money = Math.max(0, s.money + eff.money);
+      if (eff.money) p.money = Math.max(0, p.money + eff.money);
       if (eff.fund)  s.commonFund += eff.fund;
       if (eff.allBonus) {
-        s.money += eff.allBonus;
-        for (const c of s.competitors) if (!c.isBankrupt) c.money += eff.allBonus;
+        for (const pl of s.players) if (!pl.isBankrupt) pl.money += eff.allBonus;
       }
       if (eff.move !== undefined) {
-        s.position = eff.move;
-        this._log(`Te trasladas a ${s.currentTile.name}.`);
+        p.position = eff.move;
+        this._log(`${p.name} se traslada a ${s.tiles[p.position].name}.`);
       }
-      return this.bus.emit('ACTION_RESOLVED', {});
+      return this._finishTurn();
     }
 
-    // Fallback
-    this.bus.emit('ACTION_RESOLVED', {});
+    this._finishTurn();
   }
 
   _onOptionChosen({ optionId }) {
     const s = this.session;
+    const p = s.activePlayer;
     const pending = s.pendingChoice;
     if (!pending) return;
-
     const tile = s.tiles.find(t => t.id === pending.tileId);
     s.pendingChoice = null;
 
-    if (!tile) return this.bus.emit('ACTION_RESOLVED', {});
-
-    if (optionId === 'buy') {
-      if (s.money < tile.price) {
-        this._log('No tienes dinero suficiente.', 'bad');
-        return this.bus.emit('ACTION_RESOLVED', {});
-      }
-      const res = this.rules.onBuy(s, s.playerName, tile);
-      tile.owner = s.playerName;
-      s.properties.push(tile.id);
+    if (optionId === 'buy' && tile && p.money >= tile.price) {
+      const res = this.rules.onBuy(s, p.name, tile);
+      tile.owner = p.name;
+      p.properties.push(tile.id);
       if (s.mode === MODE.PROSPERIDAD) {
-        this._log(`Compras ${tile.name}. Fondo +${res.fund}, dividendos +${res.dividend} a rivales.`, 'prosper');
+        this._log(`${p.name} compra ${tile.name}. Fondo +${res.fund}, dividendos +${res.dividend}.`, 'prosper');
       } else {
-        this._log(`Compras ${tile.name}.`, 'mono');
+        this._log(`${p.name} compra ${tile.name}.`, 'mono');
       }
-      return this.bus.emit('ACTION_RESOLVED', {});
+      this._syncUI();
+    } else {
+      this._log(`${p.name} no compra.`, 'system');
     }
-
-    if (optionId === 'skip') {
-      this._log('Decides no comprar.');
-      return this.bus.emit('ACTION_RESOLVED', {});
-    }
+    this._finishTurn();
   }
 
-  _onActionResolved() {
+  _onBuildHouse({ tileId, playerName }) {
     const s = this.session;
-
-    // Comprobar fin de partida
-    const v = this.rules.checkVictory(s);
-    if (v.over) {
-      s.isGameOver = true;
-      s.isVictory = v.victory;
-      s.reason = v.reason;
-      this._syncUI();
-      this.notifier.emit('GAME_OVER', { victory: v.victory, reason: v.reason, session: s });
+    const tile = s.tiles.find(t => t.id === tileId);
+    if (!tile) return;
+    const check = canBuildHouse(s, playerName, tile);
+    if (!check.ok) {
+      this._log(`No se puede construir: ${check.reason}.`, 'bad');
       return;
     }
-
+    const player = findPlayerRef(s, playerName);
+    player.money -= check.cost;
+    tile.houses = (tile.houses || 0) + 1;
+    const newRent = calculateRent(s, tile);
+    this._log(`${playerName} construye en ${tile.name} (-${check.cost}). Alquiler: ${newRent}.`,
+      s.mode === MODE.PROSPERIDAD ? 'prosper' : 'mono');
     this._syncUI();
-    this.notifier.emit('ENABLE_NEXT_TURN', {});
   }
 
-  /* IA simple: 40% de probabilidad de comprar una propiedad al azar
-     que se pueda permitir. En prosperidad, la IA también aporta al fondo
-     automáticamente (la regla onBuy se encarga). */
-  _runAITurn() {
+  _finishTurn() {
     const s = this.session;
-    for (const comp of s.competitors) {
-      if (comp.isBankrupt) continue;
-      if (!this.random.chance(0.4)) continue;
+    const p = s.activePlayer;
 
-      const available = s.tiles.filter(t =>
-        !t.owner &&
-        (t.type === TILE_TYPE.PROPERTY || t.type === TILE_TYPE.RAILROAD || t.type === TILE_TYPE.UTILITY) &&
-        t.price <= comp.money
-      );
-      if (available.length === 0) continue;
+    // Verificar victoria
+    const v = this.rules.checkVictory(s);
+    if (v.over) return this._triggerGameOver(v);
 
-      const tile = this.random.pick(available);
-      this.rules.onBuy(s, comp.name, tile);
-      tile.owner = comp.name;
-      comp.properties.push(tile.id);
-
-      if (s.mode === MODE.PROSPERIDAD) {
-        this._log(`${comp.name} compra ${tile.name}. Fondo +${Math.floor(tile.price / 2)}.`, 'prosper');
-      } else {
-        this._log(`${comp.name} compra ${tile.name}.`, 'mono');
-      }
+    if (p.isAI) {
+      this._aiDecide();
+      this._syncUI();
+      this._schedule(() => this.bus.emit('END_TURN', {}), 700);
+    } else {
+      this.notifier.emit('ENABLE_END_TURN', {});
     }
   }
 
-  /* Sincroniza la UI (lo llama el motor tras cada mutación relevante) */
+  _onEndTurn() {
+    const s = this.session;
+    if (s.isGameOver) return;
+
+    // Aporte de casas al fondo (prosperidad)
+    const fund = this.rules.housesToFundPerTurn(s);
+    if (fund > 0) {
+      s.commonFund += fund;
+      this._log(`Las casas aportan ${fund} al fondo común.`, 'prosper');
+    }
+
+    const v = this.rules.checkVictory(s);
+    if (v.over) return this._triggerGameOver(v);
+
+    this._advanceTurn();
+  }
+
+  _advanceTurn() {
+    const s = this.session;
+    const alive = s.players.filter(p => !p.isBankrupt);
+    if (alive.length <= 1) return this._triggerGameOver(this.rules.checkVictory(s));
+
+    // Buscar siguiente jugador vivo
+    let idx = s.activePlayerIndex;
+    let attempts = 0;
+    do {
+      idx = (idx + 1) % s.players.length;
+      attempts++;
+    } while (s.players[idx].isBankrupt && attempts < s.players.length);
+
+    // Incrementar turnCounter al volver al primer índice
+    if (idx <= s.activePlayerIndex) {
+      s.turnCounter++;
+    }
+
+    s.activePlayerIndex = idx;
+    this._syncUI();
+
+    this._schedule(() => this.bus.emit('START_TURN', {}), 350);
+  }
+
+  _aiDecide() {
+    const s = this.session;
+    const p = s.activePlayer;
+    const tile = s.tiles[p.position];
+
+    // Comprar propiedad si puede
+    const purchasable = [TILE_TYPE.PROPERTY, TILE_TYPE.RAILROAD, TILE_TYPE.UTILITY];
+    if (purchasable.includes(tile.type) && !tile.owner && p.money >= tile.price) {
+      let shouldBuy = true;
+      if (tile.group && GROUPS[tile.group]) {
+        const others = GROUPS[tile.group].properties.filter(id => id !== tile.id);
+        const wouldComplete = others.every(id => {
+          const t = s.tiles.find(x => x.id === id);
+          return t && t.owner === p.name;
+        });
+        shouldBuy = wouldComplete || this.random.chance(0.65);
+      }
+      if (shouldBuy) {
+        const res = this.rules.onBuy(s, p.name, tile);
+        tile.owner = p.name;
+        p.properties.push(tile.id);
+        if (s.mode === MODE.PROSPERIDAD) {
+          this._log(`${p.name} compra ${tile.name}. Fondo +${res.fund}.`, 'ai');
+        } else {
+          this._log(`${p.name} compra ${tile.name}.`, 'ai');
+        }
+      }
+    }
+
+    // Construir casa si tiene grupo completo
+    const buildable = s.tiles.filter(t => {
+      if (t.owner !== p.name) return false;
+      return canBuildHouse(s, p.name, t).ok;
+    });
+    if (buildable.length > 0 && this.random.chance(0.55)) {
+      const t = this.random.pick(buildable);
+      const cost = houseCost(t);
+      p.money -= cost;
+      t.houses = (t.houses || 0) + 1;
+      this._log(`${p.name} construye casa en ${t.name} (-${cost}).`, 'ai');
+    }
+  }
+
+  _triggerGameOver(v) {
+    const s = this.session;
+    if (s.isGameOver) return;
+    s.isGameOver = true;
+    s.isVictory = v.victory;
+    s.reason = v.reason;
+    this._syncUI();
+    this.notifier.emit('GAME_OVER', { victory:v.victory, reason:v.reason, session:s });
+  }
+
   _syncUI() {
-    this.notifier.emit('STATS_UPDATED', { session: this.session });
+    this.notifier.emit('STATS_UPDATED', { session:this.session });
   }
 
   _log(text, cls) {
@@ -951,8 +1143,14 @@ class GameEngine {
 
 
 /* ==================================================================
-   7. INFRAESTRUCTURA · Renderer (solo vista, no muta dominio)
+   7. INFRAESTRUCTURA · Random + UIRenderer
    ================================================================== */
+
+class RandomAdapter {
+  d6() { return 1 + Math.floor(Math.random() * 6); }
+  pick(arr) { return arr[Math.floor(Math.random() * arr.length)]; }
+  chance(p) { return Math.random() < p; }
+}
 
 class UIRenderer {
   constructor(notifier, engine) {
@@ -960,125 +1158,144 @@ class UIRenderer {
     this.engine = engine;
 
     this.els = {
-      board:        document.getElementById('board'),
-      money:        document.getElementById('ui-money'),
-      props:        document.getElementById('ui-props'),
-      wealth:       document.getElementById('ui-wealth'),
-      wealthBar:    document.getElementById('ui-wealth-bar'),
-      target:       document.getElementById('ui-target'),
-      targetLabel:  document.getElementById('ui-target-label'),
-      fund:         document.getElementById('ui-fund'),
-      turn:         document.getElementById('ui-turn'),
-      rivals:       document.getElementById('ui-rivals'),
-      modeTitle:    document.getElementById('ui-mode-title'),
-      log:          document.getElementById('log'),
-      actions:      document.getElementById('actions'),
-      dice:         document.getElementById('dice-display'),
-      turnIndicator:document.getElementById('turn-indicator'),
-      modal:        document.getElementById('modal'),
-      modalTitle:   document.getElementById('modal-title'),
-      modalBody:    document.getElementById('modal-body'),
-      modalClose:   document.getElementById('modal-close'),
+      board:          document.getElementById('board'),
+      playersList:    document.getElementById('players-list'),
+      fund:           document.getElementById('ui-fund'),
+      turn:           document.getElementById('ui-turn'),
+      target:         document.getElementById('ui-target'),
+      portfolioOwner: document.getElementById('portfolio-owner'),
+      groupProgress:  document.getElementById('group-progress'),
+      portfolio:      document.getElementById('portfolio-panel'),
+      log:            document.getElementById('log'),
+      actions:        document.getElementById('actions'),
+      phase:          document.getElementById('phase-indicator'),
+      modal:          document.getElementById('game-over-modal'),
+      modalTitle:     document.getElementById('modal-title'),
+      modalBody:      document.getElementById('modal-body'),
+      modalClose:     document.getElementById('modal-close'),
     };
 
     this._wireNotifier();
-    this._wireModal();
-  }
-
-  _wireNotifier() {
-    this.notifier.on('GAME_STARTED',   ({ session, mode }) => this._renderGameStarted(session, mode));
-    this.notifier.on('STATS_UPDATED',  ({ session }) => this._renderStats(session));
-    this.notifier.on('LOG',            ({ text, cls }) => this._appendLog(text, cls));
-    this.notifier.on('DICE_RESULT',    ({ dice, total }) => this._renderDice(dice, total));
-    this.notifier.on('CHOICE',         ({ prompt, options }) => this._renderChoice(prompt, options));
-    this.notifier.on('ENABLE_NEXT_TURN', () => this._enableNextTurn());
-    this.notifier.on('GAME_OVER',      ({ victory, reason }) => this._renderGameOver(victory, reason));
-  }
-
-  _wireModal() {
-    this.els.modalClose.addEventListener('click', () => {
+    document.getElementById('modal-close').addEventListener('click', () => {
       this.els.modal.classList.remove('active');
     });
   }
 
-  _renderGameStarted(session, mode) {
-    // Reconstruir el tablero
+  _wireNotifier() {
+    this.notifier.on('GAME_STARTED',  ({ session, mode }) => this._onGameStarted(session, mode));
+    this.notifier.on('STATS_UPDATED', ({ session }) => this._renderAll(session));
+    this.notifier.on('LOG',           ({ text, cls }) => this._appendLog(text, cls));
+    this.notifier.on('DICE_RESULT',   (data) => this._renderDice(data));
+    this.notifier.on('CHOICE',        ({ prompt, options }) => this._renderChoice(prompt, options));
+    this.notifier.on('ENABLE_END_TURN',() => this._enableEndTurn());
+    this.notifier.on('GAME_OVER',     ({ victory, reason }) => this._renderGameOver(victory, reason));
+  }
+
+  _onGameStarted(session, mode) {
     this.els.board.innerHTML = '';
 
-    // Centro
     const center = document.createElement('div');
     center.id = 'board-center';
     center.innerHTML = `
       <div class="title">EL JUEGO DEL PROPIETARIO</div>
-      <div class="subtitle" id="ui-mode-sub">Modo ${mode.toUpperCase()}</div>
+      <div class="subtitle">${mode === MODE.PROSPERIDAD ? '🌱 PROSPERIDAD' : '🎩 MONOPOLIO'}</div>
       <div id="dice-display">🎲</div>
-      <div id="turn-indicator">Pulsa "Siguiente turno"</div>
+      <div id="turn-indicator">Preparando…</div>
     `;
     this.els.board.appendChild(center);
     this.els.dice = document.getElementById('dice-display');
     this.els.turnIndicator = document.getElementById('turn-indicator');
 
-    // Casillas
     session.tiles.forEach((tile, i) => {
       const [r, c] = TILE_POSITIONS[i];
       const el = document.createElement('div');
       el.className = 'tile';
-      el.style.gridRow = r;
-      el.style.gridColumn = c;
-      if ([0, 5, 10, 15].includes(i)) el.classList.add('corner');
-      if (tile.type === TILE_TYPE.CORNER_START) el.classList.add('start');
-      if (tile.type === TILE_TYPE.CORNER_JAIL)  el.classList.add('jail');
-      if (tile.type === TILE_TYPE.CORNER_FREE)  el.classList.add('free');
-      if (tile.type === TILE_TYPE.TAX)          el.classList.add('tax');
       el.dataset.tileId = tile.id;
       el.dataset.index = i;
+      if (tile.group) el.dataset.group = tile.group;
+      el.style.gridRow = r;
+      el.style.gridColumn = c;
+      if ([0,5,10,15].includes(i)) {
+        el.classList.add('corner');
+        if (tile.type === TILE_TYPE.CORNER_START) el.classList.add('start');
+        if (tile.type === TILE_TYPE.CORNER_JAIL)  el.classList.add('jail');
+        if (tile.type === TILE_TYPE.CORNER_FREE)  el.classList.add('free');
+        if (tile.type === TILE_TYPE.TAX)          el.classList.add('tax');
+      }
       this.els.board.appendChild(el);
     });
 
-    this._renderStats(session);
+    this._renderAll(session);
   }
 
-  _renderStats(session) {
+  _renderAll(session) {
     if (!session) return;
     const s = session;
-    const wealth = s.wealthOfPlayer();
-    const target = 2 * s.startingWealth;
 
-    this.els.money.textContent = s.money;
-    this.els.props.textContent = s.properties.length;
-    this.els.wealth.textContent = wealth;
-    this.els.wealthBar.style.width = Math.min(100, (wealth / Math.max(target, 1)) * 100) + '%';
+    // Lista de jugadores
+    this._renderPlayers(s);
+
+    // Estado global
+    this.els.fund.textContent = s.mode === MODE.PROSPERIDAD ? s.commonFund : '—';
+    this.els.turn.textContent = `${Math.min(s.turnCounter + 1, s.maxTurns)} / ${s.maxTurns}`;
 
     if (s.mode === MODE.PROSPERIDAD) {
-      this.els.targetLabel.textContent = 'Objetivo (doblar)';
-      this.els.target.textContent = target;
+      this.els.target.textContent = `${2 * s.poorestStarting} (doblar)`;
     } else {
-      this.els.targetLabel.textContent = 'Rival más rico';
-      const richest = Math.max(
-        ...s.competitors.filter(c => !c.isBankrupt)
-          .map(c => s.wealthOf(c)),
-        0
-      );
+      const richest = Math.max(0, ...s.players.filter(p => !p.isBankrupt).map(p => s.wealthOf(p)));
       this.els.target.textContent = richest;
     }
 
-    this.els.fund.textContent = s.mode === MODE.PROSPERIDAD ? s.commonFund : '—';
-    this.els.turn.textContent = `${s.turnCounter} / ${s.maxTurns}`;
-    this.els.rivals.textContent = s.competitors.filter(c => !c.isBankrupt).length;
-    this.els.modeTitle.textContent = s.mode === MODE.PROSPERIDAD
-      ? 'Modo Prosperidad' : 'Modo Monopolio';
+    // Fase
+    const active = s.activePlayer;
+    if (s.isGameOver) {
+      this.els.phase.textContent = 'Partida terminada';
+      this.els.phase.classList.remove('active');
+    } else if (active.isAI) {
+      this.els.phase.textContent = `🤖 ${active.name} jugando…`;
+      this.els.phase.classList.add('active');
+    } else {
+      this.els.phase.textContent = `🎮 Turno de ${active.name}`;
+      this.els.phase.classList.add('active');
+    }
 
-    // Repintar casillas (propietarios + posición del jugador)
-    const board = this.els.board;
+    this._renderBoard(s);
+    this._renderGroupProgress(s);
+    this._renderPortfolio(s);
+  }
+
+  _renderPlayers(s) {
+    const cont = this.els.playersList;
+    cont.innerHTML = '';
+    for (const p of s.players) {
+      const isActive = p === s.activePlayer && !s.isGameOver;
+      const card = document.createElement('div');
+      card.className = 'player-card' + (isActive ? ' active' : '') + (p.isBankrupt ? ' bankrupt' : '');
+      const wealth = s.wealthOf(p);
+      const playerColorClass = 'p' + p.index;
+      card.innerHTML = `
+        <div class="player-badge ${playerColorClass}">${p.index + 1}</div>
+        <div class="player-info">
+          <div class="player-name">${p.name}${p.isAI ? '<span class="player-ai-tag">IA</span>' : ''}</div>
+          <div class="player-stats">
+            <span>💰<strong>${p.money}</strong></span>
+            <span>🏠<strong>${p.properties.length}</strong></span>
+            <span>📊<strong>${wealth}</strong></span>
+          </div>
+        </div>
+      `;
+      cont.appendChild(card);
+    }
+  }
+
+  _renderBoard(s) {
     s.tiles.forEach((tile, i) => {
-      const el = board.querySelector(`[data-index="${i}"]`);
+      const el = this.els.board.querySelector(`[data-index="${i}"]`);
       if (!el) return;
 
-      // Limpiar estado dinámico
-      el.classList.remove('player-here', 'owned-mono', 'owned-prosper');
+      el.classList.remove('owned', 'group-complete');
       el.innerHTML = '';
 
-      // Contenido
       const icon = document.createElement('div');
       icon.className = 'icon';
       icon.textContent = tile.icon || '⬜';
@@ -1092,39 +1309,142 @@ class UIRenderer {
       if (tile.price) {
         const price = document.createElement('div');
         price.className = 'price';
-        price.textContent = `${tile.price} · ${tile.rent}/t`;
+        const currentRent = tile.owner ? calculateRent(s, tile) : tile.rent;
+        price.textContent = `${tile.price} · ${currentRent}/t`;
         el.appendChild(price);
       }
 
       if (tile.owner) {
         const owner = document.createElement('div');
         owner.className = 'owner-tag';
-        owner.textContent = tile.owner === s.playerName ? 'TÚ' : tile.owner;
+        owner.textContent = tile.owner;
         el.appendChild(owner);
-        if (tile.owner === s.playerName) {
-          el.classList.add(s.mode === MODE.PROSPERIDAD ? 'owned-prosper' : 'owned-mono');
+        el.classList.add('owned');
+        if (tile.group && isGroupComplete(s, tile.owner, tile.group)) {
+          el.classList.add('group-complete');
         }
       }
 
-      // Marcador de posición del jugador
-      if (i === s.position) {
-        el.classList.add('player-here');
-        const marker = document.createElement('span');
-        marker.className = 'marker';
-        marker.textContent = '🧑';
-        el.appendChild(marker);
+      if (tile.houses) {
+        const h = document.createElement('div');
+        h.className = 'houses-dots';
+        h.textContent = '🏠'.repeat(tile.houses);
+        el.appendChild(h);
       }
 
-      // Click para inspeccionar
-      el.onclick = () => {
-        this.els.modalTitle.textContent = `${tile.icon || ''} ${tile.name}`;
-        this.els.modalBody.textContent =
-          `Tipo: ${tile.type}\n` +
-          (tile.price ? `Precio: ${tile.price} · Alquiler: ${tile.rent}\n` : '') +
-          `Propietario: ${tile.owner || 'nadie'}`;
-        this.els.modal.classList.add('active');
-      };
+      // Marcadores de jugadores en esta casilla
+      const playersHere = s.players.filter(p => !p.isBankrupt && p.position === i);
+      if (playersHere.length > 0) {
+        const markers = document.createElement('div');
+        markers.className = 'markers';
+        playersHere.forEach(p => {
+          const m = document.createElement('span');
+          m.className = 'marker-p p' + p.index;
+          m.textContent = p.index + 1;
+          markers.appendChild(m);
+        });
+        el.appendChild(markers);
+      }
+
+      el.onclick = () => this._inspectTile(tile);
     });
+  }
+
+  _inspectTile(tile) {
+    const s = this.engine.session;
+    const currentRent = tile.owner ? calculateRent(s, tile) : tile.rent;
+    let body = `Tipo: ${tile.type}\n`;
+    if (tile.price) body += `Precio: ${tile.price}\nAlquiler base: ${tile.rent}\n`;
+    if (tile.owner) {
+      body += `Propietario: ${tile.owner}\n`;
+      body += `Alquiler actual: ${currentRent}\n`;
+      if (tile.houses) body += `Casas: ${tile.houses}\n`;
+      if (tile.group && isGroupComplete(s, tile.owner, tile.group)) {
+        body += `✨ Grupo completo\n`;
+      }
+    } else {
+      body += `Propietario: nadie\n`;
+    }
+    this.els.modalTitle.textContent = `${tile.icon || ''} ${tile.name}`;
+    this.els.modalBody.textContent = body;
+    this.els.modal.classList.add('active');
+  }
+
+  _renderGroupProgress(s) {
+    const cont = this.els.groupProgress;
+    cont.innerHTML = '';
+    const active = s.activePlayer;
+    for (const [groupId, g] of Object.entries(GROUPS)) {
+      const owned = g.properties.filter(pid => {
+        const t = s.tiles.find(x => x.id === pid);
+        return t && t.owner === active.name;
+      }).length;
+      const complete = owned === g.size;
+      const div = document.createElement('div');
+      div.className = 'gp-item' + (complete ? ' complete' : '');
+      div.dataset.group = groupId;
+      div.innerHTML = `
+        <span class="gp-name">${g.name}</span>
+        <span class="gp-count">${owned}/${g.size}</span>
+      `;
+      cont.appendChild(div);
+    }
+  }
+
+  _renderPortfolio(s) {
+    const cont = this.els.portfolio;
+    const active = s.activePlayer;
+    this.els.portfolioOwner.textContent = active.name;
+    cont.innerHTML = '';
+
+    const owned = s.tiles.filter(t => t.owner === active.name);
+
+    if (owned.length === 0) {
+      cont.innerHTML = '<div class="empty-portfolio">Sin propiedades todavía.</div>';
+      return;
+    }
+
+    for (const tile of owned) {
+      const currentRent = calculateRent(s, tile);
+      const groupComplete = tile.group && isGroupComplete(s, active.name, tile.group);
+      const buildCheck = canBuildHouse(s, active.name, tile);
+      const cost = houseCost(tile);
+      const canBuild = buildCheck.ok && !active.isAI && !s.isGameOver;
+
+      const card = document.createElement('div');
+      card.className = 'pcard';
+      card.dataset.group = tile.group || 'servicio';
+
+      const groupLabel = tile.group && GROUPS[tile.group] ? GROUPS[tile.group].name : 'Servicio';
+
+      card.innerHTML = `
+        <div class="pcard-header">${groupLabel}${groupComplete ? ' ✨' : ''}</div>
+        <div class="pcard-body">
+          <div class="pcard-info">
+            <div class="pcard-name">${tile.icon || ''} ${tile.name}</div>
+            <div class="pcard-stats">
+              <span>Alquiler <strong>${currentRent}</strong></span>
+              ${groupComplete ? '<span style="color:var(--gold)">×1.5</span>' : ''}
+            </div>
+          </div>
+          <div class="pcard-houses ${tile.houses ? '' : 'empty'}">
+            ${tile.houses ? '🏠'.repeat(tile.houses) : '·····'}
+          </div>
+          ${tile.type === TILE_TYPE.PROPERTY ? `
+            <button class="pcard-build" data-tile-id="${tile.id}" ${canBuild ? '' : 'disabled'}>
+              +Casa ${cost}
+            </button>
+          ` : ''}
+        </div>
+      `;
+
+      const btn = card.querySelector('.pcard-build');
+      if (btn && canBuild) {
+        btn.addEventListener('click', () => this.engine.buildHouse(tile.id));
+      }
+
+      cont.appendChild(card);
+    }
   }
 
   _appendLog(text, cls) {
@@ -1135,11 +1455,15 @@ class UIRenderer {
     this.els.log.scrollTop = this.els.log.scrollHeight;
   }
 
-  _renderDice(dice, total) {
+  _renderDice({ dice, total, playerName }) {
     if (!this.els.dice) return;
-    this.els.dice.textContent = `${dice[0]} + ${dice[1]} = ${total}`;
+    this.els.dice.classList.add('rolling');
+    setTimeout(() => {
+      this.els.dice.classList.remove('rolling');
+      this.els.dice.textContent = `${dice[0]} + ${dice[1]} = ${total}`;
+    }, 280);
     if (this.els.turnIndicator) {
-      this.els.turnIndicator.textContent = `Has sacado ${total}`;
+      this.els.turnIndicator.textContent = `${playerName}: ${total}`;
     }
   }
 
@@ -1147,7 +1471,7 @@ class UIRenderer {
     this.els.actions.innerHTML = '';
     for (const opt of options) {
       const btn = document.createElement('button');
-      btn.className = 'primary';
+      btn.className = opt.kind === 'primary' ? 'primary' : '';
       btn.textContent = opt.label;
       btn.onclick = () => {
         this.els.actions.innerHTML = '';
@@ -1157,17 +1481,21 @@ class UIRenderer {
     }
   }
 
-  _enableNextTurn() {
+  _enableEndTurn() {
     this.els.actions.innerHTML = '';
-    const btn = document.createElement('button');
-    btn.className = 'success';
-    btn.textContent = '⏭ Siguiente turno';
-    btn.onclick = () => {
+    const endBtn = document.createElement('button');
+    endBtn.className = 'success';
+    endBtn.textContent = '⏭ Terminar turno';
+    endBtn.onclick = () => {
       this.els.actions.innerHTML = '';
-      this.engine.nextTurn();
+      this.engine.endTurn();
     };
-    this.els.actions.appendChild(btn);
-    if (this.els.turnIndicator) this.els.turnIndicator.textContent = 'Listo para el siguiente turno';
+    this.els.actions.appendChild(endBtn);
+
+    if (this.els.turnIndicator) {
+      const active = this.engine.session.activePlayer;
+      this.els.turnIndicator.textContent = `${active.name}: puedes construir o terminar.`;
+    }
   }
 
   _renderGameOver(victory, reason) {
@@ -1175,208 +1503,161 @@ class UIRenderer {
     this.els.modalTitle.textContent = victory ? '🏆 ¡Victoria!' : '💀 Fin de la partida';
     this.els.modalBody.textContent = reason;
     this.els.modal.classList.add('active');
-    const restart = document.createElement('button');
-    restart.className = 'success';
-    restart.textContent = '🔄 Nueva partida';
-    restart.onclick = () => {
+
+    const newGameBtn = document.createElement('button');
+    newGameBtn.className = 'success';
+    newGameBtn.textContent = '🔄 Nueva partida';
+    newGameBtn.onclick = () => {
       this.els.modal.classList.remove('active');
-      this.engine.startNewGame(this.engine.session.mode);
+      document.getElementById('setup-modal').classList.add('active');
     };
-    this.els.actions.appendChild(restart);
+    this.els.actions.appendChild(newGameBtn);
   }
 }
 
 
 /* ==================================================================
-   8. TESTS · Verificación de dominio (no requieren DOM)
-   ------------------------------------------------------------------
-   Se pueden ejecutar desde consola:
-     window.__gameTests()
-   O con ?test en la URL.
+   8. TESTS
    ================================================================== */
 
 function runTests() {
   const results = [];
   const t = (name, fn) => {
-    try { fn(); results.push({ name, pass: true }); }
-    catch (e) { results.push({ name, pass: false, err: e.message }); }
+    try { fn(); results.push({ name, pass:true }); }
+    catch (e) { results.push({ name, pass:false, err:e.message }); }
   };
-  const assert = (cond, msg) => { if (!cond) throw new Error(msg || 'assert'); };
-  const eq = (a, b, msg) => {
-    if (a !== b) throw new Error(`${msg || ''}: ${a} !== ${b}`);
-  };
+  const assert = (c, m) => { if (!c) throw new Error(m || 'assert'); };
+  const eq = (a, b, m) => { if (a !== b) throw new Error(`${m||''}: ${a} !== ${b}`); };
 
-  /* --- Catálogo --- */
-  t('Catálogo tiene 20 casillas', () => eq(TILE_CATALOG.length, 20));
-  t('Hay exactamente 4 esquinas', () => {
-    const corners = TILE_CATALOG.filter(t => [
-      TILE_TYPE.CORNER_START, TILE_TYPE.CORNER_JAIL,
-      TILE_TYPE.CORNER_FREE,  TILE_TYPE.TAX,
-    ].includes(t.type));
-    eq(corners.length, 4);
-  });
-  t('Existen los 4 grupos de propiedades', () => {
-    const groups = new Set(TILE_CATALOG.filter(t => t.group && t.type === TILE_TYPE.PROPERTY).map(t => t.group));
-    ['barrio', 'comercio', 'centro', 'elite'].forEach(g => assert(groups.has(g), `falta ${g}`));
+  t('Catálogo 20 casillas', () => eq(TILE_CATALOG.length, 20));
+
+  t('GameSession con 2 humanos crea 4 jugadores', () => {
+    const s = new GameSession(MODE.MONOPOLIO, 2);
+    eq(s.players.length, 4);
+    eq(s.players.filter(p => !p.isAI).length, 2);
+    eq(s.players.filter(p => p.isAI).length, 2);
   });
 
-  /* --- GameSession --- */
-  t('wealthOf suma dinero + propiedades', () => {
-    const s = new GameSession();
-    s.tiles = [{ id: 'a', price: 10 }];
-    s.properties = ['a'];
-    s.money = 5;
-    eq(s.wealthOfPlayer(), 15);
+  t('GameSession con 4 humanos no crea IA', () => {
+    const s = new GameSession(MODE.MONOPOLIO, 4);
+    eq(s.players.length, 4);
+    eq(s.players.filter(p => p.isAI).length, 0);
   });
-  t('poorestWealth devuelve el mínimo', () => {
-    const s = new GameSession();
-    s.tiles = [];
-    s.money = 100;
-    s.competitors = [
-      { name: 'A', money: 20, properties: [], isBankrupt: false },
-      { name: 'B', money: 10, properties: [], isBankrupt: false },
+
+  t('calculateRent sin sinergias', () => {
+    const s = new GameSession(MODE.MONOPOLIO, 1);
+    s.tiles = [{ id:'t1', price:10, rent:3, owner:'A', group:'barrio' }];
+    eq(calculateRent(s, s.tiles[0]), 3);
+  });
+
+  t('calculateRent con grupo completo ×1.5', () => {
+    const s = new GameSession(MODE.MONOPOLIO, 1);
+    s.tiles = [
+      { id:'barrio1', price:6, rent:2, owner:'A', group:'barrio' },
+      { id:'barrio2', price:6, rent:2, owner:'A', group:'barrio' },
     ];
-    eq(s.poorestWealth(), 10);
+    eq(calculateRent(s, s.tiles[0]), 3);
   });
 
-  /* --- MonopolioRules --- */
-  t('Monopolio: pago de alquiler normal', () => {
+  t('calculateRent con casas', () => {
+    const s = new GameSession(MODE.MONOPOLIO, 1);
+    s.tiles = [
+      { id:'barrio1', price:6, rent:2, owner:'A', group:'barrio', houses:2 },
+      { id:'barrio2', price:6, rent:2, owner:'A', group:'barrio' },
+    ];
+    // 2 × 1.5 (grupo) × 1.5 (2 casas) = 4.5 → 4
+    eq(calculateRent(s, s.tiles[0]), 4);
+  });
+
+  t('canBuildHouse rechaza grupo incompleto', () => {
+    const s = new GameSession(MODE.MONOPOLIO, 1);
+    s.tiles = [
+      { id:'barrio1', price:6, owner:'Tú', group:'barrio', type:'property' },
+      { id:'barrio2', price:6, owner:null, group:'barrio', type:'property' },
+    ];
+    const p = s.players.find(x => x.name === 'Tú');
+    p.money = 100;
+    const r = canBuildHouse(s, 'Tú', s.tiles[0]);
+    assert(!r.ok);
+    eq(r.reason, 'grupo incompleto');
+  });
+
+  t('canBuildHouse ok con grupo completo y dinero', () => {
+    const s = new GameSession(MODE.MONOPOLIO, 1);
+    s.tiles = [
+      { id:'barrio1', price:6, owner:'Tú', group:'barrio', type:'property', houses:0 },
+      { id:'barrio2', price:6, owner:'Tú', group:'barrio', type:'property' },
+    ];
+    const p = s.players.find(x => x.name === 'Tú');
+    p.money = 100;
+    const r = canBuildHouse(s, 'Tú', s.tiles[0]);
+    assert(r.ok);
+  });
+
+  t('Monopolio: rent va al dueño', () => {
     const r = new MonopolioRules();
-    const s = new GameSession(MODE.MONOPOLIO);
-    s.playerName = 'P1';
-    s.money = 20;
-    s.competitors = [{ name: 'C1', money: 10, properties: [], isBankrupt: false }];
-    s.tiles = [{ id: 't1', price: 10, rent: 3, owner: 'C1' }];
-    const res = r.onRent(s, 'P1', 'C1', s.tiles[0]);
-    eq(res.paid, 3);
-    eq(res.bankrupt, false);
-    eq(s.money, 17);
-    eq(s.competitors[0].money, 13);
+    const s = new GameSession(MODE.MONOPOLIO, 1);
+    s.tiles = [{ id:'t1', price:10, rent:3, owner:'Lord Vetinari', group:null, houses:0 }];
+    s.players[0].money = 20;
+    s.players[1].money = 10;
+    r.onRent(s, 'Tú', 'Lord Vetinari', s.tiles[0]);
+    eq(s.players[0].money, 17);
+    eq(s.players[1].money, 13);
   });
 
-  t('Monopolio: alquiler provoca quiebra', () => {
-    const r = new MonopolioRules();
-    const s = new GameSession(MODE.MONOPOLIO);
-    s.playerName = 'P1';
-    s.money = 2;
-    s.competitors = [{ name: 'C1', money: 10, properties: [], isBankrupt: false }];
-    s.tiles = [{ id: 't1', price: 10, rent: 5, owner: 'C1' }];
-    const res = r.onRent(s, 'P1', 'C1', s.tiles[0]);
-    eq(res.bankrupt, true);
-    eq(s.money, 0);
-  });
-
-  t('Monopolio: victoria si todos rivales quiebran', () => {
-    const r = new MonopolioRules();
-    const s = new GameSession(MODE.MONOPOLIO);
-    s.playerName = 'P1';
-    s.tiles = [];
-    s.competitors = [{ name: 'C1', money: 0, properties: [], isBankrupt: true }];
-    const v = r.checkVictory(s);
-    eq(v.over, true);
-    eq(v.victory, true);
-  });
-
-  t('Monopolio: derrota si el jugador quiebra', () => {
-    const r = new MonopolioRules();
-    const s = new GameSession(MODE.MONOPOLIO);
-    s.isBankrupt = true;
-    s.tiles = [];
-    s.competitors = [{ name: 'C1', money: 10, properties: [], isBankrupt: false }];
-    const v = r.checkVictory(s);
-    eq(v.over, true);
-    eq(v.victory, false);
-  });
-
-  /* --- ProsperidadRules --- */
-  t('Prosperidad: compra reparte dividendos y fondo', () => {
+  t('Prosperidad: dividendos al comprar', () => {
     const r = new ProsperidadRules();
-    const s = new GameSession(MODE.PROSPERIDAD);
-    s.playerName = 'P1';
-    s.money = 20;
-    s.competitors = [{ name: 'C1', money: 10, properties: [], isBankrupt: false }];
-    s.tiles = [{ id: 't1', price: 8, rent: 2, owner: null }];
-    const res = r.onBuy(s, 'P1', s.tiles[0]);
-    eq(res.dividend, 2);           // floor(8/4)
-    eq(res.fund, 4);                // floor(8/2)
-    eq(s.money, 12);                // 20 - 8
-    eq(s.competitors[0].money, 12); // 10 + 2
-    eq(s.commonFund, 4);
+    const s = new GameSession(MODE.PROSPERIDAD, 1);
+    s.tiles = [{ id:'t1', price:10 }];
+    s.players[0].money = 20;
+    s.players[1].money = 10;
+    r.onBuy(s, 'Tú', s.tiles[0]);
+    eq(s.commonFund, 5);
+    eq(s.players[0].money, 10);
+    eq(s.players[1].money, 12);
   });
 
-  t('Prosperidad: alquiler 40/60 sin quiebra', () => {
+  t('Prosperidad: 40/60 en alquiler', () => {
     const r = new ProsperidadRules();
-    const s = new GameSession(MODE.PROSPERIDAD);
-    s.playerName = 'P1';
-    s.money = 20;
-    s.competitors = [{ name: 'C1', money: 10, properties: [], isBankrupt: false }];
-    s.tiles = [{ id: 't1', price: 10, rent: 10, owner: 'C1' }];
-    const res = r.onRent(s, 'P1', 'C1', s.tiles[0]);
-    eq(res.toOwner, 4);   // floor(10 * 0.4)
-    eq(res.toFund, 6);    // 10 - 4
-    eq(s.money, 10);      // 20 - 10
-    eq(s.competitors[0].money, 14); // 10 + 4
+    const s = new GameSession(MODE.PROSPERIDAD, 1);
+    s.tiles = [{ id:'t1', price:10, rent:10, owner:'Lord Vetinari', group:null, houses:0 }];
+    s.players[0].money = 20;
+    s.players[1].money = 10;
+    const res = r.onRent(s, 'Tú', 'Lord Vetinari', s.tiles[0]);
+    eq(res.toOwner, 4);
+    eq(res.toFund, 6);
+    eq(s.players[0].money, 10);
+    eq(s.players[1].money, 14);
     eq(s.commonFund, 6);
   });
 
-  t('Prosperidad: alquiler sin quiebra, paga lo que puede', () => {
+  t('Prosperidad: victoria colectiva', () => {
     const r = new ProsperidadRules();
-    const s = new GameSession(MODE.PROSPERIDAD);
-    s.playerName = 'P1';
-    s.money = 2;
-    s.competitors = [{ name: 'C1', money: 10, properties: [], isBankrupt: false }];
-    s.tiles = [{ id: 't1', price: 10, rent: 20, owner: 'C1' }];
-    const res = r.onRent(s, 'P1', 'C1', s.tiles[0]);
-    eq(res.welfare, true);
-    eq(s.money, 0);
-    eq(s.isBankrupt, false);   // no quiebra en prosperidad
-    assert(s.commonFund > 0, 'algo va al fondo');
-  });
-
-  t('Prosperidad: victoria cuando el más pobre dobla', () => {
-    const r = new ProsperidadRules();
-    const s = new GameSession(MODE.PROSPERIDAD);
-    s.playerName = 'P1';
+    const s = new GameSession(MODE.PROSPERIDAD, 1);
     s.poorestStarting = 10;
-    s.money = 30;
+    s.players.forEach(p => { p.money = 30; p.properties = []; });
     s.tiles = [];
-    s.competitors = [{ name: 'C1', money: 10, properties: [], isBankrupt: false }];
-    let v = r.checkVictory(s);
-    eq(v.over, false);
-    s.competitors[0].money = 20;
-    v = r.checkVictory(s);
+    const v = r.checkVictory(s);
     eq(v.over, true);
     eq(v.victory, true);
   });
 
-  t('Prosperidad: no victoria por encima de maxTurns sin doblar', () => {
-    const r = new ProsperidadRules();
-    const s = new GameSession(MODE.PROSPERIDAD);
-    s.playerName = 'P1';
-    s.poorestStarting = 15;
-    s.money = 25;
+  t('Monopolio: victoria por riqueza en maxTurns', () => {
+    const r = new MonopolioRules();
+    const s = new GameSession(MODE.MONOPOLIO, 1);
     s.tiles = [];
-    s.competitors = [{ name: 'C1', money: 25, properties: [], isBankrupt: false }];
-    s.turnCounter = s.maxTurns;
+    s.maxTurns = 5;
+    s.turnCounter = 5;
+    s.players[0].money = 100;
+    s.players[1].money = 10;
+    s.players[2].money = 10;
+    s.players[3].money = 10;
     const v = r.checkVictory(s);
     eq(v.over, true);
-    eq(v.victory, false);
+    eq(v.victory, true);
+    assert(v.reason.includes('Tú'));
   });
 
-  /* --- Reparto del pago al pasar por SALIDA --- */
-  t('Prosperidad: pasar por SALIDA da bonus a todos', () => {
-    const r = new ProsperidadRules();
-    const s = new GameSession(MODE.PROSPERIDAD);
-    s.playerName = 'P1';
-    s.money = 0;
-    s.competitors = [{ name: 'C1', money: 0, properties: [], isBankrupt: false }];
-    s.tiles = [];
-    r.onPassGo(s, 'P1');
-    eq(s.money, r.goBonus);                    // 2
-    eq(s.competitors[0].money, Math.floor(r.goBonus / 2)); // 1
-  });
-
-  /* --- Render del panel de tests --- */
   const panel = document.getElementById('testpanel');
   if (panel) {
     panel.classList.add('open');
@@ -1388,13 +1669,12 @@ function runTests() {
         `<div class="${r.pass ? 'pass' : 'fail'}">${r.pass ? '✓' : '✗'} ${r.name}${r.err ? ' — ' + r.err : ''}</div>`
       ).join('');
   }
-  console.log(`Tests: ${results.filter(r => r.pass).length}/${results.length}`);
   return results;
 }
 
 
 /* ==================================================================
-   9. BOOTSTRAP · Wiring (composición de dependencias)
+   9. BOOTSTRAP
    ================================================================== */
 
 (function bootstrap() {
@@ -1403,40 +1683,45 @@ function runTests() {
   const engine = new GameEngine({ random, notifier });
   const renderer = new UIRenderer(notifier, engine);
 
-  // Botones de modo
-  const modeButtons = document.querySelectorAll('.mode-btn');
+  // Setup modal
+  const setupModal = document.getElementById('setup-modal');
+  let setupMode = 'monopolio';
+  let setupHumans = 1;
+
+  const modeButtons = document.querySelectorAll('#setup-mode button');
+  const humansButtons = document.querySelectorAll('#setup-humans button');
+
   modeButtons.forEach(btn => {
     btn.addEventListener('click', () => {
-      const mode = btn.dataset.mode;
-      const currentMode = engine.session?.mode;
-      if (currentMode && mode !== currentMode) {
-        if (!confirm('¿Cambiar de modo? Se reiniciará la partida.')) return;
-      }
-      modeButtons.forEach(b => b.classList.remove('active'));
-      btn.classList.add('active');
-      engine.startNewGame(mode);
+      modeButtons.forEach(b => b.classList.remove('selected'));
+      btn.classList.add('selected');
+      setupMode = btn.dataset.mode;
+    });
+  });
+  humansButtons.forEach(btn => {
+    btn.addEventListener('click', () => {
+      humansButtons.forEach(b => b.classList.remove('selected'));
+      btn.classList.add('selected');
+      setupHumans = parseInt(btn.dataset.n);
     });
   });
 
-  // Botón reiniciar
-  document.getElementById('btnRestart').addEventListener('click', () => {
-    const mode = engine.session?.mode || MODE.MONOPOLIO;
-    if (confirm('¿Reiniciar la partida?')) {
-      engine.startNewGame(mode);
-    }
+  document.getElementById('setup-start').addEventListener('click', () => {
+    setupModal.classList.remove('active');
+    engine.startNewGame(setupMode, setupHumans);
   });
 
-  // Exponer para consola
+  document.getElementById('btnNewGame').addEventListener('click', () => {
+    setupModal.classList.add('active');
+  });
+
   window.__game = engine;
   window.__gameTests = runTests;
 
-  // Arrancar en monopolio
-  engine.startNewGame(MODE.MONOPOLIO);
+  // Mostrar setup al arrancar
+  setupModal.classList.add('active');
 
-  // Panel de tests si se pide en URL
-  if (location.search.includes('test')) {
-    setTimeout(runTests, 200);
-  }
+  if (location.search.includes('test')) setTimeout(runTests, 200);
 })();
 </script>
 </body>
