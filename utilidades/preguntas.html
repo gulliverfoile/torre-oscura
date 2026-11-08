@@ -4,28 +4,36 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
 <meta name="theme-color" content="#0a0a0a" />
-<title>Trivia · PMV v3</title>
+<title>Trivia · PMV v3.2</title>
 <style>
   /* ============================================================
      ESTILOS · Accesibilidad primero (DMAE)
+     ------------------------------------------------------------
+     El tamaño de letra se controla con la variable CSS
+     --base-font en :root. Todo lo que use `rem` escala con
+     ella. Hay botones A− / A+ en la home (16–28px).
      ============================================================ */
-  * { box-sizing: border-box; margin: 0; padding: 0; }
-  html, body { height: 100%; }
+  html {
+    font-size: var(--base-font, 20px);
+    height: 100%;
+  }
   body {
     font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
     background: #0a0a0a;
     color: #f0f0f0;
-    font-size: 18px;
+    font-size: 1rem;
     line-height: 1.55;
     padding: 16px;
     padding-bottom: env(safe-area-inset-bottom, 16px);
     -webkit-text-size-adjust: 100%;
     min-height: 100vh;
   }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
   .wrap { max-width: 720px; margin: 0 auto; }
   h1 { font-size: 1.5rem; color: #ffeb3b; margin-bottom: 4px; }
   h2 { font-size: 1.15rem; margin-bottom: 10px; color: #ffeb3b; margin-top: 16px; }
-  .sub { color: #b0b0b0; font-size: 0.95rem; margin-bottom: 16px; }
+  .sub { color: #b0b0b0; font-size: 1rem; margin-bottom: 16px; }
 
   /* Botones base */
   button {
@@ -48,7 +56,7 @@
   .btn-primary { background: #ffeb3b; color: #0a0a0a; border-color: #ffeb3b; font-weight: 700; text-align: center; }
   .btn-primary:hover, .btn-primary:focus-visible { background: #fff176; border-color: #fff176; }
   .btn-ghost { background: transparent; text-align: center; }
-  .btn-small { min-height: 44px; padding: 8px 12px; font-size: 0.9rem; width: auto; }
+  .btn-small { min-height: 44px; padding: 8px 12px; font-size: 0.95rem; width: auto; }
 
   /* Aviso ético */
   .ethical-notice {
@@ -57,7 +65,7 @@
     padding: 12px 16px;
     border-radius: 8px;
     margin-bottom: 14px;
-    font-size: 0.9rem;
+    font-size: 1rem;
     color: #c0c0c0;
     display: flex;
     align-items: flex-start;
@@ -72,11 +80,24 @@
     width: auto;
     min-height: 32px;
     padding: 2px 10px;
-    font-size: 0.8rem;
+    font-size: 0.85rem;
     border-radius: 8px;
     text-align: center;
   }
   .ethical-notice button:hover { border-color: #ffeb3b; color: #ffeb3b; }
+
+  /* Banner de info / warning */
+  .info-banner {
+    padding: 10px 14px;
+    border-radius: 8px;
+    margin: 10px 0 14px;
+    font-size: 0.95rem;
+    border-left: 4px solid #555;
+    background: #141414;
+    color: #aaa;
+  }
+  .info-banner.ok { border-left-color: #4caf50; color: #a5d6a7; }
+  .info-banner.warn { border-left-color: #ffa726; color: #ffcc80; background: #1f1500; }
 
   /* Opciones de respuesta */
   .opts { display: grid; gap: 10px; margin-top: 16px; }
@@ -86,7 +107,7 @@
   }
   .opt .num {
     display: inline-flex; align-items: center; justify-content: center;
-    min-width: 32px; height: 32px;
+    min-width: 34px; height: 34px;
     background: #333; color: #ffeb3b;
     border-radius: 8px; font-weight: 700; flex-shrink: 0;
   }
@@ -97,9 +118,23 @@
   .opt.discarded { opacity: .35; text-decoration: line-through; }
 
   /* Pregunta */
-  .q-meta { display: flex; justify-content: space-between; font-size: 0.9rem; color: #b0b0b0; margin-bottom: 8px; flex-wrap: wrap; gap: 8px; }
+  .q-meta { display: flex; justify-content: space-between; font-size: 0.95rem; color: #b0b0b0; margin-bottom: 8px; flex-wrap: wrap; gap: 8px; align-items: center; }
   .q-meta .diff-3 { color: #ffeb3b; font-weight: 700; }
-  .q-meta .test-tag { background: #444; padding: 2px 8px; border-radius: 4px; font-size: 0.75rem; color: #ffeb3b; }
+  .q-meta .test-tag { background: #444; padding: 2px 8px; border-radius: 4px; font-size: 0.8rem; color: #ffeb3b; }
+
+  .streak-badge { padding: 2px 8px; border-radius: 6px; font-weight: 700; font-size: 0.85rem; }
+  .streak-badge.warm { background: #7a2e00; color: #ffcc80; }
+  .streak-badge.hot  { background: #c2410c; color: #fff; }
+  .streak-note {
+    background: #2a1500; border-left: 4px solid #ff6d00;
+    padding: 8px 12px; border-radius: 6px; margin: 10px 0;
+    color: #ffb74d; font-weight: 600;
+  }
+  .streak-note.broken {
+    background: #1a1a1a; border-left-color: #555;
+    color: #888; font-weight: 400;
+  }
+
   .question {
     font-size: 1.35rem;
     line-height: 1.4;
@@ -110,7 +145,7 @@
     margin-bottom: 8px;
   }
   .question.hard { border-left-color: #ff5252; background: #1a0808; }
-  .tags-line { font-size: 0.85rem; color: #b0b0b0; margin-top: 6px; }
+  .tags-line { font-size: 0.9rem; color: #b0b0b0; margin-top: 6px; }
 
   /* Feedback */
   .feedback {
@@ -121,13 +156,9 @@
     border-left: 5px solid #4caf50;
   }
   .feedback.wrong { border-left-color: #f44336; }
-  .feedback h3 { font-size: 1.1rem; margin-bottom: 8px; }
+  .feedback h3 { font-size: 1.15rem; margin-bottom: 8px; }
   .feedback .exp { margin-bottom: 10px; }
   .feedback .curio { color: #ffeb3b; font-style: italic; }
-  .feedback .speaking {
-    display: inline-block; margin-left: 8px;
-    font-size: 0.8rem; color: #ffeb3b; font-style: italic;
-  }
 
   /* Comodines */
   .comodines { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 14px; }
@@ -146,7 +177,7 @@
     display: inline-flex; align-items: center; gap: 6px;
   }
   .tag.on { border-color: #ffeb3b; background: #2a2a10; color: #ffeb3b; }
-  .tag .lvl { font-size: 0.75rem; opacity: .8; }
+  .tag .lvl { font-size: 0.8rem; opacity: .8; }
 
   /* Progreso */
   .bar { height: 8px; background: #222; border-radius: 4px; overflow: hidden; margin: 8px 0 16px; }
@@ -155,15 +186,15 @@
   /* Stats */
   .stat-row {
     display: flex; justify-content: space-between; align-items: center;
-    padding: 6px 0; border-bottom: 1px solid #1a1a1a; font-size: 0.95rem;
+    padding: 6px 0; border-bottom: 1px solid #1a1a1a; font-size: 1rem;
   }
   .stat-row:last-child { border-bottom: none; }
   .stat-row .name { color: #e0e0e0; }
-  .stat-row .val { color: #b0b0b0; font-size: 0.85rem; }
+  .stat-row .val { color: #b0b0b0; font-size: 0.9rem; }
   .stat-row .lvl-badge {
     display: inline-block; min-width: 24px; text-align: center;
     padding: 2px 6px; border-radius: 6px;
-    background: #333; color: #ffeb3b; font-weight: 700; font-size: 0.8rem;
+    background: #333; color: #ffeb3b; font-weight: 700; font-size: 0.85rem;
     margin-right: 8px;
   }
 
@@ -174,19 +205,34 @@
   .summary .stat:last-child { border-bottom: none; }
   .cta-box {
     background: #2a2a10; border-left: 4px solid #ffeb3b; padding: 12px 16px;
-    border-radius: 8px; margin-bottom: 16px; font-size: 0.95rem;
+    border-radius: 8px; margin-bottom: 16px; font-size: 1rem;
   }
   .cta-box strong { color: #ffeb3b; }
+  .cta-box.fire { background: #2a1500; border-left-color: #ff6d00; }
+  .cta-box.fire strong { color: #ffb74d; }
 
   /* Utilidades */
   .row { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 12px; }
   .row > * { flex: 1; min-width: 140px; }
   .sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
   .hidden { display: none !important; }
-  .small { font-size: 0.9rem; color: #b0b0b0; }
+  .small { font-size: 0.95rem; color: #b0b0b0; }
   .top-actions { display: flex; gap: 8px; justify-content: flex-end; margin-bottom: 12px; flex-wrap: wrap; }
-  .top-actions button, .top-actions label { width: auto; min-height: 44px; padding: 8px 12px; font-size: 0.9rem; text-align: center; display: inline-flex; align-items: center; justify-content: center; border: 2px solid #333; border-radius: 12px; cursor: pointer; }
+  .top-actions button, .top-actions label { width: auto; min-height: 44px; padding: 8px 12px; font-size: 0.95rem; text-align: center; display: inline-flex; align-items: center; justify-content: center; border: 2px solid #333; border-radius: 12px; cursor: pointer; }
   .top-actions button:hover, .top-actions label:hover { border-color: #ffeb3b; }
+
+  /* Controles de tamaño de letra */
+  .font-controls { display: inline-flex; gap: 4px; }
+  .font-controls button {
+    min-width: 44px;
+    padding: 6px 10px;
+    font-weight: 700;
+    font-size: 1rem;
+    text-align: center;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
 
   /* Test panel */
   .test-panel {
@@ -198,13 +244,13 @@
     display: flex; justify-content: space-between; align-items: center;
     padding: 6px 0; gap: 10px; flex-wrap: wrap;
   }
-  .test-row label { flex: 1; min-width: 120px; font-size: 0.9rem; }
+  .test-row label { flex: 1; min-width: 120px; font-size: 0.95rem; }
   .test-row select, .test-row input[type="checkbox"] {
     background: #0a0a0a; color: #f0f0f0; border: 2px solid #333;
-    border-radius: 8px; padding: 6px 10px; font-size: 0.9rem; min-height: 40px;
+    border-radius: 8px; padding: 6px 10px; font-size: 0.95rem; min-height: 40px;
   }
   .test-row select:focus { outline: 2px solid #ffeb3b; }
-  .test-stats { font-size: 0.8rem; color: #888; margin-top: 8px; }
+  .test-stats { font-size: 0.85rem; color: #888; margin-top: 8px; }
 
   /* Diálogos nativos */
   dialog {
@@ -219,40 +265,23 @@
     overflow-y: auto;
   }
   dialog::backdrop { background: rgba(0,0,0,0.75); }
-  dialog h2 { color: #ffeb3b; font-size: 1.1rem; margin-bottom: 14px; margin-top: 0; }
+  dialog h2 { color: #ffeb3b; font-size: 1.15rem; margin-bottom: 14px; margin-top: 0; }
   dialog h3 { color: #ffeb3b; font-size: 1rem; margin-bottom: 10px; margin-top: 16px; }
-  dialog label { display: block; margin-bottom: 10px; font-size: 0.95rem; }
+  dialog label { display: block; margin-bottom: 10px; font-size: 1rem; }
   dialog select, dialog input[type="range"] {
     width: 100%; margin-top: 4px;
     background: #0a0a0a; color: #f0f0f0; border: 2px solid #333;
-    border-radius: 8px; padding: 8px 10px; font-size: 0.95rem; min-height: 44px;
+    border-radius: 8px; padding: 8px 10px; font-size: 1rem; min-height: 44px;
   }
   dialog input[type="range"] { padding: 0; min-height: 30px; }
-  dialog .voice-quality-ok { color: #4caf50; }
-  dialog .voice-quality-warn { color: #ffa726; }
   dialog .dialog-actions {
     display: flex; gap: 10px; margin-top: 16px; flex-wrap: wrap;
   }
   dialog .dialog-actions button { flex: 1; min-width: 120px; }
-  dialog .help-text { font-size: 0.85rem; color: #aaa; line-height: 1.5; }
+  dialog .help-text { font-size: 0.95rem; color: #aaa; line-height: 1.5; }
   dialog .help-text p { margin-bottom: 8px; }
   dialog .help-text strong { color: #ffeb3b; }
   dialog .help-text em { color: #ddd; font-style: normal; background: #333; padding: 0 4px; border-radius: 4px; }
-
-  /* Barra del lector activo */
-  .speaking-indicator {
-    display: inline-block;
-    width: 8px; height: 8px;
-    background: #ffeb3b;
-    border-radius: 50%;
-    animation: pulse 1s infinite;
-    margin-right: 6px;
-    vertical-align: middle;
-  }
-  @keyframes pulse {
-    0%, 100% { opacity: 1; }
-    50% { opacity: 0.3; }
-  }
 
   @media (prefers-reduced-motion: reduce) {
     * { transition: none !important; animation: none !important; }
@@ -320,21 +349,33 @@
 
 <script>
 /* ================================================================
-   TRIVIA PMV v3
+   TRIVIA PMV v3.2
    ----------------------------------------------------------------
    Capas:
      1. DOMINIO     · reglas puras, sin DOM, sin estado global
      2. APLICACIÓN  · orquestación, bus de eventos, persistencia
      3. INFRA       · UI, TTS, carga de archivos
    ----------------------------------------------------------------
-   Novedades v3:
-     - Selector de voces con marca de calidad (✅/⚠️)
-     - Persistencia de configuración de voz
-     - Fallback automático a mejor voz disponible
-     - Narración por fragmentos (frase a frase, no todo de golpe)
-     - Diálogo de ayuda de voz con instrucciones por SO
-     - Aviso ético sobre IA (dismissable y persistente)
-     - Panel de configuración de voz accesible
+   Cambios respecto a v3.1:
+     · Tamaño de fuente ajustable (A−/A+, 16–28px, persistido).
+       Base por defecto 20px (antes 18px). Todo usa `rem` para
+       que escale con la raíz, no px sueltos.
+     · Selección por defecto de tags: top-level ordenados por
+       número de preguntas (antes: 3 primeros alfabéticos, que
+       eran todos del tronco arte). Botones Todos / Ninguno.
+     · Buffer de "vistas recientemente" ampliado de 2 a 4
+       sesiones → menos repeticiones inmediatas.
+     · Indicador en home de "X preguntas frescas de Y" con
+       warning si X < 10.
+     · Al cargar un JSON, los tags top-level nuevos se añaden
+       automáticamente a la selección.
+     · TTS: token de generación para invalidar callbacks de
+       utterances canceladas. Cancel() ahora incrementa el
+       token, así ningún onend/onerror viejo encola fragmentos
+       tras la nueva locución. setTimeout(0) tras cancel() para
+       dejar procesar al navegador.
+     · Pregunta de la velocidad de la luz reformulada con
+       "aproximadamente" para eliminar ambigüedad.
    ================================================================ */
 
 
@@ -372,42 +413,124 @@ const Domain = (() => {
     return arr;
   }
 
-  function isValidQuestion(q) {
-    if (!q || typeof q !== 'object') return false;
-    if (!q.id || !q.enunciado) return false;
-    if (!Array.isArray(q.opciones) || q.opciones.length < 2) return false;
-    if (!q.opciones.some(o => o && o.correcta === true)) return false;
-    return true;
+  /* Multiplicador de racha de fuego.
+       racha 0-2 → ×1
+       racha 3-4 → ×1.5
+       racha 5+  → ×2
+     Se aplica después del castigo por comodín. */
+  function streakMultiplier(streak) {
+    if (streak >= 5) return 2;
+    if (streak >= 3) return 1.5;
+    return 1;
   }
+
+  /* Normalización de preguntas: acepta el esquema canónico y
+     alias habituales (OpenTDB incluido). Toda la traducción
+     vive aquí; isValidQuestion delega en esta función. */
+  function pickField(obj, aliases) {
+    if (!obj || typeof obj !== 'object') return undefined;
+    for (const k of aliases) {
+      if (obj[k] !== undefined && obj[k] !== null) return obj[k];
+    }
+    return undefined;
+  }
+
+  function normalizeOption(o) {
+    if (typeof o === 'string') {
+      return { texto: o, correcta: false, tag_error: null };
+    }
+    if (!o || typeof o !== 'object') return null;
+    const texto = pickField(o, ['texto', 'text', 'label', 'answer', 'value']);
+    if (texto === undefined) return null;
+    const correcta = pickField(o, ['correcta', 'correct', 'is_correct', 'isCorrect']) === true;
+    const tag_error = pickField(o, ['tag_error', 'tagError']) || null;
+    return { texto: String(texto), correcta, tag_error };
+  }
+
+  function normalizeQuestion(q) {
+    if (!q || typeof q !== 'object') return null;
+
+    const id = pickField(q, ['id']);
+    if (id === undefined || id === null || id === '') return null;
+    const idStr = String(id);
+    if (!idStr) return null;
+
+    const enunciado = pickField(q, ['enunciado', 'question', 'pregunta', 'text']);
+    if (enunciado === undefined || enunciado === '') return null;
+
+    let rawOpts = pickField(q, ['opciones', 'options', 'answers', 'choices']);
+    // OpenTDB: correct_answer + incorrect_answers
+    if (!rawOpts && q.correct_answer !== undefined && Array.isArray(q.incorrect_answers)) {
+      rawOpts = [
+        { texto: q.correct_answer, correcta: true, tag_error: null },
+        ...q.incorrect_answers.map(t => ({ texto: t, correcta: false, tag_error: null }))
+      ];
+    }
+    if (!Array.isArray(rawOpts) || rawOpts.length < 2) return null;
+
+    const opciones = rawOpts.map(normalizeOption).filter(Boolean);
+    if (opciones.length < 2) return null;
+    if (!opciones.some(o => o.correcta)) return null;
+
+    let dif = 2;
+    const rawDif = pickField(q, ['dificultad', 'difficulty']);
+    if (typeof rawDif === 'number' && [1, 2, 3].includes(rawDif)) dif = rawDif;
+    else if (typeof rawDif === 'string') {
+      const map = { '1': 1, '2': 2, '3': 3, easy: 1, medium: 2, hard: 3 };
+      const v = map[rawDif.toLowerCase()];
+      if (v) dif = v;
+    }
+
+    const rawTags = pickField(q, ['tags', 'temas', 'topics']);
+    const tags = Array.isArray(rawTags) ? rawTags.map(String) : [];
+
+    return {
+      id: idStr,
+      tipo: String(pickField(q, ['tipo', 'type']) || 'trivia'),
+      enunciado: String(enunciado),
+      opciones,
+      explicacion: String(pickField(q, ['explicacion', 'explanation']) || ''),
+      dato_curioso: pickField(q, ['dato_curioso', 'fun_fact', 'curiosity']) || null,
+      dificultad: dif,
+      tags,
+      fuente: pickField(q, ['fuente', 'source']) || null,
+      revision: pickField(q, ['revision', 'review', 'status']) || 'pendiente'
+    };
+  }
+
+  function isValidQuestion(q) { return normalizeQuestion(q) !== null; }
 
   class QuestionBank {
     constructor() {
       this.questions = [];
       this.byTag = new Map();
       this.byId = new Map();
+      this.lastRejected = [];
     }
     addMany(list) {
       let added = 0;
-      for (const q of list) {
-        if (!isValidQuestion(q)) continue;
-        if (this.byId.has(String(q.id))) continue;
-        const opciones = shuffle(q.opciones.map(o => ({
-          texto: String(o.texto),
-          correcta: !!o.correcta,
-          tag_error: o.tag_error || null
-        })));
-        const clean = {
-          id: String(q.id),
-          tipo: q.tipo || 'trivia',
-          enunciado: String(q.enunciado),
-          opciones,
-          explicacion: q.explicacion || '',
-          dato_curioso: q.dato_curioso || null,
-          dificultad: [1, 2, 3].includes(q.dificultad) ? q.dificultad : 2,
-          tags: Array.isArray(q.tags) ? q.tags.slice() : [],
-          fuente: q.fuente || null,
-          revision: q.revision || 'pendiente'
-        };
+      this.lastRejected = [];
+      const seenInThisBatch = new Set();
+      for (let i = 0; i < list.length; i++) {
+        const q = list[i];
+        const norm = normalizeQuestion(q);
+        if (!norm) {
+          this.lastRejected.push({
+            i, id: q && q.id,
+            reason: 'estructura inválida (falta id/enunciado/opciones/correcta:true)'
+          });
+          continue;
+        }
+        if (seenInThisBatch.has(norm.id) || this.byId.has(norm.id)) {
+          this.lastRejected.push({
+            i, id: norm.id,
+            reason: `id duplicado "${norm.id}"`
+          });
+          continue;
+        }
+        seenInThisBatch.add(norm.id);
+        const opciones = shuffle(norm.opciones.slice());
+        const clean = { ...norm, opciones };
         this.questions.push(clean);
         this.byId.set(clean.id, clean);
         for (const t of clean.tags) {
@@ -419,6 +542,18 @@ const Domain = (() => {
       return added;
     }
     getTags() { return [...this.byTag.keys()].sort(); }
+
+    /* Devuelve solo los tags "top-level" (sin guion bajo) ordenados
+       por número de preguntas descendente. Es la base para elegir
+       una selección por defecto con variedad. */
+    getTopLevelTagsByCount() {
+      const tags = this.getTags().filter(t => !t.includes('_'));
+      return tags
+        .map(t => ({ t, n: (this.byTag.get(t) || []).length }))
+        .sort((a, b) => b.n - a.n || a.t.localeCompare(b.t))
+        .map(x => x.t);
+    }
+
     getById(id) { return this.byId.get(id); }
     statsForTag(tag) {
       const list = this.byTag.get(tag) || [];
@@ -428,6 +563,11 @@ const Domain = (() => {
     }
   }
 
+  /* buildSession · construye N preguntas respetando cuotas.
+
+     Devuelve también `freshInfo` para que la UI pueda avisar:
+       { fresh, total, recentIds } — cuántas preguntas de los tags
+       seleccionados no están en las últimas sesiones. */
   function buildSession(bank, tags, progress, opts = {}) {
     const size = opts.size || 10;
     const forceLevel = opts.forceLevel || {};
@@ -437,6 +577,17 @@ const Domain = (() => {
     if (excludeRecent && progress.recentSessions) {
       for (const ids of progress.recentSessions) for (const id of ids) recent.add(id);
     }
+
+    // Info para la UI: cuántas frescas hay en total entre los tags
+    const poolIds = new Set();
+    for (const t of tags) {
+      for (const q of (bank.byTag.get(t) || [])) poolIds.add(q.id);
+    }
+    const freshInfo = {
+      fresh: [...poolIds].filter(id => !recent.has(id)).length,
+      total: poolIds.size,
+      recentIds: recent
+    };
 
     const perTag = {};
     const base = Math.floor(size / tags.length);
@@ -460,7 +611,9 @@ const Domain = (() => {
       if (c2 < 0) { c2 = 0; c1 = tagSize - c3; }
       if (c1 < 0) { c1 = 0; }
 
-      const { picks: tagPicks, info } = pickForTag(bank, tag, { 1: c1, 2: c2, 3: c3 }, recent, used, level);
+      const { picks: tagPicks, info } = pickForTag(
+        bank, tag, { 1: c1, 2: c2, 3: c3 }, recent, used, level
+      );
       for (const q of tagPicks) { picks.push(q); used.add(q.id); }
       if (info.fallback.length) fallbackLog.push({ tag, level, ...info });
     }
@@ -486,9 +639,12 @@ const Domain = (() => {
     }
 
     shuffle(picks);
-    return { questions: picks, fallbackLog };
+    return { questions: picks, fallbackLog, freshInfo };
   }
 
+  /* pickForTag · extrae preguntas concretas de un tag.
+     Pedimos primero dif3, luego dif2, luego dif1. El déficit de
+     una dificultad se compensa con la inferior. */
   function pickForTag(bank, tag, counts, recent, used, level) {
     const all = bank.byTag.get(tag) || [];
     const pools = { 1: [], 2: [], 3: [] };
@@ -513,17 +669,24 @@ const Domain = (() => {
       info.actual[d] = got;
       deficit = want - got;
       if (deficit > 0 && d > 1) {
-        info.fallback.push(`dif ${d}: pedidas ${counts[d]}, faltan ${deficit}, compensadas con dif ${d - 1}`);
+        info.fallback.push(
+          `dif ${d}: pedidas ${counts[d]}, faltan ${deficit}, compensadas con dif ${d - 1}`
+        );
       }
     }
 
     return { picks: result, info };
   }
 
-  function scoreAnswer(question, wasCorrect, usedComodin) {
+  /* Orden: base → castigo comodín → multiplicador racha.
+     El redondeo es hacia abajo en cada paso para no acumular
+     fracciones. Un acierto con comodín y sin racha vale al
+     menos 1 punto (nunca 0 por comodín). */
+  function scoreAnswer(question, wasCorrect, usedComodin, streakMult = 1) {
     if (!wasCorrect) return 0;
     let pts = DIFF_POINTS[question.dificultad] || 10;
     if (usedComodin) pts = Math.max(1, Math.floor(pts * 0.7));
+    if (streakMult > 1) pts = Math.floor(pts * streakMult);
     return pts;
   }
 
@@ -533,6 +696,9 @@ const Domain = (() => {
     scoreAnswer,
     levelFromXp,
     xpToNextLevel,
+    streakMultiplier,
+    normalizeQuestion,
+    isValidQuestion,
     DIFF_POINTS,
     XP_THRESHOLDS,
     SESSION_WEIGHTS,
@@ -595,14 +761,16 @@ const App = (() => {
               errors: p.errors || [],
               curiosities: p.curiosities || [],
               streakDays: p.streakDays || 0,
-              lastSessionDate: p.lastSessionDate || null
+              lastSessionDate: p.lastSessionDate || null,
+              bestStreak: p.bestStreak || 0
             };
           }
         }
       } catch {}
       return {
         tags: {}, sessions: 0, recentSessions: [], errors: [],
-        curiosities: [], streakDays: 0, lastSessionDate: null
+        curiosities: [], streakDays: 0, lastSessionDate: null,
+        bestStreak: 0
       };
     }
     _save() {
@@ -635,9 +803,11 @@ const App = (() => {
         this._save();
       }
     }
+    /* Buffer ampliado a 4 sesiones (antes 2). Reduce repeticiones
+       inmediatas cuando el pool de tags es pequeño. */
     recordSession(questionIds) {
       this.data.recentSessions.unshift(questionIds.slice());
-      this.data.recentSessions = this.data.recentSessions.slice(0, 2);
+      this.data.recentSessions = this.data.recentSessions.slice(0, 4);
       this.data.sessions++;
       const today = new Date().toISOString().slice(0, 10);
       const last = this.data.lastSessionDate;
@@ -647,6 +817,12 @@ const App = (() => {
         this.data.lastSessionDate = today;
       }
       this._save();
+    }
+    recordBestStreak(n) {
+      if (typeof n === 'number' && n > (this.data.bestStreak || 0)) {
+        this.data.bestStreak = n;
+        this._save();
+      }
     }
     lowerLevel(tag) {
       const t = this.getTag(tag);
@@ -667,7 +843,6 @@ const App = (() => {
     all() { return this.data; }
   }
 
-  // Configuración de TTS persistente
   class TTSSettings {
     constructor(bus) {
       this.bus = bus;
@@ -702,7 +877,6 @@ const App = (() => {
     }
   }
 
-  // Aviso ético persistente
   class EthicalNotice {
     constructor(bus) {
       this.bus = bus;
@@ -729,7 +903,11 @@ const App = (() => {
 
     loadBank(list) {
       const added = this.bank.addMany(list);
-      this.bus.emit(EVENTS.BANK_LOADED, { added, total: this.bank.questions.length });
+      this.bus.emit(EVENTS.BANK_LOADED, {
+        added,
+        total: this.bank.questions.length,
+        rejected: this.bank.lastRejected
+      });
       return added;
     }
 
@@ -740,19 +918,26 @@ const App = (() => {
     }
 
     startSession(tags, opts = {}) {
+      if (!Array.isArray(tags) || !tags.length) {
+        this.bus.emit(EVENTS.ERROR, { message: 'Selecciona al menos un tema.' });
+        return;
+      }
       if (!this.bank.questions.length) {
         this.bus.emit(EVENTS.ERROR, { message: 'El banco está vacío.' });
         return;
       }
+
       const forceLevel = this.testMode.active ? { ...this.testMode.forceLevel } : {};
-      const { questions, fallbackLog } = Domain.buildSession(
+      const { questions, fallbackLog, freshInfo } = Domain.buildSession(
         this.bank, tags, this.progress,
         { size: opts.size || 10, forceLevel, excludeRecent: true }
       );
+
       if (!questions.length) {
         this.bus.emit(EVENTS.ERROR, { message: 'No hay preguntas para esos tags.' });
         return;
       }
+
       this.session = {
         tags: tags.slice(),
         questions,
@@ -761,12 +946,21 @@ const App = (() => {
         score: 0,
         usedComodinIn: new Set(),
         comodines: { descartar: 2, cambiar: 1, no_se: 99 },
+        discardedIndices: new Set(),
+        streak: 0,
+        maxStreak: 0,
         fallbackLog,
+        freshInfo,
         testMode: this.testMode.active,
         showDifficulty: this.testMode.showDifficulty
       };
+
       this.bus.emit(EVENTS.SESSION_STARTED, {
-        total: questions.length, tags, fallbackLog, testMode: this.testMode.active
+        total: questions.length,
+        tags,
+        fallbackLog,
+        freshInfo,
+        testMode: this.testMode.active
       });
       this._showCurrent();
     }
@@ -781,6 +975,8 @@ const App = (() => {
         total: this.session.questions.length,
         score: this.session.score,
         comodines: { ...this.session.comodines },
+        discardedIndices: [...this.session.discardedIndices],
+        streak: this.session.streak,
         showDifficulty: this.session.showDifficulty,
         testMode: this.session.testMode
       });
@@ -789,29 +985,47 @@ const App = (() => {
     useComodin(type) {
       if (!this.session) return false;
       if (type === 'no_se') return true;
-      if (!this.session.comodines[type] || this.session.comodines[type] <= 0) return false;
-      this.session.comodines[type]--;
-      this.session.usedComodinIn.add(this.session.index);
+
+      if (type === 'descartar') {
+        if (!this.session.comodines.descartar) return false;
+        const idx = this.pickDiscardable();
+        if (idx < 0) return false;
+        this.session.comodines.descartar--;
+        this.session.usedComodinIn.add(this.session.index);
+        this.session.discardedIndices.add(idx);
+        this.bus.emit(EVENTS.COMODIN_USED, {
+          type, left: this.session.comodines.descartar, index: idx
+        });
+        return true;
+      }
+
       if (type === 'cambiar') {
+        if (!this.session.comodines.cambiar) return false;
         const current = this.session.questions[this.session.index];
         const usedIds = new Set(this.session.questions.map(q => q.id));
         const mainTag = (current.tags && current.tags[0]) || 'general';
         const pool = (this.bank.byTag.get(mainTag) || []).filter(q => !usedIds.has(q.id));
-        if (pool.length) {
-          this.session.questions[this.session.index] = pool[Math.floor(Math.random() * pool.length)];
-          this.bus.emit(EVENTS.COMODIN_USED, { type, left: this.session.comodines[type] });
-          this._showCurrent();
-          return true;
-        }
+        if (!pool.length) return false;
+
+        this.session.comodines.cambiar--;
+        this.session.usedComodinIn.add(this.session.index);
+        this.session.questions[this.session.index] =
+          pool[Math.floor(Math.random() * pool.length)];
+        this.session.discardedIndices = new Set();
+        this.bus.emit(EVENTS.COMODIN_USED, { type, left: this.session.comodines.cambiar });
+        this._showCurrent();
+        return true;
       }
-      this.bus.emit(EVENTS.COMODIN_USED, { type, left: this.session.comodines[type] });
       return true;
     }
 
     pickDiscardable() {
       if (!this.session) return -1;
       const q = this.session.questions[this.session.index];
-      const wrong = q.opciones.map((o, i) => o.correcta ? -1 : i).filter(i => i >= 0);
+      const already = this.session.discardedIndices || new Set();
+      const wrong = q.opciones
+        .map((o, i) => o.correcta ? -1 : i)
+        .filter(i => i >= 0 && !already.has(i));
       if (wrong.length <= 1) return -1;
       return wrong[Math.floor(Math.random() * wrong.length)];
     }
@@ -822,6 +1036,7 @@ const App = (() => {
       let correct = false;
       let tagError = null;
       let chosen = null;
+
       if (optionIndex === -1) {
         correct = false;
         tagError = 'no_intento';
@@ -831,21 +1046,31 @@ const App = (() => {
         correct = !!chosen.correcta;
         tagError = chosen.tag_error || null;
       }
+
+      const prevStreak = this.session.streak || 0;
+      const newStreak = correct ? prevStreak + 1 : 0;
+      const mult = Domain.streakMultiplier(newStreak);
+
       const usedComodin = this.session.usedComodinIn.has(this.session.index);
-      const points = Domain.scoreAnswer(q, correct, usedComodin);
+      const points = Domain.scoreAnswer(q, correct, usedComodin, mult);
+
+      const streakMilestone = correct && (newStreak === 3 || newStreak === 5);
+      const streakBroken = !correct && prevStreak >= 3;
+
+      this.session.streak = newStreak;
+      if (newStreak > this.session.maxStreak) this.session.maxStreak = newStreak;
       this.session.score += points;
-      this.session.answers.push({ questionId: q.id, optionIndex, correct, points, tagError });
+      this.session.answers.push({
+        questionId: q.id, optionIndex, correct, points, tagError,
+        streakAfter: newStreak, multiplier: mult
+      });
 
       const mainTag = (q.tags && q.tags[0]) || 'general';
       const updated = this.progress.addResult(mainTag, correct, points);
       this.bus.emit(EVENTS.PROGRESS_UPDATED, { tag: mainTag, data: updated });
 
-      if (!correct && tagError) {
-        this.progress.addError(q.id, tagError, mainTag);
-      }
-      if (correct && q.dato_curioso) {
-        this.progress.addCuriosity(q.id);
-      }
+      if (!correct && tagError) this.progress.addError(q.id, tagError, mainTag);
+      if (correct && q.dato_curioso) this.progress.addCuriosity(q.id);
 
       this.bus.emit(EVENTS.ANSWER_SUBMITTED, {
         question: q,
@@ -853,13 +1078,19 @@ const App = (() => {
         correct,
         points,
         tagError,
-        total: this.session.score
+        total: this.session.score,
+        streak: newStreak,
+        prevStreak,
+        multiplier: mult,
+        streakMilestone,
+        streakBroken
       });
     }
 
     next() {
       if (!this.session) return;
       this.session.index++;
+      this.session.discardedIndices = new Set();
       if (this.session.index >= this.session.questions.length) this._endSession();
       else this._showCurrent();
     }
@@ -867,6 +1098,9 @@ const App = (() => {
     _endSession() {
       const s = this.session;
       if (!s) return;
+
+      this.progress.recordBestStreak(s.maxStreak);
+
       const summary = {
         score: s.score,
         correct: s.answers.filter(a => a.correct).length,
@@ -874,10 +1108,13 @@ const App = (() => {
         tags: s.tags.slice(),
         answers: s.answers.slice(),
         questionIds: s.questions.map(q => q.id),
-        fallbackLog: s.fallbackLog
+        fallbackLog: s.fallbackLog,
+        maxStreak: s.maxStreak,
+        bestStreak: this.progress.all().bestStreak
       };
       this.session = null;
       this.progress.recordSession(summary.questionIds);
+
       const nearLevel = [];
       for (const tag of summary.tags) {
         const t = this.progress.getTag(tag);
@@ -888,6 +1125,7 @@ const App = (() => {
       }
       summary.nearLevel = nearLevel;
       summary.streakDays = this.progress.all().streakDays;
+
       this.bus.emit(EVENTS.SESSION_ENDED, summary);
     }
 
@@ -919,11 +1157,9 @@ const UI = (() => {
   const EV = App.EVENTS;
   const app = document.getElementById('app');
 
-  // Referencias a diálogos
   const voiceDialog = document.getElementById('voiceDialog');
   const voiceHelpDialog = document.getElementById('voiceHelpDialog');
 
-  // Estado local de UI
   let screen = 'home';
   let bank = null;
   let engine = null;
@@ -934,22 +1170,51 @@ const UI = (() => {
 
   let selectedTags = new Set();
   let answered = false;
-  let discardedOption = -1;
   let testPanelVisible = false;
-  let currentQuestionData = null;
 
   /* ------------------------------------------------------------
-     TTS · Modulo de voz
+     Tamaño de letra (accesibilidad DMAE)
      ------------------------------------------------------------
-     Responsabilidades:
-       - Envolver la Web Speech API
-       - Persistir configuración (delegada a TTSSettings)
-       - Elegir mejor voz disponible
-       - Leer por fragmentos (frase a frase) para feedback largo
-       - Cancelar cualquier lectura previa al cambiar de pantalla
+     El CSS define html { font-size: var(--base-font, 20px) } y
+     todo lo demás usa rem. Aquí solo movemos la variable y
+     persistimos el valor. Rango 16–28 px, paso de 2.
+     ------------------------------------------------------------ */
+  const FONT_KEY = 'trivia_pmv_font_size';
+  const FONT_MIN = 16, FONT_MAX = 28, FONT_DEFAULT = 20;
+
+  function getFontSize() {
+    try {
+      const v = parseInt(localStorage.getItem(FONT_KEY), 10);
+      return (Number.isFinite(v) && v >= FONT_MIN && v <= FONT_MAX) ? v : FONT_DEFAULT;
+    } catch { return FONT_DEFAULT; }
+  }
+  function applyFontSize(n) {
+    const v = Math.max(FONT_MIN, Math.min(FONT_MAX, n));
+    try { localStorage.setItem(FONT_KEY, String(v)); } catch {}
+    document.documentElement.style.setProperty('--base-font', v + 'px');
+    return v;
+  }
+  function bumpFontSize(delta) {
+    const next = applyFontSize(getFontSize() + delta);
+    if (screen === 'home') renderHome();
+    return next;
+  }
+
+  /* ------------------------------------------------------------
+     TTS
+     ------------------------------------------------------------
+     El patrón clave es el token de generación (speakGeneration).
+     Cada speak() y cancel() lo incrementan. Los callbacks onend
+     y onerror de utterances viejas comprueban el token antes de
+     encadenar el siguiente fragmento; si no coincide, abortan.
+
+     Sin esto, cancel() dispara onerror('interrupted') en la
+     utterance en curso, y ese onerror encolaba el siguiente
+     fragmento DESPUÉS de la nueva locución → cola fantasma.
      ------------------------------------------------------------ */
   const TTS = (() => {
     let voices = [];
+    let speakGeneration = 0;
 
     function loadVoices() {
       voices = window.speechSynthesis ? window.speechSynthesis.getVoices() : [];
@@ -961,7 +1226,8 @@ const UI = (() => {
       const name = voz.name.toLowerCase();
       const lang = (voz.lang || '').toLowerCase();
       if (!lang.startsWith('es')) return false;
-      const deseables = ['google', 'microsoft', 'neural', 'premium', 'monica', 'mónica', 'jorge', 'paulina', 'helena', 'sabina'];
+      const deseables = ['google', 'microsoft', 'neural', 'premium',
+                         'monica', 'mónica', 'jorge', 'paulina', 'helena', 'sabina'];
       return deseables.some(d => name.includes(d));
     }
 
@@ -974,16 +1240,19 @@ const UI = (() => {
       return voices[0] || null;
     }
 
-    function getVoicesList() { return voices; }
+    /* Refresca siempre antes de devolver. El bug de v3 era que el
+       diálogo podía abrirse antes de 'voiceschanged'. */
+    function getVoicesList() { loadVoices(); return voices; }
 
-    // Divide un texto en fragmentos (frases) para lectura pausada
+    /* Divide por signos de FINAL de oración. Los signos de apertura
+       (¿ ¡) NO son separadores. Antes partía "¿Quién...?" en "¿" +
+       "Quién...". */
     function splitFragments(text) {
       if (!text) return [];
-      const partes = text.match(/[^.!?¡¿]+[.!?¡¿]*/g) || [text];
+      const partes = text.match(/[^.!?]+[.!?]*/g) || [text];
       return partes.map(s => s.trim()).filter(s => s.length > 0);
     }
 
-    // Construye un utterance con la config actual + estilo
     function buildUtterance(text, overrides = {}) {
       const utt = new SpeechSynthesisUtterance(text);
       const cfg = ttsSettings.get();
@@ -991,55 +1260,64 @@ const UI = (() => {
       let pitch = overrides.pitch !== undefined ? overrides.pitch : cfg.pitch;
       switch (cfg.estilo) {
         case 'duendecillo': pitch *= 1.4; rate *= 1.15; break;
-        case 'abuelito': pitch *= 0.75; rate *= 0.85; break;
-        case 'robot': pitch *= 0.6; rate *= 1.0; break;
-        case 'susurro': pitch *= 0.9; rate *= 0.8; break;
+        case 'abuelito':   pitch *= 0.75; rate *= 0.85; break;
+        case 'robot':      pitch *= 0.6; rate *= 1.0; break;
+        case 'susurro':    pitch *= 0.9; rate *= 0.8; break;
       }
-      utt.rate = Math.max(0.1, Math.min(2, rate));
+      utt.rate  = Math.max(0.1, Math.min(2, rate));
       utt.pitch = Math.max(0.1, Math.min(2, pitch));
-      utt.lang = 'es-ES';
-      const vozNombre = cfg.vozNombre;
-      if (vozNombre) {
-        const v = voices.find(x => x.name === vozNombre);
+      utt.lang  = 'es-ES';
+      if (cfg.vozNombre) {
+        const v = voices.find(x => x.name === cfg.vozNombre);
         if (v) utt.voice = v;
       }
       return utt;
     }
 
-    // Hablar un texto con narración por fragmentos
+    /* speak · narración por fragmentos con token de generación.
+       Secuencia:
+         1. ++speakGeneration → este speak() es el actual.
+         2. speechSynthesis.cancel() → mata lo anterior.
+         3. setTimeout(0) → deja procesar el cancel al navegador
+            (sino, en algunos Chrome la nueva utterance se encola
+            detrás de la cancelada).
+         4. En el timeout, si el token sigue vigente, encadenamos
+            fragmentos. Cada onend/onerror comprueba el token. */
     function speak(text, opts = {}) {
       if (!ttsSettings.get().enabled) return;
       if (!window.speechSynthesis) return;
-      cancel(); // corta cualquier lectura previa
-      const fragments = splitFragments(text);
-      if (!fragments.length) return;
-      let i = 0;
-      const onDone = opts.onDone || null;
-      function siguiente() {
-        if (i >= fragments.length) {
-          if (onDone) onDone();
-          return;
+      const myGen = ++speakGeneration;
+      try { window.speechSynthesis.cancel(); } catch {}
+
+      setTimeout(() => {
+        if (myGen !== speakGeneration) return;
+        const fragments = splitFragments(text);
+        if (!fragments.length) { if (opts.onDone) opts.onDone(); return; }
+        let i = 0;
+        const onDone = opts.onDone || null;
+
+        function siguiente() {
+          if (myGen !== speakGeneration) return;
+          if (i >= fragments.length) { if (onDone) onDone(); return; }
+          const frag = fragments[i++];
+          const utt = buildUtterance(frag);
+          utt.onend = siguiente;
+          utt.onerror = (e) => {
+            if (myGen !== speakGeneration) return;
+            if (e.error !== 'interrupted' && e.error !== 'canceled') {
+              console.warn('[tts] error', e.error);
+            }
+            siguiente();
+          };
+          try { window.speechSynthesis.speak(utt); }
+          catch (err) { console.warn('[tts] speak error', err); }
         }
-        const frag = fragments[i++];
-        const utt = buildUtterance(frag);
-        utt.onend = siguiente;
-        utt.onerror = (e) => {
-          // Ignorar errores de cancelación (los lanza el navegador al cancelar)
-          if (e.error !== 'interrupted' && e.error !== 'canceled') {
-            console.warn('[tts] error', e.error);
-          }
-          if (i >= fragments.length) { if (onDone) onDone(); }
-          else siguiente();
-        };
-        try { window.speechSynthesis.speak(utt); } catch (err) {
-          console.warn('[tts] speak error', err);
-        }
-      }
-      siguiente();
+        siguiente();
+      }, 0);
     }
 
     function cancel() {
-      if (!window.speechSynthesis) return;
+      speakGeneration++;
       try { window.speechSynthesis.cancel(); } catch {}
     }
 
@@ -1048,25 +1326,24 @@ const UI = (() => {
       loadVoices();
       window.speechSynthesis.onvoiceschanged = () => {
         loadVoices();
-        // Si no hay voz seleccionada, elegir la mejor
         if (!ttsSettings.get().vozNombre) {
           const best = pickBestVoice();
           if (best) ttsSettings.set({ vozNombre: best.name });
         }
       };
-      // Elegir voz inicial si no hay ninguna
       if (!ttsSettings.get().vozNombre) {
         const best = pickBestVoice();
         if (best) ttsSettings.set({ vozNombre: best.name });
       }
     }
 
-    return { init, speak, cancel, buildUtterance, getVoicesList, isQualityVoice, pickBestVoice, splitFragments };
+    return {
+      init, speak, cancel, buildUtterance, getVoicesList,
+      isQualityVoice, pickBestVoice, splitFragments
+    };
   })();
 
-  /* ------------------------------------------------------------
-     Helpers DOM
-     ------------------------------------------------------------ */
+  /* Helpers DOM */
   const el = (tag, attrs = {}, children = []) => {
     const n = document.createElement(tag);
     for (const [k, v] of Object.entries(attrs)) {
@@ -1084,7 +1361,27 @@ const UI = (() => {
     return n;
   };
   const clear = (n) => { while (n.firstChild) n.removeChild(n.firstChild); };
-  const esc = (s) => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+
+  /* Default de tags: top-level ordenados por número de preguntas,
+     tomamos los 5 primeros. Si hay menos, todos. Nunca los
+     3 primeros alfabéticos (que eran todos del tronco arte). */
+  function getDefaultTags() {
+    const top = bank.getTopLevelTagsByCount();
+    return top.slice(0, Math.min(5, top.length));
+  }
+
+  /* Cuántas preguntas frescas hay en la selección actual.
+     Reutiliza la lógica del buffer de recientes. */
+  function computeFreshInfo(tags, data) {
+    const recent = new Set();
+    for (const s of data.recentSessions) for (const id of s) recent.add(id);
+    const pool = new Set();
+    for (const t of tags) {
+      for (const q of (bank.byTag.get(t) || [])) pool.add(q.id);
+    }
+    const fresh = [...pool].filter(id => !recent.has(id)).length;
+    return { fresh, total: pool.size };
+  }
 
   /* ------------------------------------------------------------
      HOME
@@ -1095,18 +1392,38 @@ const UI = (() => {
     clear(app);
 
     const tags = bank.getTags();
-    if (!selectedTags.size) tags.slice(0, 3).forEach(t => selectedTags.add(t));
+    if (!selectedTags.size) getDefaultTags().forEach(t => selectedTags.add(t));
     const data = progress.all();
 
-    // Cabecera
+    // --- Cabecera: fuente, voz, JSON, test ---
+    const fontControls = el('div', { class: 'font-controls' }, [
+      el('button', {
+        class: 'btn-small',
+        title: 'Reducir texto',
+        'aria-label': 'Reducir texto',
+        onclick: () => bumpFontSize(-2)
+      }, ['A−']),
+      el('button', {
+        class: 'btn-small',
+        title: 'Aumentar texto',
+        'aria-label': 'Aumentar texto',
+        onclick: () => bumpFontSize(+2)
+      }, ['A+'])
+    ]);
+
     app.appendChild(el('div', { class: 'top-actions' }, [
+      fontControls,
       el('button', {
         class: 'btn-small',
         title: 'Configurar voz',
         'aria-label': 'Configurar voz',
         onclick: () => openVoiceDialog()
       }, [ttsSettings.get().enabled ? '🔊 Voz' : '🔈 Voz']),
-      el('label', { class: 'btn-small', title: 'Cargar JSON', style: 'display:inline-flex;align-items:center;justify-content:center;' }, [
+      el('label', {
+        class: 'btn-small',
+        title: 'Cargar JSON',
+        style: 'display:inline-flex;align-items:center;justify-content:center;'
+      }, [
         '📂 JSON',
         el('input', {
           type: 'file', accept: '.json,application/json', class: 'sr',
@@ -1115,13 +1432,52 @@ const UI = (() => {
             if (!f) return;
             const r = new FileReader();
             r.onload = (ev) => {
-              try {
-                const parsed = JSON.parse(ev.target.result);
-                const list = Array.isArray(parsed) ? parsed : (parsed.preguntas || []);
-                const added = engine.loadBank(list);
-                alert(`Añadidas ${added} preguntas. Total: ${bank.questions.length}.`);
-                renderHome();
-              } catch (err) { alert('JSON inválido: ' + err.message); }
+              let parsed;
+              try { parsed = JSON.parse(ev.target.result); }
+              catch (err) { alert('JSON inválido: ' + err.message); return; }
+
+              const list = Array.isArray(parsed) ? parsed
+                : (parsed && (parsed.preguntas || parsed.questions
+                              || parsed.results || parsed.data
+                              || parsed.items)) || null;
+
+              if (!list) {
+                alert(
+                  'JSON válido pero sin lista de preguntas.\n' +
+                  'Esperaba [...] o { preguntas:[...] } / { questions:[...] } / ' +
+                  '{ results:[...] } (OpenTDB) / { data:[...] } / { items:[...] }.'
+                );
+                return;
+              }
+
+              // Capturamos tags ANTES para saber cuáles son nuevos.
+              const before = new Set(bank.getTags());
+              const added = engine.loadBank(list);
+              const after = bank.getTags();
+              const newTags = after.filter(t => !before.has(t));
+
+              // Añadimos a la selección los tags nuevos top-level
+              // para que sus preguntas sean jugables de inmediato.
+              for (const t of newTags) {
+                if (!t.includes('_')) selectedTags.add(t);
+              }
+
+              const rej = bank.lastRejected || [];
+              let msg = `Añadidas ${added} preguntas. Total: ${bank.questions.length}.`;
+              if (newTags.length) {
+                msg += `\nNuevos temas: ${newTags.filter(t => !t.includes('_')).join(', ') || newTags.join(', ')}.`;
+                msg += `\nAñadidos a la selección.`;
+              }
+              if (rej.length) {
+                msg += `\n\n⚠️ ${rej.length} rechazadas:`;
+                for (const r0 of rej.slice(0, 6)) {
+                  msg += `\n  · [#${r0.i}] id=${r0.id ?? '?'} → ${r0.reason}`;
+                }
+                if (rej.length > 6) msg += `\n  … y ${rej.length - 6} más (consola).`;
+                console.warn('[loader] rechazadas:', rej);
+              }
+              alert(msg);
+              renderHome();
             };
             r.readAsText(f);
             e.target.value = '';
@@ -1151,19 +1507,48 @@ const UI = (() => {
 
     app.appendChild(el('h1', {}, ['Trivia']));
     app.appendChild(el('p', { class: 'sub' }, [
-      `${bank.questions.length} preguntas · ${data.sessions} sesiones · racha ${data.streakDays} día${data.streakDays === 1 ? '' : 's'}`
+      `${bank.questions.length} preguntas · ${data.sessions} sesiones · ` +
+      `racha ${data.streakDays} día${data.streakDays === 1 ? '' : 's'}` +
+      (data.bestStreak > 0 ? ` · récord 🔥×${data.bestStreak}` : '')
     ]));
 
     if (testPanelVisible) app.appendChild(renderTestPanel());
 
-    // Tags
+    // --- Selector de temas ---
     app.appendChild(el('h2', {}, ['Elige temas']));
+
+    // Botones rápidos Todos / Ninguno
+    app.appendChild(el('div', {
+      class: 'row', style: 'margin-top:0; margin-bottom:10px;'
+    }, [
+      el('button', {
+        class: 'btn-small',
+        onclick: () => {
+          bank.getTags().forEach(t => selectedTags.add(t));
+          renderHome();
+        }
+      }, ['Todos']),
+      el('button', {
+        class: 'btn-small',
+        onclick: () => { selectedTags.clear(); renderHome(); }
+      }, ['Ninguno']),
+      el('button', {
+        class: 'btn-small',
+        title: 'Selecciona solo los tags top-level (sin sub-tags)',
+        onclick: () => {
+          selectedTags.clear();
+          bank.getTopLevelTagsByCount().forEach(t => selectedTags.add(t));
+          renderHome();
+        }
+      }, ['Solo categorías'])
+    ]));
+
     const tagWrap = el('div', { class: 'tags', role: 'group', 'aria-label': 'Selector de temas' });
     tags.forEach(t => {
       const on = selectedTags.has(t);
       const lvl = progress.getTag(t).level;
       const stats = bank.statsForTag(t);
-      const btn = el('button', {
+      tagWrap.appendChild(el('button', {
         type: 'button',
         class: 'tag' + (on ? ' on' : ''),
         'aria-pressed': on ? 'true' : 'false',
@@ -1172,12 +1557,29 @@ const UI = (() => {
           else selectedTags.add(t);
           renderHome();
         }
-      }, [t, el('span', { class: 'lvl' }, [`N${lvl} · ${stats.total}`])]);
-      tagWrap.appendChild(btn);
+      }, [t, el('span', { class: 'lvl' }, [`N${lvl} · ${stats.total}`])]));
     });
     app.appendChild(tagWrap);
 
-    // Progreso
+    // --- Indicador de frescura ---
+    if (selectedTags.size) {
+      const info = computeFreshInfo(selectedTags, data);
+      const warn = info.fresh < 10;
+      app.appendChild(el('div', {
+        class: 'info-banner ' + (warn ? 'warn' : 'ok')
+      }, [
+        `📚 ${info.fresh} preguntas frescas de ${info.total} en los temas seleccionados` +
+        (warn
+          ? ' · Algunas se repetirán. Añade más temas o juega sesiones más cortas.'
+          : '')
+      ]));
+    } else {
+      app.appendChild(el('div', { class: 'info-banner warn' }, [
+        'Selecciona al menos un tema para jugar.'
+      ]));
+    }
+
+    // --- Progreso por tag ---
     const tagProgress = tags.filter(t => data.tags[t]);
     if (tagProgress.length) {
       app.appendChild(el('h2', {}, ['Tu progreso']));
@@ -1192,7 +1594,10 @@ const UI = (() => {
             t
           ]),
           el('span', { class: 'val' }, [
-            `${pct}% · ${d.xp} XP${remaining !== null ? ` · faltan ${remaining} para N${d.level + 1}` : ' · MAX'}`
+            `${pct}% · ${d.xp} XP` +
+            (remaining !== null
+              ? ` · faltan ${remaining} para N${d.level + 1}`
+              : ' · MAX')
           ])
         ]));
       });
@@ -1214,14 +1619,14 @@ const UI = (() => {
       }, ['▶ Empezar sesión (10 preguntas)'])
     ]));
 
-    app.appendChild(el('p', { class: 'small', style: 'margin-top:14px; text-align:center;' }, [
-      'Atajos: 1-4 opción · Enter siguiente · Esc salir'
+    app.appendChild(el('p', {
+      class: 'small', style: 'margin-top:14px; text-align:center;'
+    }, [
+      'Atajos: 1-4 opción · Enter siguiente · Esc salir · 🔥 racha 3 → ×1,5 · 5 → ×2'
     ]));
   }
 
-  /* ------------------------------------------------------------
-     Panel de test
-     ------------------------------------------------------------ */
+  /* Panel de test */
   function renderTestPanel() {
     const panel = el('div', { class: 'test-panel' });
     panel.appendChild(el('h3', {}, ['🧪 Modo test · forzar niveles']));
@@ -1277,8 +1682,6 @@ const UI = (() => {
   function renderQuestion(payload) {
     screen = 'session';
     answered = false;
-    discardedOption = -1;
-    currentQuestionData = payload;
     TTS.cancel();
     clear(app);
 
@@ -1296,6 +1699,15 @@ const UI = (() => {
     if (payload.testMode && q.tags && q.tags.length) {
       meta.appendChild(el('span', { class: 'test-tag' }, [q.tags[0]]));
     }
+    if (payload.streak >= 3) {
+      meta.appendChild(el('span', { class: 'streak-badge hot' }, [
+        `🔥 ×${payload.streak >= 5 ? 2 : 1.5}`
+      ]));
+    } else if (payload.streak >= 1) {
+      meta.appendChild(el('span', { class: 'streak-badge warm' }, [
+        `🔥 ${payload.streak}/3`
+      ]));
+    }
     app.appendChild(meta);
 
     app.appendChild(el('div', { class: 'bar' }, [
@@ -1303,9 +1715,9 @@ const UI = (() => {
     ]));
 
     if (payload.score > 0) {
-      app.appendChild(el('div', { class: 'small', style: 'text-align:right; margin-bottom:8px;' }, [
-        `Puntos: ${payload.score}`
-      ]));
+      app.appendChild(el('div', {
+        class: 'small', style: 'text-align:right; margin-bottom:8px;'
+      }, [`Puntos: ${payload.score}`]));
     }
 
     app.appendChild(el('div', { class: 'question' + (isHard ? ' hard' : '') }, [
@@ -1317,7 +1729,7 @@ const UI = (() => {
 
     const optsWrap = el('div', { class: 'opts', role: 'group', 'aria-label': 'Opciones' });
     q.opciones.forEach((o, i) => {
-      const btn = el('button', {
+      optsWrap.appendChild(el('button', {
         class: 'opt',
         'data-index': i,
         type: 'button',
@@ -1325,10 +1737,15 @@ const UI = (() => {
       }, [
         el('span', { class: 'num' }, [String(i + 1)]),
         el('span', { class: 'txt' }, [o.texto])
-      ]);
-      optsWrap.appendChild(btn);
+      ]));
     });
     app.appendChild(optsWrap);
+
+    // Repintamos descartes previos si la pregunta se re-renderiza
+    (payload.discardedIndices || []).forEach(idx => {
+      const target = optsWrap.querySelector(`[data-index="${idx}"]`);
+      if (target) { target.classList.add('discarded'); target.disabled = true; }
+    });
 
     const comodines = el('div', { class: 'comodines' }, [
       el('button', {
@@ -1336,13 +1753,7 @@ const UI = (() => {
         disabled: !payload.comodines.descartar,
         onclick: () => {
           if (answered) return;
-          if (!engine.useComodin('descartar')) return;
-          const idx = engine.pickDiscardable();
-          if (idx >= 0) {
-            discardedOption = idx;
-            const target = optsWrap.querySelector(`[data-index="${idx}"]`);
-            if (target) { target.classList.add('discarded'); target.disabled = true; }
-          }
+          engine.useComodin('descartar');
         }
       }, [`🗑 Descartar (${payload.comodines.descartar})`]),
       el('button', {
@@ -1367,7 +1778,10 @@ const UI = (() => {
       if (screen !== 'session') return;
       if (e.key >= '1' && e.key <= '4') {
         const idx = parseInt(e.key) - 1;
-        if (idx < q.opciones.length && !answered && idx !== discardedOption) submitAnswer(idx);
+        const disc = engine.session && engine.session.discardedIndices;
+        if (idx < q.opciones.length && !answered && !(disc && disc.has(idx))) {
+          submitAnswer(idx);
+        }
       } else if (e.key === 'Enter' && answered) {
         engine.next();
       } else if (e.key === 'Escape') {
@@ -1375,7 +1789,6 @@ const UI = (() => {
       }
     };
 
-    // Leer enunciado en voz alta al mostrar
     if (ttsSettings.get().enabled) {
       TTS.speak(q.enunciado);
     }
@@ -1402,36 +1815,49 @@ const UI = (() => {
       btn.disabled = true;
     });
 
+    const multTag = payload.multiplier > 1 ? ` (×${payload.multiplier})` : '';
     const title = payload.correct
-      ? `✓ Correcto · +${payload.points} puntos`
+      ? `✓ Correcto · +${payload.points} puntos${multTag}`
       : (payload.chosenIndex === -1
           ? `🤷 No lo sabías · +0 puntos`
           : `✗ Incorrecto · +0 puntos`);
 
-    // Texto completo a leer: título + explicación + dato curioso
-    const ttsTextParts = [];
-    ttsTextParts.push(payload.correct ? 'Correcto.' : 'Incorrecto.');
-    if (q.explicacion) ttsTextParts.push(q.explicacion);
-    if (q.dato_curioso) ttsTextParts.push('Dato curioso: ' + q.dato_curioso);
+    const ttsParts = [];
+    ttsParts.push(payload.correct ? 'Correcto.' : 'Incorrecto.');
+    if (payload.streakMilestone) ttsParts.push(`¡Racha de ${payload.streak}!`);
+    else if (payload.streakBroken) ttsParts.push('Racha rota.');
+    if (q.explicacion) ttsParts.push(q.explicacion);
+    if (q.dato_curioso) ttsParts.push('Dato curioso: ' + q.dato_curioso);
 
     const fb = el('div', { class: 'feedback' + (payload.correct ? '' : ' wrong') }, [
       el('h3', {}, [title]),
       q.explicacion ? el('div', { class: 'exp' }, [q.explicacion]) : null,
-      q.dato_curioso ? el('div', { class: 'curio' }, ['💡 ' + q.dato_curioso]) : null,
-      el('div', { class: 'row' }, [
-        el('button', {
-          class: 'btn-primary',
-          onclick: () => engine.next()
-        }, ['Siguiente ▶ (Enter)'])
-      ])
+      q.dato_curioso ? el('div', { class: 'curio' }, ['💡 ' + q.dato_curioso]) : null
     ]);
+
+    if (payload.streakMilestone) {
+      fb.appendChild(el('div', { class: 'streak-note' }, [
+        payload.streak >= 5
+          ? `🔥🔥 ¡Racha de ${payload.streak}! Puntos ×${payload.multiplier}`
+          : `🔥 ¡Racha de ${payload.streak}! Puntos ×${payload.multiplier}`
+      ]));
+    } else if (payload.streakBroken) {
+      fb.appendChild(el('div', { class: 'streak-note broken' }, [
+        `Racha rota (era de ${payload.prevStreak}). El contador vuelve a 0.`
+      ]));
+    }
+
+    fb.appendChild(el('div', { class: 'row' }, [
+      el('button', {
+        class: 'btn-primary',
+        onclick: () => engine.next()
+      }, ['Siguiente ▶ (Enter)'])
+    ]));
+
     app.appendChild(fb);
     fb.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
 
-    // Leer feedback por fragmentos
-    if (ttsSettings.get().enabled) {
-      TTS.speak(ttsTextParts.join(' '));
-    }
+    if (ttsSettings.get().enabled) TTS.speak(ttsParts.join(' '));
   }
 
   /* ------------------------------------------------------------
@@ -1448,18 +1874,31 @@ const UI = (() => {
       `${s.correct} de ${s.total} aciertos · ${pct}%`
     ]));
 
-    if (s.nearLevel.length) {
+    if (s.nearLevel && s.nearLevel.length) {
       const near = s.nearLevel[0];
       app.appendChild(el('div', { class: 'cta-box' }, [
-        `¡Casi! Estás a `, el('strong', {}, [`${near.remaining} XP`]),
-        ` de subir `, el('strong', {}, [near.tag]),
+        '¡Casi! Estás a ', el('strong', {}, [`${near.remaining} XP`]),
+        ' de subir ', el('strong', {}, [near.tag]),
         ` a nivel ${near.nextLevel}. Una sesión más y subes.`
       ]));
     }
 
     if (s.streakDays > 1) {
-      app.appendChild(el('div', { class: 'cta-box', style: 'background:#1a1a2a; border-left-color:#888;' }, [
-        `🔥 Llevas `, el('strong', {}, [`${s.streakDays} días`]), ` seguidos jugando.`
+      app.appendChild(el('div', {
+        class: 'cta-box',
+        style: 'background:#1a1a2a; border-left-color:#888;'
+      }, [
+        '🔥 Llevas ', el('strong', {}, [`${s.streakDays} días`]), ' seguidos jugando.'
+      ]));
+    }
+
+    if (s.maxStreak >= 3) {
+      app.appendChild(el('div', { class: 'cta-box fire' }, [
+        '🔥 Racha máxima de esta sesión: ',
+        el('strong', {}, [`${s.maxStreak} aciertos seguidos`]),
+        s.bestStreak > s.maxStreak
+          ? ` · récord histórico: ${s.bestStreak}`
+          : ' · ¡nuevo récord!'
       ]));
     }
 
@@ -1471,6 +1910,10 @@ const UI = (() => {
       el('div', { class: 'stat' }, [
         el('span', {}, ['Aciertos']),
         el('span', {}, [`${s.correct} / ${s.total}`])
+      ]),
+      el('div', { class: 'stat' }, [
+        el('span', {}, ['Racha máxima']),
+        el('span', {}, [`${s.maxStreak} (récord: ${s.bestStreak})`])
       ]),
       el('div', { class: 'stat' }, [
         el('span', {}, ['Temas']),
@@ -1517,7 +1960,7 @@ const UI = (() => {
             class: 'btn-small',
             style: 'display:inline-block; margin-left:6px;',
             onclick: () => {
-              if (confirm(`¿Reiniciar ${tag} por completo? Perderás todo el progreso en este tema.`)) {
+              if (confirm(`¿Reiniciar ${tag} por completo? Perderás todo el progreso.`)) {
                 engine.resetTag(tag);
                 renderSummary({ ...s, nearLevel: [] });
               }
@@ -1527,9 +1970,10 @@ const UI = (() => {
       ]));
     });
 
-    // Resumen hablado
     if (ttsSettings.get().enabled) {
-      const texto = `Sesión terminada. ${s.correct} de ${s.total} aciertos. Puntuación: ${s.score}.`;
+      const texto = `Sesión terminada. ${s.correct} de ${s.total} aciertos. ` +
+                    `Puntuación: ${s.score}.` +
+                    (s.maxStreak >= 3 ? ` Racha máxima: ${s.maxStreak}.` : '');
       TTS.speak(texto);
     }
   }
@@ -1538,7 +1982,6 @@ const UI = (() => {
      DIÁLOGO · Configuración de voz
      ------------------------------------------------------------ */
   function openVoiceDialog() {
-    // Refrescar lista de voces
     const voices = TTS.getVoicesList();
     const sel = document.getElementById('voiceSelect');
     sel.innerHTML = '';
@@ -1560,17 +2003,13 @@ const UI = (() => {
     document.getElementById('rateVal').textContent = cfg.rate.toFixed(2);
     document.getElementById('pitchVal').textContent = cfg.pitch.toFixed(2);
 
-    if (typeof voiceDialog.showModal === 'function') {
-      voiceDialog.showModal();
-    } else {
-      voiceDialog.setAttribute('open', '');
-    }
+    if (typeof voiceDialog.showModal === 'function') voiceDialog.showModal();
+    else voiceDialog.setAttribute('open', '');
   }
 
   function closeVoiceDialog() {
     if (typeof voiceDialog.close === 'function') voiceDialog.close();
     else voiceDialog.removeAttribute('open');
-    // Refrescar botón de cabecera
     if (screen === 'home') renderHome();
   }
 
@@ -1590,7 +2029,6 @@ const UI = (() => {
 
     voiceSelect.addEventListener('change', () => {
       ttsSettings.set({ vozNombre: voiceSelect.value });
-      // Previsualizar
       if (ttsSettings.get().enabled) TTS.speak('Así suena mi voz.');
     });
 
@@ -1624,18 +2062,41 @@ const UI = (() => {
      Suscripciones al bus
      ------------------------------------------------------------ */
   function bind(engineBus) {
-    engineBus.on(EV.BANK_LOADED, ({ total }) => console.log(`[bus] banco: ${total} preguntas`));
-    engineBus.on(EV.SESSION_STARTED, ({ fallbackLog, testMode }) => {
+    engineBus.on(EV.BANK_LOADED, ({ total }) => {
+      console.log(`[bus] banco: ${total} preguntas`);
+    });
+
+    engineBus.on(EV.SESSION_STARTED, ({ fallbackLog, testMode, freshInfo }) => {
       if (testMode && fallbackLog.length) {
         console.log('[test] fallback aplicado:', fallbackLog);
       }
+      if (freshInfo && freshInfo.fresh < 10) {
+        console.warn(`[session] solo ${freshInfo.fresh} preguntas frescas; habrá repeticiones.`);
+      }
       if (screen !== 'session') renderHome();
     });
+
     engineBus.on(EV.QUESTION_SHOWN, renderQuestion);
     engineBus.on(EV.ANSWER_SUBMITTED, renderFeedback);
     engineBus.on(EV.SESSION_ENDED, renderSummary);
     engineBus.on(EV.ERROR, ({ message }) => alert(message));
-    engineBus.on(EV.SCREEN_CHANGED, ({ screen: s }) => { if (s === 'home') renderHome(); });
+
+    engineBus.on(EV.SCREEN_CHANGED, ({ screen: s }) => {
+      if (s === 'home') renderHome();
+    });
+
+    engineBus.on(EV.COMODIN_USED, ({ type, left, index }) => {
+      if (type === 'descartar' && typeof index === 'number') {
+        const target = app.querySelector(`.opt[data-index="${index}"]`);
+        if (target) { target.classList.add('discarded'); target.disabled = true; }
+        const btn = app.querySelector('.comodines button:first-child');
+        if (btn) {
+          btn.textContent = `🗑 Descartar (${left})`;
+          if (left <= 0) btn.disabled = true;
+        }
+      }
+    });
+
     engineBus.on(EV.TTS_CONFIG_CHANGED, (cfg) => {
       console.log('[tts] config actualizada', cfg);
     });
@@ -1652,6 +2113,9 @@ const UI = (() => {
     ethicalNotice = noticeInstance;
     engine = engineInstance;
 
+    // Aplicamos el tamaño de letra guardado ANTES de renderizar.
+    applyFontSize(getFontSize());
+
     TTS.init();
     bind(bus);
     bindVoiceDialog();
@@ -1664,9 +2128,6 @@ const UI = (() => {
 
 /* ================================================================
    BANCO DE PREGUNTAS DE EJEMPLO · 62 preguntas
-   Distribución por tag (dif1/dif2/dif3):
-     historia: 8/5/2 · ciencia: 7/3/2 · arte: 7/3/2
-     geografía: 5/5/2 · psicotécnico: 7/3/2
    ================================================================ */
 const SAMPLE_QUESTIONS = [
   /* ----- HISTORIA ----- */
@@ -1895,14 +2356,14 @@ const SAMPLE_QUESTIONS = [
   },
   {
     id: "c03", tipo: "trivia",
-    enunciado: "¿Cuál es la velocidad de la luz en el vacío?",
+    enunciado: "¿Cuál es la velocidad de la luz en el vacío, aproximadamente?",
     opciones: [
       { texto: "300.000 km/s", correcta: true, tag_error: null },
       { texto: "150.000 km/s", correcta: false, tag_error: "confunde_mitad" },
       { texto: "1.000.000 km/s", correcta: false, tag_error: "redondeo_excesivo" },
       { texto: "30.000 km/s", correcta: false, tag_error: "falta_un_cero" }
     ],
-    explicacion: "Es 299.792.458 m/s, aproximadamente 300.000 km/s.",
+    explicacion: "El valor exacto es 299.792.458 m/s, aproximadamente 300.000 km/s. Se redondea a esa cifra por convenio, aunque el valor real es ligeramente inferior.",
     dato_curioso: "La luz del Sol tarda 8 minutos y 20 segundos en llegar a la Tierra.",
     dificultad: 1, tags: ["ciencia", "ciencia_fisica"], fuente: "BIPM", revision: "verificada"
   },
@@ -2501,6 +2962,146 @@ const SAMPLE_QUESTIONS = [
 
 
 /* ================================================================
+   TESTS · Verificación de zonas delicadas
+   ================================================================ */
+function runTests() {
+  const results = [];
+
+  const eq = (name, got, expected) => {
+    const ok = JSON.stringify(got) === JSON.stringify(expected);
+    results.push({ name, ok, got, expected });
+    return ok;
+  };
+  const truthy = (name, got, expected = true) => {
+    const ok = got === expected;
+    results.push({ name, ok, got, expected });
+    return ok;
+  };
+  const falsy = (name, got) => truthy(name, got, false);
+
+  try {
+    /* streakMultiplier */
+    eq('streak 0 → ×1', Domain.streakMultiplier(0), 1);
+    eq('streak 2 → ×1', Domain.streakMultiplier(2), 1);
+    eq('streak 3 → ×1.5', Domain.streakMultiplier(3), 1.5);
+    eq('streak 4 → ×1.5', Domain.streakMultiplier(4), 1.5);
+    eq('streak 5 → ×2', Domain.streakMultiplier(5), 2);
+    eq('streak 10 → ×2', Domain.streakMultiplier(10), 2);
+
+    /* scoreAnswer */
+    const q1 = { dificultad: 1 };
+    const q3 = { dificultad: 3 };
+    eq('base dif1', Domain.scoreAnswer(q1, true, false, 1), 10);
+    eq('base dif3', Domain.scoreAnswer(q3, true, false, 1), 30);
+    eq('fallo → 0', Domain.scoreAnswer(q3, false, false, 2), 0);
+    eq('dif3 + comodín + racha 3', Domain.scoreAnswer(q3, true, true, 1.5), 31);
+    eq('dif3 + racha 5', Domain.scoreAnswer(q3, true, false, 2), 60);
+    eq('comodín nunca deja 0', Domain.scoreAnswer(q1, true, true, 1), 7);
+
+    /* normalizeQuestion · canónico */
+    const canon = {
+      id: 'test1', enunciado: '¿X?',
+      opciones: [
+        { texto: 'a', correcta: true },
+        { texto: 'b', correcta: false }
+      ],
+      dificultad: 2, tags: ['t']
+    };
+    const nc = Domain.normalizeQuestion(canon);
+    truthy('canónico → no null', !!nc);
+    eq('canónico id', nc.id, 'test1');
+
+    /* normalizeQuestion · OpenTDB */
+    const opentdb = {
+      id: 'o1', question: '¿Y?',
+      correct_answer: 'ok',
+      incorrect_answers: ['m1', 'm2', 'm3'],
+      difficulty: 'hard'
+    };
+    const no = Domain.normalizeQuestion(opentdb);
+    truthy('OpenTDB → no null', !!no);
+    eq('OpenTDB "hard" → 3', no.dificultad, 3);
+    eq('OpenTDB 4 opciones', no.opciones.length, 4);
+
+    /* normalizeQuestion · alias */
+    const alias = {
+      id: 'al1', question: '¿Alias?',
+      options: [
+        { text: 'ok', correct: true },
+        { text: 'no', correct: false }
+      ],
+      difficulty: 'easy', topics: ['x']
+    };
+    const na = Domain.normalizeQuestion(alias);
+    truthy('alias → no null', !!na);
+    eq('alias "easy" → 1', na.dificultad, 1);
+    eq('alias tags desde topics', na.tags, ['x']);
+
+    /* isValidQuestion · casos límite */
+    falsy('sin id → inválido', Domain.isValidQuestion({ enunciado: 'x', opciones: [{texto:'a',correcta:true}] }));
+    falsy('sin enunciado → inválido', Domain.isValidQuestion({ id: 'x', opciones: [{texto:'a',correcta:true}] }));
+    falsy('opciones < 2 → inválido', Domain.isValidQuestion({ id: 'x', enunciado: 'y', opciones: [{texto:'a',correcta:true}] }));
+    falsy('ninguna correcta → inválido', Domain.isValidQuestion({ id: 'x', enunciado: 'y', opciones: [{texto:'a',correcta:false},{texto:'b',correcta:false}] }));
+    truthy('válida completa', Domain.isValidQuestion(canon));
+
+    /* splitFragments: no parte en ¿ ni ¡ */
+    const frags = TTS_forTests.splitFragments('¿Quién fue? ¡Vaya! Otra frase.');
+    truthy('splitFragments ≥ 2', frags.length >= 2);
+    truthy('splitFragments conserva ¿', frags[0].startsWith('¿'));
+    truthy('splitFragments conserva ¡', frags.some(f => f.includes('¡')));
+
+    /* QuestionBank · duplicados */
+    const bank = new Domain.QuestionBank();
+    eq('addMany 1ª', bank.addMany([canon]), 1);
+    eq('addMany duplicado → 0', bank.addMany([canon]), 0);
+    eq('rechazo reportado', bank.lastRejected.length, 1);
+    truthy('motivo = duplicado', /duplicado/.test(bank.lastRejected[0].reason));
+
+    /* buildSession · tamaño y no repetición */
+    const smallBank = new Domain.QuestionBank();
+    smallBank.addMany([
+      { id: 's1', enunciado: 'q1', opciones: [{texto:'a',correcta:true},{texto:'b',correcta:false}], dificultad: 1, tags: ['t'] },
+      { id: 's2', enunciado: 'q2', opciones: [{texto:'a',correcta:true},{texto:'b',correcta:false}], dificultad: 1, tags: ['t'] },
+      { id: 's3', enunciado: 'q3', opciones: [{texto:'a',correcta:true},{texto:'b',correcta:false}], dificultad: 1, tags: ['t'] }
+    ]);
+    const fakeProgress = { recentSessions: [], getTag: () => ({ level: 1, xp: 0 }) };
+    const { questions } = Domain.buildSession(smallBank, ['t'], fakeProgress, { size: 3, excludeRecent: false });
+    eq('buildSession tamaño', questions.length, 3);
+    const ids = questions.map(q => q.id);
+    eq('buildSession sin duplicados', new Set(ids).size, ids.length);
+
+    /* buildSession · freshInfo */
+    const withRecent = { recentSessions: [['s1','s2']], getTag: () => ({ level: 1, xp: 0 }) };
+    const { freshInfo } = Domain.buildSession(smallBank, ['t'], withRecent, { size: 1, excludeRecent: true });
+    eq('freshInfo fresh = 1 (s3)', freshInfo.fresh, 1);
+    eq('freshInfo total = 3', freshInfo.total, 3);
+
+  } catch (err) {
+    results.push({ name: 'EXCEPCIÓN en tests', ok: false, got: err.message, expected: '—' });
+  }
+
+  const failed = results.filter(r => !r.ok);
+  if (failed.length) {
+    console.group(`🧪 Tests: ${results.length - failed.length}/${results.length} OK, ${failed.length} FALLOS`);
+    failed.forEach(f => console.error(`✗ ${f.name}`, { got: f.got, expected: f.expected }));
+    console.groupEnd();
+  } else {
+    console.log(`🧪 Tests: ${results.length}/${results.length} OK ✓`);
+  }
+  return { total: results.length, failed: failed.length };
+}
+
+// Alias para tests sin instanciar UI
+const TTS_forTests = {
+  splitFragments(text) {
+    if (!text) return [];
+    const partes = text.match(/[^.!?]+[.!?]*/g) || [text];
+    return partes.map(s => s.trim()).filter(s => s.length > 0);
+  }
+};
+
+
+/* ================================================================
    ARRANQUE · Wiring de capas
    ================================================================ */
 (function bootstrap() {
@@ -2515,8 +3116,13 @@ const SAMPLE_QUESTIONS = [
 
   UI.init(bus, bank, progress, ttsSettings, ethicalNotice, engine);
 
-  window.__trivia = { bus, bank, progress, ttsSettings, ethicalNotice, engine, EVENTS: App.EVENTS };
-  console.log('[trivia] PMV v3 listo. Preguntas cargadas:', bank.questions.length);
+  window.__trivia = {
+    bus, bank, progress, ttsSettings, ethicalNotice, engine,
+    EVENTS: App.EVENTS, Domain, runTests
+  };
+  console.log('[trivia] PMV v3.2 listo. Preguntas cargadas:', bank.questions.length);
+
+  runTests();
 
   const stats = {};
   for (const t of bank.getTags()) stats[t] = bank.statsForTag(t);
