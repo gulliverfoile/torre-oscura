@@ -1,667 +1,787 @@
 {
   "version": "1.0",
   "idioma": "es",
-  "descripcion": "Banco adicional de preguntas para completar el escalado por niveles. 50 preguntas nuevas.",
+  "licencia": "CC BY-SA 4.0",
   "preguntas": [
-
-    /* ===== HISTORIA (+5) ===== */
     {
-      "id": "h16", "tipo": "trivia",
-      "enunciado": "¿Qué general cruzó el río Rubicón en el 49 a.C.?",
+      "id": "v01", "tipo": "trivia",
+      "enunciado": "¿En qué año llegó el ser humano a la Luna por primera vez?",
       "opciones": [
-        { "texto": "Pompeyo", "correcta": false, "tag_error": "confunde_rival" },
-        { "texto": "Julio César", "correcta": true, "tag_error": null },
-        { "texto": "Augusto", "correcta": false, "tag_error": "confunde_sucesor" },
-        { "texto": "Marco Antonio", "correcta": false, "tag_error": "confunde_aliado" }
+        { "texto": "1965", "correcta": false, "tag_error": "confunde_carrera_espacial" },
+        { "texto": "1969", "correcta": true, "tag_error": null },
+        { "texto": "1972", "correcta": false, "tag_error": "confunde_apollo_17" },
+        { "texto": "1961", "correcta": false, "tag_error": "confunde_gagarin" }
       ],
-      "explicacion": "Julio César cruzó el Rubicón en el 49 a.C., iniciando la guerra civil contra Pompeyo.",
-      "dato_curioso": "La frase 'cruzar el Rubicón' significa tomar una decisión irreversible.",
-      "dificultad": 1, "tags": ["historia", "historia_antigua"], "fuente": "Suetonio", "revision": "verificada"
+      "explicacion": "La misión Apolo 11 llegó a la Luna el 20 de julio de 1969. En 1961 Gagarin fue el primer humano en el espacio, no en la Luna; 1972 es la última misión Apolo.",
+      "dato_curioso": "El ordenador del Apolo 11 tenía menos memoria que un teléfono móvil actual básico.",
+      "dificultad": 1, "tags": ["historia", "historia_contemporanea"], "fuente": "NASA", "revision": "verificada"
     },
     {
-      "id": "h17", "tipo": "trivia",
+      "id": "v02", "tipo": "trivia",
+      "enunciado": "¿Qué faraón mandó construir la Gran Pirámide de Guiza?",
+      "opciones": [
+        { "texto": "Tutankamón", "correcta": false, "tag_error": "confunde_faraon_tardio" },
+        { "texto": "Keops", "correcta": true, "tag_error": null },
+        { "texto": "Ramsés II", "correcta": false, "tag_error": "confunde_faraon_guerrero" },
+        { "texto": "Akenatón", "correcta": false, "tag_error": "confunde_hereje" }
+      ],
+      "explicacion": "La Gran Pirámide de Guiza fue construida bajo el faraón Keops (Jufu), hacia el 2560 a.C. Tutankamón, Ramsés II y Akenatón pertenecen a épocas muy posteriores.",
+      "dato_curioso": "La Gran Pirámide fue la estructura más alta del mundo durante casi 4.000 años.",
+      "dificultad": 2, "tags": ["historia", "historia_antigua"], "fuente": "Enciclopedia Británica", "revision": "verificada"
+    },
+    {
+      "id": "v03", "tipo": "trivia",
       "enunciado": "¿En qué año terminó la Segunda Guerra Mundial?",
       "opciones": [
-        { "texto": "1943", "correcta": false, "tag_error": "confunde_italia" },
+        { "texto": "1943", "correcta": false, "tag_error": "confunde_stalingrado" },
         { "texto": "1945", "correcta": true, "tag_error": null },
-        { "texto": "1947", "correcta": false, "tag_error": "confunde_postguerra" },
-        { "texto": "1950", "correcta": false, "tag_error": "confunde_corea" }
+        { "texto": "1947", "correcta": false, "tag_error": "confunde_plan_marshall" },
+        { "texto": "1939", "correcta": false, "tag_error": "confunde_inicio" }
       ],
-      "explicacion": "La Segunda Guerra Mundial terminó en 1945: en Europa en mayo y en Asia en septiembre.",
-      "dato_curioso": "El soldado japonés Hiroo Onoda siguió combatiendo hasta 1974 porque no le creyeron que la guerra había terminado.",
+      "explicacion": "La Segunda Guerra Mundial terminó en 1945: en Europa en mayo y en el Pacífico en septiembre. 1939 es el comienzo; 1943, la batalla de Stalingrado; 1947, el Plan Marshall.",
+      "dato_curioso": "El acta de rendición de Japón se firmó en el acorazado USS Missouri el 2 de septiembre de 1945.",
       "dificultad": 1, "tags": ["historia", "historia_contemporanea"], "fuente": "Enciclopedia Británica", "revision": "verificada"
     },
     {
-      "id": "h18", "tipo": "trivia",
+      "id": "v04", "tipo": "trivia",
       "enunciado": "¿Quién fue el último zar de Rusia?",
       "opciones": [
         { "texto": "Alejandro III", "correcta": false, "tag_error": "confunde_padre" },
         { "texto": "Nicolás II", "correcta": true, "tag_error": null },
-        { "texto": "Pedro III", "correcta": false, "tag_error": "confunde_siglo_xviii" },
-        { "texto": "Pablo I", "correcta": false, "tag_error": "confunde_anterior" }
+        { "texto": "Pedro el Grande", "correcta": false, "tag_error": "confunde_siglo_xviii" },
+        { "texto": "Iván el Terrible", "correcta": false, "tag_error": "confunde_primero" }
       ],
-      "explicacion": "Nicolás II fue el último zar. Abdicó en 1917 y fue ejecutado con su familia en 1918.",
-      "dato_curioso": "La hija menor, Anastasia, inspiró decenas de impostoras que decían haber sobrevivido.",
+      "explicacion": "Nicolás II abdicó en 1917 y fue ejecutado con su familia en 1918 por los bolcheviques. Alejandro III fue su padre; Pedro el Grande e Iván el Terrible, zares anteriores.",
+      "dato_curioso": "Nicolás II y su familia fueron canonizados por la Iglesia ortodoxa rusa en 2000.",
       "dificultad": 2, "tags": ["historia", "historia_contemporanea"], "fuente": "Enciclopedia Británica", "revision": "verificada"
     },
     {
-      "id": "h19", "tipo": "trivia",
+      "id": "v05", "tipo": "trivia",
       "enunciado": "¿Qué civilización inventó la escritura cuneiforme?",
       "opciones": [
-        { "texto": "Egipcia", "correcta": false, "tag_error": "confunde_jeroglificos" },
-        { "texto": "Sumeria", "correcta": true, "tag_error": null },
-        { "texto": "Fenicia", "correcta": false, "tag_error": "confunde_alfabeto" },
-        { "texto": "China", "correcta": false, "tag_error": "confunde_oriente" }
+        { "texto": "Egipcios", "correcta": false, "tag_error": "confunde_jeroglifico" },
+        { "texto": "Sumerios", "correcta": true, "tag_error": null },
+        { "texto": "Fenicios", "correcta": false, "tag_error": "confunde_alfabeto" },
+        { "texto": "Griegos", "correcta": false, "tag_error": "confunde_alfabeto_occidental" }
       ],
-      "explicacion": "Los sumerios inventaron la escritura cuneiforme hacia el 3200 a.C. en Mesopotamia.",
-      "dato_curioso": "La escritura nació para llevar cuentas de grano y ganado, no para poesía.",
+      "explicacion": "Los sumerios inventaron la escritura cuneiforme hacia el 3200 a.C. en Mesopotamia. Los egipcios desarrollaron los jeroglíficos, y los fenicios, el alfabeto.",
+      "dato_curioso": "La cuneiforme se escribía con una caña sobre tablillas de arcilla húmeda, que se dejaban secar al sol.",
+      "dificultad": 2, "tags": ["historia", "historia_antigua"], "fuente": "Enciclopedia Británica", "revision": "verificada"
+    },
+    {
+      "id": "v06", "tipo": "trivia",
+      "enunciado": "¿En qué año se proclamó la Constitución de Cádiz, conocida como 'La Pepa'?",
+      "opciones": [
+        { "texto": "1808", "correcta": false, "tag_error": "confunde_motín_aranjuez" },
+        { "texto": "1812", "correcta": true, "tag_error": null },
+        { "texto": "1837", "correcta": false, "tag_error": "confunde_constitucion_isabelina" },
+        { "texto": "1876", "correcta": false, "tag_error": "confunde_canovas" }
+      ],
+      "explicacion": "La Constitución de Cádiz se proclamó el 19 de marzo de 1812 (San José → 'La Pepa'). 1808 es el Motín de Aranjuez; 1837 y 1876 son constituciones posteriores.",
+      "dato_curioso": "Fue la primera constitución española y una de las más liberales de su época.",
+      "dificultad": 3, "tags": ["historia", "historia_moderna"], "fuente": "Congreso de los Diputados", "revision": "verificada"
+    },
+    {
+      "id": "v07", "tipo": "trivia",
+      "enunciado": "¿Qué dinastía reinaba en Castilla cuando Colón llegó a América?",
+      "opciones": [
+        { "texto": "Borbón", "correcta": false, "tag_error": "confunde_siglo_xviii" },
+        { "texto": "Trastámara", "correcta": true, "tag_error": null },
+        { "texto": "Austria", "correcta": false, "tag_error": "confunde_carlos_v" },
+        { "texto": "Borgoña", "correcta": false, "tag_error": "confunde_edad_media" }
+      ],
+      "explicacion": "Isabel la Católica pertenecía a la Casa de Trastámara. Los Austrias llegaron con Carlos V (1516) y los Borbones, con Felipe V (1700).",
+      "dato_curioso": "Isabel I de Castilla y Fernando II de Aragón eran primos segundos: se casaron con dispensa papal.",
+      "dificultad": 3, "tags": ["historia", "historia_moderna"], "fuente": "RAE", "revision": "verificada"
+    },
+    {
+      "id": "v08", "tipo": "trivia",
+      "enunciado": "¿Quién fue el primer emperador de una China unificada?",
+      "opciones": [
+        { "texto": "Confucio", "correcta": false, "tag_error": "confunde_filosofo" },
+        { "texto": "Qin Shi Huang", "correcta": true, "tag_error": null },
+        { "texto": "Kublai Kan", "correcta": false, "tag_error": "confunde_mongoles" },
+        { "texto": "Puyi", "correcta": false, "tag_error": "confunde_ultimo" }
+      ],
+      "explicacion": "Qin Shi Huang unificó China en 221 a.C. y se proclamó primer emperador. Confucio fue un filósofo; Kublai Kan, emperador mongol; Puyi, el último emperador (siglo XX).",
+      "dato_curioso": "Se hizo enterrar con el famoso Ejército de Terracota: más de 8.000 figuras de guerreros.",
       "dificultad": 2, "tags": ["historia", "historia_antigua"], "fuente": "UNESCO", "revision": "verificada"
     },
     {
-      "id": "h20", "tipo": "trivia",
-      "enunciado": "¿Qué tratado dividió el mundo entre España y Portugal en 1494?",
+      "id": "v09", "tipo": "trivia",
+      "enunciado": "¿En qué año se independizó la India del Reino Unido?",
       "opciones": [
-        { "texto": "Zaragoza", "correcta": false, "tag_error": "confunde_1529" },
-        { "texto": "Tordesillas", "correcta": true, "tag_error": null },
-        { "texto": "Alcáçovas", "correcta": false, "tag_error": "confunde_1479" },
-        { "texto": "Utrecht", "correcta": false, "tag_error": "confunde_1713" }
+        { "texto": "1919", "correcta": false, "tag_error": "confunde_amritsar" },
+        { "texto": "1947", "correcta": true, "tag_error": null },
+        { "texto": "1962", "correcta": false, "tag_error": "confunde_guerra_china" },
+        { "texto": "1971", "correcta": false, "tag_error": "confunde_bangladesh" }
       ],
-      "explicacion": "El Tratado de Tordesillas (1494) dividió las zonas de exploración entre España y Portugal con una línea a 370 leguas al oeste de Cabo Verde.",
-      "dato_curioso": "Por ese tratado, Brasil quedó del lado portugués, y por eso hoy se habla portugués allí.",
-      "dificultad": 3, "tags": ["historia", "historia_moderna"], "fuente": "Archivo de Indias", "revision": "verificada"
+      "explicacion": "La India se independizó el 15 de agosto de 1947, tras la partición con Pakistán. 1919 es la matanza de Amritsar; 1971, la independencia de Bangladés.",
+      "dato_curioso": "La independencia vino acompañada de la mayor migración masiva de la historia: unos 15 millones de personas desplazadas.",
+      "dificultad": 2, "tags": ["historia", "historia_contemporanea"], "fuente": "Enciclopedia Británica", "revision": "verificada"
     },
-
-    /* ===== CIENCIA (+10) ===== */
     {
-      "id": "c13", "tipo": "trivia",
-      "enunciado": "¿Qué planeta es conocido como el planeta rojo?",
+      "id": "v10", "tipo": "trivia",
+      "enunciado": "¿Qué guerra enfrentó a Atenas y Esparta en el siglo V a.C.?",
       "opciones": [
-        { "texto": "Venus", "correcta": false, "tag_error": "confunde_brillo" },
-        { "texto": "Marte", "correcta": true, "tag_error": null },
-        { "texto": "Júpiter", "correcta": false, "tag_error": "confunde_gigante" },
-        { "texto": "Mercurio", "correcta": false, "tag_error": "confunde_pequeno" }
+        { "texto": "Guerras Médicas", "correcta": false, "tag_error": "confunde_persia" },
+        { "texto": "Guerra del Peloponeso", "correcta": true, "tag_error": null },
+        { "texto": "Guerra de Troya", "correcta": false, "tag_error": "confunde_mitica" },
+        { "texto": "Guerras Púnicas", "correcta": false, "tag_error": "confunde_roma_cartago" }
       ],
-      "explicacion": "Marte es rojo por el óxido de hierro (herrumbre) de su superficie.",
-      "dato_curioso": "Marte tiene el volcán más alto del sistema solar: el Monte Olimpo, de 22 km.",
+      "explicacion": "La Guerra del Peloponeso (431-404 a.C.) enfrentó a Atenas y sus aliados contra Esparta. Las Médicas fueron contra Persia; las Púnicas, Roma contra Cartago; Troya es mítica.",
+      "dato_curioso": "Tucídides escribió la historia de esta guerra y se le considera padre del rigor histórico.",
+      "dificultad": 2, "tags": ["historia", "historia_antigua"], "fuente": "Enciclopedia Británica", "revision": "verificada"
+    },
+    {
+      "id": "v11", "tipo": "trivia",
+      "enunciado": "¿Cuál es el planeta más grande del sistema solar?",
+      "opciones": [
+        { "texto": "Saturno", "correcta": false, "tag_error": "confunde_segundo" },
+        { "texto": "Júpiter", "correcta": true, "tag_error": null },
+        { "texto": "Neptuno", "correcta": false, "tag_error": "confunde_tercero" },
+        { "texto": "Tierra", "correcta": false, "tag_error": "confunde_rocoso" }
+      ],
+      "explicacion": "Júpiter es el planeta más grande, con una masa mayor que la de todos los demás planetas juntos. Saturno es el segundo.",
+      "dato_curioso": "En Júpiter cabrían más de 1.300 Tierras.",
       "dificultad": 1, "tags": ["ciencia", "ciencia_fisica"], "fuente": "NASA", "revision": "verificada"
     },
     {
-      "id": "c14", "tipo": "trivia",
-      "enunciado": "¿Cuántos corazones tiene un pulpo?",
+      "id": "v12", "tipo": "trivia",
+      "enunciado": "¿Cuál es el símbolo químico del hierro?",
       "opciones": [
-        { "texto": "1", "correcta": false, "tag_error": "confunde_humano" },
-        { "texto": "2", "correcta": false, "tag_error": "off_by_one" },
-        { "texto": "3", "correcta": true, "tag_error": null },
-        { "texto": "4", "correcta": false, "tag_error": "off_by_one_arriba" }
+        { "texto": "Hi", "correcta": false, "tag_error": "confunde_inicial_castellana" },
+        { "texto": "Fe", "correcta": true, "tag_error": null },
+        { "texto": "F", "correcta": false, "tag_error": "confunde_flúor" },
+        { "texto": "He", "correcta": false, "tag_error": "confunde_helio" }
       ],
-      "explicacion": "Los pulpos tienen 3 corazones: dos branquiales y uno sistémico.",
-      "dato_curioso": "Su sangre es azul porque usa hemocianina (cobre) en vez de hemoglobina (hierro).",
-      "dificultad": 1, "tags": ["ciencia", "ciencia_biologia"], "fuente": "Smithsonian", "revision": "verificada"
+      "explicacion": "El hierro es Fe, del latín 'ferrum'. F es el flúor; He, el helio. Hi no es símbolo de ningún elemento.",
+      "dato_curioso": "El hierro es el elemento más abundante en el núcleo de la Tierra.",
+      "dificultad": 1, "tags": ["ciencia", "ciencia_quimica"], "fuente": "IUPAC", "revision": "verificada"
     },
     {
-      "id": "c15", "tipo": "trivia",
-      "enunciado": "¿Cuál es el metal más conductor de electricidad?",
+      "id": "v13", "tipo": "trivia",
+      "enunciado": "¿Qué gas absorben las plantas para realizar la fotosíntesis?",
       "opciones": [
-        { "texto": "Cobre", "correcta": false, "tag_error": "confunde_uso_industrial" },
-        { "texto": "Oro", "correcta": false, "tag_error": "confunde_joyeria" },
-        { "texto": "Plata", "correcta": true, "tag_error": null },
-        { "texto": "Aluminio", "correcta": false, "tag_error": "confunde_lígero" }
+        { "texto": "Oxígeno", "correcta": false, "tag_error": "confunde_producto" },
+        { "texto": "Dióxido de carbono", "correcta": true, "tag_error": null },
+        { "texto": "Nitrógeno", "correcta": false, "tag_error": "confunde_atmosfera" },
+        { "texto": "Hidrógeno", "correcta": false, "tag_error": "confunde_agua" }
       ],
-      "explicacion": "La plata es el mejor conductor. El cobre se usa más porque es mucho más barato.",
-      "dato_curioso": "En 2021, el precio del cobre subió tanto que hubo olas de robos de cable en muchos países.",
-      "dificultad": 1, "tags": ["ciencia", "ciencia_fisica"], "fuente": "NIST", "revision": "verificada"
+      "explicacion": "Las plantas absorben CO₂ y liberan oxígeno en la fotosíntesis. El oxígeno es un producto, no un insumo; el nitrógeno no se usa en la fotosíntesis.",
+      "dato_curioso": "El fitoplancton marino produce más de la mitad del oxígeno atmosférico.",
+      "dificultad": 1, "tags": ["ciencia", "ciencia_biologia"], "fuente": "Khan Academy", "revision": "verificada"
     },
     {
-      "id": "c16", "tipo": "trivia",
-      "enunciado": "¿Cuál es el animal más grande del planeta?",
+      "id": "v14", "tipo": "trivia",
+      "enunciado": "¿Cuál es la unidad básica de la vida?",
       "opciones": [
-        { "texto": "Elefante africano", "correcta": false, "tag_error": "confunde_terrestre" },
-        { "texto": "Ballena azul", "correcta": true, "tag_error": null },
-        { "texto": "Cachalote", "correcta": false, "tag_error": "confunde_depredador" },
-        { "texto": "Tiburón ballena", "correcta": false, "tag_error": "confunde_pez" }
+        { "texto": "Átomo", "correcta": false, "tag_error": "confunde_quimica" },
+        { "texto": "Célula", "correcta": true, "tag_error": null },
+        { "texto": "Órgano", "correcta": false, "tag_error": "confunde_tejido" },
+        { "texto": "Molécula", "correcta": false, "tag_error": "confunde_quimica" }
       ],
-      "explicacion": "La ballena azul es el animal más grande: hasta 30 m y 180 toneladas.",
-      "dato_curioso": "Su corazón pesa tanto como un coche pequeño.",
-      "dificultad": 1, "tags": ["ciencia", "ciencia_biologia"], "fuente": "WWF", "revision": "verificada"
+      "explicacion": "La célula es la unidad básica de la vida según la teoría celular. Átomos y moléculas son más pequeños pero no están vivos por sí mismos.",
+      "dato_curioso": "El cuerpo humano contiene unas 30 billones de células.",
+      "dificultad": 1, "tags": ["ciencia", "ciencia_biologia"], "fuente": "NIH", "revision": "verificada"
     },
     {
-      "id": "c17", "tipo": "trivia",
-      "enunciado": "¿Qué gas es el más abundante en la atmósfera terrestre?",
+      "id": "v15", "tipo": "trivia",
+      "enunciado": "¿Qué astrónomo propuso el modelo heliocéntrico en el siglo XVI?",
       "opciones": [
-        { "texto": "Oxígeno", "correcta": false, "tag_error": "confunde_respiracion" },
-        { "texto": "Nitrógeno", "correcta": true, "tag_error": null },
-        { "texto": "Dióxido de carbono", "correcta": false, "tag_error": "confunde_efecto_invernadero" },
-        { "texto": "Argón", "correcta": false, "tag_error": "confunde_inerte" }
+        { "texto": "Ptolomeo", "correcta": false, "tag_error": "confunde_geocentrico" },
+        { "texto": "Nicolás Copérnico", "correcta": true, "tag_error": null },
+        { "texto": "Tycho Brahe", "correcta": false, "tag_error": "confunde_observador" },
+        { "texto": "Kepler", "correcta": false, "tag_error": "confunde_orbital" }
       ],
-      "explicacion": "El nitrógeno es el 78% del aire. El oxígeno solo el 21%.",
-      "dato_curioso": "Si la atmósfera fuera 100 moléculas, 78 serían de nitrógeno y solo 21 de oxígeno.",
-      "dificultad": 2, "tags": ["ciencia", "ciencia_quimica"], "fuente": "NOAA", "revision": "verificada"
+      "explicacion": "Copérnico publicó 'De revolutionibus' en 1543 proponiendo el Sol en el centro. Ptolomeo defendió el geocentrismo; Brahe y Kepler perfeccionaron el modelo.",
+      "dato_curioso": "El libro de Copérnico salió publicado el mismo año en que murió: se dice que recibió el primer ejemplar en su lecho de muerte.",
+      "dificultad": 2, "tags": ["ciencia", "ciencia_fisica", "historia_moderna"], "fuente": "Enciclopedia Británica", "revision": "verificada"
     },
     {
-      "id": "c18", "tipo": "trivia",
+      "id": "v16", "tipo": "trivia",
       "enunciado": "¿Cuál es el pH del agua pura a 25 °C?",
       "opciones": [
-        { "texto": "5", "correcta": false, "tag_error": "confunde_acido" },
+        { "texto": "0", "correcta": false, "tag_error": "confunde_acido_fuerte" },
         { "texto": "7", "correcta": true, "tag_error": null },
-        { "texto": "9", "correcta": false, "tag_error": "confunde_basico" },
-        { "texto": "14", "correcta": false, "tag_error": "confunde_maximo" }
+        { "texto": "14", "correcta": false, "tag_error": "confunde_base_fuerte" },
+        { "texto": "1", "correcta": false, "tag_error": "confunde_acido" }
       ],
-      "explicacion": "El agua pura tiene pH 7 (neutro). Por debajo de 7 es ácido, por encima es básico.",
-      "dato_curioso": "El jugo de limón tiene pH 2 y la lejía pH 13. Ambos queman, pero por motivos opuestos.",
+      "explicacion": "El agua pura a 25 °C tiene pH 7, que es neutro. Por debajo de 7 es ácido; por encima, básico.",
+      "dato_curioso": "El pH del agua cambia con la temperatura: a 100 °C baja a unos 6,14.",
       "dificultad": 2, "tags": ["ciencia", "ciencia_quimica"], "fuente": "IUPAC", "revision": "verificada"
     },
     {
-      "id": "c19", "tipo": "trivia",
-      "enunciado": "¿Qué científico propuso el modelo atómico con electrones orbitando el núcleo?",
+      "id": "v17", "tipo": "trivia",
+      "enunciado": "¿Cuál es el animal más grande que existe actualmente en el planeta?",
       "opciones": [
-        { "texto": "Dalton", "correcta": false, "tag_error": "confunde_esfera_solida" },
-        { "texto": "Thomson", "correcta": false, "tag_error": "confunde_pudin" },
-        { "texto": "Bohr", "correcta": true, "tag_error": null },
-        { "texto": "Rutherford", "correcta": false, "tag_error": "confunde_nucleo" }
+        { "texto": "Elefante africano", "correcta": false, "tag_error": "confunde_terrestre" },
+        { "texto": "Ballena azul", "correcta": true, "tag_error": null },
+        { "texto": "Tiburón ballena", "correcta": false, "tag_error": "confunde_pez" },
+        { "texto": "Jirafa", "correcta": false, "tag_error:": "confunde_altura" }
       ],
-      "explicacion": "Bohr propuso en 1913 el modelo de electrones en órbitas cuantizadas alrededor del núcleo.",
-      "dato_curioso": "Bohr recibió el Nobel en 1922. Su hijo Aage también lo recibió en 1975: un caso raro.",
-      "dificultad": 2, "tags": ["ciencia", "ciencia_fisica", "historia_contemporanea"], "fuente": "Nobel Prize", "revision": "verificada"
+      "explicacion": "La ballena azul es el animal más grande conocido, con hasta 30 m de longitud y 180 toneladas. El elefante es el mayor terrestre; el tiburón ballena, el mayor pez.",
+      "dato_curioso": "El corazón de una ballena azul puede pesar como un coche pequeño.",
+      "dificultad": 1, "tags": ["ciencia", "ciencia_biologia"], "fuente": "NOAA", "revision": "verificada"
     },
     {
-      "id": "c20", "tipo": "trivia",
-      "enunciado": "¿Cuál es la unidad del SI para la cantidad de sustancia?",
+      "id": "v18", "tipo": "trivia",
+      "enunciado": "¿Qué partícula subatómica tiene carga negativa?",
       "opciones": [
-        { "texto": "Gramo", "correcta": false, "tag_error": "confunde_masa" },
-        { "texto": "Mol", "correcta": true, "tag_error": null },
-        { "texto": "Litro", "correcta": false, "tag_error": "confunde_volumen" },
-        { "texto": "Kelvin", "correcta": false, "tag_error": "confunde_temperatura" }
+        { "texto": "Protón", "correcta": false, "tag_error": "confunde_positiva" },
+        { "texto": "Neutrón", "correcta": false, "tag_error": "confunde_neutra" },
+        { "texto": "Electrón", "correcta": true, "tag_error": null },
+        { "texto": "Fotón", "correcta": false, "tag_error": "confunde_sin_carga" }
       ],
-      "explicacion": "El mol es la unidad del SI para cantidad de sustancia. Un mol contiene 6,022 × 10²³ entidades.",
-      "dato_curioso": "El número de Avogadro es tan grande que un mol de granos de arena cubriría toda la Tierra con una capa de varios metros.",
-      "dificultad": 3, "tags": ["ciencia", "ciencia_quimica"], "fuente": "BIPM", "revision": "verificada"
+      "explicacion": "El electrón tiene carga negativa. El protón es positivo, el neutrón no tiene carga y el fotón tampoco.",
+      "dato_curioso": "La carga del electrón es la unidad natural de carga eléctrica negativa: -1,602 × 10⁻¹⁹ culombios.",
+      "dificultad": 1, "tags": ["ciencia", "ciencia_fisica"], "fuente": "CERN", "revision": "verificada"
     },
     {
-      "id": "c21", "tipo": "trivia",
-      "enunciado": "¿Qué ley de la termodinámica dice que la entropía de un sistema aislado nunca disminuye?",
+      "id": "v19", "tipo": "trivia",
+      "enunciado": "¿Cuántos dientes tiene un adulto humano típico, contando las muelas del juicio?",
       "opciones": [
-        { "texto": "Primera", "correcta": false, "tag_error": "confunde_conservacion" },
-        { "texto": "Segunda", "correcta": true, "tag_error": null },
-        { "texto": "Tercera", "correcta": false, "tag_error": "confunde_cero_absoluto" },
-        { "texto": "Zeroth", "correcta": false, "tag_error": "confunde_equilibrio" }
+        { "texto": "28", "correcta": false, "tag_error": "confunde_sin_juicios" },
+        { "texto": "32", "correcta": true, "tag_error": null },
+        { "texto": "36", "correcta": false, "tag_error": "confunde_con_primates" },
+        { "texto": "24", "correcta": false, "tag_error": "confunde_leche" }
       ],
-      "explicacion": "La Segunda Ley dice que la entropía de un sistema aislado tiende a aumentar. La Primera es la conservación de la energía.",
-      "dato_curioso": "La Segunda Ley es la única ley de la física que distingue el pasado del futuro.",
-      "dificultad": 3, "tags": ["ciencia", "ciencia_fisica"], "fuente": "Enciclopedia Británica", "revision": "verificada"
-    },
-    {
-      "id": "c22", "tipo": "trivia",
-      "enunciado": "¿Qué órgano del cuerpo humano produce la bilis?",
-      "opciones": [
-        { "texto": "Páncreas", "correcta": false, "tag_error": "confunde_enzimas" },
-        { "texto": "Hígado", "correcta": true, "tag_error": null },
-        { "texto": "Estómago", "correcta": false, "tag_error": "confunde_acido" },
-        { "texto": "Vesícula biliar", "correcta": false, "tag_error": "confunde_almacen" }
-      ],
-      "explicacion": "El hígado produce la bilis. La vesícula biliar solo la almacena y la libera.",
-      "dato_curioso": "El hígado es el único órgano interno que puede regenerarse casi por completo.",
+      "explicacion": "Un adulto tiene 32 dientes, contando las 4 muelas del juicio. Sin ellas son 28. Los dientes de leche son 20.",
+      "dato_curioso": "Los dientes son la única parte del cuerpo humano que no se regenera.",
       "dificultad": 2, "tags": ["ciencia", "ciencia_biologia"], "fuente": "NIH", "revision": "verificada"
     },
-
-    /* ===== ARTE (+10) ===== */
     {
-      "id": "a13", "tipo": "trivia",
-      "enunciado": "¿Quién pintó 'El grito'?",
+      "id": "v20", "tipo": "trivia",
+      "enunciado": "¿Qué ley de Newton dice que a toda acción le corresponde una reacción igual y opuesta?",
       "opciones": [
-        { "texto": "Klimt", "correcta": false, "tag_error": "confunde_modernismo" },
-        { "texto": "Munch", "correcta": true, "tag_error": null },
-        { "texto": "Kandinsky", "correcta": false, "tag_error": "confunde_abstracto" },
-        { "texto": "Schiele", "correcta": false, "tag_error": "confunde_expresionismo_austriaco" }
+        { "texto": "Primera ley", "correcta": false, "tag_error": "confunde_inercia" },
+        { "texto": "Segunda ley", "correcta": false, "tag_error": "confunde_f_ma" },
+        { "texto": "Tercera ley", "correcta": true, "tag_error": null },
+        { "texto": "Ley de gravitación", "correcta": false, "tag_error": "confunde_otra_ley" }
       ],
-      "explicacion": "'El grito' (1893) lo pintó Edvard Munch, pintor noruego expresionista.",
-      "dato_curioso": "Munch escribió en su diario que sintió 'un grito infinito atravesando la naturaleza' antes de pintarlo.",
-      "dificultad": 1, "tags": ["arte", "arte_pintura"], "fuente": "National Gallery Oslo", "revision": "verificada"
+      "explicacion": "La tercera ley de Newton es la de acción-reacción. La primera es la inercia; la segunda, F = m·a.",
+      "dato_curioso": "Cuando caminas, empujas la Tierra hacia atrás y ella te empuja hacia delante: por eso avanzas.",
+      "dificultad": 2, "tags": ["ciencia", "ciencia_fisica"], "fuente": "NASA", "revision": "verificada"
     },
     {
-      "id": "a14", "tipo": "trivia",
-      "enunciado": "¿Quién pintó 'La última cena'?",
-      "opciones": [
-        { "texto": "Rafael", "correcta": false, "tag_error": "confunde_renacimiento" },
-        { "texto": "Leonardo da Vinci", "correcta": true, "tag_error": null },
-        { "texto": "Miguel Ángel", "correcta": false, "tag_error": "confunde_capilla" },
-        { "texto": "Botticelli", "correcta": false, "tag_error": "confunde_quattrocento" }
-      ],
-      "explicacion": "'La última cena' (1495-1498) la pintó Leonardo da Vinci en el refectorio de Santa Maria delle Grazie, Milán.",
-      "dato_curioso": "Leonardo tardó 3 años y a veces se quedaba mirando horas sin pintar. El prior se quejó al duque.",
-      "dificultad": 1, "tags": ["arte", "arte_pintura"], "fuente": "UNESCO", "revision": "verificada"
-    },
-    {
-      "id": "a15", "tipo": "trivia",
-      "enunciado": "¿Quién pintó 'El nacimiento de Venus'?",
-      "opciones": [
-        { "texto": "Botticelli", "correcta": true, "tag_error": null },
-        { "texto": "Rafael", "correcta": false, "tag_error": "confunde_renacimiento" },
-        { "texto": "Tiziano", "correcta": false, "tag_error": "confunde_venus_urbino" },
-        { "texto": "Miguel Ángel", "correcta": false, "tag_error": "confunde_escultura" }
-      ],
-      "explicacion": "'El nacimiento de Venus' (1485) es de Sandro Botticelli, en la Galería Uffizi.",
-      "dato_curioso": "Botticelli murió en la pobreza y su obra se olvidó hasta el siglo XIX, cuando los prerrafaelitas la redescubrieron.",
-      "dificultad": 2, "tags": ["arte", "arte_pintura"], "fuente": "Uffizi", "revision": "verificada"
-    },
-    {
-      "id": "a16", "tipo": "trivia",
-      "enunciado": "¿A qué movimiento artístico pertenece Salvador Dalí?",
-      "opciones": [
-        { "texto": "Cubismo", "correcta": false, "tag_error": "confunde_picasso" },
-        { "texto": "Surrealismo", "correcta": true, "tag_error": null },
-        { "texto": "Impresionismo", "correcta": false, "tag_error": "confunde_monet" },
-        { "texto": "Expresionismo", "correcta": false, "tag_error": "confunde_munch" }
-      ],
-      "explicacion": "Dalí fue uno de los principales surrealistas, con obras como 'La persistencia de la memoria'.",
-      "dato_curioso": "Dalí fue expulsado del grupo surrealista por su apoyo a Franco y su obsesión con el dinero.",
-      "dificultad": 2, "tags": ["arte", "arte_pintura", "historia_contemporanea"], "fuente": "MoMA", "revision": "verificada"
-    },
-    {
-      "id": "a17", "tipo": "trivia",
-      "enunciado": "¿Quién pintó 'El jardín de las delicias'?",
-      "opciones": [
-        { "texto": "El Bosco", "correcta": true, "tag_error": null },
-        { "texto": "Brueghel", "correcta": false, "tag_error": "confunde_flamenco" },
-        { "texto": "Van Eyck", "correcta": false, "tag_error": "confunde_primitivo_flamenco" },
-        { "texto": "Rubens", "correcta": false, "tag_error": "confunde_barroco" }
-      ],
-      "explicacion": "'El jardín de las delicias' (1490-1500) es de El Bosco. Está en el Museo del Prado.",
-      "dato_curioso": "Nadie ha descifrado del todo su significado: es una de las obras más enigmáticas de la historia.",
-      "dificultad": 2, "tags": ["arte", "arte_pintura"], "fuente": "Museo del Prado", "revision": "verificada"
-    },
-    {
-      "id": "a18", "tipo": "trivia",
-      "enunciado": "¿Quién es el arquitecto de la Sagrada Familia de Barcelona?",
-      "opciones": [
-        { "texto": "Gaudí", "correcta": true, "tag_error": null },
-        { "texto": "Le Corbusier", "correcta": false, "tag_error": "confunde_moderno" },
-        { "texto": "Frank Lloyd Wright", "correcta": false, "tag_error": "confunde_americano" },
-        { "texto": "Mies van der Rohe", "correcta": false, "tag_error": "confunde_bauhaus" }
-      ],
-      "explicacion": "Antoni Gaudí diseñó la Sagrada Familia, en construcción desde 1882.",
-      "dato_curioso": "Gaudí murió atropellado por un tranvía en 1926. Está enterrado en la cripta del templo.",
-      "dificultad": 3, "tags": ["arte", "arte_arquitectura", "historia_contemporanea"], "fuente": "Basílica Sagrada Familia", "revision": "verificada"
-    },
-    {
-      "id": "a19", "tipo": "trivia",
-      "enunciado": "¿Qué artista firmó un urinario como 'Fuente' y lo presentó como obra de arte?",
-      "opciones": [
-        { "texto": "Picasso", "correcta": false, "tag_error": "confunde_cubismo" },
-        { "texto": "Duchamp", "correcta": true, "tag_error": null },
-        { "texto": "Dalí", "correcta": false, "tag_error": "confunde_surrealismo" },
-        { "texto": "Warhol", "correcta": false, "tag_error": "confunde_pop" }
-      ],
-      "explicacion": "Marcel Duchamp presentó 'Fuente' (1917): un urinario firmado con el seudónimo 'R. Mutt'. Es la obra clave del arte conceptual.",
-      "dato_curioso": "Fue rechazada del salón de la Sociedad de Artistas Independientes, que decía aceptar todo.",
-      "dificultad": 3, "tags": ["arte", "arte_contemporaneo", "historia_contemporanea"], "fuente": "Tate", "revision": "verificada"
-    },
-    {
-      "id": "a20", "tipo": "trivia",
-      "enunciado": "¿Quién esculpió 'El discóbolo'?",
-      "opciones": [
-        { "texto": "Fidias", "correcta": false, "tag_error": "confunde_partenon" },
-        { "texto": "Mirón", "correcta": true, "tag_error": null },
-        { "texto": "Policleto", "correcta": false, "tag_error": "confunde_doríforo" },
-        { "texto": "Praxiteles", "correcta": false, "tag_error": "confunde_afrodita" }
-      ],
-      "explicacion": "Mirón esculpió 'El discóbolo' hacia el 460 a.C. Solo se conservan copias romanas.",
-      "dato_curioso": "El original de bronce se perdió: todo lo que queda son copias de mármol romanas.",
-      "dificultad": 3, "tags": ["arte", "arte_escultura", "historia_antigua"], "fuente": "Enciclopedia Británica", "revision": "verificada"
-    },
-    {
-      "id": "a21", "tipo": "trivia",
-      "enunciado": "¿En qué museo está 'Las meninas' de Velázquez?",
-      "opciones": [
-        { "texto": "Louvre", "correcta": false, "tag_error": "confunde_parís" },
-        { "texto": "Museo del Prado", "correcta": true, "tag_error": null },
-        { "texto": "Reina Sofía", "correcta": false, "tag_error": "confunde_moderno" },
-        { "texto": "Uffizi", "correcta": false, "tag_error": "confunde_florencia" }
-      ],
-      "explicacion": "'Las meninas' (1656) está en el Museo del Prado, Madrid.",
-      "dato_curioso": "Picasso hizo 58 variaciones sobre 'Las meninas' en 1957, una por cada figura del cuadro.",
-      "dificultad": 1, "tags": ["arte", "arte_pintura"], "fuente": "Museo del Prado", "revision": "verificada"
-    },
-    {
-      "id": "a22", "tipo": "trivia",
-      "enunciado": "¿Quién escribió la ópera 'La flauta mágica'?",
-      "opciones": [
-        { "texto": "Mozart", "correcta": true, "tag_error": null },
-        { "texto": "Beethoven", "correcta": false, "tag_error": "confunde_fidelio" },
-        { "texto": "Verdi", "correcta": false, "tag_error": "confunde_italiano" },
-        { "texto": "Wagner", "correcta": false, "tag_error": "confunde_aleman" }
-      ],
-      "explicacion": "Mozart compuso 'La flauta mágica' en 1791, el año de su muerte.",
-      "dato_curioso": "Mozart dirigió el estreno enfermo y murió dos meses después. No llegó a ver el éxito que tendría.",
-      "dificultad": 2, "tags": ["arte", "arte_musica"], "fuente": "Enciclopedia Británica", "revision": "verificada"
-    },
-
-    /* ===== GEOGRAFÍA (+10) ===== */
-    {
-      "id": "g13", "tipo": "trivia",
-      "enunciado": "¿Cuál es el país más pequeño del mundo?",
-      "opciones": [
-        { "texto": "Mónaco", "correcta": false, "tag_error": "confunde_segundo" },
-        { "texto": "Vaticano", "correcta": true, "tag_error": null },
-        { "texto": "San Marino", "correcta": false, "tag_error": "confunde_italia" },
-        { "texto": "Liechtenstein", "correcta": false, "tag_error": "confunde_alpes" }
-      ],
-      "explicacion": "El Vaticano tiene 0,44 km². Mónaco es el segundo, con 2 km².",
-      "dato_curioso": "Cabe 8 veces en el Parque del Retiro de Madrid.",
-      "dificultad": 1, "tags": ["geografia", "geografia_politica"], "fuente": "ONU", "revision": "verificada"
-    },
-    {
-      "id": "g14", "tipo": "trivia",
+      "id": "v21", "tipo": "trivia",
       "enunciado": "¿Cuál es la capital de Italia?",
       "opciones": [
         { "texto": "Milán", "correcta": false, "tag_error": "confunde_economica" },
         { "texto": "Roma", "correcta": true, "tag_error": null },
-        { "texto": "Nápoles", "correcta": false, "tag_error": "confunde_sur" },
-        { "texto": "Florencia", "correcta": false, "tag_error": "confunde_arte" }
+        { "texto": "Florencia", "correcta": false, "tag_error": "confunde_renacimiento" },
+        { "texto": "Nápoles", "correcta": false, "tag_error": "confunde_sur" }
       ],
-      "explicacion": "Roma es la capital de Italia desde 1871.",
-      "dato_curioso": "Roma tiene un estado dentro: el Vaticano, el país más pequeño del mundo.",
+      "explicacion": "Roma es la capital de Italia desde 1871. Milán, Florencia y Nápoles son ciudades importantes pero no capitales.",
+      "dato_curioso": "Roma es la única capital del mundo que contiene otro estado entero dentro: el Vaticano.",
       "dificultad": 1, "tags": ["geografia", "geografia_politica"], "fuente": "Gobierno de Italia", "revision": "verificada"
     },
     {
-      "id": "g15", "tipo": "trivia",
+      "id": "v22", "tipo": "trivia",
+      "enunciado": "¿Cuál es el país más pequeño del mundo por superficie?",
+      "opciones": [
+        { "texto": "Mónaco", "correcta": false, "tag_error": "confunde_segundo" },
+        { "texto": "Vaticano", "correcta": true, "tag_error": null },
+        { "texto": "Nauru", "correcta": false, "tag_error:": "confunde_isla" },
+        { "texto": "San Marino", "correcta": false, "tag_error": "confunde_enclave" }
+      ],
+      "explicacion": "La Ciudad del Vaticano tiene 0,44 km². Mónaco, con 2 km², es el segundo; Nauru y San Marino son mayores.",
+      "dato_curioso": "Al Vaticano cabrían más de 5 veces en el parque del Retiro de Madrid.",
+      "dificultad": 1, "tags": ["geografia", "geografia_politica"], "fuente": "CIA World Factbook", "revision": "verificada"
+    },
+    {
+      "id": "v23", "tipo": "trivia",
+      "enunciado": "¿En qué continente está Egipto?",
+      "opciones": [
+        { "texto": "Asia", "correcta": false, "tag_error": "confunde_sinai" },
+        { "texto": "África", "correcta": true, "tag_error": null },
+        { "texto": "Europa", "correcta": false, "tag_error": "confunde_mediterraneo" },
+        { "texto": "Oceanía", "correcta": false, "tag_error:": "confunde_lejania" }
+      ],
+      "explicacion": "Egipto está mayoritariamente en África (la península del Sinaí está en Asia, pero es la parte más pequeña).",
+      "dato_curioso": "El río Nilo atraviesa Egipto de sur a norte y es su principal fuente de agua.",
+      "dificultad": 1, "tags": ["geografia", "geografia_politica"], "fuente": "ONU", "revision": "verificada"
+    },
+    {
+      "id": "v24", "tipo": "trivia",
       "enunciado": "¿Cuál es el río más caudaloso del mundo?",
       "opciones": [
         { "texto": "Nilo", "correcta": false, "tag_error": "confunde_largo" },
         { "texto": "Amazonas", "correcta": true, "tag_error": null },
-        { "texto": "Congo", "correcta": false, "tag_error": "confunde_africa" },
+        { "texto": "Misisipi", "correcta": false, "tag_error": "confunde_america_norte" },
         { "texto": "Yangtsé", "correcta": false, "tag_error": "confunde_asia" }
       ],
-      "explicacion": "El Amazonas es el más caudaloso: vierte unos 209.000 m³/s al océano.",
-      "dato_curioso": "Su caudal es mayor que el de los 7 ríos más grandes del mundo juntos.",
-      "dificultad": 1, "tags": ["geografia", "geografia_fisica"], "fuente": "USGS", "revision": "verificada"
+      "explicacion": "El Amazonas es el más caudaloso del mundo con unos 209.000 m³/s, más que los siete ríos más grandes siguientes juntos. El Nilo es discutido como el más largo.",
+      "dato_curioso": "En la desembocadura del Amazonas el agua dulce se puede beber a 200 km mar adentro.",
+      "dificultad": 2, "tags": ["geografia", "geografia_fisica"], "fuente": "USGS", "revision": "verificada"
     },
     {
-      "id": "g16", "tipo": "trivia",
-      "enunciado": "¿Qué país tiene forma de bota?",
+      "id": "v25", "tipo": "trivia",
+      "enunciado": "¿Cuál es la capital de Canadá?",
       "opciones": [
-        { "texto": "Grecia", "correcta": false, "tag_error": "confunde_peninsula" },
-        { "texto": "Italia", "correcta": true, "tag_error": null },
-        { "texto": "Portugal", "correcta": false, "tag_error": "confunde_iberica" },
-        { "texto": "Chile", "correcta": false, "tag_error": "confunde_largo" }
+        { "texto": "Toronto", "correcta": false, "tag_error": "confunde_mas_poblada" },
+        { "texto": "Ottawa", "correcta": true, "tag_error": null },
+        { "texto": "Vancouver", "correcta": false, "tag_error": "confunde_oeste" },
+        { "texto": "Montreal", "correcta": false, "tag_error": "confunde_quebec" }
       ],
-      "explicacion": "Italia tiene forma de bota: la península itálica se extiende hacia el Mediterráneo.",
-      "dato_curioso": "La 'punta' de la bota es la región de Calabria, y el 'tacón' es Puglia.",
-      "dificultad": 1, "tags": ["geografia", "geografia_fisica"], "fuente": "IGN", "revision": "verificada"
+      "explicacion": "Ottawa es la capital desde 1857. Toronto es la ciudad más poblada; Montreal y Vancouver son grandes ciudades, pero no capitales.",
+      "dato_curioso": "Ottawa está en la frontera entre Ontario y Quebec, para contentar a ambas provincias.",
+      "dificultad": 2, "tags": ["geografia", "geografia_politica"], "fuente": "Gobierno de Canadá", "revision": "verificada"
     },
     {
-      "id": "g17", "tipo": "trivia",
-      "enunciado": "¿Cuál es el país más poblado de África?",
+      "id": "v26", "tipo": "trivia",
+      "enunciado": "¿Cuál es el océano más pequeño del mundo?",
       "opciones": [
-        { "texto": "Egipto", "correcta": false, "tag_error": "confunde_norte" },
-        { "texto": "Nigeria", "correcta": true, "tag_error": null },
-        { "texto": "Etiopía", "correcta": false, "tag_error": "confunde_cuerno" },
-        { "texto": "Sudáfrica", "correcta": false, "tag_error": "confunde_economia" }
+        { "texto": "Índico", "correcta": false, "tag_error": "confunde_tercero" },
+        { "texto": "Ártico", "correcta": true, "tag_error": null },
+        { "texto": "Atlántico", "correcta": false, "tag_error": "confunde_segundo" },
+        { "texto": "Antártico", "correcta": false, "tag_error": "confunde_reconocimiento" }
       ],
-      "explicacion": "Nigeria tiene ~220 millones de habitantes, el más poblado de África.",
-      "dato_curioso": "Nollywood, la industria de cine nigeriana, es la segunda del mundo por número de películas, después de Bollywood.",
-      "dificultad": 2, "tags": ["geografia", "geografia_politica"], "fuente": "ONU", "revision": "verificada"
+      "explicacion": "El océano Ártico es el más pequeño, con unos 14 millones de km². El Antártico a veces no se cuenta como océano separado.",
+      "dato_curioso": "El Ártico se está calentando al doble de la media global por el cambio climático.",
+      "dificultad": 2, "tags": ["geografia", "geografia_fisica"], "fuente": "NOAA", "revision": "verificada"
     },
     {
-      "id": "g18", "tipo": "trivia",
-      "enunciado": "¿Qué estrecho separa Europa de África?",
+      "id": "v27", "tipo": "trivia",
+      "enunciado": "¿Cuántos países forman la Unión Europea en 2024?",
       "opciones": [
-        { "texto": "Bósforo", "correcta": false, "tag_error": "confunde_asia_europa" },
-        { "texto": "Gibraltar", "correcta": true, "tag_error": null },
-        { "texto": "Mesina", "correcta": false, "tag_error": "confunde_sicilia" },
-        { "texto": "Oresund", "correcta": false, "tag_error": "confunde_dinamarca" }
+        { "texto": "25", "correcta": false, "tag_error": "confunde_antes_2007" },
+        { "texto": "27", "correcta": true, "tag_error": null },
+        { "texto": "28", "correcta": false, "tag_error": "confunde_pre_brexit" },
+        { "texto": "30", "correcta": false, "tag_error": "confunde_candidatos" }
       ],
-      "explicacion": "El estrecho de Gibraltar separa España de Marruecos, Europa de África. Solo 14 km en su punto más estrecho.",
-      "dato_curioso": "En días claros se ve Marruecos desde Tarifa sin prismáticos.",
-      "dificultad": 2, "tags": ["geografia", "geografia_fisica"], "fuente": "IGN", "revision": "verificada"
+      "explicacion": "La UE tiene 27 miembros desde la salida del Reino Unido en 2020. Antes eran 28.",
+      "dato_curioso": "Croacia fue el último país en incorporarse, en 2013.",
+      "dificultad": 3, "tags": ["geografia", "geografia_politica"], "fuente": "Unión Europea", "revision": "verificada"
     },
     {
-      "id": "g19", "tipo": "trivia",
+      "id": "v28", "tipo": "trivia",
       "enunciado": "¿Cuál es la montaña más alta de África?",
       "opciones": [
-        { "texto": "Ruwenzori", "correcta": false, "tag_error": "confunde_uganda" },
+        { "texto": "Monte Kenia", "correcta": false, "tag_error": "confunde_segundo" },
         { "texto": "Kilimanjaro", "correcta": true, "tag_error": null },
-        { "texto": "Atlas", "correcta": false, "tag_error": "confunde_marruecos" },
-        { "texto": "Monte Kenia", "correcta": false, "tag_error": "confunde_segundo" }
+        { "texto": "Atlas", "correcta": false, "tag_error": "confunde_cordillera" },
+        { "texto": "Ruwenzori", "correcta": false, "tag_error": "confunde_otra" }
       ],
-      "explicacion": "El Kilimanjaro (Tanzania) tiene 5.895 m. Es la montaña más alta de África y un volcán dormido.",
-      "dato_curioso": "Tiene nieve en la cima pese a estar en el ecuador. Hemingway escribió 'Las nieves del Kilimanjaro'.",
-      "dificultad": 3, "tags": ["geografia", "geografia_fisica"], "fuente": "UNESCO", "revision": "verificada"
+      "explicacion": "El Kilimanjaro (Tanzania) tiene 5.895 m. El Monte Kenia es el segundo, con 5.199 m.",
+      "dato_curioso": "El Kilimanjaro es un volcán dormido y no forma parte de ninguna cordillera.",
+      "dificultad": 2, "tags": ["geografia", "geografia_fisica"], "fuente": "Enciclopedia Británica", "revision": "verificada"
     },
     {
-      "id": "g20", "tipo": "trivia",
-      "enunciado": "¿Qué país tiene más islas en el mundo?",
+      "id": "v29", "tipo": "trivia",
+      "enunciado": "¿Quién pintó 'La última cena'?",
       "opciones": [
-        { "texto": "Indonesia", "correcta": false, "tag_error": "confunde_archipielago" },
-        { "texto": "Filipinas", "correcta": false, "tag_error": "confunde_otro_archipielago" },
-        { "texto": "Suecia", "correcta": true, "tag_error": null },
-        { "texto": "Canadá", "correcta": false, "tag_error": "confunde_norte" }
+        { "texto": "Miguel Ángel", "correcta": false, "tag_error": "confunde_sixtina" },
+        { "texto": "Leonardo da Vinci", "correcta": true, "tag_error": null },
+        { "texto": "Rafael", "correcta": false, "tag_error": "confunde_atenas" },
+        { "texto": "Tiziano", "correcta": false, "tag_error": "confunde_venecia" }
       ],
-      "explicacion": "Suecia tiene más de 267.000 islas, aunque la mayoría son pequeñas y deshabitadas.",
-      "dato_curioso": "Solo unas 1.000 islas suecas están habitadas todo el año.",
-      "dificultad": 3, "tags": ["geografia", "geografia_politica"], "fuente": "Statistics Sweden", "revision": "verificada"
+      "explicacion": "'La última cena' es un fresco de Leonardo da Vinci (1495-1498) en Milán. Miguel Ángel pintó la Capilla Sixtina; Rafael, 'La escuela de Atenas'.",
+      "dato_curioso": "Leonardo pintó 'La última cena' en la pared de un refectorio: es un fresco de 4,6 × 8,8 m.",
+      "dificultad": 1, "tags": ["arte", "arte_pintura"], "fuente": "UNESCO", "revision": "verificada"
     },
     {
-      "id": "g21", "tipo": "trivia",
-      "enunciado": "¿Cuántos países hay en América del Sur?",
+      "id": "v30", "tipo": "trivia",
+      "enunciado": "¿Quién esculpió 'La Piedad' del Vaticano?",
       "opciones": [
-        { "texto": "10", "correcta": false, "tag_error": "off_by_two" },
-        { "texto": "12", "correcta": true, "tag_error": null },
-        { "texto": "14", "correcta": false, "tag_error": "confunde_con_dependencias" },
-        { "texto": "16", "correcta": false, "tag_error": "confunde_con_centroamerica" }
+        { "texto": "Bernini", "correcta": false, "tag_error": "confunde_barroco" },
+        { "texto": "Miguel Ángel", "correcta": true, "tag_error": null },
+        { "texto": "Donatello", "correcta": false, "tag_error": "confunde_quattrocento" },
+        { "texto": "Rodin", "correcta": false, "tag_error": "confunde_siglo_xix" }
       ],
-      "explicacion": "Hay 12 países independientes en América del Sur. Si contamos territorios dependientes, son 14.",
-      "dato_curioso": "América del Sur tiene el país más austral del mundo: Chile llega hasta la Antártida.",
-      "dificultad": 2, "tags": ["geografia", "geografia_politica"], "fuente": "ONU", "revision": "verificada"
+      "explicacion": "Miguel Ángel esculpió 'La Piedad' (1498-1499), que está en la Basílica de San Pedro. Bernini, Donatello y Rodin son escultores de otras épocas.",
+      "dato_curioso": "Es la única obra que Miguel Ángel firmó: su nombre aparece en la banda del pecho de la Virgen.",
+      "dificultad": 2, "tags": ["arte", "arte_escultura"], "fuente": "Museos Vaticanos", "revision": "verificada"
     },
     {
-      "id": "g22", "tipo": "trivia",
-      "enunciado": "¿Cuál es el desierto cálido más grande del mundo?",
+      "id": "v31", "tipo": "trivia",
+      "enunciado": "¿Quién compuso la ópera 'La flauta mágica'?",
       "opciones": [
-        { "texto": "Gobi", "correcta": false, "tag_error": "confunde_asia" },
-        { "texto": "Sahara", "correcta": true, "tag_error": null },
-        { "texto": "Kalahari", "correcta": false, "tag_error": "confunde_africa_sur" },
-        { "texto": "Atacama", "correcta": false, "tag_error": "confunde_chile" }
+        { "texto": "Verdi", "correcta": false, "tag_error": "confunde_italiano" },
+        { "texto": "Mozart", "correcta": true, "tag_error": null },
+        { "texto": "Wagner", "correcta": false, "tag_error": "confunde_aleman" },
+        { "texto": "Puccini", "correcta": false, "tag_error": "confunde_verismo" }
       ],
-      "explicacion": "El Sahara tiene 9,2 millones de km², casi el tamaño de Estados Unidos.",
-      "dato_curioso": "Hace 6.000 años el Sahara era verde, con lagos y ríos. Se secó por cambios orbitales.",
-      "dificultad": 2, "tags": ["geografia", "geografia_fisica"], "fuente": "NASA", "revision": "verificada"
+      "explicacion": "'La flauta mágica' la compuso Mozart en 1791, el mismo año de su muerte. Verdi, Wagner y Puccini son otros grandes operistas.",
+      "dato_curioso": "Mozart dirigió el estreno el 30 de septiembre de 1791, apenas dos meses antes de morir.",
+      "dificultad": 2, "tags": ["arte", "arte_musica"], "fuente": "Enciclopedia Británica", "revision": "verificada"
     },
-
-    /* ===== PSICOTÉCNICO (+15) ===== */
     {
-      "id": "p08", "tipo": "psicotecnico",
-      "enunciado": "1, 3, 5, 7, ?",
+      "id": "v32", "tipo": "trivia",
+      "enunciado": "¿A qué movimiento artístico pertenece 'El beso' de Gustav Klimt?",
       "opciones": [
-        { "texto": "8", "correcta": false, "tag_error": "confunde_par" },
+        { "texto": "Impresionismo", "correcta": false, "tag_error": "confunde_siglo_xix" },
+        { "texto": "Modernismo", "correcta": true, "tag_error": null },
+        { "texto": "Cubismo", "correcta": false, "tag_error": "confunde_picasso" },
+        { "texto": "Surrealismo", "correcta": false, "tag_error": "confunde_dali" }
+      ],
+      "explicacion": "'El beso' (1907-1908) es una obra clave del Modernismo (Secesión vienesa / Art Nouveau). Klimt fue fundador de la Secesión de Viena.",
+      "dato_curioso": "Klimt usó pan de oro auténtico en muchas de sus obras, incluida 'El beso'.",
+      "dificultad": 3, "tags": ["arte", "arte_pintura"], "fuente": "Belvedere", "revision": "verificada"
+    },
+    {
+      "id": "v33", "tipo": "trivia",
+      "enunciado": "¿Quién pintó 'El jardín de las delicias'?",
+      "opciones": [
+        { "texto": "El Greco", "correcta": false, "tag_error": "confunde_manierismo" },
+        { "texto": "El Bosco", "correcta": true, "tag_error": null },
+        { "texto": "Bruegel el Viejo", "correcta": false, "tag_error": "confunde_flamenco" },
+        { "texto": "Van Eyck", "correcta": false, "tag_error": "confunde_primitivo" }
+      ],
+      "explicacion": "'El jardín de las delicias' (c. 1490-1510) es de El Bosco y está en el Museo del Prado. Bruegel y Van Eyck son otros flamencos.",
+      "dato_curioso": "El cuadro es un tríptico: las tres escenas representan el Paraíso, el jardín de las delicias y el Infierno.",
+      "dificultad": 2, "tags": ["arte", "arte_pintura"], "fuente": "Museo del Prado", "revision": "verificada"
+    },
+    {
+      "id": "v34", "tipo": "trivia",
+      "enunciado": "¿Qué artista pop es famoso por sus latas de sopa Campbell?",
+      "opciones": [
+        { "texto": "Roy Lichtenstein", "correcta": false, "tag_error": "confunde_comic" },
+        { "texto": "Andy Warhol", "correcta": true, "tag_error": null },
+        { "texto": "Jasper Johns", "correcta": false, "tag_error": "confunde_banderas" },
+        { "texto": "Keith Haring", "correcta": false, "tag_error": "confunde_graffiti" }
+      ],
+      "explicacion": "Andy Warhol expuso sus 'Campbell's Soup Cans' en 1962, icono del pop art. Lichtenstein trabajó con estética de cómic; Johns, con banderas y dianas.",
+      "dato_curioso": "Warhol decía que su estudio era 'The Factory' y que cualquiera podía ser famoso durante 15 minutos.",
+      "dificultad": 2, "tags": ["arte", "arte_pintura"], "fuente": "MoMA", "revision": "verificada"
+    },
+    {
+      "id": "v35", "tipo": "trivia",
+      "enunciado": "¿Cuántas sinfonías completas compuso Beethoven?",
+      "opciones": [
+        { "texto": "5", "correcta": false, "tag_error": "confunde_la_quinta" },
         { "texto": "9", "correcta": true, "tag_error": null },
-        { "texto": "10", "correcta": false, "tag_error": "salto_doble" },
-        { "texto": "11", "correcta": false, "tag_error": "salto_triple" }
+        { "texto": "12", "correcta": false, "tag_error": "confunde_mozart" },
+        { "texto": "41", "correcta": false, "tag_error": "confunde_haydn" }
       ],
-      "explicacion": "Números impares consecutivos: 1, 3, 5, 7, 9.",
-      "dato_curioso": "La suma de los primeros n impares es n²: 1+3+5+7 = 16 = 4².",
+      "explicacion": "Beethoven compuso 9 sinfonías. Mozart compuso 41; Haydn, más de 100.",
+      "dato_curioso": "La Novena Sinfonía fue la primera en incluir coro, y su 'Himno a la Alegría' es hoy el himno de la UE.",
+      "dificultad": 2, "tags": ["arte", "arte_musica"], "fuente": "Enciclopedia Británica", "revision": "verificada"
+    },
+    {
+      "id": "v36", "tipo": "trivia",
+      "enunciado": "¿En qué año se estrenó la ópera 'La traviata' de Verdi?",
+      "opciones": [
+        { "texto": "1820", "correcta": false, "tag_error": "confunde_juventud" },
+        { "texto": "1853", "correcta": true, "tag_error": null },
+        { "texto": "1901", "correcta": false, "tag_error": "confunde_muerte_verdi" },
+        { "texto": "1876", "correcta": false, "tag_error": "confunde_anio_otros" }
+      ],
+      "explicacion": "'La traviata' se estrenó el 6 de marzo de 1853 en el Teatro La Fenice de Venecia. Es una de las óperas más representadas del mundo.",
+      "dato_curioso": "El estreno fue un fracaso por la elección de los cantantes, pero la segunda versión triunfó al año siguiente.",
+      "dificultad": 3, "tags": ["arte", "arte_musica"], "fuente": "Teatro La Fenice", "revision": "verificada"
+    },
+    {
+      "id": "v37", "tipo": "trivia",
+      "enunciado": "¿Quién escribió 'Don Quijote de la Mancha'?",
+      "opciones": [
+        { "texto": "Lope de Vega", "correcta": false, "tag_error": "confunde_contemporaneo" },
+        { "texto": "Miguel de Cervantes", "correcta": true, "tag_error": null },
+        { "texto": "Quevedo", "correcta": false, "tag_error": "confunde_conceptista" },
+        { "texto": "Góngora", "correcta": false, "tag_error": "confunde_culterano" }
+      ],
+      "explicacion": "'Don Quijote' (1605 y 1615) es de Cervantes. Lope, Quevedo y Góngora son contemporáneos suyos pero escribieron otras obras.",
+      "dato_curioso": "'Don Quijote' es la obra más traducida de la literatura universal, después de la Biblia.",
+      "dificultad": 1, "tags": ["literatura"], "fuente": "RAE", "revision": "verificada"
+    },
+    {
+      "id": "v38", "tipo": "trivia",
+      "enunciado": "¿Quién escribió 'Romeo y Julieta'?",
+      "opciones": [
+        { "texto": "Marlowe", "correcta": false, "tag_error": "confunde_contemporaneo" },
+        { "texto": "William Shakespeare", "correcta": true, "tag_error": null },
+        { "texto": "Ben Jonson", "correcta": false, "tag_error": "confunde_contemporaneo" },
+        { "texto": "Chaucer", "correcta": false, "tag_error": "confunde_medieval" }
+      ],
+      "explicacion": "'Romeo y Julieta' (c. 1597) es de Shakespeare. Marlowe, Jonson y Chaucer son otros autores ingleses.",
+      "dato_curioso": "La historia de Romeo y Julieta no es original de Shakespeare: ya existía en la tradición italiana.",
+      "dificultad": 1, "tags": ["literatura"], "fuente": "Enciclopedia Británica", "revision": "verificada"
+    },
+    {
+      "id": "v39", "tipo": "trivia",
+      "enunciado": "¿Quién escribió la novela distópica '1984'?",
+      "opciones": [
+        { "texto": "Aldous Huxley", "correcta": false, "tag_error": "confunde_mundo_feliz" },
+        { "texto": "George Orwell", "correcta": true, "tag_error": null },
+        { "texto": "Ray Bradbury", "correcta": false, "tag_error": "confunde_fahrenheit" },
+        { "texto": "Philip K. Dick", "correcta": false, "tag_error": "confunde_scifi" }
+      ],
+      "explicacion": "'1984' (1949) es de George Orwell. Huxley escribió 'Un mundo feliz'; Bradbury, 'Fahrenheit 451'; Dick, '¿Sueñan los androides...?'.",
+      "dato_curioso": "El verdadero nombre de Orwell era Eric Arthur Blair.",
+      "dificultad": 1, "tags": ["literatura"], "fuente": "Enciclopedia Británica", "revision": "verificada"
+    },
+    {
+      "id": "v40", "tipo": "trivia",
+      "enunciado": "¿Quién escribió 'La metamorfosis'?",
+      "opciones": [
+        { "texto": "Dostoievski", "correcta": false, "tag_error": "confunde_ruso" },
+        { "texto": "Franz Kafka", "correcta": true, "tag_error": null },
+        { "texto": "Thomas Mann", "correcta": false, "tag_error": "confunde_aleman" },
+        { "texto": "Hermann Hesse", "correcta": false, "tag_error": "confunde_aleman" }
+      ],
+      "explicacion": "'La metamorfosis' (1915) es de Kafka, donde Gregor Samsa se transforma en un insecto. Los demás son otros escritores en lengua alemana o rusa.",
+      "dato_curioso": "Kafka pidió a su amigo Max Brod que quemara sus manuscritos; Brod no lo hizo y así conocemos su obra.",
+      "dificultad": 2, "tags": ["literatura"], "fuente": "Enciclopedia Británica", "revision": "verificada"
+    },
+    {
+      "id": "v41", "tipo": "trivia",
+      "enunciado": "¿Quién escribió 'Ficciones', colección de cuentos con laberintos y bibliotecas infinitas?",
+      "opciones": [
+        { "texto": "Julio Cortázar", "correcta": false, "tag_error": "confunde_rayuela" },
+        { "texto": "Jorge Luis Borges", "correcta": true, "tag_error": null },
+        { "texto": "Gabriel García Márquez", "correcta": false, "tag_error": "confunde_macondo" },
+        { "texto": "Vargas Llosa", "correcta": false, "tag_error": "confunde_boom" }
+      ],
+      "explicacion": "'Ficciones' (1944) es de Borges. Cortázar escribió 'Rayuela'; García Márquez, 'Cien años de soledad'; Vargas Llosa, 'La ciudad y los perros'.",
+      "dato_curioso": "Borges se quedó ciego siendo director de la Biblioteca Nacional de Argentina: 'el Paraíso bajo la forma de una biblioteca'.",
+      "dificultad": 3, "tags": ["literatura"], "fuente": "Enciclopedia Británica", "revision": "verificada"
+    },
+    {
+      "id": "v42", "tipo": "trivia",
+      "enunciado": "¿Quién escribió 'Veinte poemas de amor y una canción desesperada'?",
+      "opciones": [
+        { "texto": "Federico García Lorca", "correcta": false, "tag_error": "confunde_granada" },
+        { "texto": "Pablo Neruda", "correcta": true, "tag_error": null },
+        { "texto": "Octavio Paz", "correcta": false, "tag_error": "confunde_mexico" },
+        { "texto": "Mario Benedetti", "correcta": false, "tag_error": "confunde_uruguay" }
+      ],
+      "explicacion": "Los 'Veinte poemas de amor' (1924) son de Pablo Neruda (Chile). Lorca, Paz y Benedetti son otros poetas hispanoamericanos o españoles.",
+      "dato_curioso": "Neruda recibió el Nobel de Literatura en 1971 y murió en 1973, doce días después del golpe de Pinochet.",
+      "dificultad": 2, "tags": ["literatura"], "fuente": "Nobel Prize", "revision": "verificada"
+    },
+    {
+      "id": "v43", "tipo": "trivia",
+      "enunciado": "¿Quién escribió 'Así habló Zaratustra'?",
+      "opciones": [
+        { "texto": "Schopenhauer", "correcta": false, "tag_error": "confunde_pesimista" },
+        { "texto": "Friedrich Nietzsche", "correcta": true, "tag_error": null },
+        { "texto": "Hegel", "correcta": false, "tag_error": "confunde_idealista" },
+        { "texto": "Marx", "correcta": false, "tag_error": "confunde_materialista" }
+      ],
+      "explicacion": "'Así habló Zaratustra' (1883-1885) es de Nietzsche. Schopenhauer, Hegel y Marx son otros filósofos alemanes.",
+      "dato_curioso": "En el libro aparece por primera vez la idea del 'superhombre' (Übermensch) y la frase 'Dios ha muerto'.",
+      "dificultad": 2, "tags": ["filosofia"], "fuente": "Enciclopedia Británica", "revision": "verificada"
+    },
+    {
+      "id": "v44", "tipo": "trivia",
+      "enunciado": "¿A qué filósofo se atribuye la frase 'Solo sé que no sé nada'?",
+      "opciones": [
+        { "texto": "Platón", "correcta": false, "tag_error": "confunde_discipulo" },
+        { "texto": "Sócrates", "correcta": true, "tag_error": null },
+        { "texto": "Aristóteles", "correcta": false, "tag_error": "confunde_tercero" },
+        { "texto": "Pitágoras", "correcta": false, "tag_error": "confunde_matematico" }
+      ],
+      "explicacion": "La frase se atribuye a Sócrates, tal como la recoge Platón en la Apología. Los otros filósofos son de la misma tradición griega pero tienen otras ideas.",
+      "dato_curioso": "Sócrates nunca escribió nada: todo lo conocemos por lo que escribieron sus discípulos, sobre todo Platón.",
+      "dificultad": 1, "tags": ["filosofia"], "fuente": "Platón, Apología", "revision": "verificada"
+    },
+    {
+      "id": "v45", "tipo": "trivia",
+      "enunciado": "¿Quién escribió 'Crítica de la razón pura'?",
+      "opciones": [
+        { "texto": "Descartes", "correcta": false, "tag_error": "confunde_racionalista_frances" },
+        { "texto": "Immanuel Kant", "correcta": true, "tag_error": null },
+        { "texto": "Hume", "correcta": false, "tag_error": "confunde_empirista" },
+        { "texto": "Locke", "correcta": false, "tag_error": "confunde_empirista" }
+      ],
+      "explicacion": "Kant publicó 'Crítica de la razón pura' en 1781. Descartes, Hume y Locke son otros filósofos modernos, con otras obras.",
+      "dato_curioso": "Kant apenas salió de su ciudad, Königsberg (hoy Kaliningrado), en toda su vida.",
+      "dificultad": 2, "tags": ["filosofia"], "fuente": "Enciclopedia Británica", "revision": "verificada"
+    },
+    {
+      "id": "v46", "tipo": "trivia",
+      "enunciado": "¿A qué escuela filosófica pertenece Marco Aurelio?",
+      "opciones": [
+        { "texto": "Epicureísmo", "correcta": false, "tag_error": "confunde_placer" },
+        { "texto": "Estoicismo", "correcta": true, "tag_error": null },
+        { "texto": "Escepticismo", "correcta": false, "tag_error": "confunde_duda" },
+        { "texto": "Cinismo", "correcta": false, "tag_error": "confunde_diogenes" }
+      ],
+      "explicacion": "Marco Aurelio fue un emperador romano y filósofo estoico, autor de las 'Meditaciones'. Epicureísmo, escepticismo y cinismo son otras escuelas.",
+      "dato_curioso": "Escribió las 'Meditaciones' en griego, no en latín, como diario personal para sí mismo.",
+      "dificultad": 2, "tags": ["filosofia", "historia_antigua"], "fuente": "Enciclopedia Británica", "revision": "verificada"
+    },
+    {
+      "id": "v47", "tipo": "trivia",
+      "enunciado": "¿Qué filósofo del siglo XX propuso el 'velo de la ignorancia' como experimento mental para la justicia?",
+      "opciones": [
+        { "texto": "Hannah Arendt", "correcta": false, "tag_error": "confunde_totalitarismo" },
+        { "texto": "John Rawls", "correcta": true, "tag_error": null },
+        { "texto": "Michel Foucault", "correcta": false, "tag_error": "confunde_postestructuralista" },
+        { "texto": "Jürgen Habermas", "correcta": false, "tag_error": "confunde_esfera_publica" }
+      ],
+      "explicacion": "John Rawls propuso el 'velo de la ignorancia' en 'A Theory of Justice' (1971). Arendt, Foucault y Habermas son otros filósofos del siglo XX.",
+      "dato_curioso": "El experimento pide imaginar que no sabemos nuestra posición social, para elegir principios justos.",
+      "dificultad": 3, "tags": ["filosofia"], "fuente": "Enciclopedia Británica", "revision": "verificada"
+    },
+    {
+      "id": "v48", "tipo": "trivia",
+      "enunciado": "Si un tren recorre 120 km en 2 horas, ¿cuál es su velocidad media?",
+      "opciones": [
+        { "texto": "40 km/h", "correcta": false, "tag_error": "divide_mal" },
+        { "texto": "60 km/h", "correcta": true, "tag_error": null },
+        { "texto": "80 km/h", "correcta": false, "tag_error": "confunde_operacion" },
+        { "texto": "240 km/h", "correcta": false, "tag_error": "multiplica" }
+      ],
+      "explicacion": "Velocidad media = distancia / tiempo = 120 / 2 = 60 km/h.",
+      "dato_curioso": "Un AVE español alcanza 310 km/h de velocidad comercial, cinco veces más rápido.",
       "dificultad": 1, "tags": ["psicotecnico", "psicotecnico_numerico"], "fuente": "Generado", "revision": "verificada"
     },
     {
-      "id": "p09", "tipo": "psicotecnico",
-      "enunciado": "A, C, E, G, ?",
+      "id": "v49", "tipo": "trivia",
+      "enunciado": "3, 7, 15, 31, ?",
       "opciones": [
-        { "texto": "H", "correcta": false, "tag_error": "salto_uno" },
-        { "texto": "I", "correcta": true, "tag_error": null },
-        { "texto": "J", "correcta": false, "tag_error": "salto_dos" },
-        { "texto": "K", "correcta": false, "tag_error": "salto_tres" }
+        { "texto": "47", "correcta": false, "tag_error": "confunde_salto_constante" },
+        { "texto": "63", "correcta": true, "tag_error": null },
+        { "texto": "62", "correcta": false, "tag_error": "off_by_one" },
+        { "texto": "55", "correcta": false, "tag_error": "confunde_otra_patron" }
       ],
-      "explicacion": "Letras saltando una: A, C, E, G, I.",
+      "explicacion": "Cada número es el doble del anterior más uno: 3×2+1=7, 7×2+1=15, 15×2+1=31, 31×2+1=63.",
+      "dato_curioso": "Son los números de Mersenne 2ⁿ-1 con n primo: 2²-1=3, 2³-1=7, 2⁴-1=15, 2⁵-1=31, 2⁶-1=63.",
+      "dificultad": 2, "tags": ["psicotecnico", "psicotecnico_numerico"], "fuente": "Generado", "revision": "verificada"
+    },
+    {
+      "id": "v50", "tipo": "trivia",
+      "enunciado": "B, D, F, H, ?",
+      "opciones": [
+        { "texto": "I", "correcta": false, "tag_error": "salto_uno" },
+        { "texto": "J", "correcta": true, "tag_error": null },
+        { "texto": "K", "correcta": false, "tag_error": "salto_dos" },
+        { "texto": "L", "correcta": false, "tag_error": "salto_tres" }
+      ],
+      "explicacion": "Son las letras pares del alfabeto: B(2), D(4), F(6), H(8), J(10).",
       "dato_curioso": "En el alfabeto español moderno hay 27 letras, contando la Ñ.",
       "dificultad": 1, "tags": ["psicotecnico", "psicotecnico_logico"], "fuente": "Generado", "revision": "verificada"
     },
     {
-      "id": "p10", "tipo": "psicotecnico",
-      "enunciado": "10, 20, 30, 40, ?",
+      "id": "v51", "tipo": "trivia",
+      "enunciado": "Si 5 máquinas fabrican 5 piezas en 5 minutos, ¿cuánto tardan 100 máquinas en fabricar 100 piezas?",
       "opciones": [
-        { "texto": "45", "correcta": false, "tag_error": "salto_irregular" },
-        { "texto": "50", "correcta": true, "tag_error": null },
-        { "texto": "60", "correcta": false, "tag_error": "salto_doble" },
-        { "texto": "80", "correcta": false, "tag_error": "salto_triple" }
+        { "texto": "100 minutos", "correcta": false, "tag_error": "escala_lineal_mal" },
+        { "texto": "5 minutos", "correcta": true, "tag_error": null },
+        { "texto": "20 minutos", "correcta": false, "tag_error": "regla_de_tres_mal" },
+        { "texto": "1 minuto", "correcta": false, "tag_error": "divide_al_reves" }
       ],
-      "explicacion": "La tabla del 10: cada número aumenta de 10 en 10.",
-      "dato_curioso": "Contar de 10 en 10 es el sistema decimal, basado en los 10 dedos de las manos.",
+      "explicacion": "Cada máquina tarda 5 minutos en hacer 1 pieza. 100 máquinas en paralelo tardan lo mismo en hacer 100 piezas: 5 minutos.",
+      "dato_curioso": "Este problema lo falló más del 50% de estudiantes de universidades de élite en un estudio de 2005.",
+      "dificultad": 3, "tags": ["psicotecnico", "psicotecnico_logico"], "fuente": "Generado", "revision": "verificada"
+    },
+    {
+      "id": "v52", "tipo": "trivia",
+      "enunciado": "100, 50, 25, 12,5, ?",
+      "opciones": [
+        { "texto": "6", "correcta": false, "tag_error": "redondeo_mal" },
+        { "texto": "6,25", "correcta": true, "tag_error": null },
+        { "texto": "10", "correcta": false, "tag_error": "resta_constante" },
+        { "texto": "0", "correcta": false, "tag_error": "confunde_division_cero" }
+      ],
+      "explicacion": "Cada término es la mitad del anterior: 100/2=50, 50/2=25, 25/2=12,5, 12,5/2=6,25.",
+      "dato_curioso": "La serie 100, 50, 25, 12,5... tiende a 0 pero nunca lo alcanza: es una serie geométrica.",
       "dificultad": 1, "tags": ["psicotecnico", "psicotecnico_numerico"], "fuente": "Generado", "revision": "verificada"
     },
     {
-      "id": "p11", "tipo": "psicotecnico",
-      "enunciado": "5, 4, 3, 2, ?",
+      "id": "v53", "tipo": "trivia",
+      "enunciado": "¿Cuál de estas figuras geométricas NO tiene lados rectos?",
       "opciones": [
-        { "texto": "0", "correcta": false, "tag_error": "salto_doble" },
-        { "texto": "1", "correcta": true, "tag_error": null },
-        { "texto": "-1", "correcta": false, "tag_error": "confunde_negativos" },
-        { "texto": "3", "correcta": false, "tag_error": "repite" }
+        { "texto": "Cuadrado", "correcta": false, "tag_error": "confunde_lados" },
+        { "texto": "Círculo", "correcta": true, "tag_error": null },
+        { "texto": "Triángulo", "correcta": false, "tag_error": "confunde_lados" },
+        { "texto": "Rectángulo", "correcta": false, "tag_error": "confunde_lados" }
       ],
-      "explicacion": "Cuenta atrás: 5, 4, 3, 2, 1.",
-      "dato_curioso": "El 1 tardó siglos en ser aceptado como número en Europa, por influencia árabe.",
-      "dificultad": 1, "tags": ["psicotecnico", "psicotecnico_numerico"], "fuente": "Generado", "revision": "verificada"
-    },
-    {
-      "id": "p12", "tipo": "psicotecnico",
-      "enunciado": "1, 1, 2, 3, 5, 8, ?",
-      "opciones": [
-        { "texto": "11", "correcta": false, "tag_error": "suma_constante" },
-        { "texto": "12", "correcta": false, "tag_error": "suma_cuatro" },
-        { "texto": "13", "correcta": true, "tag_error": null },
-        { "texto": "16", "correcta": false, "tag_error": "doble" }
-      ],
-      "explicacion": "Sucesión de Fibonacci: cada número es la suma de los dos anteriores. 5+8=13.",
-      "dato_curioso": "La proporción entre términos consecutivos se acerca a la proporción áurea (1,618...).",
-      "dificultad": 2, "tags": ["psicotecnico", "psicotecnico_numerico"], "fuente": "Generado", "revision": "verificada"
-    },
-    {
-      "id": "p13", "tipo": "psicotecnico",
-      "enunciado": "3, 6, 12, 24, ?",
-      "opciones": [
-        { "texto": "30", "correcta": false, "tag_error": "suma_seis" },
-        { "texto": "36", "correcta": false, "tag_error": "confunde_cuadrados" },
-        { "texto": "48", "correcta": true, "tag_error": null },
-        { "texto": "56", "correcta": false, "tag_error": "suma_ocho" }
-      ],
-      "explicacion": "Cada número es el doble del anterior: 3×2=6, 6×2=12, 12×2=24, 24×2=48.",
-      "dato_curioso": "Esta secuencia se usa en la leyenda del ajedrez: los granos se doblaban en cada casilla.",
-      "dificultad": 2, "tags": ["psicotecnico", "psicotecnico_numerico"], "fuente": "Generado", "revision": "verificada"
-    },
-    {
-      "id": "p14", "tipo": "psicotecnico",
-      "enunciado": "1, 2, 4, 7, 11, ?",
-      "opciones": [
-        { "texto": "14", "correcta": false, "tag_error": "suma_tres" },
-        { "texto": "16", "correcta": true, "tag_error": null },
-        { "texto": "18", "correcta": false, "tag_error": "suma_siete" },
-        { "texto": "22", "correcta": false, "tag_error": "doble" }
-      ],
-      "explicacion": "Las diferencias aumentan de uno en uno: +1, +2, +3, +4, +5. 11+5=16.",
-      "dato_curioso": "La fórmula es n(n-1)/2 + 1. Para n=6: 6×5/2+1 = 16.",
-      "dificultad": 2, "tags": ["psicotecnico", "psicotecnico_numerico"], "fuente": "Generado", "revision": "verificada"
-    },
-    {
-      "id": "p15", "tipo": "psicotecnico",
-      "enunciado": "Si A=1, B=2, C=3..., ¿qué número corresponde a R?",
-      "opciones": [
-        { "texto": "17", "correcta": false, "tag_error": "confunde_ñ" },
-        { "texto": "18", "correcta": true, "tag_error": null },
-        { "texto": "19", "correcta": false, "tag_error": "cuenta_ñ" },
-        { "texto": "20", "correcta": false, "tag_error": "off_by_two" }
-      ],
-      "explicacion": "En el alfabeto inglés (sin Ñ): A=1, ..., Q=17, R=18.",
-      "dato_curioso": "En el alfabeto español, R=19 porque la Ñ ocupa el lugar 15.",
+      "explicacion": "El círculo está formado por una curva continua sin lados rectos. Cuadrado, triángulo y rectángulo son polígonos con lados rectos.",
+      "dato_curioso": "El círculo tiene infinitos ejes de simetría, mientras que un cuadrado solo tiene 4.",
       "dificultad": 2, "tags": ["psicotecnico", "psicotecnico_logico"], "fuente": "Generado", "revision": "verificada"
     },
     {
-      "id": "p16", "tipo": "psicotecnico",
-      "enunciado": "2, 6, 12, 20, 30, ?",
+      "id": "v54", "tipo": "trivia",
+      "enunciado": "¿Cada cuántos años se celebra la Copa del Mundo de fútbol?",
       "opciones": [
-        { "texto": "36", "correcta": false, "tag_error": "suma_seis" },
-        { "texto": "40", "correcta": false, "tag_error": "suma_diez" },
-        { "texto": "42", "correcta": true, "tag_error": null },
-        { "texto": "48", "correcta": false, "tag_error": "doble" }
+        { "texto": "2 años", "correcta": false, "tag_error": "confunde_eurocopa" },
+        { "texto": "4 años", "correcta": true, "tag_error": null },
+        { "texto": "3 años", "correcta": false, "tag_error": "confunde_otro_deporte" },
+        { "texto": "6 años", "correcta": false, "tag_error": "confunde_olimpiada" }
       ],
-      "explicacion": "Es n(n+1): 1×2=2, 2×3=6, 3×4=12, 4×5=20, 5×6=30, 6×7=42.",
-      "dato_curioso": "Estos son los números oblongos, la suma de los primeros n números pares.",
-      "dificultad": 2, "tags": ["psicotecnico", "psicotecnico_numerico"], "fuente": "Generado", "revision": "verificada"
+      "explicacion": "La Copa del Mundo de fútbol se celebra cada 4 años desde 1930. La Eurocopa también es cada 4 años, pero desfasada 2 años.",
+      "dato_curioso": "Solo se ha cancelado dos veces, por la Segunda Guerra Mundial (1942 y 1946).",
+      "dificultad": 1, "tags": ["deportes"], "fuente": "FIFA", "revision": "verificada"
     },
     {
-      "id": "p17", "tipo": "psicotecnico",
-      "enunciado": "Z, Y, X, W, ?",
+      "id": "v55", "tipo": "trivia",
+      "enunciado": "¿En qué deporte se usa un 'volante' (shuttlecock)?",
       "opciones": [
-        { "texto": "T", "correcta": false, "tag_error": "salto_dos" },
-        { "texto": "U", "correcta": false, "tag_error": "salto_uno" },
-        { "texto": "V", "correcta": true, "tag_error": null },
-        { "texto": "W", "correcta": false, "tag_error": "repite" }
+        { "texto": "Tenis de mesa", "correcta": false, "tag_error": "confunde_pelota" },
+        { "texto": "Bádminton", "correcta": true, "tag_error": null },
+        { "texto": "Squash", "correcta": false, "tag_error": "confunde_pelota" },
+        { "texto": "Pádel", "correcta": false, "tag_error": "confunde_pelota" }
       ],
-      "explicacion": "Alfabeto hacia atrás: Z, Y, X, W, V.",
-      "dato_curioso": "El alfabeto fenicio, origen del nuestro, se escribía de derecha a izquierda.",
-      "dificultad": 2, "tags": ["psicotecnico", "psicotecnico_logico"], "fuente": "Generado", "revision": "verificada"
+      "explicacion": "El bádminton se juega con un volante. Los otros deportes de raqueta usan pelotas.",
+      "dato_curioso": "Un volante de bádminton alcanza velocidades de más de 400 km/h al golpearlo: es el proyectil más rápido del deporte.",
+      "dificultad": 2, "tags": ["deportes"], "fuente": "BWF", "revision": "verificada"
     },
     {
-      "id": "p18", "tipo": "psicotecnico",
-      "enunciado": "2, 3, 5, 7, 11, ?",
+      "id": "v56", "tipo": "trivia",
+      "enunciado": "En un Grand Slam de tenis masculino, al mejor de 5 sets, ¿cuántos sets necesita ganar un jugador para vencer?",
       "opciones": [
-        { "texto": "12", "correcta": false, "tag_error": "salto_uno" },
-        { "texto": "13", "correcta": true, "tag_error": null },
-        { "texto": "14", "correcta": false, "tag_error": "salto_dos" },
-        { "texto": "15", "correcta": false, "tag_error": "salto_tres" }
+        { "texto": "2", "correcta": false, "tag_error": "confunde_femenino" },
+        { "texto": "3", "correcta": true, "tag_error": null },
+        { "texto": "4", "correcta": false, "tag_error:": "confunde_al_mejor_de_7" },
+        { "texto": "5", "correcta": false, "tag_error": "confunde_todos" }
       ],
-      "explicacion": "Números primos: 2, 3, 5, 7, 11, 13.",
-      "dato_curioso": "Euclides demostró hace 2.300 años que hay infinitos números primos.",
-      "dificultad": 2, "tags": ["psicotecnico", "psicotecnico_numerico"], "fuente": "Generado", "revision": "verificada"
+      "explicacion": "Al mejor de 5 sets hay que ganar 3. En el tenis femenino y en la mayoría de torneos masculinos es al mejor de 3 (ganar 2).",
+      "dato_curioso": "Wimbledon es el único Grand Slam que se juega sobre hierba.",
+      "dificultad": 2, "tags": ["deportes"], "fuente": "ATP", "revision": "verificada"
     },
     {
-      "id": "p19", "tipo": "psicotecnico",
-      "enunciado": "1, 4, 9, 16, 25, ?",
+      "id": "v57", "tipo": "trivia",
+      "enunciado": "¿Qué selección ganó el Mundial de fútbol de 2022?",
       "opciones": [
-        { "texto": "30", "correcta": false, "tag_error": "salto_irregular" },
-        { "texto": "36", "correcta": true, "tag_error": null },
-        { "texto": "49", "correcta": false, "tag_error": "salto_doble" },
-        { "texto": "64", "correcta": false, "tag_error": "salto_triple" }
+        { "texto": "Francia", "correcta": false, "tag_error": "confunde_finalista" },
+        { "texto": "Argentina", "correcta": true, "tag_error": null },
+        { "texto": "Brasil", "correcta": false, "tag_error": "confunde_favorita" },
+        { "texto": "Marruecos", "correcta": false, "tag_error": "confunde_sorpresa" }
       ],
-      "explicacion": "Cuadrados perfectos: 1², 2², 3², 4², 5², 6²=36.",
-      "dato_curioso": "La diferencia entre cuadrados consecutivos son los números impares: 36-25=11.",
-      "dificultad": 3, "tags": ["psicotecnico", "psicotecnico_numerico"], "fuente": "Generado", "revision": "verificada"
+      "explicacion": "Argentina ganó el Mundial de 2022 en Catar, venciendo a Francia en la tanda de penaltis tras el 3-3. Marruecos fue la gran sorpresa, llegando a semifinales.",
+      "dato_curioso": "Fue el primer Mundial celebrado en un país árabe y el primero en invierno (por el calor de Catar).",
+      "dificultad": 1, "tags": ["deportes"], "fuente": "FIFA", "revision": "verificada"
     },
     {
-      "id": "p20", "tipo": "psicotecnico",
-      "enunciado": "1, 8, 27, 64, ?",
+      "id": "v58", "tipo": "trivia",
+      "enunciado": "¿De qué película es la famosa frase 'Que la Fuerza te acompañe'?",
       "opciones": [
-        { "texto": "100", "correcta": false, "tag_error": "confunde_cien" },
-        { "texto": "121", "correcta": false, "tag_error": "confunde_cuadrados" },
-        { "texto": "125", "correcta": true, "tag_error": null },
-        { "texto": "144", "correcta": false, "tag_error": "confunde_doce" }
+        { "texto": "Star Trek", "correcta": false, "tag_error": "confunde_scifi_clasica" },
+        { "texto": "Star Wars", "correcta": true, "tag_error": null },
+        { "texto": "Matrix", "correcta": false, "tag_error:": "confunde_otra_scifi" },
+        { "texto": "El Señor de los Anillos", "correcta": false, "tag_error": "confunde_fantasia" }
       ],
-      "explicacion": "Cubos perfectos: 1³, 2³, 3³, 4³, 5³=125.",
-      "dato_curioso": "Los cubos crecen más rápido que los cuadrados: por eso el volumen de un cubo explota al doblar su lado.",
-      "dificultad": 3, "tags": ["psicotecnico", "psicotecnico_numerico"], "fuente": "Generado", "revision": "verificada"
+      "explicacion": "'Que la Fuerza te acompañe' es de Star Wars, pronunciada por varios personajes de la saga. En Star Trek se dice 'Vivir larga y prósperamente'.",
+      "dato_curioso": "La frase original en inglés es 'May the Force be with you'.",
+      "dificultad": 1, "tags": ["entretenimiento"], "fuente": "Lucasfilm", "revision": "verificada"
     },
     {
-      "id": "p21", "tipo": "psicotecnico",
-      "enunciado": "1, 1, 2, 6, 24, ?",
+      "id": "v59", "tipo": "trivia",
+      "enunciado": "¿Quién dirigió 'Pulp Fiction' (1994)?",
       "opciones": [
-        { "texto": "48", "correcta": false, "tag_error": "doble" },
-        { "texto": "96", "correcta": false, "tag_error": "cuadruple" },
-        { "texto": "120", "correcta": true, "tag_error": null },
-        { "texto": "144", "correcta": false, "tag_error": "confunde_factorial_5" }
+        { "texto": "Martin Scorsese", "correcta": false, "tag_error": "confunde_mafia" },
+        { "texto": "Quentin Tarantino", "correcta": true, "tag_error": null },
+        { "texto": "Coen Brothers", "correcta": false, "tag_error": "confunde_neo_noir" },
+        { "texto": "David Fincher", "correcta": false, "tag_error": "confunde_thriller" }
       ],
-      "explicacion": "Factoriales: 1!=1, 2!=2, 3!=6, 4!=24, 5!=120.",
-      "dato_curioso": "20! tiene 19 cifras. 100! tendría 158 cifras, más que átomos en el universo observable.",
-      "dificultad": 3, "tags": ["psicotecnico", "psicotecnico_numerico"], "fuente": "Generado", "revision": "verificada"
+      "explicacion": "Tarantino dirigió 'Pulp Fiction', Palma de Oro en Cannes 1994. Scorsese, los Coen y Fincher son otros directores estadounidenses.",
+      "dato_curioso": "El maletín brillante nunca revela su contenido: Tarantino nunca lo dijo.",
+      "dificultad": 1, "tags": ["entretenimiento"], "fuente": "IMDb", "revision": "verificada"
     },
     {
-      "id": "p22", "tipo": "psicotecnico",
-      "enunciado": "1, 2, 6, 24, 120, ?",
+      "id": "v60", "tipo": "trivia",
+      "enunciado": "¿En qué saga aparece el personaje de Hermione Granger?",
       "opciones": [
-        { "texto": "240", "correcta": false, "tag_error": "doble_ultimo" },
-        { "texto": "360", "correcta": false, "tag_error": "multiplica_por_tres" },
-        { "texto": "720", "correcta": true, "tag_error": null },
-        { "texto": "840", "correcta": false, "tag_error": "suma_120" }
+        { "texto": "Crepúsculo", "correcta": false, "tag_error": "confunde_vampiro" },
+        { "texto": "Harry Potter", "correcta": true, "tag_error": null },
+        { "texto": "Los juegos del hambre", "correcta": false, "tag_error": "confunde_distopia" },
+        { "texto": "Percy Jackson", "correcta": false, "tag_error": "confunde_mitologia" }
       ],
-      "explicacion": "Factoriales desde 1: 1!=1, 2!=2, 3!=6, 4!=24, 5!=120, 6!=720.",
-      "dato_curioso": "6! = 720 es el número de formas de ordenar 6 libros distintos.",
-      "dificultad": 3, "tags": ["psicotecnico", "psicotecnico_numerico"], "fuente": "Generado", "revision": "verificada"
+      "explicacion": "Hermione Granger es una de las protagonistas de la saga Harry Potter, creada por J.K. Rowling. Las otras son sagas juveniles pero con otros personajes.",
+      "dato_curioso": "El nombre de Hermione era tan poco común que J.K. Rowling tuvo que enseñar a los fans a pronunciarlo ('her-mione').",
+      "dificultad": 1, "tags": ["entretenimiento"], "fuente": "Bloomsbury", "revision": "verificada"
     }
   ]
 }
